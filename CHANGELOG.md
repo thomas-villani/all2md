@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Content precision beside content recall on the born-digital lane**
+  (`benchmarks.pmc.article.measure_precision`). Recall alone cannot be trusted, and this lane
+  has already been misread once because of it: the highest recall available on this corpus
+  comes from emitting the raw text layer with no structure whatsoever, so recall rising is not
+  by itself good news. The new instrument asks the converse — does the output contain anything
+  the document does not — against the PDF's own text layer rather than JATS, because JATS is
+  not what the page prints and scoring against it would charge the parser for reproducing the
+  document faithfully.
+  Raw precision turned out to need a denominator of its own, for the same reason raw recall
+  needed its attainable ceiling. Most of what a *correct* conversion emits unsupported is the
+  document's own words in an adjacency the text layer does not have: all2md orders columns and
+  joins blocks, the layer comes out in PyMuPDF's order, and every disagreement mints n-grams at
+  the seam. Measured over five articles that is **4.8%** of emitted n-grams, against **0.5%**
+  carrying a word the layer never has anywhere — so reporting the raw figure would have made
+  the result nine times worse than the parser deserves. The two are reported separately, and
+  `novel_share` is the figure to read.
+  Duplication is counted apart from both, because a block emitted twice is an unchanged set and
+  a doubled multiset — no set-based score can see it. Both figures ship with the
+  mismatched-article control the lane already applies to recall.
 - **A PDF conversion guide** (`docs/source/pdf.rst`). PDF is the format all2md works hardest
   at and the one with no dedicated page: the deepest hand-written coverage was five bullets in
   the overview that predated layout analysis entirely, and of the twelve OCR flags, nine

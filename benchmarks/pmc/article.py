@@ -24,8 +24,16 @@ own per-page loop, which emits a separator per PDF page. Content cannot migrate 
 groups, and a dropped page raises `benchmarks.pmc.convert.PageBoundaryError` instead of
 scoring. A page-sequence metric would report a perfect score by construction.
 
-What remains is recall, measured with n-gram containment -- the one instrument on this
-corpus with a published false-positive rate, 0.8% against a mismatched article.
+What remains is recall and its converse, both measured with n-gram containment -- the one
+instrument on this corpus with a published false-positive rate, 0.8% against a mismatched
+article.
+
+**Recall is reported with precision because recall alone is gameable.** The highest recall
+available here comes from emitting the raw text layer with no structure whatsoever, so a
+recall figure rising is not by itself good news. `measure_precision` asks the opposite
+question -- does the output contain anything the document does not -- against the PDF's own
+text layer rather than JATS, and reports duplication separately because a block emitted
+twice leaves every set-based measure unmoved.
 
 **Raw recall is not readable on its own, so the ceiling ships with it.** Much of a JATS
 article cannot be recovered from the PDF by *any* parser, because the markup does not record
@@ -44,7 +52,7 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Iterable, Mapping, Sequence
 
-from benchmarks.pmc.alignment import MIN_NGRAMS, ngrams, normalize
+from benchmarks.pmc.alignment import MIN_NGRAMS, ngram_counts, ngrams, normalize
 
 #: Share of a block's n-grams that must appear in the output for the block to count as
 #: recovered. Not 1.0: de-hyphenation, ligature folding and a dropped soft hyphen each cost
@@ -195,6 +203,157 @@ def measure_recall(
         by_kind={kind: KindRecall(*counts) for kind, counts in sorted(by_kind.items())},
         control_recovered=control_recovered,
         control_scored=control_scored,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class PrecisionReport:
+    """Whether the output says anything the document does not, with its mismatch control.
+
+    Attributes
+    ----------
+    supported : int
+        Distinct emitted n-grams the PDF's own text layer also holds.
+    resequenced : int
+        Unsupported n-grams every one of whose *words* the layer holds. The adjacency is new,
+        not the text: all2md orders columns and joins blocks, and the layer is extracted in
+        PyMuPDF's own order, so every place the two disagree mints n-grams that are nobody's
+        defect. Measured rather than assumed -- it is 4.8% of emitted n-grams against 0.5%
+        genuinely novel, so folding it into the failure would have made the headline number
+        nine times worse than the parser deserves.
+    novel : int
+        Unsupported n-grams containing a word the layer never has anywhere. The residue that
+        actually indicts the parser.
+    emitted : int
+        Distinct emitted n-grams.
+    excess : int
+        Occurrences of *supported* n-grams emitted more often than the text layer holds
+        them. Restricted to supported n-grams on purpose: an unsupported n-gram is already
+        counted by `precision`, and letting it score here too would make one defect move two
+        numbers.
+    occurrences : int
+        Total emitted n-gram occurrences -- the denominator `excess` is a share of.
+    control_supported : int
+        Emitted n-grams "supported" by a *different* article's text layer. The noise floor:
+        without it a high precision may only mean that English n-grams are common.
+    control_emitted : int
+        Distinct emitted n-grams scored against the mismatched article.
+
+    """
+
+    supported: int
+    resequenced: int
+    novel: int
+    emitted: int
+    excess: int
+    occurrences: int
+    control_supported: int
+    control_emitted: int
+
+    @property
+    def precision(self) -> float:
+        """Share of emitted n-grams the document itself accounts for, phrase for phrase."""
+        return self.supported / self.emitted if self.emitted else 0.0
+
+    @property
+    def novel_share(self) -> float:
+        """Share of emitted n-grams containing a word the document does not have.
+
+        The number worth reading, and the counterpart of `RecallReport.attainable_recall`:
+        both exist because the raw figure is dominated by something that is not the parser's
+        doing.
+        """
+        return self.novel / self.emitted if self.emitted else 0.0
+
+    @property
+    def duplication(self) -> float:
+        """Share of emitted n-gram occurrences that repeat text the page prints once."""
+        return self.excess / self.occurrences if self.occurrences else 0.0
+
+    @property
+    def control_precision(self) -> float:
+        """Share of emitted n-grams the *wrong* article's text layer appears to account for."""
+        return self.control_supported / self.control_emitted if self.control_emitted else 0.0
+
+
+def measure_precision(
+    articles: Iterable[tuple[str, Sequence[tuple[str, str]], str, str]],
+) -> PrecisionReport:
+    """Measure whether the output contains text the document does not.
+
+    The converse of `measure_recall`, and it exists because recall alone cannot be trusted:
+    the highest recall on this corpus is obtained by emitting the raw text layer with no
+    structure at all, which is exactly how a 99% page-level text recall coexisted with less
+    than half of section titles becoming headings. A pair of numbers that fail in opposite
+    directions is readable; either one alone is not.
+
+    **The reference is the PDF's own text layer, not JATS.** JATS is not what the page
+    prints -- it omits running heads and folios the parser legitimately sees, and orders
+    citation and byline text the way the markup declares it rather than the way it is
+    typeset. Scoring against it would charge the parser for reproducing the document. The
+    text layer is what the file actually contains, so anything outside it is unexplained.
+
+    Two defects, two numbers, because the set-based one cannot see the second:
+
+    * **Invented text** lowers `precision`. The proven case on this corpus is auto-OCR
+      firing on a page that already had a good text layer and substituting its own guesses.
+    * **Duplicated text** raises `duplication` and leaves `precision` untouched, because a
+      block emitted twice is an unchanged set and a doubled multiset.
+
+    **Raw precision is not readable on its own either, so the split ships with it.** Most of
+    what a correct conversion emits "unsupported" is the document's own words in an adjacency
+    the text layer does not have: all2md orders columns and joins blocks, while the layer
+    comes out in PyMuPDF's order, and every disagreement mints n-grams at the seam. On the
+    first five articles that accounted for 4.8% of emitted n-grams against 0.5% carrying a
+    word the layer never has. `novel_share` is therefore the figure to read, exactly as
+    `attainable_recall` rather than raw recall is on the other side.
+
+    Parameters
+    ----------
+    articles : Iterable
+        ``(article_id, blocks, emitted_text, pdf_text)`` tuples, as `measure_recall` takes.
+        ``blocks`` is accepted and unused, so both instruments can be driven from one
+        sequence rather than two that could drift apart.
+
+    Returns
+    -------
+    PrecisionReport
+        Precision, duplication and the mismatched-article control.
+
+    """
+    indexed = []
+    for _article_id, _blocks, emitted, pdf_text in articles:
+        layer_tokens = normalize(pdf_text)
+        indexed.append((ngram_counts(normalize(emitted)), ngram_counts(layer_tokens), set(layer_tokens)))
+
+    supported = resequenced = novel = emitted_total = excess = occurrences = 0
+    control_supported = control_emitted = 0
+    for position, (emitted_counts, layer, words) in enumerate(indexed):
+        other = indexed[(position + 1) % len(indexed)][1]
+        for gram, count in emitted_counts.items():
+            emitted_total += 1
+            occurrences += count
+            held = layer.get(gram, 0)
+            if held:
+                supported += 1
+                excess += max(0, count - held)
+            elif all(token in words for token in gram):
+                resequenced += 1
+            else:
+                novel += 1
+            if other is not layer:
+                control_emitted += 1
+                control_supported += other.get(gram, 0) > 0
+
+    return PrecisionReport(
+        supported=supported,
+        resequenced=resequenced,
+        novel=novel,
+        emitted=emitted_total,
+        excess=excess,
+        occurrences=occurrences,
+        control_supported=control_supported,
+        control_emitted=control_emitted,
     )
 
 
