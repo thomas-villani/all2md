@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-08-12
+
 ### Added
 
 - **A conversion fidelity page** (`docs/source/benchmarks.rst`), with a committed evidence
@@ -2391,7 +2393,8 @@ surfaced one real conversion bug, which is the reason to take the release.
 - NumPy-style docstrings
 - Modular architecture with clear separation of concerns
 
-[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.11.0...HEAD
+[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.12.0...HEAD
+[1.12.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.12.0
 [1.11.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.11.0
 [1.10.1]: https://github.com/thomas-villani/all2md/releases/tag/v1.10.1
 [1.10.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.10.0
