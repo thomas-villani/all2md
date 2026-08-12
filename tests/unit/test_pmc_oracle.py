@@ -329,6 +329,95 @@ def test_recall_collapses_against_a_different_article() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Precision: does the output say anything the document does not
+# ---------------------------------------------------------------------------
+
+_LAYER = "the participants completed every session of the supervised training programme"
+_FOREIGN = "vector drawings were counted on each page of the publisher issued document"
+
+
+def _precision(emitted: str, layer: str = _LAYER) -> article.PrecisionReport:
+    return article.measure_precision([("A", [], emitted, layer)])
+
+
+def test_reproducing_the_text_layer_is_fully_supported() -> None:
+    report = _precision(_LAYER)
+    assert report.precision == pytest.approx(1.0)
+    assert report.duplication == pytest.approx(0.0)
+
+
+def test_precision_falls_when_the_output_invents_text() -> None:
+    """The proven case here is auto-OCR replacing a good text layer with its own guesses."""
+    report = _precision(f"{_LAYER} {_FOREIGN}")
+    assert report.precision < 0.55
+    assert report.novel_share > 0.4
+    # Recall is untouched by the invention, which is the whole reason for the second number.
+    recall = article.measure_recall([("A", [("text_block", _LAYER)], f"{_LAYER} {_FOREIGN}", _LAYER)])
+    assert recall.attainable_recall == pytest.approx(1.0)
+
+
+def test_reordering_the_document_is_not_counted_as_inventing_text() -> None:
+    """Measured: seam n-grams are 4.8% of emitted against 0.5% genuinely novel.
+
+    all2md orders columns and joins blocks; the text layer comes out in PyMuPDF's order.
+    Charging the parser for every disagreement would make the headline nine times worse than
+    it deserves, so the two are separated rather than summed.
+    """
+    first = "the participants completed every session of the supervised training programme"
+    second = "vector drawings were counted on each page of the publisher issued document"
+    report = _precision(f"{second} {first}", f"{first} {second}")
+
+    assert report.novel == 0
+    assert report.resequenced > 0
+    # Strict precision registers the seam; the number worth reading does not.
+    assert report.precision < 1.0
+    assert report.novel_share == pytest.approx(0.0)
+
+
+def test_duplication_is_visible_where_a_set_based_score_is_blind() -> None:
+    """Emitting a block twice barely moves precision, because the multiset is what doubled.
+
+    Precision is not *completely* blind to it: rejoining the text creates a handful of
+    n-grams spanning the seam that the layer does not hold. Those are a rounding error in a
+    real article and would be the whole signal in a two-sentence one, so the block is
+    duplicated inside surrounding text here rather than on its own.
+    """
+    layer = f"{_LAYER} and afterwards {_FOREIGN} and finally the analysis was repeated twice"
+    clean = _precision(layer, layer)
+    doubled = _precision(f"{_LAYER} and afterwards {layer}", layer)
+
+    # The comparison is against the same document emitted once, so the threshold is a
+    # measured difference rather than a number chosen to pass.
+    assert clean.duplication == pytest.approx(0.0)
+    assert doubled.duplication > 0.15
+    # Precision meanwhile barely moves: only the seam is unsupported.
+    assert clean.precision == pytest.approx(1.0)
+    assert doubled.precision > 0.85
+
+
+def test_precision_collapses_against_a_different_article() -> None:
+    """Without the control, a high precision may only mean English n-grams are common."""
+    report = article.measure_precision(
+        [("A", [], _LAYER, _LAYER), ("B", [], _FOREIGN, _FOREIGN)],
+    )
+    assert report.precision == pytest.approx(1.0)
+    assert report.control_precision == pytest.approx(0.0)
+
+
+def test_a_single_article_reports_no_precision_control_rather_than_a_flattering_zero() -> None:
+    report = _precision(_LAYER)
+    assert report.control_emitted == 0
+    assert report.control_precision == 0.0
+
+
+def test_an_empty_conversion_scores_zero_precision_rather_than_a_perfect_one() -> None:
+    """Emitting nothing says nothing false. It must not therefore look flawless."""
+    report = _precision("")
+    assert report.emitted == 0
+    assert report.precision == 0.0
+
+
+# ---------------------------------------------------------------------------
 # Controls that qualify the scores
 # ---------------------------------------------------------------------------
 
@@ -403,9 +492,31 @@ def test_page_scores_and_the_error_budget_come_from_the_same_run(tmp_path: Path)
             )
         ],
         recall=article.measure_recall([]),
+        precision=article.measure_precision([]),
         all2md_commit="deadbeef",
         parser_runtime={},
     )
     assert payload["projection"]["error_budget"] == pytest.approx(0.1)
     assert payload["projection"]["excluded_reasons"] == {"missing": 1}
     assert payload["ocr_articles"] == []
+
+
+def test_recall_and_precision_are_reported_together() -> None:
+    """Either number alone rewards a degenerate converter, so the payload carries both."""
+    layer = f"{_LAYER} and afterwards {_FOREIGN}"
+    scored = [("A", [("text_block", _LAYER)], layer, layer), ("B", [("text_block", _FOREIGN)], _FOREIGN, _FOREIGN)]
+    payload = benchmark.normalize_results(
+        snapshot=type(
+            "Snapshot",
+            (),
+            {"manifest_sha256": "a" * 64, "bucket": "b", "complete": True, "expected_articles": 2},
+        )(),
+        evaluations=[],
+        recall=article.measure_recall(scored),
+        precision=article.measure_precision(scored),
+        all2md_commit="deadbeef",
+        parser_runtime={},
+    )
+    assert payload["article_recall"]["attainable_recall"] > 0.0
+    assert payload["article_precision"]["precision"] == pytest.approx(1.0)
+    assert payload["article_precision"]["control_emitted"] > 0
