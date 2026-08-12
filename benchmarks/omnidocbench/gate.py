@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, cast
 
+from benchmarks.omnidocbench.dimensions import UNGATEABLE
+
 HERE = Path(__file__).resolve().parent
 DEFAULT_BASELINE = HERE / "baseline.json"
 _DATASET_REVISION_RE = re.compile(r"[0-9a-f]{40}\Z")
@@ -487,6 +489,7 @@ def _check_dimension_summary(
     computed_value: float,
     computed_variance: float,
     verdict: Verdict,
+    name: str = "",
 ) -> None:
     variance = actual["variance"]
     variance_valid = _finite(variance) and variance >= 0
@@ -541,6 +544,13 @@ def _check_dimension_summary(
         )
 
     if not direction_valid or not value_valid or not variance_valid:
+        return
+    if name in UNGATEABLE:
+        # Everything above this point still applies -- shape, range, identity against the
+        # sample scores, and the vacuity floor. Only the comparison against the baseline is
+        # skipped, and only because the dimension has been measured moving the wrong way
+        # under damage. Silent by necessity: every status this module emits is red, so an
+        # informational finding would fail the run. `format_verdict` names it instead.
         return
     baseline_value = expected["value"]
     tolerance = expected["tolerance"]
@@ -622,6 +632,7 @@ def _check_result_dimension(
         computed_value,
         computed_variance,
         verdict,
+        name,
     )
 
 
@@ -792,11 +803,21 @@ def emit_baseline(
 
 
 def format_verdict(verdict: Verdict) -> str:
-    """Render a concise one-line-per-finding CLI verdict."""
+    """Render a concise one-line-per-finding CLI verdict.
+
+    The ungated dimensions are named on every run, pass or fail. A gate that quietly stops
+    comparing something reads exactly like a gate that compared it and found it fine, and
+    this one skips a dimension on purpose -- so it has to say which, and why, out loud.
+    """
     if not verdict.findings:
-        return "OMNIDOCBENCH GATE PASS"
-    lines = [f"OMNIDOCBENCH GATE FAIL ({len(verdict.findings)} finding(s))"]
-    lines.extend(f"{finding.status} {finding.subject}: {finding.detail}" for finding in verdict.findings)
+        lines = ["OMNIDOCBENCH GATE PASS"]
+    else:
+        lines = [f"OMNIDOCBENCH GATE FAIL ({len(verdict.findings)} finding(s))"]
+        lines.extend(f"{finding.status} {finding.subject}: {finding.detail}" for finding in verdict.findings)
+    # The leading clause only. Each reason states several independent measurements, and the
+    # full text belongs in `dimensions.py` where it can be read at leisure rather than in a
+    # CI log line that scrolls.
+    lines.extend(f"NOT GATED dimensions.{name}: {reason.split(';')[0]}" for name, reason in sorted(UNGATEABLE.items()))
     return "\n".join(lines)
 
 

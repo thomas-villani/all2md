@@ -143,6 +143,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The two external ground-truth lanes no longer disagree about which dimensions may support
+  a verdict.** `block_structure_similarity` compares block-category sequences without ever
+  inspecting the text underneath, so content-free output scores 1.0 on it (issue #256). The
+  born-digital lane measured that directly — against deliberately damaged output it *rises*
+  when half the emitted content is deleted, and it separates own-page from wrong-page output
+  by only ~0.06 — and refused to gate on it. The scanned-page ratchet went on comparing it
+  against a tolerance every month. One project cannot hold both positions, and the one backed
+  by measurement is the refusal, so the declaration now lives in one shared
+  `benchmarks/omnidocbench/dimensions.py` that both lanes read.
+  Not gated is not unchecked: a run whose `block_structure_similarity` is missing, malformed,
+  out of range, or inconsistent with its own recorded page scores is still red. Only the
+  comparison of its value against the baseline is skipped, because a number that moves the
+  wrong way under damage cannot be evidence of a regression *or* of an improvement. The gate
+  now prints a `NOT GATED` line naming the dimension and why on every run, pass or fail —
+  a gate that quietly stops comparing something reads exactly like one that compared it and
+  found it fine.
 - **`python -m all2md.cli` runs the CLI instead of refusing to start.** `python -m all2md`
   worked; the `cli` package had no `__main__.py`, so Python answered `'all2md.cli' is a
   package and cannot be directly executed`. That fails *before* argparse sees the arguments,

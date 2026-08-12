@@ -33,6 +33,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
+from benchmarks.omnidocbench.dimensions import UNGATEABLE as SHARED_UNGATEABLE
 from benchmarks.omnidocbench.oracles import PageProjection, project_ast, score_page
 from benchmarks.pmc.alignment import TOKEN_PLACEMENT_MIN
 from benchmarks.pmc.article import RECALL_MIN, RecallReport, measure_recall, summarize
@@ -47,14 +48,11 @@ ORACLE_SCHEMA_VERSION = 1
 #: runs, and a resolution change would be indistinguishable from a parser change.
 SHUFFLE_SEED = 20260805
 
-#: Dimensions this lane records but must not gate on, with the measurement that disqualified
-#: each. Kept in the payload because a dimension nobody may gate on is still evidence.
-UNGATEABLE: Mapping[str, str] = {
-    "block_structure_similarity": (
-        "cannot fail usefully: separates own-page from wrong-page output by only ~0.06, and "
-        "rises when half the emitted content is deleted, so it rewards dropping blocks"
-    ),
-}
+#: Dimensions this lane records but must not gate on. Re-exported from the shared declaration
+#: rather than restated: this lane refused to gate on `block_structure_similarity` while the
+#: scanned-page gate went on comparing it every month, because each decided locally. Kept in
+#: the payload because a dimension nobody may gate on is still evidence.
+UNGATEABLE: Mapping[str, str] = SHARED_UNGATEABLE
 
 
 def _reorder(projection: PageProjection, order: Sequence[int]) -> PageProjection:
