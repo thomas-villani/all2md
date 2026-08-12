@@ -178,6 +178,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   written at run time, and the step fails if it reports *no* findings. That is the specific
   failure that went unnoticed for six weeks — a scanner that finds nothing because it loaded
   nothing looks exactly like a clean repository.
+  The first working run scanned 1241 files with 346 rules and reported **18 findings**, of
+  which **2 are in shipped code**: both the deliberate `autoescape=False` in the Jinja
+  renderer, which emits Markdown rather than HTML. That line already carried a `nosemgrep`
+  for one rule id; the new ruleset flags it under a second, which nothing could have noticed
+  while the job was crash-passing. The remaining 16 are in `tests/`, `benchmarks/` and
+  `stubs/` — none of which the wheel ships — so the blocking scan is scoped to `src/` and
+  those are triaged separately rather than blocking a release.
 - **The two external ground-truth lanes no longer disagree about which dimensions may support
   a verdict.** `block_structure_similarity` compares block-category sequences without ever
   inspecting the text underneath, so content-free output scores 1.0 on it (issue #256). The
