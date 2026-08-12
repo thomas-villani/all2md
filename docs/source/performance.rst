@@ -904,10 +904,23 @@ Corpus Benchmark Harness
 
 For stress testing across a wider variety of real-world documents than ad-hoc
 benchmarks can cover, all2md ships a corpus benchmark harness in
-``benchmarks/corpus/``. It pulls a deterministic sample from public corpora
-(arxiv, Digital Corpora govdocs1, Apache POI test data, the Enron email
-release), times conversion of each doc, and produces a stratified markdown
-report.
+``benchmarks/corpus/``. It samples public corpora (arxiv, Digital Corpora
+govdocs1, Apache POI test data, the Enron email release), times conversion of
+each doc, and produces a stratified markdown report.
+
+.. warning::
+
+   **Only two of the four sources are reproducible.** ``enron`` and ``govdocs1``
+   are frozen archives and yield the same documents on every run. ``arxiv`` samples
+   the most recent submissions and ``poi`` tracks a live upstream test corpus, so
+   both return different documents over time — ``corpus.toml`` marks them
+   ``reproducible = false``. Roughly 60 of 160 documents can differ between two
+   runs.
+
+   Corpus-wide totals from two runs taken at different times are therefore not
+   comparable, and neither are per-format aggregates that mix the sources. Compare
+   the reproducible sources, or the documents the runs share. This is also why the
+   corpus gate scores ``enron`` and ``govdocs1`` only.
 
 .. note::
 

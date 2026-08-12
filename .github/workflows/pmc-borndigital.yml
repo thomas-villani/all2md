@@ -76,6 +76,11 @@ jobs:
 
       - name: Score the corpus
         run: |
+          # Without pipefail, `tee` supplies the exit status and the scorer's own is
+          # discarded -- so a traceback lands in pmc-summary.txt and the job goes green.
+          # This lane is ungated on *fidelity* by design; that is not a reason to lose a
+          # hard crash too. Every other piped step in this repo sets this.
+          set -o pipefail
           ARGS=(--out benchmarks/pmc/.cache/results/current.json --commit "${GITHUB_SHA}")
           if [ -n "${LIMIT}" ]; then
             ARGS+=(--limit "${LIMIT}")
