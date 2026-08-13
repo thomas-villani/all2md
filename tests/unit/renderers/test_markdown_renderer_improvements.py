@@ -593,3 +593,191 @@ class TestCaptionEscaping:
 
         assert output.startswith("*Two lines*\n")
         assert markdown_to_ast(output).children[0].caption == "Two lines"
+
+
+class TestTableAlignmentDefault:
+    """Tests for the table_alignment_default option (#30)."""
+
+    @staticmethod
+    def _table(alignments: list[str | None] | None = None) -> Document:
+        """Build a two-column table with the given per-column alignments."""
+        return Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[
+                            TableCell(content=[Text(content="a")]),
+                            TableCell(content=[Text(content="b")]),
+                        ]
+                    ),
+                    rows=[
+                        TableRow(
+                            cells=[
+                                TableCell(content=[Text(content="1")]),
+                                TableCell(content=[Text(content="2")]),
+                            ]
+                        )
+                    ],
+                    alignments=alignments,
+                )
+            ]
+        )
+
+    def test_default_left_emits_bare_dashes(self) -> None:
+        """The shipped default leaves the separator row exactly as it was."""
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(self._table())
+
+        assert "\n|---|---|\n" in output
+
+    def test_center_default_marks_unaligned_columns(self) -> None:
+        """A center default writes :---: for columns with no alignment."""
+        options = MarkdownRendererOptions(table_alignment_default="center")
+        output = MarkdownRenderer(options=options).render_to_string(self._table())
+
+        assert "\n|:---:|:---:|\n" in output
+
+    def test_right_default_marks_unaligned_columns(self) -> None:
+        """A right default writes ---: for columns with no alignment."""
+        options = MarkdownRendererOptions(table_alignment_default="right")
+        output = MarkdownRenderer(options=options).render_to_string(self._table())
+
+        assert "\n|---:|---:|\n" in output
+
+    def test_explicit_alignment_beats_the_default(self) -> None:
+        """A column that states its own alignment ignores the default."""
+        options = MarkdownRendererOptions(table_alignment_default="center")
+        output = MarkdownRenderer(options=options).render_to_string(self._table(["right", None]))
+
+        assert "\n|---:|:---:|\n" in output
+
+    def test_default_applies_in_padded_mode(self) -> None:
+        """Padded tables honour the default and keep their column widths."""
+        options = MarkdownRendererOptions(table_alignment_default="right", pad_table_cells=True)
+        output = MarkdownRenderer(options=options).render_to_string(self._table())
+
+        assert "\n|---:|---:|\n" in output
+
+    def test_center_default_roundtrips_as_center(self) -> None:
+        """The emitted markers are read back as real alignments."""
+        options = MarkdownRendererOptions(table_alignment_default="center")
+        output = MarkdownRenderer(options=options).render_to_string(self._table())
+
+        assert markdown_to_ast(output).children[0].alignments == ["center", "center"]
+
+
+class TestMaxLineWidth:
+    """Tests for the max_line_width option (#30)."""
+
+    PROSE = "The quick brown fox jumps over the lazy dog and then keeps running for a while"
+
+    def _prose_doc(self, text: str | None = None) -> Document:
+        """Build a single-paragraph document."""
+        return Document(children=[Paragraph(content=[Text(content=text if text is not None else self.PROSE)])])
+
+    def test_unset_width_does_not_wrap(self) -> None:
+        """The default (None) leaves the paragraph on one line."""
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+
+        assert renderer.render_to_string(self._prose_doc()) == self.PROSE
+
+    def test_prose_is_wrapped_at_the_width(self) -> None:
+        """Every wrapped line fits inside the width."""
+        options = MarkdownRendererOptions(max_line_width=30)
+        output = MarkdownRenderer(options=options).render_to_string(self._prose_doc())
+
+        lines = output.split("\n")
+        assert len(lines) > 1
+        assert all(len(line) <= 30 for line in lines)
+        assert " ".join(lines) == self.PROSE
+
+    def test_wrapped_paragraph_stays_one_paragraph(self) -> None:
+        """Soft-wrapped lines reparse as a single paragraph."""
+        options = MarkdownRendererOptions(max_line_width=30)
+        output = MarkdownRenderer(options=options).render_to_string(self._prose_doc())
+
+        reparsed = markdown_to_ast(output)
+        assert [type(child).__name__ for child in reparsed.children] == ["Paragraph"]
+
+    def test_no_break_in_front_of_a_block_starting_word(self) -> None:
+        """A break that would start a line with "1998." is refused."""
+        options = MarkdownRendererOptions(max_line_width=22)
+        doc = self._prose_doc("alpha beta gamma delta 1998. epsilon zeta")
+        output = MarkdownRenderer(options=options).render_to_string(doc)
+
+        assert not any(line.startswith("1998.") for line in output.split("\n"))
+        assert [type(child).__name__ for child in markdown_to_ast(output).children] == ["Paragraph"]
+
+    def test_paragraph_with_a_link_is_left_alone(self) -> None:
+        """A destination's spacing is not safe to break, so nothing is wrapped."""
+        options = MarkdownRendererOptions(max_line_width=25)
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="see "),
+                        Link(url="http://x.com", content=[Text(content="this long link here")]),
+                        Text(content=" and more words to push past the width"),
+                    ]
+                )
+            ]
+        )
+        output = MarkdownRenderer(options=options).render_to_string(doc)
+
+        assert "\n" not in output
+
+    def test_headings_and_tables_are_never_wrapped(self) -> None:
+        """Only paragraph prose is wrapped."""
+        options = MarkdownRendererOptions(max_line_width=20)
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="A rather long heading that exceeds the width")]),
+                Table(
+                    header=TableRow(cells=[TableCell(content=[Text(content="a column header that is long")])]),
+                    rows=[TableRow(cells=[TableCell(content=[Text(content="a cell value that is long")])])],
+                ),
+            ]
+        )
+        output = MarkdownRenderer(options=options).render_to_string(doc)
+
+        assert "# A rather long heading that exceeds the width" in output
+        assert "| a column header that is long |" in output
+
+    def test_hard_break_survives_wrapping(self) -> None:
+        """The two trailing spaces of a hard break stay at the end of their line."""
+        options = MarkdownRendererOptions(max_line_width=25)
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="first half of the line here"),
+                        LineBreak(soft=False),
+                        Text(content="second half of the line here"),
+                    ]
+                )
+            ]
+        )
+        output = MarkdownRenderer(options=options).render_to_string(doc)
+
+        assert "  \n" in output
+        reparsed = markdown_to_ast(output)
+        assert [type(child).__name__ for child in reparsed.children] == ["Paragraph"]
+
+    def test_wrapping_inside_a_list_item_keeps_the_item(self) -> None:
+        """A wrapped paragraph in a list item stays part of the item."""
+        options = MarkdownRendererOptions(max_line_width=40)
+        doc = Document(
+            children=[
+                List(
+                    ordered=True,
+                    start=10,
+                    items=[ListItem(children=[Paragraph(content=[Text(content=self.PROSE)])])],
+                )
+            ]
+        )
+        output = MarkdownRenderer(options=options).render_to_string(doc)
+
+        assert "\n" in output
+        reparsed = markdown_to_ast(output)
+        assert [type(child).__name__ for child in reparsed.children] == ["List"]
+        assert len(reparsed.children[0].items) == 1

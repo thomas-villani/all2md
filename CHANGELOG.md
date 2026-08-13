@@ -36,6 +36,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`MarkdownRendererOptions.max_line_width` and `table_alignment_default` now do
+  something.** Both fields carried help metadata, so both surfaced as CLI flags and in the
+  generated options documentation, and the Markdown renderer read neither — setting them
+  changed nothing at all. `table_alignment_default` is now used for columns that state no
+  alignment of their own: the default `"left"` still writes a bare `---` (a column with no
+  alignment is left-aligned anyway, and spelling it `:---` would rewrite every table this
+  renderer has ever emitted), while `"center"` and `"right"` write `:---:` and `---:`. A
+  column with an explicit alignment is unaffected. `max_line_width` (still `None` by
+  default, meaning no wrapping and byte-identical output) now soft-wraps paragraph prose,
+  and only paragraph prose — code blocks, tables, headings, link destinations and reference
+  definitions are never touched. The wrap is deliberately timid: a paragraph containing a
+  code span, a link or image destination, a reference label, an autolink, raw HTML or math
+  is left unwrapped rather than broken at a guess, and a break is never taken in front of a
+  word that would make the continuation line reparse as a new block (`-`, `#`, `1998.`, and
+  friends). Note that soft-wrapped lines come back as soft line breaks when reparsed, which
+  is what a soft wrap means.
 - **Table and figure captions are escaped before being wrapped in the `*...*` caption
   device.** Markdown has no caption syntax, so a caption is rendered as a single-emphasis
   paragraph plus a marker comment naming it a caption. The caption text was interpolated

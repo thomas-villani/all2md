@@ -79,6 +79,21 @@ from all2md.utils.metadata import (
     format_yaml_frontmatter,
 )
 
+# Soft wrapping never squeezes a paragraph below this many columns, however deep
+# the list indentation that eats into ``max_line_width`` gets.
+_MIN_WRAP_WIDTH = 20
+
+# A word that would begin a wrapped continuation line with one of these reparses
+# as the start of a new block -- a list item, heading, quote, table row, fence or
+# setext underline -- silently ending the paragraph. Wrapping refuses to break
+# in front of such a word and lets the line run long instead.
+_BLOCK_START_WORD = re.compile(r"^(?:[-+*>|=~#]|\d+[.)]|:)")
+
+# Constructs whose internal spacing is not safe to turn into a line break:
+# code spans, link/image destinations, reference-link labels, autolinks and raw
+# HTML, and math delimiters. A paragraph containing any of them is left alone.
+_UNWRAPPABLE_MARKERS = ("`", "](", "][", "<", "$")
+
 
 class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
     """Render AST nodes to markdown text.
@@ -335,6 +350,69 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 escaped_chars.append(char)
 
         return "".join(escaped_chars)
+
+    def _wrap_paragraph(self, content: str, width: int) -> str:
+        """Soft-wrap a paragraph's rendered content to ``width`` columns.
+
+        Only paragraph prose is wrapped, and only when ``max_line_width`` is
+        set (it defaults to None, which leaves output exactly as it was). Code
+        blocks, tables, headings, link destinations and reference definitions
+        are never touched, because this is the only caller.
+
+        The wrap is deliberately timid. A paragraph holding any construct whose
+        internal spacing is unsafe to break -- a code span, a link or image
+        destination, a reference label, an autolink or raw HTML, math -- is left
+        unwrapped rather than guessed at, and a break is never taken in front of
+        a word that would make the continuation line reparse as a new block.
+
+        Parameters
+        ----------
+        content : str
+            Rendered paragraph content, possibly already containing line breaks
+        width : int
+            Column to wrap at
+
+        Returns
+        -------
+        str
+            Content with soft line breaks inserted
+
+        """
+        if width <= 0 or any(marker in content for marker in _UNWRAPPABLE_MARKERS):
+            return content
+        return "\n".join(self._wrap_source_line(line, width) for line in content.split("\n"))
+
+    @staticmethod
+    def _wrap_source_line(line: str, width: int) -> str:
+        """Greedily wrap one already-emitted source line."""
+        stripped = line.rstrip()
+        if len(stripped) <= width:
+            return line
+        # A hard break's two trailing spaces belong to the end of the last
+        # wrapped line, not to the break point.
+        trailing = line[len(stripped) :]
+
+        # Each token carries its own following whitespace, so runs of spaces
+        # inside the line survive untouched; only the run at a break point is
+        # replaced by the newline.
+        tokens = re.findall(r"\S+[^\S\n]*", stripped)
+        lines: list[str] = []
+        current = ""
+        for token in tokens:
+            word = token.rstrip()
+            if not current:
+                current = token
+            elif len((current + token).rstrip()) <= width or _BLOCK_START_WORD.match(word):
+                current += token
+            else:
+                lines.append(current.rstrip())
+                current = token
+        if current:
+            lines.append(current.rstrip())
+        if not lines:
+            return line
+        lines[-1] += trailing
+        return "\n".join(lines)
 
     def _escape_caption(self, caption: str) -> str:
         """Escape a caption for the ``*...*`` device that carries it.
@@ -706,6 +784,11 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         content = self._render_inline_content(node.content)
         indent = self._current_indent()
+        # Soft-wrap prose when the caller asked for a maximum line width. The
+        # indent this paragraph will carry eats into the budget, but never below
+        # a floor -- a deeply nested item should still wrap somewhere sane.
+        if self.options.max_line_width:
+            content = self._wrap_paragraph(content, max(self.options.max_line_width - len(indent), _MIN_WRAP_WIDTH))
         # A paragraph inside a list item may span several lines (soft-wrapped source
         # becomes embedded newlines). Every continuation line must carry the same indent
         # as the first, or it lands at column zero and reparses as a lazy continuation --
@@ -1150,40 +1233,52 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Alignment row string
 
         """
+        explicit = list(node.alignments) if node.alignments else []
         alignments = []
-        for j, alignment in enumerate(node.alignments if node.alignments else []):
-            if j >= num_cols:
-                break
-            if col_widths:
-                # Padded mode
-                width = max(3, col_widths[j])
-                if alignment == "center":
-                    alignments.append(":" + "-" * width + ":")
-                elif alignment == "right":
-                    alignments.append("-" * width + ":")
-                elif alignment == "left":
-                    alignments.append(":" + "-" * width)
-                else:
-                    alignments.append("-" * width)
-            else:
-                # Minimal mode
-                if alignment == "center":
-                    alignments.append(":---:")
-                elif alignment == "right":
-                    alignments.append("---:")
-                elif alignment == "left":
-                    alignments.append(":---")
-                else:
-                    alignments.append("---")
-
-        # Fill remaining columns
-        while len(alignments) < num_cols:
-            if col_widths:
-                alignments.append("-" * max(3, col_widths[len(alignments)]))
-            else:
-                alignments.append("---")
+        for j in range(num_cols):
+            alignment = explicit[j] if j < len(explicit) else None
+            # Padded mode sizes the separator to the column; minimal mode is
+            # always three dashes.
+            width = max(3, col_widths[j]) if col_widths else 3
+            alignments.append(self._alignment_marker(alignment, width))
 
         return "|" + "|".join(alignments) + "|"
+
+    def _alignment_marker(self, alignment: str | None, width: int) -> str:
+        """Render one cell of a table's alignment separator row.
+
+        Parameters
+        ----------
+        alignment : str or None
+            The column's own alignment, or None if it has none
+        width : int
+            Number of dashes to use (colons are added outside it, as they
+            always have been in padded mode)
+
+        Returns
+        -------
+        str
+            Separator cell, e.g. ``---``, ``:---:`` or ``---:``
+
+        """
+        if not alignment:
+            alignment = self.options.table_alignment_default
+            # "left" is the option's default and stays a bare "---": a column
+            # with no alignment of its own is left-aligned anyway, and spelling
+            # it ":---" would rewrite every table this renderer has ever
+            # emitted. Only an explicit "center"/"right" default marks up the
+            # unaligned columns.
+            if alignment == "left":
+                alignment = None
+
+        dashes = "-" * width
+        if alignment == "center":
+            return f":{dashes}:"
+        if alignment == "right":
+            return f"{dashes}:"
+        if alignment == "left":
+            return f":{dashes}"
+        return dashes
 
     def _render_padded_table(self, node: Table, rendered_rows: list[list[str]], num_cols: int) -> None:
         """Render table with cell padding.
