@@ -802,6 +802,17 @@ DEFAULT_IMAGE_QUALITY = 90  # JPEG quality (1-100)
 # tiny (≈4×10pt) decorative glyphs and signature-line slivers that DocuSign-
 # stamped PDFs scatter through the page-header strip.
 DEFAULT_MIN_IMAGE_DIMENSION = 20.0
+# How far from an image's edge a caption may sit, in points. Applies to the layout
+# model's `caption` regions and to the cue-matched text band alike; a caption further
+# away than this belongs to something else on the page.
+PDF_CAPTION_SEARCH_GAP = 80.0
+# Width of the text band searched when no layout `caption` region is available, and
+# how far it may overhang the image horizontally.
+PDF_CAPTION_BAND_HEIGHT = 50.0
+PDF_CAPTION_BAND_OVERHANG = 20.0
+# A caption is long-form prose, but not unbounded. Bounds the text handed to the cue
+# pattern so a runaway region cannot turn matching into a ReDoS surface.
+PDF_CAPTION_MAX_LENGTH = 500
 # When the layout model is available, also drop images that fall inside a
 # page-header / page-footer region (recurring logos, signature blocks).
 DEFAULT_FILTER_HEADER_FOOTER_IMAGES = True
