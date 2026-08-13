@@ -335,6 +335,7 @@ class NodeTransformer(NodeVisitor):
             title=node.title,
             width=node.width,
             height=node.height,
+            caption=node.caption,
             metadata=node.metadata.copy(),
             source_location=node.source_location,
         )
@@ -1060,6 +1061,7 @@ class LinkRewriter(NodeTransformer):
             title=node.title,
             width=node.width,
             height=node.height,
+            caption=node.caption,
             metadata=node.metadata.copy(),
             source_location=node.source_location,
         )

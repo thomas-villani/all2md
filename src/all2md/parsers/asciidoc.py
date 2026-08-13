@@ -790,21 +790,33 @@ class AsciiDocParser(BaseParser):
             return None
         return stripped[1:].strip() or None
 
-    def _is_table_block_title(self) -> bool:
-        """Return whether the cursor sits on a `.Title` line belonging to a table.
+    def _block_title_target(self) -> str | None:
+        """Return what a `.Title` line at the cursor titles, if it titles anything.
 
-        Recognized only directly above a table, with nothing but block
-        attributes in between, so an ordinary paragraph opening with a period
-        stays a paragraph. Both ``_parse_block`` and the list-item loop have to
-        agree on this, or a caption would be swallowed as an item's text.
+        Recognized only directly above a block that can carry a caption, with
+        nothing but block attributes in between, so an ordinary paragraph opening
+        with a period stays a paragraph. Both ``_parse_block`` and the list-item
+        loop have to agree on this, or a caption would be swallowed as an item's
+        text.
+
+        Returns
+        -------
+        str or None
+            ``"table"``, ``"image"``, or None if this is not a block title
+
         """
         token = self._current_token()
         if token.type != TokenType.TEXT_LINE or not self._block_title_match(token.content):
-            return False
+            return None
         offset = 1
         while self._peek_token(offset).type == TokenType.BLOCK_ATTRIBUTE:
             offset += 1
-        return self._peek_token(offset).type == TokenType.TABLE_DELIMITER
+        following = self._peek_token(offset)
+        if following.type == TokenType.TABLE_DELIMITER:
+            return "table"
+        if following.type == TokenType.TEXT_LINE and self.image_block_pattern.match(following.content.strip()):
+            return "image"
+        return None
 
     def _parse_block(self) -> Node | list[Node] | None:
         """Parse a single block-level element.
@@ -825,9 +837,9 @@ class AsciiDocParser(BaseParser):
         # A block title -- `.My caption` on the line above a block. The renderer has
         # always emitted one for a table's caption; nothing here read it back, so the
         # caption made the trip out and not the trip in. Recognized only directly above
-        # a table, and only with the delimiter or a block attribute in between, so an
-        # ordinary paragraph opening with a period is still a paragraph.
-        if self._is_table_block_title():
+        # a block that can carry one, so an ordinary paragraph opening with a period is
+        # still a paragraph.
+        if self._block_title_target() is not None:
             self.pending_block_attrs["title"] = self._block_title_match(token.content)
             self._advance()
             return None
@@ -1047,6 +1059,13 @@ class AsciiDocParser(BaseParser):
                 break
 
         content = self._inline_from_lines(lines)
+
+        # `.Caption` above a block image is that figure's caption, the same way it is
+        # a table's. Only a lone image takes it: a title above a line that merely
+        # happens to contain an image has no unambiguous owner, and guessing one
+        # would move text the author put somewhere specific.
+        if "title" in attrs and len(content) == 1 and isinstance(content[0], Image):
+            content[0].caption = attrs["title"]
 
         # Apply metadata if present
         metadata = {}
@@ -1585,7 +1604,7 @@ class AsciiDocParser(BaseParser):
             while self._current_token().type == TokenType.TEXT_LINE and not self._is_list_continuation():
                 # A `.Caption` line directly above a table is a block title, not
                 # this item's text. Same guard `_parse_block` applies.
-                if self._is_table_block_title():
+                if self._block_title_target() is not None:
                     break
                 item_lines.append(self._advance().content)
 

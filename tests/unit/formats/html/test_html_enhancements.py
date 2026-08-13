@@ -55,10 +55,13 @@ def test_figure_image_with_caption_rendering():
     para = doc.children[0]
     assert isinstance(para, Paragraph)
 
-    # Check for image with caption as alt text (when no alt text exists)
+    # The caption binds to the image's own caption field. It used to be written into
+    # alt text for want of anywhere else to put it; that field now exists (#338), and
+    # alt text is left as the page wrote it -- here, absent.
     image = para.content[0]
     assert isinstance(image, Image)
-    assert image.alt_text == "A beautiful photo"
+    assert image.caption == "A beautiful photo"
+    assert image.alt_text == ""
 
 
 def test_details_blockquote_rendering():

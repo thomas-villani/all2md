@@ -763,7 +763,10 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Image to render
 
         """
-        # Block image by default
+        # Block image by default. A caption is AsciiDoc's block title, the same
+        # `.Text` line this renderer already writes above a table (#338).
+        if node.caption:
+            self._output.append(f".{node.caption}\n")
         self._output.append(f"image::{node.url}[{node.alt_text}]")
 
     def visit_line_break(self, node: LineBreak) -> None:

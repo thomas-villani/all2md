@@ -515,8 +515,10 @@ class MediaWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         if self.options.image_thumb:
             parts.append("thumb")
 
-            # Handle caption rendering based on mode
-            caption_text = node.title if hasattr(node, "title") and node.title else node.alt_text
+            # Handle caption rendering based on mode. A real caption wins over the
+            # two things this had to guess from before it existed (#338) -- MediaWiki's
+            # trailing field *is* a caption, so an actual one is what belongs there.
+            caption_text = node.caption or node.title or node.alt_text
 
             if self.options.image_caption_mode == "auto" and caption_text:
                 # Auto mode: render both alt attribute and caption text
