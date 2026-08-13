@@ -456,6 +456,39 @@ class TestConvert:
         content = output_file.read_text()
         assert "Test" in content
 
+    @pytest.mark.parametrize("output_name", ["output.txt", "output.zzunknownext"])
+    def test_convert_infers_markdown_for_unrecognized_output_extension(self, tmp_path, output_name):
+        """An output extension carrying no target format writes Markdown, not plaintext.
+
+        ``registry.detect_format`` answers "plaintext" when nothing matches, so
+        treating that answer as a renderer choice silently stripped headings,
+        emphasis and link URLs from ``convert(src, "notes.txt")``.
+        """
+        md_file = tmp_path / "input.md"
+        md_file.write_text("# Title\n\nSome **bold** text and [a link](https://example.com).\n")
+        output_file = tmp_path / output_name
+
+        convert(str(md_file), output=output_file, source_format="markdown")
+
+        content = output_file.read_text(encoding="utf-8")
+        assert "# Title" in content
+        assert "**bold**" in content
+        assert "[a link](https://example.com)" in content
+
+    def test_convert_explicit_plaintext_target_still_renders_plaintext(self, tmp_path):
+        """An explicit ``target_format="plaintext"`` is untouched by the inference fix."""
+        md_file = tmp_path / "input.md"
+        md_file.write_text("# Title\n\nSome **bold** text and [a link](https://example.com).\n")
+        output_file = tmp_path / "output.txt"
+
+        convert(str(md_file), output=output_file, source_format="markdown", target_format="plaintext")
+
+        content = output_file.read_text(encoding="utf-8")
+        assert "Title" in content
+        assert "#" not in content
+        assert "**" not in content
+        assert "https://example.com" not in content
+
     def test_convert_with_parser_and_renderer_options(self, tmp_path):
         """Test convert with both parser and renderer options."""
         md_file = tmp_path / "test.md"
