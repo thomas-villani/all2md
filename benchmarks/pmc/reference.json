@@ -96,20 +96,20 @@
   },
   "dimensions": {
     "block_structure_similarity": {
-      "control_mean": 0.444966651809884,
+      "control_mean": 0.444062500305806,
       "count": 706.0,
       "direction": "higher",
-      "discrimination": 0.10894954604621127,
+      "discrimination": 0.09821699469080908,
       "maximum": 1.0,
-      "mean": 0.5539161978560952,
-      "median": 0.5714285714285714,
+      "mean": 0.5422794949966151,
+      "median": 0.563858695652174,
       "minimum": 0.016393442622950838,
       "mutation_drop": {
-        "halved": 0.08100948154670065,
-        "reversed": 0.008751660091300871,
-        "shuffled": 0.02068652727439497
+        "halved": 0.0660754154821242,
+        "reversed": 0.007900606406820655,
+        "shuffled": 0.019971909881816467
       },
-      "stdev": 0.20297905026461505,
+      "stdev": 0.2060450206343589,
       "ungateable": "compares kind sequences without inspecting the text under a block, so content-free output scores 1.0 (issue #256); eleven text categories collapse to `text_block`, so fully reversed output scores exactly 1.0 on 153 of the 981 pinned pages; and on the born-digital lane it separates own-page from wrong-page output by only ~0.06 while *rising* when half the emitted content is deleted, which rewards dropping blocks"
     },
     "reading_order_similarity": {
@@ -124,7 +124,7 @@
       "mutation_drop": {
         "halved": 0.32680517032583656,
         "reversed": 0.43991109322823835,
-        "shuffled": 0.20385363703260995
+        "shuffled": 0.21344156351079682
       },
       "stdev": 0.2183936420081225
     },
@@ -172,10 +172,25 @@
       "mutation_drop": {
         "halved": 0.24829681578792712,
         "reversed": 0.18663777322996467,
-        "shuffled": 0.1228484750939727
+        "shuffled": 0.12969326210192544
       },
       "stdev": 0.23081827781970696
     }
+  },
+  "figure_binding": {
+    "binding_rate": 0.0,
+    "bound": 0,
+    "caption_recall": 0.8325581395348837,
+    "captioned_emitted": 0,
+    "control_binding_rate": 0.0,
+    "control_scored": 215,
+    "discrimination": 0.0,
+    "images_emitted": 433,
+    "misfiled": 0,
+    "misfiled_rate": 0.0,
+    "present": 179,
+    "scored": 215,
+    "too_short": 13
   },
   "ocr_articles": [
     "PMC10500011.1",
@@ -199,13 +214,14 @@
     "unsplit_spans": 42
   },
   "provenance": {
-    "all2md_commit": "da3591364cb1251642d2b324408fada42395fa98",
+    "all2md_commit": "e2e8ff38b1e507ca2ba10a38a1062792016258fb",
     "bucket": "pmc-oa-opendata",
     "complete_corpus": true,
     "corpus_pin": "9ba5c0cd59067bda102b9e27a7c1e613987c145f9fb61a4c26b811d9fd24dc58",
-    "created_at": "2026-08-13T01:56:56.338282+00:00",
+    "created_at": "2026-08-13T03:37:43.750812+00:00",
     "oracle_schema_version": 1,
     "parser_config": {
+      "attachment_mode": "base64",
       "include_page_numbers": true,
       "layout_analysis_mode": "enabled",
       "ocr": {
@@ -227,5 +243,5 @@
     "python": "3.12.3 (main, Jun 19 2026, 12:46:00) [GCC 13.3.0]",
     "worktree_dirty": false
   },
-  "schema_version": 4
+  "schema_version": 5
 }
