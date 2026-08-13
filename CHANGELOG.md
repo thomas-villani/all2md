@@ -145,6 +145,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   encoded. Measured at 1 image in 70 across 20 PMC articles, in `save` and `base64` modes
   with `include_image_captions` left at its default of `True`.
   ([#338](https://github.com/thomas-villani/all2md/issues/338))
+- **Text after a MediaWiki list or `:` block quote is no longer silently dropped.**
+  mwparserfromhell lumps everything up to the next markup construct into a single Text
+  node, so the paragraphs that follow `* item\n* item\nSome text.` lived inside the last
+  list item's Text node — the parser truncated that node to its first line for the item
+  and discarded the rest, along with the trailing paragraphs. The list/quote parsers now
+  return the unconsumed remainder so the caller can run it back through normal paragraph
+  processing; a list or quote whose Text node ends exactly at the last marker line still
+  emits no stray paragraphs.
 
 ### Changed
 
