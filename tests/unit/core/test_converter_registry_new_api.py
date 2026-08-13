@@ -186,6 +186,63 @@ class TestRegistryNewAPI:
         f.write_bytes(content)
         assert registry.detect_format(str(f)) == "markdown"
 
+    @pytest.mark.parametrize(
+        "prose",
+        [
+            "Reminder: check results.csv",
+            "Payload attached as invoice.pdf",
+            "Please read the attached notes.docx",
+        ],
+    )
+    def test_inline_content_str_is_not_extension_matched(self, prose):
+        """Prose that merely mentions a filename is content, not that file's format.
+
+        ``detect_format`` used to treat *every* ``str`` as a filename and run
+        ``os.path.splitext`` over it, so "Reminder: check results.csv" detected as
+        ``csv`` and came back as a bogus one-cell table, and "Payload attached as
+        invoice.pdf" raised ``FileNotFoundError`` naming a path the caller never
+        passed. The input loader already rules these out (they contain whitespace,
+        see ``looks_like_path_attempt``); detection now applies the same rule.
+        """
+        assert registry.detect_format(prose) != prose.rsplit(".", 1)[-1]
+        assert registry.detect_format(prose) == "plaintext"
+
+    def test_inline_content_str_reaches_content_detection(self):
+        """Inline string content is offered to the content detectors.
+
+        Previously ``content`` stayed ``None`` for any ``str`` that was not an
+        openable file, so magic bytes and content detectors never saw it. A string
+        now detects exactly as the same bytes would.
+        """
+        html = "<html><body><h1>hi</h1></body></html>"
+        assert registry.detect_format(html) == "html"
+        assert registry.detect_format(html) == registry.detect_format(html.encode("utf-8"))
+
+        payload = '{"a": 1}'
+        assert registry.detect_format(payload) == registry.detect_format(payload.encode("utf-8"))
+
+    @pytest.mark.parametrize("value", ["notes.md", "docs/guide.rst", "out.txt"])
+    def test_path_shaped_str_still_extension_matched(self, value):
+        """A path-shaped ``str`` keeps extension matching even when it does not exist.
+
+        ``detect_format`` is also called on *output* paths, which by definition have
+        not been written yet, so path-ness must not be gated on file existence.
+        """
+        expected = {"notes.md": "markdown", "docs/guide.rst": "rst", "out.txt": "plaintext"}[value]
+        assert registry.detect_format(value) == expected
+
+    def test_existing_path_with_spaces_still_extension_matched(self, tmp_path):
+        """A real path containing whitespace is still detected from its extension.
+
+        ``looks_like_path_attempt`` says False for anything containing whitespace, so
+        existence has to be checked too or every "My Documents" path would be read as
+        prose.
+        """
+        source = tmp_path / "my report file.md"
+        source.write_text("plain body text", encoding="utf-8")
+
+        assert registry.detect_format(str(source)) == "markdown"
+
     def test_markdown_beats_sourcecode_for_md_extension(self):
         """Guard the latent markdown/sourcecode extension overlap.
 

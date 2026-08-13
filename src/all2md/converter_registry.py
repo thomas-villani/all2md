@@ -44,6 +44,31 @@ def _sanitize_for_log(value: str) -> str:
     return value.replace("\n", "\\n").replace("\r", "\\r")
 
 
+def _looks_like_path_attempt(value: str) -> bool:
+    """Return whether an ambiguous ``str`` was plausibly meant as a file path.
+
+    Thin wrapper over :func:`all2md.utils.inputs.looks_like_path_attempt` so that
+    format detection and the input loader share one rule instead of each deriving
+    its own. Imported lazily because ``all2md.utils.inputs`` imports this module
+    back, and because module import cost is a tracked budget.
+
+    Parameters
+    ----------
+    value : str
+        The ambiguous string.
+
+    Returns
+    -------
+    bool
+        True if the string should be treated as a (possibly nonexistent) path
+        rather than as inline document content.
+
+    """
+    from all2md.utils.inputs import looks_like_path_attempt
+
+    return looks_like_path_attempt(value)
+
+
 def check_package_installed(import_name: str) -> bool:
     """Check if a package is installed and importable.
 
@@ -585,17 +610,9 @@ class ConverterRegistry:
         if hint and hint in self._converters:
             return hint
 
-        # Get filename for extension-based detection
-        filename: str | None = None
-        if isinstance(input_data, (str, Path)):
-            filename = str(input_data)
-        elif hasattr(input_data, "name") or hasattr(input_data, "filename"):
-            file_obj_name: str | None = getattr(input_data, "name", None) or getattr(input_data, "filename", None)
-            if file_obj_name and file_obj_name != "unknown":
-                filename = file_obj_name
-
         # Get content for validation
         content: bytes | str | None = None
+        opened_as_file = False
         if isinstance(input_data, bytes):
             content = input_data
         elif isinstance(input_data, (str, Path)):
@@ -603,6 +620,7 @@ class ConverterRegistry:
             try:
                 with open(input_data, "rb") as f:
                     content = f.read(1024)
+                opened_as_file = True
             except Exception:
                 pass
         elif isinstance(input_data, io.IOBase) or (
@@ -619,6 +637,26 @@ class ConverterRegistry:
                 input_data.seek(pos)
             except Exception as e:
                 logger.debug(f"Error reading input as file: {e!r}")
+
+        # Get filename for extension-based detection
+        filename: str | None = None
+        if isinstance(input_data, str) and not opened_as_file and not _looks_like_path_attempt(input_data):
+            # The input loader would read this ``str`` as inline document content, not
+            # as a path (see ``all2md.utils.inputs.looks_like_path_attempt``), so it must
+            # not be filename/extension/MIME-matched: ``"Reminder: check results.csv"``
+            # is prose, and matching its tail turned it into a one-cell CSV table, while
+            # ``"Payload attached as invoice.pdf"`` raised FileNotFoundError naming a path
+            # the caller never passed. Hand the string to content-based detection instead
+            # -- the only detector entitled to claim it -- and fall back as before if
+            # nothing matches. A ``Path``, an openable ``str``, and a path-looking ``str``
+            # such as an as-yet-nonexistent output path all keep extension matching.
+            content = input_data
+        elif isinstance(input_data, (str, Path)):
+            filename = str(input_data)
+        elif hasattr(input_data, "name") or hasattr(input_data, "filename"):
+            file_obj_name: str | None = getattr(input_data, "name", None) or getattr(input_data, "filename", None)
+            if file_obj_name and file_obj_name != "unknown":
+                filename = file_obj_name
 
         # Normalize content to bytes if it's a string (from text streams)
         if isinstance(content, str):

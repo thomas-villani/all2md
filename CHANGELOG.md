@@ -36,6 +36,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Format detection no longer reads a sentence as a filename.** `registry.detect_format`
+  ran `os.path.splitext` over *any* `str` it was given, so a string holding document
+  content was extension-matched on its tail: `to_markdown("Reminder: check results.csv")`
+  detected `csv` and returned the one-cell table `| Reminder: check results.csv |`, and
+  `to_markdown("Payload attached as invoice.pdf")` raised `FileNotFoundError` naming a path
+  the caller never passed — the failure class [#233](https://github.com/thomas-villani/all2md/issues/233)
+  fixed in the input loader, resurfacing one layer down because detection ran *before* the
+  loader and derived its own answer. Detection now applies the loader's own
+  `looks_like_path_attempt` rule, so the two agree: a `Path`, an openable `str`, and a
+  path-shaped `str` (short, single-line, no whitespace, no `://`, ending in an extension
+  all2md knows) all keep extension and MIME matching, and everything else is content. Path-ness
+  is deliberately *not* gated on the file existing, since `detect_format` is also called on
+  output paths that have not been written yet.
+  Such a string is now also handed to the content detectors, which never saw it before —
+  `content` stayed `None` for any `str` that was not an openable file. Inline string content
+  therefore detects identically to the same content passed as `bytes`: HTML, JSON, XML and
+  the rest are now recognised, and the structured-text detectors claim the same strings they
+  already claimed on the `bytes` path (`"- a\n- b"` is YAML there and is YAML here). Where no
+  detector matches, the fallback to `plaintext` is unchanged.
 - **A PDF figure caption is now taken from the layout model's `caption` region**, not
   guessed from a fixed band of text near the image. The old rule matched a figure cue
   (`Figure 3`) against a 50pt band above and below the image and, failing that, accepted
