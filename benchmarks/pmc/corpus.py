@@ -44,7 +44,17 @@ from pathlib import Path
 from typing import Any, Callable, Iterator, Sequence
 from urllib.parse import quote
 from uuid import uuid4
-from xml.etree import ElementTree
+
+# The JATS and S3 listing payloads both come from third-party endpoints, so
+# parsing goes through defusedxml: stdlib's parser expands external entities and
+# nested entity definitions, which turns a hostile payload into local file
+# disclosure or memory exhaustion. `Element` is imported from the stdlib because
+# defusedxml does not re-export it -- it is the node type, not a parser, and
+# nothing here constructs one, it is only used in annotations.
+from xml.etree.ElementTree import Element
+
+from defusedxml import ElementTree
+from defusedxml.common import EntitiesForbidden
 
 BUCKET = "pmc-oa-opendata"
 BUCKET_BASE = f"https://{BUCKET}.s3.amazonaws.com"
@@ -721,11 +731,23 @@ def _neutralize_entities(payload: bytes) -> bytes:
     )
 
 
-def _parse_jats(payload: bytes) -> tuple[ElementTree.Element, bool]:
+def _parse_jats(payload: bytes) -> tuple[Element, bool]:
     """Parse JATS bytes, reporting whether entity neutralization was needed.
 
     Strict parsing is tried first so a well-formed article is never rewritten, and the
     fallback is counted rather than applied invisibly.
+
+    The two shapes this fallback exists for -- a reference to an entity declared in a DTD
+    the bucket does not ship, and one declared nowhere at all -- raise ``ParseError`` under
+    defusedxml exactly as they did under stdlib, so the swap does not change them.
+
+    An article that *declares* entities in an internal subset is deliberately **not**
+    neutralized.  Stdlib accepted those; defusedxml raises ``EntitiesForbidden``, and that
+    is the whole point of the swap, since a nested declaration is the entity-expansion
+    vector.  Neutralization could not rescue one anyway -- it rewrites references and
+    leaves the declaration in place, so the parse fails again.  The caller records such an
+    article as ``xml_unparsable``, which is a recorded rejection rather than a silent loss.
+    No article in the pinned corpus takes either path today.
     """
     try:
         return ElementTree.fromstring(payload), False
@@ -733,7 +755,7 @@ def _parse_jats(payload: bytes) -> tuple[ElementTree.Element, bool]:
         return ElementTree.fromstring(_neutralize_entities(payload)), True
 
 
-def _count_local(root: ElementTree.Element, tag: str) -> int:
+def _count_local(root: Element, tag: str) -> int:
     return sum(1 for element in root.iter() if _local_name(element.tag) == tag)
 
 
@@ -741,7 +763,7 @@ def _local_name(tag: Any) -> str:
     return tag.rsplit("}", 1)[-1] if isinstance(tag, str) else ""
 
 
-def _extract_licence(root: ElementTree.Element) -> str:
+def _extract_licence(root: Element) -> str:
     """Read the article licence out of the JATS itself, in decreasing order of precision."""
     for reference in root.iter(_ALI_LICENSE_REF):
         if reference.text and reference.text.strip():
@@ -1056,7 +1078,10 @@ def _evaluate_candidate(article_id: str, workspace: Path) -> tuple[ManifestArtic
         return drop("xml_missing", False)
     try:
         root, neutralized = _parse_jats(xml_bytes)
-    except ElementTree.ParseError:
+    except (ElementTree.ParseError, EntitiesForbidden):
+        # EntitiesForbidden is defusedxml refusing an internal entity declaration -- the
+        # entity-expansion vector. Recorded as a rejection like any other unparsable
+        # article rather than allowed to abort the whole walk.
         return drop("xml_unparsable", False)
     paragraphs = _count_local(root, "p")
     if paragraphs <= 0:
