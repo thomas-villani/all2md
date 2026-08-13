@@ -23,14 +23,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   marker comment naming it a caption — with the caption placed *below* the figure, since
   that is where a figure's caption is conventionally set. The AsciiDoc and HTML parsers read
   their own spelling back, so those round-trip too.
-  The PDF parser does **not** populate the field yet. Its caption detector is a regex over
-  a fixed 50pt band whose fallback accepts any capitalised text under 200 characters, and
-  on 20 cached research PDFs only 44 of the 155 strings it returned even begin with a
-  figure cue — the rest are author names, running heads and fragments of body text. Since
-  `include_image_captions` defaults to `True`, binding that output to a field the renderers
-  now print would put spurious italic caption lines under most extracted images. Routing it
-  waits on the detector work in [#338](https://github.com/thomas-villani/all2md/issues/338),
-  measured against the figure-binding oracle rather than assumed.
+  The PDF parser does **not** populate the field yet. Its caption detector was, at the time
+  this field landed, a regex over a fixed 50pt band whose fallback accepted any capitalised
+  text under 200 characters — on 20 cached research PDFs only 44 of the 155 strings it
+  returned even began with a figure cue. Since `include_image_captions` defaults to `True`,
+  binding that output to a field the renderers now print would have put spurious italic
+  caption lines under most extracted images. The detector has since been rebuilt on the
+  layout model's `caption` regions (see **Fixed**); routing its result into this field is
+  the remaining step, and will be graded against the figure-binding oracle rather than
+  assumed.
+  ([#338](https://github.com/thomas-villani/all2md/issues/338))
+
+### Fixed
+
+- **A PDF figure caption is now taken from the layout model's `caption` region**, not
+  guessed from a fixed band of text near the image. The old rule matched a figure cue
+  (`Figure 3`) against a 50pt band above and below the image and, failing that, accepted
+  *any* text under 200 characters beginning with a capital letter — which on a journal page
+  is a running head, an author list, or an ordinary sentence. Scored against JATS figure
+  captions over 12 PMC articles, it returned 32 strings of which 19 were captions (59%
+  precision, 50% recall). Reading the `caption` regions the layout model already predicts
+  and binding the nearest one below the figure — below rather than above, which is the
+  convention for figures and the opposite of a table's — returns 31 strings of which 27 are
+  captions (87% precision, 74% recall). Where `pymupdf-layout` is not installed the cue
+  match still applies but the catch-all fallback is gone, which trades 6 points of recall
+  for 20 of precision (79%/44%). Requiring a cue *on top of* a layout region was measured
+  and rejected: 0.9 points of precision for 8.8 of recall, because real captions do not all
+  open with the word "Figure". No output changes yet — the detector's result still reaches
+  nothing, and routing it into `Image.caption` is the next step.
+  ([#338](https://github.com/thomas-villani/all2md/issues/338))
+- **An image next to a blank line is no longer silently dropped from a PDF.** The caption
+  detector checked a text band for content *before* stripping it, so a band holding only
+  whitespace became an empty string and then raised `IndexError` on `text[0]`. Image
+  extraction wraps each image in `except Exception: continue`, so the crash never surfaced
+  as an error — it discarded the whole image, after it had been successfully decoded and
+  encoded. Measured at 1 image in 70 across 20 PMC articles, in `save` and `base64` modes
+  with `include_image_captions` left at its default of `True`.
   ([#338](https://github.com/thomas-villani/all2md/issues/338))
 
 ### Changed
