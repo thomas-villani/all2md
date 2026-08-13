@@ -291,7 +291,14 @@ class LocalPathRetriever(DocumentSourceRetriever):
         # inline content rather than letting the OSError escape convert().
         try:
             if isinstance(value, Path):
-                return value.exists() and value.is_file()
+                # A Path is unambiguously a filesystem path, whether or not it
+                # exists yet -- no other retriever ever claims one. Requiring
+                # existence here used to send a missing/typo'd Path straight
+                # through to the loader's generic "Unsupported input type:
+                # WindowsPath" fallback instead of load()'s accurate "Path does
+                # not exist" error, hiding the real problem behind a confusing
+                # message. Existence and file-vs-directory are load()'s job.
+                return True
             if isinstance(value, str) and "://" not in value and _looks_like_path(value):
                 return Path(value).exists()
         except OSError:

@@ -77,6 +77,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   encoded. Measured at 1 image in 70 across 20 PMC articles, in `save` and `base64` modes
   with `include_image_captions` left at its default of `True`.
   ([#338](https://github.com/thomas-villani/all2md/issues/338))
+- **A nonexistent `Path` input no longer raises a misleading "Unsupported input type."**
+  `LocalPathRetriever.can_handle()` returned `False` for a `Path` that does not exist, and no
+  other retriever accepts a `Path`, so the loader fell through to a generic "Unsupported input
+  type: WindowsPath" `ValidationError` instead of the accurate, path-naming error `load()`
+  already raised but could never reach. `can_handle()` now accepts any `Path` instance,
+  letting `load()`'s existence and file-vs-directory checks run and surface their message —
+  "Path does not exist: ..." — instead.
 
 ### Changed
 
