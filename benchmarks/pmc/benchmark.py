@@ -38,14 +38,16 @@ from benchmarks.omnidocbench.oracles import PageProjection, project_ast, score_p
 from benchmarks.pmc.alignment import TOKEN_PLACEMENT_MIN
 from benchmarks.pmc.article import (
     RECALL_MIN,
+    BindingReport,
     PrecisionReport,
     RecallReport,
+    measure_binding,
     measure_precision,
     measure_recall,
     summarize,
 )
 from benchmarks.pmc.convert import DegradedFact, convert_article, pdf_options
-from benchmarks.pmc.oracles import coverage, project_jats, to_projection
+from benchmarks.pmc.oracles import coverage, project_jats, to_projection, walk_figures
 from benchmarks.pmc.pages import ASSIGNMENTS, assign_pages, index_pages
 
 #: 2 adds ``article_precision``. A reader that expects 1 would silently see recall with no
@@ -59,7 +61,11 @@ from benchmarks.pmc.pages import ASSIGNMENTS, assign_pages, index_pages
 #: the nine reasons behind ``table_rejected`` were indistinguishable -- so the number could
 #: not tell an improvement from a regression, because some of those reasons are the parser
 #: correctly refusing to grid a page of prose.
-SCHEMA_VERSION = 4
+#: 5 adds ``figure_binding`` and turns image extraction on. Under 4 the lane inherited the
+#: default ``alt_text`` attachment mode, which returns before extraction runs, so it emitted
+#: no figures at all and no figure defect was observable -- and the ~100% caption text recall
+#: it did report was being read as though it said something about figures, which it does not.
+SCHEMA_VERSION = 5
 ORACLE_SCHEMA_VERSION = 1
 
 #: Fixed seed: a control that scrambles differently every run cannot be compared across
@@ -143,6 +149,9 @@ class ArticleEvaluation:
     #: The PDF's own text layer, which bounds what any parser could recover.
     pdf_text: str = ""
     truth_blocks: tuple[tuple[str, str], ...] = field(default_factory=tuple)
+    #: Ground-truth ``<fig>`` captions, and the ``(caption, alt_text)`` of every emitted image.
+    truth_captions: tuple[str, ...] = field(default_factory=tuple)
+    emitted_figures: tuple[tuple[str, str], ...] = field(default_factory=tuple)
     error: str | None = None
 
 
@@ -213,6 +222,7 @@ def evaluate_article(article: Any, *, options: Any = None) -> ArticleEvaluation:
     started = time.perf_counter()
     root, _ = _parse_jats(article.xml_path.read_bytes())
     blocks, whole = project_jats(root)
+    truth_captions = tuple(figure.caption for figure in walk_figures(root))
     page_count, pdf_words, pdf_text = _pdf_facts(article.pdf_path)
     indexed = index_pages(article.pdf_path)
     assignment = assign_pages(blocks, indexed)
@@ -233,6 +243,7 @@ def evaluate_article(article: Any, *, options: Any = None) -> ArticleEvaluation:
             duration_seconds=time.perf_counter() - started,
             ground_truth_blocks=len(blocks),
             truth_blocks=truth_pairs,
+            truth_captions=truth_captions,
             error=f"{type(exc).__name__}: {exc}",
         )
 
@@ -276,6 +287,8 @@ def evaluate_article(article: Any, *, options: Any = None) -> ArticleEvaluation:
         emitted_text=" ".join(block for page in emitted for block in page.text_blocks),
         pdf_text=pdf_text,
         truth_blocks=truth_pairs,
+        truth_captions=truth_captions,
+        emitted_figures=tuple((figure.caption, figure.alt_text) for figure in converted.figures),
     )
 
 
@@ -333,6 +346,7 @@ def normalize_results(
     evaluations: Sequence[ArticleEvaluation],
     recall: RecallReport,
     precision: PrecisionReport,
+    binding: BindingReport,
     all2md_commit: str,
     worktree_dirty: bool = False,
     parser_runtime: Mapping[str, str],
@@ -349,6 +363,8 @@ def normalize_results(
         Whole-article content recall with its control.
     precision : PrecisionReport
         Whether the output says anything the document does not, with its control.
+    binding : BindingReport
+        Whether figure captions reached the figures they belong to.
     all2md_commit : str
         Commit the parser was scored at.
     worktree_dirty : bool
@@ -395,6 +411,9 @@ def normalize_results(
                 "layout_analysis_mode": "enabled",
                 "include_page_numbers": True,
                 "ocr": {"enabled": True, "mode": "auto", "engine": "tesseract", "dpi": 200},
+                # Part of the measurement, not an incidental: under the default `alt_text`
+                # the parser emits no images and `figure_binding` is zero by construction.
+                "attachment_mode": "base64",
             },
             "placement_config": {
                 "token_placement_min": TOKEN_PLACEMENT_MIN,
@@ -482,6 +501,35 @@ def normalize_results(
             "control_emitted": precision.control_emitted,
             "discrimination": precision.precision - precision.control_precision,
         },
+        # Whether a figure's caption reached the figure, as opposed to reaching the output.
+        # Separate from `article_recall` because that instrument already scores these same
+        # captions as text blocks and passes them at close to 100% -- which says nothing
+        # about binding, and had been standing in for an answer nobody had measured.
+        "figure_binding": {
+            "binding_rate": binding.binding_rate,
+            "bound": binding.bound,
+            "scored": binding.scored,
+            "too_short": binding.too_short,
+            # The caption was found and written to alt text instead. A different defect from
+            # not finding it, with a different fix, so it is counted apart rather than
+            # folded into the failures.
+            "misfiled_rate": binding.misfiled_rate,
+            "misfiled": binding.misfiled,
+            # Expected to stay high whatever the rest does. Present so a low binding rate
+            # cannot be misread as the caption text having been lost.
+            "caption_recall": binding.caption_recall,
+            "present": binding.present,
+            # Emitted images against ground-truth figures: the granularity gap. Multi-panel
+            # and tiled figures emit several images under one caption, so these two are not
+            # expected to be equal and a ratio of 1 would be the surprising reading.
+            "images_emitted": binding.images_emitted,
+            "captioned_emitted": binding.captioned_emitted,
+            "control_binding_rate": binding.control_binding_rate,
+            # As with recall and precision: reported so a zero control cannot be misread as
+            # passing when it is really an absent denominator.
+            "control_scored": binding.control_scored,
+            "discrimination": binding.binding_rate - binding.control_binding_rate,
+        },
         "dimensions": dimensions,
         "conversion_failures": failures,
         # Expected to be empty: this corpus was characterized as 0.0% scan-shaped. A
@@ -526,11 +574,19 @@ def run(snapshot: Any, *, all2md_commit: str = "unknown", worktree_dirty: bool =
     ]
     recall = measure_recall(scored)
     precision = measure_precision(scored)
+    binding = measure_binding(
+        [
+            (result.article_id, result.truth_captions, result.emitted_figures, result.emitted_text)
+            for result in evaluations
+            if result.error is None
+        ]
+    )
     return normalize_results(
         snapshot=snapshot,
         evaluations=evaluations,
         recall=recall,
         precision=precision,
+        binding=binding,
         all2md_commit=all2md_commit,
         worktree_dirty=worktree_dirty,
         parser_runtime={
