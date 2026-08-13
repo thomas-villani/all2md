@@ -1,10 +1,13 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """Unit tests for new Markdown renderer improvements."""
 
+import pytest
+
 from all2md.ast import (
     BlockQuote,
     Document,
     Heading,
+    Image,
     LineBreak,
     Link,
     List,
@@ -508,3 +511,85 @@ class TestLineBreakInSingleLineContexts:
 
         assert "\n| one two |" in output
         assert len(markdown_to_ast(output).children[0].rows) == 1
+
+
+class TestCaptionEscaping:
+    """Tests for metacharacters in table and figure captions (#31)."""
+
+    @staticmethod
+    def _table(caption: str) -> Document:
+        """Build a one-cell captioned table."""
+        return Document(
+            children=[
+                Table(
+                    caption=caption,
+                    header=TableRow(cells=[TableCell(content=[Text(content="a")])]),
+                    rows=[TableRow(cells=[TableCell(content=[Text(content="1")])])],
+                )
+            ]
+        )
+
+    @staticmethod
+    def _figure(caption: str) -> Document:
+        """Build a paragraph holding a single captioned image."""
+        return Document(children=[Paragraph(content=[Image(url="a.png", alt_text="alt", caption=caption)])])
+
+    def test_table_caption_asterisks_are_escaped(self) -> None:
+        """Asterisks in a caption no longer close the emphasis early."""
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(self._table("Sales *2024* results"))
+
+        assert output.startswith("*Sales \\*2024\\* results*\n")
+
+    @pytest.mark.parametrize(
+        "caption",
+        [
+            "Sales *2024* results",
+            "Table [1]: a_b_c",
+            "*leading",
+            "a * b * c * d",
+            "100% of `results`",
+        ],
+    )
+    def test_table_caption_roundtrips_verbatim(self, caption: str) -> None:
+        """The caption comes back exactly as it went in, attached to the table."""
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(self._table(caption))
+
+        reparsed = markdown_to_ast(output)
+        assert [type(child).__name__ for child in reparsed.children] == ["Table"]
+        assert reparsed.children[0].caption == caption
+
+    @pytest.mark.parametrize(
+        "caption",
+        [
+            "Fig *1* [x]",
+            "Figure 2. Results_summary",
+            "a * b * c * d",
+        ],
+    )
+    def test_figure_caption_roundtrips_verbatim(self, caption: str) -> None:
+        """A figure caption survives its metacharacters too."""
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(self._figure(caption))
+
+        reparsed = markdown_to_ast(output)
+        assert [type(child).__name__ for child in reparsed.children] == ["Paragraph"]
+        image = reparsed.children[0].content[0]
+        assert isinstance(image, Image)
+        assert image.caption == caption
+
+    def test_plain_caption_is_not_over_escaped(self) -> None:
+        """A caption with nothing special in it renders unchanged."""
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(self._table("Quarterly results"))
+
+        assert output.startswith("*Quarterly results*\n")
+
+    def test_caption_newline_is_flattened(self) -> None:
+        """A newline would end the caption paragraph and break the marker triple."""
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(self._table("Two\nlines"))
+
+        assert output.startswith("*Two lines*\n")
+        assert markdown_to_ast(output).children[0].caption == "Two lines"

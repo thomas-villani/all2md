@@ -36,6 +36,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Table and figure captions are escaped before being wrapped in the `*...*` caption
+  device.** Markdown has no caption syntax, so a caption is rendered as a single-emphasis
+  paragraph plus a marker comment naming it a caption. The caption text was interpolated
+  raw, so its own metacharacters closed that emphasis early: `Sales *2024* results` rendered
+  as `*Sales *2024* results*` and round-tripped to `Sales 2024 results`, the literal
+  asterisks silently deleted. Shapes that left the paragraph with more than one child failed
+  the parser's single-`Emphasis` test outright, which lost the caption *and* leaked a stray
+  italic paragraph plus the `<!-- all2md:table-caption -->` comment into the AST. Captions
+  now go through the renderer's normal text escaping (and, like a table cell, have any
+  newline flattened, since one would end the caption paragraph and break the marker triple);
+  the ordinary text unescape on reparse gives the original string back.
 - **A line break inside a Markdown table cell or heading no longer destroys the block it
   sits in.** `visit_line_break` emitted a real newline (`"\n"`, or `"  \n"` for a hard
   break) whatever the surrounding context was, and cell rendering escaped pipes but never

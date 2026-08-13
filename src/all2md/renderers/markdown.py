@@ -336,6 +336,36 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         return "".join(escaped_chars)
 
+    def _escape_caption(self, caption: str) -> str:
+        """Escape a caption for the ``*...*`` device that carries it.
+
+        Markdown has no caption syntax, so a table or figure caption is written
+        as a single-emphasis paragraph plus a marker comment. The caption is
+        plain text, not inline nodes, and interpolating it raw let its own
+        metacharacters close that emphasis early: ``Sales *2024* results``
+        became ``*Sales *2024* results*``, whose asterisks silently vanished on
+        reparse, and shapes that leave the paragraph with more than one child
+        failed the parser's single-``Emphasis`` test outright -- losing the
+        caption and leaking a stray italic paragraph plus the marker comment
+        into the AST (#31). Escaping first makes the device's own text inert;
+        the ordinary text unescape on reparse gives the original back.
+
+        A newline is flattened for the same structural reason it is in a table
+        cell: it would end the caption paragraph and break the marker triple.
+
+        Parameters
+        ----------
+        caption : str
+            Raw caption text
+
+        Returns
+        -------
+        str
+            Caption safe to wrap in asterisks
+
+        """
+        return self._escape_markdown(self._flatten_to_single_line(caption))
+
     def _autolink_bare_urls(self, text: str) -> str:
         """Convert bare URLs to Markdown autolinks.
 
@@ -693,7 +723,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # the AST and simply does not render it here.
         image = self._sole_captioned_image(node)
         if image is not None and image.caption:
-            self._output.append(f"\n\n{indent}*{image.caption}*")
+            self._output.append(f"\n\n{indent}*{self._escape_caption(image.caption)}*")
             if self.options.comment_mode != "ignore":
                 self._output.append(f"\n\n{indent}<!-- {MARKDOWN_IMAGE_CAPTION_MARKER} -->")
 
@@ -1250,7 +1280,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # comment_mode="ignore", which asks for no comments in the output at all;
         # the caption then degrades to the italic paragraph, as it always did.
         if node.caption:
-            self._output.append(f"*{node.caption}*\n\n")
+            self._output.append(f"*{self._escape_caption(node.caption)}*\n\n")
             if self.options.comment_mode != "ignore":
                 self._output.append(f"<!-- {MARKDOWN_TABLE_CAPTION_MARKER} -->\n\n")
 
