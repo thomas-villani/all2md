@@ -13,12 +13,12 @@ name: Generative Roundtrip Discovery
 # replayed the same corpus the per-PR run already covers. `ALL2MD_FUZZ_DISCOVERY=1`
 # is what actually redraws (fingerprints differ every run, verified both ways).
 #
-# NOT on a schedule yet, deliberately. Discovery currently fails on its first
-# run -- e.g. the asciidoc renderer emits a nested list its own parser rejects
-# with "Cannot nest to level 2 without a parent item at level 1". A nightly that
-# is red every morning teaches people to ignore it. Restore the cron once the
-# findings it produces are triaged into KNOWN_CRASHES with repros and issues,
-# which is the process tests/unit/test_roundtrip_fuzzing.py documents.
+# NOT on a schedule yet, deliberately. Its first four runs turned up two crash
+# classes (#343). The asciidoc one is now in KNOWN_CRASHES with a repro, but the
+# PDF one ("Failed to render PDF: ValueError", 2 of 4 runs) is still
+# uncharacterised, so a nightly would be red on a coin flip -- and a job that is
+# red most mornings teaches people to ignore it. Restore the cron once #343 is
+# closed, which is the process tests/unit/test_roundtrip_fuzzing.py documents.
 #
 # What forced the earlier split: these took over 3 hours on the 3.12 leg against ~60s
 # locally. That is now understood and fixed, and it was never about CI at all.
