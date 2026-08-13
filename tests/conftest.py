@@ -42,6 +42,31 @@ except ImportError:
     pass
 
 
+def pytest_report_header() -> list[str]:
+    """Print the Hypothesis profile and fuzz mode at the top of every run.
+
+    Both are invisible settings that change what the suite actually measures,
+    and both have already gone wrong silently: a profile inherited an unwanted
+    verbosity and cost 68 minutes per CI run, and the discovery sweep spent
+    months replaying the fixed corpus because its flag did not take. A run that
+    is not doing what its workflow name says should say so in its own log.
+    """
+    import os
+
+    lines = [
+        f"all2md fuzz discovery: {'on' if os.environ.get('ALL2MD_FUZZ_DISCOVERY') == '1' else 'off (fixed corpus)'}"
+    ]
+    try:
+        from hypothesis import settings as _settings
+
+        lines.append(
+            f"hypothesis profile: {os.getenv('HYPOTHESIS_PROFILE', 'dev')} (verbosity={_settings.default.verbosity!r})"
+        )
+    except ImportError:
+        pass
+    return lines
+
+
 def _setup_test_imports():
     """Setup imports needed for testing while maintaining lazy loading in production."""
     # Make pymupdf available for PDF tests that need to mock it

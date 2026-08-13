@@ -46,13 +46,11 @@ name: Generative Roundtrip Discovery
 # slow runner can do, and invalid examples numbered 0-8 rather than thousands.
 # Keep the flag -- it is cheap, and it is the instrument that pays off here.
 
+# Dispatch only. When the cron returns it should be daily rather than weekly
+# (unlike corpus-gate): this corpus is generated locally and costs no
+# third-party downloads, and a one-day commit range is the cheapest thing to
+# bisect when a crash class appears.
 on:
-  schedule:
-    # 04:00 UTC daily. Nightly rather than weekly (unlike corpus-gate): this
-    # corpus is generated locally and costs no third-party downloads, and a
-    # one-day commit range is the cheapest thing to bisect when a crash class
-    # appears.
-    - cron: "0 4 * * *"
   workflow_dispatch:
 
 concurrency:
@@ -64,7 +62,7 @@ permissions:
 
 jobs:
   generative:
-    name: Generative Roundtrip Gates
+    name: Generative Roundtrip Discovery
     runs-on: ubuntu-latest
     # The runtime is understood now (see the header), so this is tightened from
     # 240 to a bound that still leaves generous headroom: the file runs in ~32s
@@ -104,7 +102,14 @@ jobs:
       # whether 863s of dokuwiki is 25 slow round trips or a generator thrashing
       # on rejected examples. Compare against the local baseline: 25 passing,
       # 5 invalid, ~74ms of an ~87ms example spent in generation.
+      # ALL2MD_FUZZ_DISCOVERY=1 is what makes this a sweep rather than a second
+      # copy of the per-PR run. Without it the gates keep `derandomize=True` and
+      # replay the exact corpus ci.yml already covered, which is the vacuous
+      # shape described in the header. If this line ever goes missing, the job
+      # still passes -- it just stops discovering anything.
       - name: Run the generative gates
+        env:
+          ALL2MD_FUZZ_DISCOVERY: "1"
         run: >
           pytest tests/unit/test_roundtrip_fuzzing.py -m generative -v
           --durations=0 --hypothesis-show-statistics
