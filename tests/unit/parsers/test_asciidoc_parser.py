@@ -645,6 +645,61 @@ class TestAsciiDocNestedLists:
         assert nested_list.ordered  # Nested is ordered
 
 
+class TestAsciiDocItemPrincipalText:
+    """An item's text runs on to the lines below it, as a paragraph's does.
+
+    This was missing entirely (#343). The visible symptom was cosmetic -- the
+    run-on line surfaced as a sibling paragraph after the list -- but it also
+    *ended* the list, so a nested item on the next line had no level-1 parent
+    and the AST builder raised. Three lines of ordinary AsciiDoc were enough,
+    and the generative round-trip gates found it before any user did.
+    """
+
+    def test_a_run_on_line_joins_the_item_rather_than_following_it(self) -> None:
+        """The wrapped line is part of the item, joined by a single space."""
+        doc = AsciiDocParser().parse("* alpha\nbeta\n")
+
+        assert len(doc.children) == 1, "the run-on line escaped the list"
+        root_list = doc.children[0]
+        assert isinstance(root_list, List)
+        assert len(root_list.items) == 1
+        text = "".join(n.content for n in root_list.items[0].children[0].content if isinstance(n, Text))
+        assert text == "alpha beta"
+
+    def test_a_run_on_line_does_not_orphan_the_item_that_follows(self) -> None:
+        """The regression that crashed: the list must stay open across the wrap.
+
+        Asserted as parity with the unwrapped form rather than against a
+        hand-written expectation, so the two paths cannot drift apart.
+        """
+        wrapped = AsciiDocParser().parse("* alpha\nbeta\n** gamma\n")
+        unwrapped = AsciiDocParser().parse("* alpha beta\n** gamma\n")
+
+        assert wrapped == unwrapped
+
+    def test_a_hard_break_inside_an_item_survives(self) -> None:
+        """``' +'`` still marks a break; joining lines must not swallow it."""
+        doc = AsciiDocParser().parse("* alpha +\nbeta\n")
+
+        content = doc.children[0].items[0].children[0].content
+        assert [type(n).__name__ for n in content] == ["Text", "LineBreak", "Text"]
+
+    def test_a_table_caption_below_an_item_is_not_eaten_as_item_text(self) -> None:
+        """``.Caption`` directly above a table belongs to the table.
+
+        The run-on rule has to stop somewhere, and a block title is the one
+        TEXT_LINE that means something else. Without the guard the caption
+        would vanish into the item above it.
+        """
+        doc = AsciiDocParser().parse("* alpha\n.Cap\n|===\n|a\n|===\n")
+
+        tables = [n for n in doc.children if isinstance(n, Table)]
+        assert len(tables) == 1
+        assert tables[0].caption == "Cap"
+        text = "".join(n.content for n in doc.children[0].items[0].children[0].content if isinstance(n, Text))
+        assert text == "alpha"
+
+
 class TestAsciiDocBlockAttributes:
     """Tests for block attributes and anchors."""
 
