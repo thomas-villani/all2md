@@ -36,6 +36,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Six table renderers no longer drop cells when a span collides.** `BaseRenderer._layout_table_grid`
+  resolves declared `colspan`/`rowspan` values — which real documents routinely overstate — onto a
+  grid, truncating a span rather than letting it overlap and widening the table rather than dropping
+  a cell that no longer fits. Only the DOCX and PPTX renderers were migrated onto it; the
+  reStructuredText, Org, LaTeX, ODT, ODP and PDF renderers each kept a copy-pasted fill loop that
+  took the table's *width* from that layout but then placed cells at their *declared* spans, ending
+  the row with `if col_idx >= num_cols: break`. Any cell pushed past the last column by an earlier
+  row's `rowspan` was discarded with no warning: a two-row table whose second row declares
+  `colspan=3` under a `rowspan=2` neighbour lost its final cell's content entirely in all six
+  formats. All six now consume the shared grid's placements and emit the *effective* spans, so a
+  collision costs a merge instead of content. Well-formed tables render byte-for-byte as before.
+
 - **PPTX run hyperlinks are no longer discarded.** `_process_paragraph_runs_to_inline` built
   a `Link` node for every hyperlinked run into a local `result` list, but both of the
   function's exit paths returned `inline_nodes` (the output of `group_and_format_runs`,

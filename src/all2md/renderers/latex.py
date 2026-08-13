@@ -51,7 +51,7 @@ from all2md.ast.nodes import (
 )
 from all2md.ast.visitors import NodeVisitor
 from all2md.options.latex import LatexRendererOptions
-from all2md.renderers.base import BaseRenderer, InlineContentMixin
+from all2md.renderers.base import BaseRenderer, CellPlacement, InlineContentMixin
 
 
 class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
@@ -349,9 +349,11 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             self._in_table = False
             return
 
-        # Compute grid dimensions accounting for colspan/rowspan
-        num_rows = len(all_rows)
-        num_cols = self._compute_table_columns(all_rows)
+        # Resolve the grid once, centrally: a declared span that collides with
+        # ground an earlier rowspan claimed would otherwise push the rest of the
+        # row past the last column, silently dropping those cells.
+        grid = self._layout_table_grid(all_rows)
+        num_rows, num_cols = grid.num_rows, grid.num_cols
 
         # Generate column specification (all left-aligned for simplicity)
         col_spec = "|" + "l|" * num_cols
@@ -359,37 +361,26 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._output.append(f"\\begin{{tabular}}{{{col_spec}}}\n")
         self._output.append("\\hline\n")
 
-        # Track which grid cells are occupied by spanning cells
-        occupied = [[False] * num_cols for _ in range(num_rows)]
+        placements_by_row: list[list[CellPlacement]] = [[] for _ in range(num_rows)]
+        for placement in grid.placements:
+            placements_by_row[placement.row].append(placement)
 
         # Render all rows
-        for row_idx, ast_row in enumerate(all_rows):
-            col_idx = 0
+        for row_idx, row_placements in enumerate(placements_by_row):
             first_cell = True
 
-            for ast_cell in ast_row.cells:
-                # Skip occupied cells
-                while col_idx < num_cols and occupied[row_idx][col_idx]:
-                    col_idx += 1
-
-                if col_idx >= num_cols:
-                    break
-
+            for placement in row_placements:
                 if not first_cell:
                     self._output.append(" & ")
                 first_cell = False
 
                 # Render cell content
-                content = self._render_inline_content(ast_cell.content)
+                content = self._render_inline_content(placement.cell.content)
 
-                # Handle cell spanning
-                colspan = ast_cell.colspan
-                rowspan = ast_cell.rowspan
-
-                # Mark occupied cells
-                for r in range(row_idx, min(row_idx + rowspan, num_rows)):
-                    for c in range(col_idx, min(col_idx + colspan, num_cols)):
-                        occupied[r][c] = True
+                # Emit the *effective* spans - what the grid granted, which may
+                # be narrower than the cell asked for.
+                colspan = placement.colspan
+                rowspan = placement.rowspan
 
                 # Emit cell with appropriate span commands
                 if colspan > 1 and rowspan > 1:
@@ -406,8 +397,6 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 else:
                     # No spanning
                     self._output.append(content)
-
-                col_idx += colspan
 
             # End row
             self._output.append(" \\\\\n")
