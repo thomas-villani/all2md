@@ -27,6 +27,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A list item's text may run onto the lines below it** (AsciiDoc). AsciiDoc wraps freely:
+  the lines after `* item` are part of that item until a blank line, another item, or a
+  block. The parser never implemented this. Where it was merely lossy, the run-on line
+  surfaced as a sibling paragraph *after* the list instead of as the item's own text; where
+  it was worse, the stray line ended the list, so a nested item on the next line had no
+  level-1 parent and the conversion failed outright with
+  `ValueError: Cannot nest to level 2 without a parent item at level 1`. Three lines of
+  ordinary hand-written AsciiDoc — `* a`, `b`, `** c` — were enough to hit it. The joining
+  rule, hard breaks and all, already existed for paragraphs and is now shared with list
+  items rather than duplicated, and it merges the text nodes a wrap leaves adjacent, so
+  `* a` / `b` and `* a b` now parse to equal documents. Found by the generative round-trip
+  gates on their first per-PR run. ([#343](https://github.com/thomas-villani/all2md/issues/343))
+
 - **One rejected table region is no longer counted as two** (PDF). When the layout model
   predicts a table region and a grid is found there but then refused, the refusing guard
   records its own specific reason — `text_grid_splits_words`, `degenerate_grid`,
