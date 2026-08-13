@@ -1734,6 +1734,7 @@ class TestHyperlinkExtraction:
         assert len(strong_nodes) == 1
         assert strong_nodes[0].content[0].content == "Click here"
 
-        # Surrounding plain text must remain intact and in order.
+        # Surrounding plain text must remain intact and in order, with the
+        # run-boundary whitespace preserved so words do not fuse around the link.
         texts = [node.content for node in extract_nodes(ast_doc, Text)]
-        assert texts == ["Before", "Click here", "after"]
+        assert texts == ["Before", " ", "Click here", " ", "after"]
