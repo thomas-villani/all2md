@@ -11,31 +11,31 @@ name: Generative Roundtrip Gates
 #
 #     HYPOTHESIS_PROFILE=ci pytest -m fuzzing --hypothesis-seed=random
 #
-# What forced the split: on the 3.12 leg these took over 3 hours, against ~60s
-# for the same file locally. That gap is still unexplained, and the list of
-# things it is NOT keeps growing -- each one measured, not argued:
+# What forced the split: these took over 3 hours on the 3.12 leg against ~60s
+# locally. That is now understood and fixed, and it was never about CI at all.
 #
-#   - example count: #216's per-format budget is real, but it is 10x of ~6s
-#   - coverage: 61s plain vs 59s under --cov=all2md
-#   - Hypothesis profile: CI never sets HYPOTHESIS_PROFILE, so it loads `dev`
-#     exactly as a dev box does
-#   - Hypothesis version: CI installs 6.164.0 against 6.155.7 locally, but
-#     shadowing 6.164.0 onto a local run leaves dokuwiki at ~1s
-#   - corpus luck: dokuwiki is flat at ~1.5s across five different seeds
+# The cause was a one-word setting in tests/conftest.py. Hypothesis ships a
+# built-in profile named `ci` and auto-loads it when it detects CI, and
+# `register_profile` re-loads a profile that is already active -- so our own
+# `register_profile("ci", ..., verbosity=Verbosity.verbose)` landed on the live
+# profile, and `dev` (registered next, and what actually runs) inherited the
+# verbosity. Verbose makes Hypothesis pretty-print every generated example
+# through a printer that calls ast.parse/inspect.getsource, which cost ~35s on
+# a structurally complex document. It could not reproduce locally because off
+# CI the active profile is `default` and nothing re-loads. `CI=true pytest ...`
+# reproduces it in one command; tests/unit/test_hypothesis_profiles.py now
+# fails if it comes back. With it gone the whole file runs in ~32s.
 #
-# The first --durations run ruled out a stall: the per-test durations sum to
-# 4938s against a 4993s job, so the time is real work spread over specific
-# tests. It is also wildly uneven -- dokuwiki 863s and asciidoc 557s in CI
-# against ~2s locally, while ipynb is only 6.5x. Locally those two are among
-# the *fastest* formats, so CI is not simply a slower machine: a constant
-# factor cannot invert the ordering.
+# Everything else this was blamed on was refuted by measurement -- do not
+# re-run these: example count (#216's budget is 10x of ~6s), coverage (61s vs
+# 59s under --cov), Hypothesis version (6.165.5 locally is ~1s), Python version
+# (3.12.2 locally is ~1s), the local example database (empty DB is ~1s), and
+# network I/O (there is none in parsers/ or renderers/).
 #
-# --hypothesis-show-statistics is the next instrument. Locally dokuwiki reports
-# 25 passing / 5 invalid examples with generation dominating (~74ms of an ~87ms
-# example). The CI numbers separate the live hypotheses: 25 examples at ~34s
-# each means execution is genuinely slow on this platform, while thousands of
-# invalid examples means Hypothesis is thrashing on generation and the finger
-# points away from our renderers entirely.
+# --hypothesis-show-statistics is what finally split it: generation cost the
+# same on CI as locally (~0-173ms) while execution ran 1000x apart, which no
+# slow runner can do, and invalid examples numbered 0-8 rather than thousands.
+# Keep the flag -- it is cheap, and it is the instrument that pays off here.
 
 on:
   schedule:
@@ -57,10 +57,11 @@ jobs:
   generative:
     name: Generative Roundtrip Gates
     runs-on: ubuntu-latest
-    # Deliberately above the ~3h these currently take, so a scheduled run still
-    # produces the --durations table instead of being killed just short of it.
-    # Tighten this once the runtime is understood.
-    timeout-minutes: 240
+    # The runtime is understood now (see the header), so this is tightened from
+    # 240 to a bound that still leaves generous headroom: the file runs in ~32s
+    # locally under CI settings. A run that reaches 30 minutes means something
+    # has regressed into a pathological path, and failing is the useful answer.
+    timeout-minutes: 30
 
     steps:
       - name: Check out code
