@@ -678,10 +678,15 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Image to render
 
         """
-        # RST image directive
-        self._output.append(f".. image:: {node.url}\n")
+        # RST image directive -- or `figure`, which is the same thing plus a caption.
+        # The caption is the directive's body, so it needs the blank line and the
+        # indent that separates a body from the option block above it (#338).
+        directive = "figure" if node.caption else "image"
+        self._output.append(f".. {directive}:: {node.url}\n")
         if node.alt_text:
             self._output.append(f"   :alt: {node.alt_text}\n")
+        if node.caption:
+            self._output.append(f"\n   {node.caption}\n")
 
     def visit_line_break(self, node: LineBreak) -> None:
         r"""Render a LineBreak node.

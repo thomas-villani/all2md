@@ -256,7 +256,7 @@ def append_attachment_footnotes(
 
 def attachment_result_to_image_node(
     attachment_result: dict[str, Any], fallback_alt_text: str = "image"
-) -> "Node | None":
+) -> "Image | None":
     """Convert process_attachment result dict to Image AST node.
 
     This helper eliminates the need for parsers to manually parse markdown
@@ -277,7 +277,7 @@ def attachment_result_to_image_node(
 
     Returns
     -------
-    Node or None
+    Image or None
         Image AST node, or None if attachment result is empty/invalid
 
     Examples

@@ -57,7 +57,7 @@ from all2md.ast.nodes import (
     Underline,
 )
 from all2md.ast.visitors import NodeVisitor
-from all2md.constants import MARKDOWN_TABLE_CAPTION_MARKER
+from all2md.constants import MARKDOWN_IMAGE_CAPTION_MARKER, MARKDOWN_TABLE_CAPTION_MARKER
 from all2md.options.markdown import MarkdownRendererOptions
 from all2md.renderers.base import BaseRenderer, InlineContentMixin
 from all2md.utils.flavors import (
@@ -628,9 +628,41 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             content = content.replace("\n", "\n" + indent)
         self._output.append(f"{indent}{content}")
 
+        # A figure's caption is set below it, so it is emitted here rather than in
+        # visit_image: Image is an inline node and a caption is a block, and only
+        # the paragraph knows the image stands alone. Same two-part device as table
+        # captions -- a visible italic line plus a marker comment naming it a
+        # caption (#237, #338). A captioned image sharing its paragraph with other
+        # content has no unambiguous place to put the caption, so it keeps it in
+        # the AST and simply does not render it here.
+        image = self._sole_captioned_image(node)
+        if image is not None and image.caption:
+            self._output.append(f"\n\n{indent}*{image.caption}*")
+            if self.options.comment_mode != "ignore":
+                self._output.append(f"\n\n{indent}<!-- {MARKDOWN_IMAGE_CAPTION_MARKER} -->")
+
         # Emit block references if using after_block placement
         if self.options.link_style == "reference" and self.options.reference_link_placement == "after_block":
             self._emit_block_references()
+
+    @staticmethod
+    def _sole_captioned_image(node: Paragraph) -> Image | None:
+        """Return the paragraph's image if it is the only thing in it.
+
+        Parameters
+        ----------
+        node : Paragraph
+            Paragraph to inspect
+
+        Returns
+        -------
+        Image or None
+            The lone image, or None if the paragraph holds anything else
+
+        """
+        if len(node.content) == 1 and isinstance(node.content[0], Image):
+            return node.content[0]
+        return None
 
     def visit_code_block(self, node: CodeBlock) -> None:
         """Render a CodeBlock node.
