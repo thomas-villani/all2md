@@ -3453,6 +3453,12 @@ class PdfToAstConverter(BaseParser):
                 continue
             if not tabs.tables:
                 continue
+            # Set before the guards below, not after them. This flag answers "was anything
+            # tabular found here at all", which is true of a grid that was found and then
+            # rejected -- and the rejection paths below `continue`, so setting it after them
+            # meant it was only ever true for grids that survived. See the double-count note
+            # at the foot of this method.
+            found_grid = True
             # Text alignment has no ruling lines corroborating it, so it is held to one
             # extra test the line strategies are not: its columns must not cut through
             # words. See MAX_SPLIT_WORD_RATIO -- without this, a mis-predicted region
@@ -3470,7 +3476,6 @@ class PdfToAstConverter(BaseParser):
                     )
                     self._record_table_rejection("text_grid_splits_words")
                     continue
-            found_grid = True
             table = self._process_table_to_ast(tabs.tables[0], page, page_num)
             if isinstance(table, AstTable):
                 return table
