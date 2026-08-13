@@ -324,6 +324,24 @@ class PptxToAstConverter(BaseParser):
         if isinstance(shape, GraphicFrame) and hasattr(shape, "has_chart") and shape.has_chart:
             return self._process_chart_to_ast(shape.chart)
 
+        from pptx.shapes.group import GroupShape
+
+        if isinstance(shape, GroupShape):
+            # Grouped shapes (e.g. SmartArt-converted diagrams or manually grouped
+            # callouts) contain no text/table/image/chart of their own - their
+            # content lives entirely in the member shapes. Recurse into them in
+            # document order so nested text, tables, and images are not silently
+            # dropped. Nested groups are handled by the recursive call itself.
+            group_nodes: list[Node] = []
+            for member_shape in shape.shapes:
+                member_nodes = self._process_shape_to_ast(member_shape)
+                if member_nodes:
+                    if isinstance(member_nodes, list):
+                        group_nodes.extend(member_nodes)
+                    else:
+                        group_nodes.append(member_nodes)
+            return group_nodes
+
         # For other shapes, skip or handle as needed
         return None
 

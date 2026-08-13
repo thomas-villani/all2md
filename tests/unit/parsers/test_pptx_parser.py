@@ -462,6 +462,60 @@ class TestImages:
 
 
 @pytest.mark.unit
+class TestGroupedShapes:
+    """Tests for grouped shapes (python-pptx GroupShape)."""
+
+    def test_grouped_textboxes_are_not_dropped(self) -> None:
+        """Text inside a grouped shape should still be extracted."""
+        prs = Presentation()
+        layout = prs.slide_layouts[6]
+        slide = prs.slides.add_slide(layout)
+
+        tb1 = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(2), Inches(1))
+        tb1.text_frame.text = "Alpha text"
+        tb2 = slide.shapes.add_textbox(Inches(3), Inches(1), Inches(2), Inches(1))
+        tb2.text_frame.text = "Beta text"
+
+        # Group the two textboxes into a single top-level shape, mirroring
+        # SmartArt-converted diagrams or manually grouped callouts.
+        slide.shapes.add_group_shape([tb1, tb2])
+
+        converter = PptxToAstConverter()
+        ast_doc = converter.convert_to_ast(prs)
+
+        texts = [node.content for node in extract_nodes(ast_doc, Text)]
+        assert "Alpha text" in texts
+        assert "Beta text" in texts
+
+    def test_nested_group_shapes_are_not_dropped(self) -> None:
+        """Text inside a group nested within another group should be extracted."""
+        prs = Presentation()
+        layout = prs.slide_layouts[6]
+        slide = prs.slides.add_slide(layout)
+
+        tb1 = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(2), Inches(1))
+        tb1.text_frame.text = "Inner text"
+        tb2 = slide.shapes.add_textbox(Inches(3), Inches(1), Inches(2), Inches(1))
+        tb2.text_frame.text = "Sibling text"
+        inner_group = slide.shapes.add_group_shape([tb1, tb2])
+
+        tb3 = slide.shapes.add_textbox(Inches(5), Inches(1), Inches(2), Inches(1))
+        tb3.text_frame.text = "Outer text"
+
+        # Group the inner group together with another shape, producing a
+        # group-within-a-group.
+        slide.shapes.add_group_shape([inner_group, tb3])
+
+        converter = PptxToAstConverter()
+        ast_doc = converter.convert_to_ast(prs)
+
+        texts = [node.content for node in extract_nodes(ast_doc, Text)]
+        assert "Inner text" in texts
+        assert "Sibling text" in texts
+        assert "Outer text" in texts
+
+
+@pytest.mark.unit
 class TestBulletLists:
     """Tests for bullet list conversion."""
 
