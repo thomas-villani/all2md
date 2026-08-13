@@ -905,43 +905,51 @@ class PptxToAstConverter(BaseParser):
             lambda nodes: Underline(content=nodes),  # Index 5 - applied first (innermost)
         )
 
-        # Process runs with formatting
-        inline_nodes = group_and_format_runs(
-            runs=paragraph.runs,
-            text_extractor=text_extractor,
-            format_extractor=format_extractor,
-            format_builders=format_builders,
-        )
+        def format_run_segment(runs_segment: list[Any]) -> list[Node]:
+            return group_and_format_runs(
+                runs=runs_segment,
+                text_extractor=text_extractor,
+                format_extractor=format_extractor,
+                format_builders=format_builders,
+            )
 
-        # Post-process to extract hyperlinks
-        # PPTX hyperlinks are on runs, not separate nodes
+        # PPTX hyperlinks live on individual runs rather than as separate
+        # inline nodes, so split the paragraph's runs into consecutive
+        # stretches that share the same hyperlink address (None meaning "no
+        # link"). Each stretch is formatted independently via
+        # group_and_format_runs so bold/italic/etc. inside a link's text is
+        # preserved, and hyperlinked stretches are wrapped in a Link node.
+        # Run order (and therefore the order links appear relative to plain
+        # text) is preserved throughout.
         result: list[Node] = []
+        segment: list[Any] = []
+        segment_url: str | None = None
+
+        def flush_segment() -> None:
+            nonlocal segment
+            if not segment:
+                return
+            formatted = format_run_segment(segment)
+            if formatted:
+                if segment_url:
+                    result.append(Link(url=segment_url, content=cast(list[Node], formatted)))
+                else:
+                    result.extend(formatted)
+            segment = []
+
         for run in paragraph.runs:
-            # Check if this run has a hyperlink
+            run_url: str | None = None
             if hasattr(run, "hyperlink") and run.hyperlink and hasattr(run.hyperlink, "address"):
-                hyperlink_url = run.hyperlink.address
-                if hyperlink_url:
-                    # Find the corresponding text node(s) for this run
-                    # For simplicity, wrap the run's text in a Link node
-                    run_text = run.text.strip() if run.text else ""
-                    if run_text:
-                        # Create link with the formatted content
-                        link_content = [Text(content=run_text)]
-                        result.append(Link(url=hyperlink_url, content=cast(list[Node], link_content)))
-                        continue
+                run_url = run.hyperlink.address or None
 
-            # No hyperlink - use the nodes from group_and_format_runs
-            # Note: This is a simplified approach - ideally we'd match runs to nodes
-            # For now, if there are no hyperlinks in any runs, just return inline_nodes
+            if run_url != segment_url:
+                flush_segment()
+                segment_url = run_url
+            segment.append(run)
 
-        # If no hyperlinks were found, return the formatted nodes as-is
-        if not result:
-            return inline_nodes
+        flush_segment()
 
-        # Otherwise, we have a mix - this is complex, so for now just return inline_nodes
-        # and log that hyperlinks might not be fully integrated with formatting
-        # A full solution would require matching runs to nodes in group_and_format_runs result
-        return inline_nodes
+        return result
 
     def _process_table_to_ast(self, table: Any) -> AstTable | None:
         """Process a PPTX table to AST Table node.
