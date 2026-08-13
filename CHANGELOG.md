@@ -153,6 +153,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   return the unconsumed remainder so the caller can run it back through normal paragraph
   processing; a list or quote whose Text node ends exactly at the last marker line still
   emits no stray paragraphs.
+- **MediaWiki inline formatting no longer fuses with the words around it.**
+  mwparserfromhell splits a paragraph into one Text node per inline-markup boundary, so
+  `"This is '''bold''' text."` parsed to `Text('This is'), Strong([Text('bold')]),
+  Text('text.')` — every fragment fully stripped of its separating space — and rendered as
+  `This is**bold**text.`. Text fragments now collapse internal whitespace runs to a single
+  space instead of stripping them away, keeping the one space that separates a fragment
+  from a neighbouring `Strong`/`Emphasis`/`Link` node; only the true edges of a paragraph
+  or heading (trimmed once, when the fragment buffer is flushed) are stripped, so trailing
+  newlines and leading blank lines still produce clean paragraph/heading text with no stray
+  edge whitespace.
 
 ### Changed
 
