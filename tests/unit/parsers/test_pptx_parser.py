@@ -1692,13 +1692,48 @@ class TestHyperlinkExtraction:
         converter = PptxToAstConverter()
         ast_doc = converter.convert_to_ast(prs)
 
-        # Note: Current implementation may not fully integrate hyperlinks with formatting
-        # This test verifies the parser handles hyperlinks when present
-        # Full integration would require matching runs to formatted nodes
         assert isinstance(ast_doc, Document)
 
-        # Try to find link nodes (may or may not be present depending on implementation)
         links = list(extract_nodes(ast_doc, Link))
-        # If links are extracted, verify URL
-        if links:
-            assert links[0].url == "https://www.example.com"
+        assert len(links) == 1
+        assert links[0].url == "https://www.example.com"
+        link_text = "".join(node.content for node in extract_nodes(links[0], Text))
+        assert link_text == "Click here"
+
+    def test_hyperlink_with_surrounding_text_and_formatting(self) -> None:
+        """Hyperlinked run mixed with plain runs keeps the URL, surrounding text, and inner formatting."""
+        prs = Presentation()
+        layout = prs.slide_layouts[6]
+        slide = prs.slides.add_slide(layout)
+
+        textbox = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(5), Inches(1))
+        tf = textbox.text_frame
+        p = tf.paragraphs[0]
+
+        before_run = p.add_run()
+        before_run.text = "Before "
+
+        link_run = p.add_run()
+        link_run.text = "Click here"
+        link_run.hyperlink.address = "https://www.example.com"
+        link_run.font.bold = True
+
+        after_run = p.add_run()
+        after_run.text = " after"
+
+        converter = PptxToAstConverter()
+        ast_doc = converter.convert_to_ast(prs)
+
+        # The URL must survive.
+        links = list(extract_nodes(ast_doc, Link))
+        assert len(links) == 1
+        assert links[0].url == "https://www.example.com"
+
+        # Bold formatting inside the link text must survive.
+        strong_nodes = list(extract_nodes(links[0], Strong))
+        assert len(strong_nodes) == 1
+        assert strong_nodes[0].content[0].content == "Click here"
+
+        # Surrounding plain text must remain intact and in order.
+        texts = [node.content for node in extract_nodes(ast_doc, Text)]
+        assert texts == ["Before", "Click here", "after"]
