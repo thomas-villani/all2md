@@ -1188,6 +1188,13 @@ class Image(Node):
         Optional width in pixels
     height : int or None, default = None
         Optional height in pixels
+    caption : str or None, default = None
+        Optional caption: text printed *beside* the image on the page, such as a
+        journal figure's "Figure 1. ..." line or an HTML ``<figcaption>``. Distinct
+        from ``alt_text``, which substitutes *for* the image when it cannot be seen.
+        Conflating the two loses that distinction, and two parsers had independently
+        worked around the missing field by writing captions into ``alt_text``.
+        Placed last, beside ``Table.caption``, so the two read alike. See #338.
     metadata : dict, default = empty dict
         Image metadata
     source_location : SourceLocation or None, default = None
@@ -1200,6 +1207,7 @@ class Image(Node):
     title: Optional[str] = None
     width: Optional[int] = None
     height: Optional[int] = None
+    caption: Optional[str] = None
     metadata: dict[str, Any] = field(default_factory=dict)
     source_location: Optional[SourceLocation] = None
 

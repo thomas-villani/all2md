@@ -362,6 +362,8 @@ def _serialize_image(node: Image) -> dict[str, Any]:
         result["width"] = node.width
     if node.height:
         result["height"] = node.height
+    if node.caption:
+        result["caption"] = node.caption
     _add_metadata_and_source(result, node)
     return result
 
@@ -855,6 +857,7 @@ def _deserialize_image(data: dict[str, Any]) -> Image:
         title=data.get("title"),
         width=data.get("width"),
         height=data.get("height"),
+        caption=data.get("caption"),
         metadata=_opt(data, "metadata", {}),
         source_location=_deserialize_source_location(data.get("source_location")),
     )

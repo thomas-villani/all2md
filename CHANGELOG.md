@@ -7,8 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Figures carry a caption: `Image.caption`.** `Image` had `url`, `alt_text`, `title`,
+  `width` and `height` and no way to record the text printed *beside* a figure, so two
+  parsers had independently worked around the gap by writing captions into `alt_text`.
+  Those are different things — alt text substitutes for an image nobody can see, a caption
+  sits next to one everybody can — and an image with both had to give one up. The field is
+  typed `str | None` to match `Table.caption` and sits in the same position on the node.
+  Formats with a native spelling now use it: AsciiDoc's block title, reStructuredText's
+  `figure` directive (an image directive is promoted when it has a caption), HTML's
+  `<figure>`/`<figcaption>`, and MediaWiki's trailing caption field. Markdown has no caption
+  syntax, so it reuses the two-part device built for table captions in
+  [#237](https://github.com/thomas-villani/all2md/issues/237) — a visible italic line plus a
+  marker comment naming it a caption — with the caption placed *below* the figure, since
+  that is where a figure's caption is conventionally set. The AsciiDoc and HTML parsers read
+  their own spelling back, so those round-trip too.
+  The PDF parser does **not** populate the field yet. Its caption detector is a regex over
+  a fixed 50pt band whose fallback accepts any capitalised text under 200 characters, and
+  on 20 cached research PDFs only 44 of the 155 strings it returned even begin with a
+  figure cue — the rest are author names, running heads and fragments of body text. Since
+  `include_image_captions` defaults to `True`, binding that output to a field the renderers
+  now print would put spurious italic caption lines under most extracted images. Routing it
+  waits on the detector work in [#338](https://github.com/thomas-villani/all2md/issues/338),
+  measured against the figure-binding oracle rather than assumed.
+  ([#338](https://github.com/thomas-villani/all2md/issues/338))
+
 ### Changed
 
+- **An HTML `<figcaption>` no longer overwrites the image's alt text** under
+  `figures_parsing="image_with_caption"`. It binds to `Image.caption`, so a figure that
+  carries both a real `alt` attribute and a caption keeps both. Previously the caption was
+  only absorbed when the image had no meaningful alt text of its own, and absorbing it
+  destroyed the alt text when it did. A caption with no image to bind to is still emitted as
+  its own paragraph rather than dropped.
 - **The born-digital lane records *why* a table region was rejected, and how many were**
   (payload schema 4). The parser distinguishes nine reasons for rejecting a table region and
   coalesces repeats of `(parser, kind, detail, severity)` while summing their counts. The

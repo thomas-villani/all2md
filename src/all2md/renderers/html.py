@@ -800,6 +800,17 @@ hr {
             Paragraph to render
 
         """
+        # A captioned image gets the element HTML has for exactly this, which is also
+        # what our own parser reads back as a figure. It has to be decided here rather
+        # than in visit_image because <figure> is flow content and would be invalid
+        # inside the <p> that visit_image renders into (#338).
+        if len(node.content) == 1 and isinstance(node.content[0], Image) and node.content[0].caption:
+            caption = escape_html(node.content[0].caption, enabled=self.options.escape_html)
+            self._output.append(f"<figure{self._get_custom_css_class('Image')}>\n")
+            node.content[0].accept(self)
+            self._output.append(f"\n<figcaption>{caption}</figcaption>\n</figure>\n")
+            return
+
         content = self._render_inline_content(node.content)
         css_class = self._get_custom_css_class("Paragraph")
         self._output.append(f"<p{css_class}>{content}</p>\n")

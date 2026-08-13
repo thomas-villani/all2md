@@ -1314,13 +1314,17 @@ class HtmlToAstConverter(BaseParser):
             )
 
         if mode == "image_with_caption" and caption_text:
-            # Fold the caption into the image's alt text instead of emitting it as its own
-            # paragraph -- but only if there is an image to carry it and that image has no
-            # meaningful alt text of its own. A caption that cannot be absorbed falls
-            # through below and is emitted as a paragraph, rather than being dropped.
+            # Bind the caption to the image instead of emitting it as its own paragraph.
+            # This used to overwrite the image's alt text, which conflated two different
+            # things -- alt text stands in for an image nobody can see, a caption is
+            # printed beside one everybody can -- and meant a figure with real alt text
+            # had to choose between them. `Image.caption` ends that (#338), so the alt
+            # text is now left exactly as the page wrote it. A caption with no image to
+            # carry it still falls through below and is emitted as a paragraph, rather
+            # than being dropped.
             image = self._find_first_image(content)
-            if image is not None and (not image.alt_text or image.alt_text == "Image"):
-                image.alt_text = caption_text
+            if image is not None:
+                image.caption = caption_text
                 caption_text = None
 
         if caption_text:

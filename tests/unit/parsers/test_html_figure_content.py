@@ -197,15 +197,20 @@ class TestFiguresParsingModes:
         assert len(html_blocks) == 1
         assert "<table" in html_blocks[0].content
 
-    def test_image_with_caption_folds_caption_into_alt_text(self):
+    def test_image_with_caption_binds_the_caption_to_the_image(self):
         doc = self._parse("image_with_caption")
         images = [n for n in _walk(doc) if isinstance(n, Image)]
-        assert images[0].alt_text == "Cap"
+        assert images[0].caption == "Cap"
         # ...and the table is still not dropped
         assert [n for n in _walk(doc) if isinstance(n, Table)]
 
-    def test_image_with_caption_keeps_a_caption_it_cannot_absorb(self):
-        """If the image already has alt text, the caption has nowhere to go -- emit it."""
+    def test_a_caption_no_longer_overwrites_real_alt_text(self):
+        """Both survive now. They are different things and the figure has both (#338).
+
+        This used to be a forced choice: the caption went into ``alt_text``, so an
+        image describing itself for a screen reader had to give that up to keep the
+        text printed under it. The image had no field for the second one.
+        """
         doc = to_ast(
             b"<figure><img src='x.png' alt='real alt'><figcaption>Cap</figcaption></figure>",
             source_format="html",
@@ -213,5 +218,15 @@ class TestFiguresParsingModes:
         )
         images = [n for n in _walk(doc) if isinstance(n, Image)]
         assert images[0].alt_text == "real alt"
+        assert images[0].caption == "Cap"
+
+    def test_a_caption_with_no_image_is_still_emitted(self):
+        """A caption that has nothing to bind to must not simply vanish."""
+        doc = to_ast(
+            b"<figure><p>not an image</p><figcaption>Cap</figcaption></figure>",
+            source_format="html",
+            parser_options=HtmlOptions(figures_parsing="image_with_caption"),
+        )
+        assert not [n for n in _walk(doc) if isinstance(n, Image)]
         text = " ".join(n.content for n in _walk(doc) if hasattr(n, "content") and isinstance(n.content, str))
         assert "Cap" in text, "caption was dropped instead of being emitted as a paragraph"
