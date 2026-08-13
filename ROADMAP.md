@@ -6,6 +6,55 @@
 Legend: 🌱 natural next step · 🚀 ambitious · 🌙 moonshot · ✅ foundation already exists
 · 🚢 **shipped**
 
+**Status (2026-08-12).** The **Born-digital ground truth** batch is complete and ships as
+**v1.12.0** — 55 commits in eight days. Its spine is a *second* external lane:
+`benchmarks/pmc`, a pinned 66-article PMC Open Access corpus of publisher PDFs scored
+against publisher JATS. The raster lane below grades our OCR pipeline, as its own entry
+concedes; this one grades the native text-layer, table-detection and layout-derived
+reading-order paths that most real PDF conversion actually uses. That was the
+instrumentation gap that left Theme 2's general claim unmeasurable, and it is now closed.
+
+It paid for itself on first contact, the way the fuzzer did. The batch's other half is the
+defect stream the lane found: two columns starting level read right-column-first on a
+five-thousandths-of-a-point difference; text rescued from a rejected table region skipping
+dehyphenation, so broken words appeared **nowhere in the output at all**; symbol-font list
+markers; a heading wrapping onto a second printed line becoming two headings; single math
+glyphs becoming headings; and auto-OCR discarding a good text layer on 11 of 66 articles.
+**Theme 8 Stage 1 also shipped here** ([#280](https://github.com/thomas-villani/all2md/pull/280)):
+OCR'd pages no longer collapse to one page-sized block.
+
+The numbers are finally *published*, too (`docs/source/benchmarks.rst`), each printed beside
+the control that could falsify it — 95.3% of attainable text recovered against a 0.4%
+wrong-article control — because on most text metrics the highest-scoring converter is one
+that dumps the raw text layer with no structure whatsoever, and a fidelity score with
+nothing to falsify it is not evidence.
+
+**Three lessons, each sharper than the last batch's.**
+
+First, **the vacuous pass reached the release gates themselves.** The Semgrep scan had been
+crash-passing since 2026-07-01 — a pinned action against registry rules it could not parse,
+with the wrapper swallowing the non-zero exit — so **v1.11.0 published through a required
+check that was structurally incapable of failing.** The Action's `report-fail-under` had the
+same shape: it read `score` and discarded `band`, and `report` returns a hardcoded 100 banded
+`not_assessed` whenever no detector ran, which is every format but PDF — so an empty file, a
+valid one and a deliberately broken one all passed `--report-fail-under 100` identically.
+Both now carry a positive control that fails when the check finds nothing. The ratchet
+batch's rule was to demonstrate every gate red before trusting it. The correction is that it
+applies to the gates *guarding the release*, not only to the ones measuring quality, and that
+a gate demonstrated red once can rot back to green when its dependencies move underneath it.
+
+Second, **skepticism needs measuring too.** Sequencing item 8 below used to carry a caveat
+doubting the "OCR collapses a page to one block" blocker, on the grounds that the lane
+reported ~13 blocks per annotated region. [#279](https://github.com/thomas-villani/all2md/issues/279)
+checked it: `block_structure_similarity` is a *symmetric* granularity ratio, so 0.077
+indicates a 13:1 disparity in **either** direction, and the direction had been assumed rather
+than measured. The blocker list was right and the doubt was wrong. An instrument that cannot
+express a sign cannot support a claim about one — and a caveat is a claim.
+
+Third, **every corpus here is English**, so all three lanes are blind to script. A change
+that deleted all CJK, Cyrillic and Arabic content would score perfectly on every one of them.
+The benchmarks page states this; it is a work item, not only a disclaimer.
+
 **Status (2026-08-01).** The **External ground truth** batch is complete and cuts as **v1.11.0**.
 The OmniDocBench lane is live with a recorded baseline, and the fuzzer backlog it shipped
 alongside is closed: all seven crash classes and eleven of the twelve invariant gaps are fixed,
@@ -142,6 +191,21 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
   flavor-dependent — the roundtrip-safe spelling and the widely-displayable spelling are not
   always the same — so each fix landed as a flavor-aware default plus an explicit `html`
   opt-out.
+
+  **The remainder closed in v1.12.0**, and the last of it inverted a stated posture. `<del>`,
+  `<s>`, `<sup>`, `<sub>` and `<mark>` now fold into the AST nodes that already existed for
+  their meaning instead of self-escaping (#140), `<mark>` no longer vanishes on the HTML side
+  where it was listed as inline with no handler, table captions survive through a marker
+  comment (#237, the last of that issue's four formats), and block-level HTML — `<details>`,
+  `<p align>` — passes through rather than degrading to a paragraph (#178). That last one
+  changed the Markdown renderer's default from `escape` to `pass-through`, because escaping
+  was described as a security posture and was not the one doing the work: in the direction
+  where untrusted input actually arrives, the HTML *parser* drops `<script>`, `<iframe>`,
+  `<form>`, `<object>`, `<embed>` and `<svg onload>` outright, so they never reach a renderer
+  to be escaped. All six tracked root documents now round-trip at exactly 100, and the CI
+  fidelity gate is re-recorded from 97 to 100 — which means **zero headroom**, so a
+  regression there shows up immediately and an edit must be controlled against `main` before
+  it is blamed.
 - 🚢 **DOCX round-trip: character styles** — *shipped (v1.9.0).* Run-level named
   character styles ("Quote Char", "Intense Reference") now ride on the inline node's
   `metadata['source_style']` and are re-applied when rendering to DOCX with a template,
@@ -268,6 +332,35 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
   whose goal the corpus happened to match. Our score against an external ground truth stands
   on its own. *If* a comparison ever gets built, it should be per-use-case, run each tool's
   config as its maintainers would recommend it, and be prepared to lose a column.
+- 🚢 **Born-digital ground truth** — *lane landed in `benchmarks/pmc` (v1.12.0).* The raster
+  lane above grades OCR; nothing external covered text-layer extraction, vector table
+  detection or layout-derived reading order, which is most real-world PDF conversion. This
+  one does. Articles come from the `pmc-oa-opendata` bucket, where each versioned prefix
+  holds the publisher PDF beside its JATS XML — publisher-produced ground truth with real
+  sections, paragraphs and table cell markup. The bucket has no corpus-wide revision, so a
+  committed manifest of SHA-256 digests takes that role: loading never lists the bucket and
+  revalidates every byte.
+
+  Three design choices are what make it evidence rather than a number. **The corpus is
+  characterized independently of the filter that selected it** — 750 pages, 100% with a text
+  layer, 81.1% with vector drawings, 0% with the single-full-page-image scan shape, and that
+  zero was checked against a known scan first to confirm the test can fire at all. **Ground
+  truth is projected onto pages by content only**, never using extracted reading order, so it
+  cannot grade the reading-order metric against itself; 95.7% of JATS blocks place, against a
+  0.8% false-placement rate when scored against a *different* article. And **every figure
+  ships with its control**: wrong-article, reversed, scrambled and halved output, plus OCR
+  left in auto mode so "no page needed OCR" stays a measurement that could fail.
+
+  Two dimensions are reported and explicitly refused as gates, with the measurement that
+  disqualified them — `block_structure_similarity` separates own-page from wrong-page output
+  by ~0.06 and *rises* when half the content is deleted. Whole-article recall ships with an
+  attainable ceiling, because only 61.1% of JATS blocks are recoverable from the text layer
+  by any parser: structured citations and bylines record words in an order the page never
+  prints, so raw recall reads as parser loss that is not there.
+
+  **The lane is ungated on fidelity by design** — it exists to find bugs right now, and
+  baselines wait until the defect stream it opened runs dry. It is scheduled monthly and does
+  gate on crashing.
 - 🚢 **Conversion confidence report** — *shipped (v1.9.0).* `all2md report <file>` and
   `Document.metadata['confidence']` surface the sanity signals the PDF/DOCX parsers already
   computed as guards (table cell-fill density, dot-leader ratio, ghost-image counts,
@@ -464,12 +557,13 @@ returns bounding boxes, and our adapter uses them to reconstruct reading order a
 discards them; then the PDF parser wraps the resulting flat string in a single synthetic
 PyMuPDF block spanning the whole page.
 
-**The second of those two losses is now fixed** (unreleased). A geometry-carrying contract
+**The second of those two losses is now fixed** (🚢 v1.12.0). A geometry-carrying contract
 sits beside the flat one — `ocr_pixmap_layout(...) -> list[OcrParagraph] | None` — which
 Tesseract implements through `image_to_data`, and the PDF parser emits one block per
-returned paragraph. The first loss stands: EasyOCR still returns flat text and still
-discards its own boxes, so `ocr_pixmap_layout` returns `None` for it and `-> str` remains a
-live fallback rather than a replaced one.
+returned paragraph. On the sampled OmniDocBench pages that took a page from a single box
+covering the whole rectangle to 54 distinct ones. The first loss stands: EasyOCR still
+returns flat text and still discards its own boxes, so `ocr_pixmap_layout` returns `None`
+for it and `-> str` remains a live fallback rather than a replaced one.
 
 So a socket on top of this contract lets you plug in Textract, Azure Document Intelligence,
 Google Document AI, surya or olmOCR — and then discard precisely the thing you are paying
@@ -499,14 +593,21 @@ one thread.
 
 ### Shape (staged, each stage independently useful)
 
-1. 🌱 **A geometry-carrying OCR result type** — *partially shipped (unreleased).*
+1. 🌱 **A geometry-carrying OCR result type** — *substantially shipped (v1.12.0).*
    `OcrParagraph`/`OcrLine` exist, Tesseract fills them from `image_to_data`, and the PDF
    parser no longer collapses a page to one block; per-paragraph bboxes reach the AST
-   through `SourceLocation.metadata['bbox']`. **Three pieces are still open:** granularity is
-   the line rather than the span; confidence is *read* from Tesseract only to drop `conf < 0`
-   rows and then discarded, so nothing downstream can weigh a low-confidence region; and the
-   EasyOCR adapter still flattens, which is what keeps `-> str` alive as a fallback instead
-   of replacing it. **No new engine, no plugin API** — this stage is pure internal
+   through `SourceLocation.metadata['bbox']`. Reading order comes from the OCR engine, which
+   already emits blocks across columns correctly, rather than being rebuilt from `y` —
+   re-sorting by vertical position assumes a column is one top-to-bottom run.
+   **Three pieces are still open:** granularity is the line rather than the span; confidence
+   is *read* from Tesseract only to drop `conf < 0` rows and then discarded, so nothing
+   downstream can weigh a low-confidence region; and the EasyOCR adapter still flattens,
+   which is what keeps `-> str` alive as a fallback instead of replacing it. A fourth piece
+   is **parked with a measurement**: heading *classification* on a scan needs a signal other
+   than font size, since `_pdf_headers.py` reads its histogram from an empty text layer. Ink
+   density is the best candidate found (AUC 0.85) but the combined classifier scored F1 0.36
+   against a pre-committed 0.6 bar; before/after spacing asymmetry and centredness were
+   refuted outright. **No new engine, no plugin API** — this stage is pure internal
    correctness and is where the value is.
 2. 🌱 **Decouple + then socket.** Move to PIL/bytes + `OCROptions`, hoist language detection,
    add `engine_options` passthrough, *then* add an `all2md.ocr_engines` entry-point group
@@ -608,52 +709,90 @@ round-trip asymmetries #70/#71/#72 🚢, and the Markdown round-trip losses 🚢
    fixed across #206–#212 and #235–#240; `KNOWN_INVARIANT_GAPS` is down to one entry
    (#237's markdown arm, which is a deliberate open question rather than a defect).
 
+**Shipped in the Born-digital ground truth batch** (**v1.12.0**). Four halves, which is one
+more than planned:
+
+7. 🚢 **The `benchmarks/pmc` lane** (Theme 2) — pinned publisher-PDF corpus, JATS ground
+   truth, content-only page alignment, controls on every figure, ungated on fidelity by
+   design. See the Theme 2 entry.
+8. 🚢 **The PDF defect stream it opened** — column ordering, dehyphenation of rescued table
+   text, list-item boundaries, symbol-font markers, wrapped headings, math-glyph headings,
+   styled-run line joins, auto-OCR firing on the scan shape rather than total image area, and
+   borderless table recovery from layout-predicted regions. Roughly a dozen fixes, each
+   found by measurement rather than by report.
+9. 🚢 **Theme 8 Stage 1** — OCR block segmentation and reading order
+   ([#280](https://github.com/thomas-villani/all2md/pull/280)). See Theme 8.
+10. 🚢 **The numbers, published** — `docs/source/benchmarks.rst` and a PDF conversion guide
+    (`docs/source/pdf.rst`), the first of which puts every figure beside its control and is
+    candid about tables being the worst area. Plus the gate repairs the batch turned up:
+    Semgrep, `report-fail-under`, the workflow losing an exit status to `tee`, and one shared
+    declaration of which dimensions may support a verdict.
+
 **Remaining, ordered by leverage-per-effort.**
 
-7. **Make the external lane actionable** (Theme 2) — the cheapest high-value item on the
-   board now, and a prerequisite for trusting (8). Three parts, worth batching into one
-   change because each invalidates the baseline and costs an ~80-minute re-run:
-   **stratified scoring** (the annotations already carry `page_attribute`, which the corpus
-   validates as required and the oracle then ignores — one aggregate over newspapers,
-   handwritten notes, slides, textbooks and papers is not actionable, and the 9 data sources
-   are already known); and the **`block_structure_similarity` content floor**
-   ([#256](https://github.com/thomas-villani/all2md/issues/256)). Tracked as
-   [#257](https://github.com/thomas-villani/all2md/issues/257). The third part —
-   **honest `unsupported_dimensions` messages** — is done: the message now reports the
-   input shape beside the parser's output rather than implying we cannot detect tables.
-   It needed no re-run, because it changes no score.
-8. **Theme 8: positional fidelity** (OCR geometry → provenance → layout). The external
-   baseline makes this bet measurable, and the corpus being all-raster means the lane
-   exercises precisely the path Theme 8 changes. Use score and denominator changes from the
-   pinned lane to decide whether positional provenance improves real pages before expanding
-   the design. Note that the recorded run bears on Stage 1's premise: the PDF parser emits
-   roughly thirteen blocks per annotated region on OCR'd pages, which is not the "collapses
-   to one page-sized block" failure the blocker list describes — re-check that claim against
-   the current code before building on it.
-9. **OCR the embedded image, not a re-render, when a PDF page is one full-page image**
-   (Theme 8, small). Measured on corpus samples: rendering at a fixed 200 dpi produces up to
-   **4.3x** the embedded raster's pixels. No detail is lost — the render is native or above
-   on every page sampled — so this is a speed and cost item, not a fidelity one, and it
-   should not be sold as the latter.
-10. **Async facade + async I/O edge** — unblocks the server/MCP story (see the Async
+11. **Restore the PMC corpus to 66 articles** ([#332](https://github.com/thomas-villani/all2md/issues/332),
+    Theme 2, small but time-sensitive). `PMC11000011.1` was withdrawn upstream; since
+    [#330](https://github.com/thomas-villani/all2md/pull/330) the lane degrades gracefully and
+    reports 65 of 66, which is right for an incident and wrong as a steady state — a
+    permanently-false `complete_corpus` is a permanently-yellow test, and it silently eats the
+    tolerance budget that exists for the *next* withdrawal. Re-walk the one seed with the
+    committed stride and filter rather than hand-picking a replacement, then re-record the
+    reference and the published figures **in the same change**, since the docs and the pin
+    must never disagree.
+12. **Close the born-digital work queue** (Theme 2 → Theme 8). The lane's own reading names
+    the order: **tables are the worst area** (88 emitted against 117 expected, with
+    *detection* rather than extraction as the bottleneck), then **lists** (recall 0.059,
+    of which markerless lists are the part no marker rule can recover), then the residual
+    heading gap. Run-in headings ([#296](https://github.com/thomas-villani/all2md/issues/296))
+    are **parked with a measurement**: every gate tried invents more headings than it
+    recovers, and the body-length rule that looked clean on 12 articles collapsed on 66.
+13. **Make the raster lane actionable** ([#257](https://github.com/thomas-villani/all2md/issues/257),
+    Theme 2). Now cheaper than it was, because one of its three parts is resolved and another
+    is closed: **honest `unsupported_dimensions` messages** shipped in v1.11.0, and the
+    **`block_structure_similarity` content floor** ([#256](https://github.com/thomas-villani/all2md/issues/256))
+    was answered by declaring the dimension ungatable in a shared `dimensions.py` both lanes
+    read — a metric that rises when half the content is deleted cannot evidence a regression
+    *or* an improvement, so a content floor is now an optional repair rather than a
+    prerequisite. What remains is **stratified scoring**: `page_attribute` is already required
+    and validated by the corpus and then ignored by the oracle, and one aggregate over
+    newspapers, handwritten notes, slides, textbooks and papers is not actionable. Still costs
+    an ~80-minute re-baseline, so batch it with any other oracle change.
+14. **Theme 8: positional fidelity** (OCR geometry → provenance → layout). Stage 1 is
+    substantially done; the open pieces are span granularity, carrying OCR confidence through,
+    and the EasyOCR adapter that still flattens. Then Stage 2 (decouple the contract from
+    PyMuPDF, *then* socket it) and Stage 3 (node-level provenance), which is the RAG-trust
+    differentiator and the largest remaining bet on this roadmap. Both lanes can now measure
+    it: the raster one exercises the OCR path directly, and the born-digital one is the
+    control that says whether a geometry change broke the text-layer path.
+15. **Script coverage in the benchmarks** (Theme 2, cheap, blind spot). Every corpus here is
+    English, so a change that deleted all CJK, Cyrillic and Arabic content would score
+    perfectly on all three lanes. Until a non-Latin corpus exists, a character-level change
+    is unmeasured no matter how green the run — write cross-script tests rather than reading
+    the benchmarks as coverage. M6Doc (scanned + CJK) is the obvious candidate corpus.
+16. **OCR the embedded image, not a re-render, when a PDF page is one full-page image**
+    (Theme 8, small). Measured on corpus samples: rendering at a fixed 200 dpi produces up to
+    **4.3x** the embedded raster's pixels. No detail is lost — the render is native or above
+    on every page sampled — so this is a speed and cost item, not a fidelity one, and it
+    should not be sold as the latter.
+17. **Async facade + async I/O edge** — unblocks the server/MCP story (see the Async
     Architecture Decision); the deferred-asset-resolution phase is the user-visible win. Also
     a prerequisite for clean multi-worker training-corpus loading (Theme 1).
-11. **Math support** (Theme 2) — deepens the fidelity moat; pairs with the arXiv source↔PDF
-    ground-truth corpus. Note that OmniDocBench cannot grade this: 260 pages carry formula
-    ground truth, but on an all-raster corpus recovering them is OCR-side maths recognition,
-    not parsing. The arXiv source↔PDF pairs are the instrument that would actually measure it.
+18. **Math support** (Theme 2) — deepens the fidelity moat; pairs with the arXiv source↔PDF
+    ground-truth corpus. Note that neither external lane can grade it: OmniDocBench's 260
+    formula pages are rasters, so recovering them is OCR-side maths recognition rather than
+    parsing, and the PMC lane's JATS records maths as MathML the page does not print in that
+    form. The arXiv source↔PDF pairs are the instrument that would actually measure it.
 
-**Smaller open items**, none blocking: the markdown arm of
-[#237](https://github.com/thomas-villani/all2md/issues/237) (keep the lossy caption demotion
-and document it, or round-trip through an HTML comment — a deliberate call, not a defect);
-[#140](https://github.com/thomas-villani/all2md/issues/140)/[#178](https://github.com/thomas-villani/all2md/issues/178)
-(markdown HTML round trip); [#184](https://github.com/thomas-villani/all2md/issues/184)
-(unreachable options classes); [#183](https://github.com/thomas-villani/all2md/issues/183)
-(corpus throughput gate, parked on runner variance);
+**Smaller open items**, none blocking:
+[#328](https://github.com/thomas-villani/all2md/issues/328) (triage the 16 Semgrep findings
+outside `src/` — `defusedxml` in the two corpus fetchers is worth doing on its own merits;
+the rest is a suppress-or-scope decision);
+[#183](https://github.com/thomas-villani/all2md/issues/183) (corpus throughput gate, parked
+on runner variance, and the variance study it waits on is accumulating on every push);
 [#186](https://github.com/thomas-villani/all2md/issues/186) (Marketplace listing — a public
-call, not an engineering one). Two CI gaps also remain: `scripts/` is in no gate and carries
-10 mypy errors, and the Windows leg does not run mypy, so the `msvcrt` branch has never been
-type-checked in CI.
+call, not an engineering one). Two CI gaps also remain: `scripts/` is in no gate — `mypy`
+covers `src/` and `benchmarks/` only — and the Windows leg runs tests but not `mypy`, so the
+`msvcrt` branch has never been type-checked in CI.
 
 Two of the fuzzer's defects were worth doing regardless of how the batch went, because they
 are reachable from ordinary input rather than from a generated AST:
