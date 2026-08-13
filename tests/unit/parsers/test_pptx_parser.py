@@ -462,6 +462,60 @@ class TestImages:
 
 
 @pytest.mark.unit
+class TestGroupedShapes:
+    """Tests for grouped shapes (python-pptx GroupShape)."""
+
+    def test_grouped_textboxes_are_not_dropped(self) -> None:
+        """Text inside a grouped shape should still be extracted."""
+        prs = Presentation()
+        layout = prs.slide_layouts[6]
+        slide = prs.slides.add_slide(layout)
+
+        tb1 = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(2), Inches(1))
+        tb1.text_frame.text = "Alpha text"
+        tb2 = slide.shapes.add_textbox(Inches(3), Inches(1), Inches(2), Inches(1))
+        tb2.text_frame.text = "Beta text"
+
+        # Group the two textboxes into a single top-level shape, mirroring
+        # SmartArt-converted diagrams or manually grouped callouts.
+        slide.shapes.add_group_shape([tb1, tb2])
+
+        converter = PptxToAstConverter()
+        ast_doc = converter.convert_to_ast(prs)
+
+        texts = [node.content for node in extract_nodes(ast_doc, Text)]
+        assert "Alpha text" in texts
+        assert "Beta text" in texts
+
+    def test_nested_group_shapes_are_not_dropped(self) -> None:
+        """Text inside a group nested within another group should be extracted."""
+        prs = Presentation()
+        layout = prs.slide_layouts[6]
+        slide = prs.slides.add_slide(layout)
+
+        tb1 = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(2), Inches(1))
+        tb1.text_frame.text = "Inner text"
+        tb2 = slide.shapes.add_textbox(Inches(3), Inches(1), Inches(2), Inches(1))
+        tb2.text_frame.text = "Sibling text"
+        inner_group = slide.shapes.add_group_shape([tb1, tb2])
+
+        tb3 = slide.shapes.add_textbox(Inches(5), Inches(1), Inches(2), Inches(1))
+        tb3.text_frame.text = "Outer text"
+
+        # Group the inner group together with another shape, producing a
+        # group-within-a-group.
+        slide.shapes.add_group_shape([inner_group, tb3])
+
+        converter = PptxToAstConverter()
+        ast_doc = converter.convert_to_ast(prs)
+
+        texts = [node.content for node in extract_nodes(ast_doc, Text)]
+        assert "Inner text" in texts
+        assert "Sibling text" in texts
+        assert "Outer text" in texts
+
+
+@pytest.mark.unit
 class TestBulletLists:
     """Tests for bullet list conversion."""
 
@@ -1638,13 +1692,49 @@ class TestHyperlinkExtraction:
         converter = PptxToAstConverter()
         ast_doc = converter.convert_to_ast(prs)
 
-        # Note: Current implementation may not fully integrate hyperlinks with formatting
-        # This test verifies the parser handles hyperlinks when present
-        # Full integration would require matching runs to formatted nodes
         assert isinstance(ast_doc, Document)
 
-        # Try to find link nodes (may or may not be present depending on implementation)
         links = list(extract_nodes(ast_doc, Link))
-        # If links are extracted, verify URL
-        if links:
-            assert links[0].url == "https://www.example.com"
+        assert len(links) == 1
+        assert links[0].url == "https://www.example.com"
+        link_text = "".join(node.content for node in extract_nodes(links[0], Text))
+        assert link_text == "Click here"
+
+    def test_hyperlink_with_surrounding_text_and_formatting(self) -> None:
+        """Hyperlinked run mixed with plain runs keeps the URL, surrounding text, and inner formatting."""
+        prs = Presentation()
+        layout = prs.slide_layouts[6]
+        slide = prs.slides.add_slide(layout)
+
+        textbox = slide.shapes.add_textbox(Inches(1), Inches(1), Inches(5), Inches(1))
+        tf = textbox.text_frame
+        p = tf.paragraphs[0]
+
+        before_run = p.add_run()
+        before_run.text = "Before "
+
+        link_run = p.add_run()
+        link_run.text = "Click here"
+        link_run.hyperlink.address = "https://www.example.com"
+        link_run.font.bold = True
+
+        after_run = p.add_run()
+        after_run.text = " after"
+
+        converter = PptxToAstConverter()
+        ast_doc = converter.convert_to_ast(prs)
+
+        # The URL must survive.
+        links = list(extract_nodes(ast_doc, Link))
+        assert len(links) == 1
+        assert links[0].url == "https://www.example.com"
+
+        # Bold formatting inside the link text must survive.
+        strong_nodes = list(extract_nodes(links[0], Strong))
+        assert len(strong_nodes) == 1
+        assert strong_nodes[0].content[0].content == "Click here"
+
+        # Surrounding plain text must remain intact and in order, with the
+        # run-boundary whitespace preserved so words do not fuse around the link.
+        texts = [node.content for node in extract_nodes(ast_doc, Text)]
+        assert texts == ["Before", " ", "Click here", " ", "after"]

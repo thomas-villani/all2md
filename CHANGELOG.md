@@ -59,6 +59,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and the PST branch sets the flag when it converts an HTML body. Structure loss also
   affected non-Markdown renderers, since headings and lists never became AST nodes at all.
 
+- **PPTX run hyperlinks are no longer discarded.** `_process_paragraph_runs_to_inline` built
+  a `Link` node for every hyperlinked run into a local `result` list, but both of the
+  function's exit paths returned `inline_nodes` (the output of `group_and_format_runs`,
+  which never captures hyperlinks) instead — the hyperlink loop was dead code, so every
+  PPTX hyperlink's URL was silently dropped and only the anchor text survived. Runs are now
+  split into consecutive stretches by hyperlink address; each stretch is formatted
+  independently (so bold/italic inside a link's text still applies) and hyperlinked
+  stretches are wrapped in a `Link` node, preserving run order relative to surrounding plain
+  text.
+- **PPTX grouped shapes no longer drop all of their contents.** `_process_shape_to_ast`
+  handled text frames, tables, images, and charts and then fell through to `None` for
+  everything else. A `GroupShape` has none of those attributes itself — its content lives
+  entirely in its member shapes — so slides with a grouped diagram, SmartArt-converted
+  shapes, or manually grouped callouts (all extremely common in real decks) lost that
+  content with no warning and no degraded-content signal. The parser now recurses into
+  `shape.shapes` for any `GroupShape`, in document order, and handles groups nested inside
+  groups.
 - **A PDF figure caption is now taken from the layout model's `caption` region**, not
   guessed from a fixed band of text near the image. The old rule matched a figure cue
   (`Figure 3`) against a 50pt band above and below the image and, failing that, accepted
