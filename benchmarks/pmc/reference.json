@@ -67,7 +67,32 @@
     "tables_expected": 121
   },
   "degraded_events": {
-    "table_rejected": 101
+    "table_rejected": {
+      "articles": 45,
+      "by_reason": {
+        "degenerate_grid": {
+          "articles": 16,
+          "occurrences": 24
+        },
+        "layout_region_not_tabular": {
+          "articles": 1,
+          "occurrences": 2
+        },
+        "mostly_empty": {
+          "articles": 20,
+          "occurrences": 118
+        },
+        "oversized_grid": {
+          "articles": 1,
+          "occurrences": 1
+        },
+        "text_grid_splits_words": {
+          "articles": 32,
+          "occurrences": 92
+        }
+      },
+      "occurrences": 237
+    }
   },
   "dimensions": {
     "block_structure_similarity": {
@@ -174,11 +199,11 @@
     "unsplit_spans": 42
   },
   "provenance": {
-    "all2md_commit": "200e74677c89edc5b1186061f712648b7a65d174",
+    "all2md_commit": "da3591364cb1251642d2b324408fada42395fa98",
     "bucket": "pmc-oa-opendata",
     "complete_corpus": true,
     "corpus_pin": "9ba5c0cd59067bda102b9e27a7c1e613987c145f9fb61a4c26b811d9fd24dc58",
-    "created_at": "2026-08-13T00:27:44.499597+00:00",
+    "created_at": "2026-08-13T01:56:56.338282+00:00",
     "oracle_schema_version": 1,
     "parser_config": {
       "include_page_numbers": true,
@@ -202,5 +227,5 @@
     "python": "3.12.3 (main, Jun 19 2026, 12:46:00) [GCC 13.3.0]",
     "worktree_dirty": false
   },
-  "schema_version": 3
+  "schema_version": 4
 }
