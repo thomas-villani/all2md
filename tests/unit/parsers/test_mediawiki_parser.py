@@ -3,6 +3,7 @@
 
 from all2md.ast import Table
 from all2md.parsers.mediawiki import MediaWikiParser
+from all2md.renderers.markdown import MarkdownRenderer
 from all2md.renderers.mediawiki import MediaWikiRenderer
 
 
@@ -155,3 +156,60 @@ class TestMediaWikiParserBlockQuotes:
 
         assert len(doc.children) == 1
         assert isinstance(doc.children[0], BlockQuote)
+
+
+class TestMediaWikiParserInlineWhitespace:
+    """Tests that Text fragments around inline formatting keep a single separating space.
+
+    mwparserfromhell splits a paragraph into one Text node per inline-markup boundary, so
+    fully stripping each fragment fuses adjacent words together on render.
+    """
+
+    def test_bold_does_not_fuse_with_surrounding_words(self) -> None:
+        """'''bold''' between two words must not swallow the spaces around it."""
+        parser = MediaWikiParser()
+        doc = parser.parse("This is '''bold''' text.")
+
+        rendered = MarkdownRenderer().render_to_string(doc)
+        assert rendered.strip() == "This is **bold** text."
+
+    def test_italic_does_not_fuse_with_surrounding_words(self) -> None:
+        """''italic'' between two words must not swallow the spaces around it."""
+        parser = MediaWikiParser()
+        doc = parser.parse("This is ''italic'' text.")
+
+        rendered = MarkdownRenderer().render_to_string(doc)
+        assert rendered.strip() == "This is *italic* text."
+
+    def test_nested_formatting_keeps_separating_spaces(self) -> None:
+        """A nested ''italic'' inside '''bold''' must not fuse with its bold neighbours."""
+        parser = MediaWikiParser()
+        doc = parser.parse("This has '''bold with ''nested italic'' inside''' text.")
+
+        rendered = MarkdownRenderer().render_to_string(doc)
+        assert rendered.strip() == "This has **bold with *nested italic* inside** text."
+
+    def test_heading_title_has_no_stray_edge_whitespace(self) -> None:
+        """A heading's title text must still be fully trimmed, not padded with edge spaces."""
+        parser = MediaWikiParser()
+        doc = parser.parse("== Heading ==")
+
+        from all2md.ast import Heading, Text
+
+        heading = doc.children[0]
+        assert isinstance(heading, Heading)
+        assert isinstance(heading.content[0], Text)
+        assert heading.content[0].content == "Heading"
+
+    def test_paragraph_has_no_stray_edge_whitespace(self) -> None:
+        """A plain paragraph must not gain a leading/trailing space from a trailing newline."""
+        parser = MediaWikiParser()
+        doc = parser.parse("Hello world\n")
+
+        from all2md.ast import Paragraph, Text
+
+        assert len(doc.children) == 1
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        assert isinstance(para.content[0], Text)
+        assert para.content[0].content == "Hello world"

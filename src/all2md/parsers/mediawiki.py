@@ -147,8 +147,39 @@ class MediaWikiParser(BaseParser):
 
         """
         if inline_buffer:
+            self._trim_inline_buffer_edges(inline_buffer)
             result.append(Paragraph(content=inline_buffer.copy()))
             inline_buffer.clear()
+
+    @staticmethod
+    def _trim_inline_buffer_edges(inline_buffer: list[Node]) -> None:
+        """Trim the leading/trailing space that marks a true paragraph boundary.
+
+        Text fragments are appended to ``inline_buffer`` with whitespace collapsed but
+        NOT stripped (see ``_process_text_content``), so that a single space separating
+        two fragments joined by inline markup (e.g. "This is " + Strong("bold") + " text.")
+        survives to render as "This is **bold** text." rather than fusing into
+        "This is**bold**text.". That leaves a stray leading/trailing space on the buffer
+        as a whole whenever the first/last fragment happened to abut whitespace at the
+        true edge of the paragraph (start of document, a leading blank line, a trailing
+        newline, etc). This trims exactly that: the leading edge of the first node and
+        the trailing edge of the last node, once, right before the buffer becomes a
+        Paragraph.
+
+        Parameters
+        ----------
+        inline_buffer : list of Node
+            Buffer of inline nodes about to be flushed
+
+        """
+        if not inline_buffer:
+            return
+        first = inline_buffer[0]
+        if isinstance(first, Text):
+            first.content = first.content.lstrip(" ")
+        last = inline_buffer[-1]
+        if isinstance(last, Text):
+            last.content = last.content.rstrip(" ")
 
     def _handle_heading_node(self, node: Any, inline_buffer: list[Node], result: list[Node]) -> int:
         """Handle a Heading node.
@@ -372,38 +403,52 @@ class MediaWikiParser(BaseParser):
         # Handle text with paragraph breaks
         if "\n\n" in text_content:
             parts = text_content.split("\n\n")
+            last_idx = len(parts) - 1
             for idx, part in enumerate(parts):
-                part = part.strip()
+                # Collapse whitespace runs to a single space but do NOT strip the
+                # fragment's own edges here: mwparserfromhell splits a paragraph into
+                # one Text node per inline-markup boundary, so a leading/trailing space
+                # on this fragment may be the only thing separating it from a
+                # neighbouring Strong/Emphasis/Link node once appended to
+                # inline_buffer. Stripping it would fuse the words together on render
+                # (e.g. "This is '''bold''' text" losing both spaces). The true
+                # boundaries - start/end of a paragraph - are trimmed once, in
+                # ``_flush_inline_buffer``, from whatever ends up first/last in the
+                # buffer at flush time.
+                collapsed = re.sub(r"\s+", " ", part)
+                stripped = collapsed.strip()
 
-                if re.match(r"^-{4,}$", part):
+                if re.match(r"^-{4,}$", stripped):
                     self._flush_inline_buffer(inline_buffer, result)
                     result.append(ThematicBreak())
-                elif part:
-                    if self._is_block_quote(part):
+                elif stripped:
+                    if self._is_block_quote(stripped):
                         self._flush_inline_buffer(inline_buffer, result)
-                        quote = self._process_block_quote(part)
+                        quote = self._process_block_quote(stripped)
                         if quote:
                             result.append(quote)
                     else:
-                        inline_buffer.append(Text(content=part))
+                        inline_buffer.append(Text(content=collapsed))
 
                 # Flush after each part except the last
-                if idx < len(parts) - 1:
+                if idx < last_idx:
                     self._flush_inline_buffer(inline_buffer, result)
         else:
-            # Single line text
-            text_content = text_content.strip()
-            if text_content:
-                if re.match(r"^-{4,}$", text_content):
+            # Single line text: same whitespace handling as above - collapse internal
+            # runs but leave the fragment's own edges for ``_flush_inline_buffer`` to trim.
+            collapsed = re.sub(r"\s+", " ", text_content)
+            stripped = collapsed.strip()
+            if stripped:
+                if re.match(r"^-{4,}$", stripped):
                     self._flush_inline_buffer(inline_buffer, result)
                     result.append(ThematicBreak())
-                elif self._is_block_quote(text_content):
+                elif self._is_block_quote(stripped):
                     self._flush_inline_buffer(inline_buffer, result)
-                    quote = self._process_block_quote(text_content)
+                    quote = self._process_block_quote(stripped)
                     if quote:
                         result.append(quote)
                 else:
-                    inline_buffer.append(Text(content=text_content))
+                    inline_buffer.append(Text(content=collapsed))
 
     def _process_wikicode(self, wikicode: Any) -> list[Node]:
         """Process mwparserfromhell Wikicode into AST nodes.
@@ -498,7 +543,10 @@ class MediaWikiParser(BaseParser):
         """
         result: list[Node] = []
 
-        for node in wikicode.nodes:
+        nodes = list(wikicode.nodes)
+        last_idx = len(nodes) - 1
+
+        for idx, node in enumerate(nodes):
             node_type = type(node).__name__
 
             if node_type == "Tag":
@@ -523,17 +571,52 @@ class MediaWikiParser(BaseParser):
                         result.append(inline_node)
 
             elif node_type == "Text":
-                text = str(node).strip()
-                if text:
+                text = self._collapse_inline_fragment(str(node), idx == 0, idx == last_idx)
+                if text.strip():
                     result.append(Text(content=text))
 
             else:
-                # Unknown - treat as text
-                text = str(node).strip()
-                if text:
+                # Unknown - treat as text, same whitespace handling as above
+                text = self._collapse_inline_fragment(str(node), idx == 0, idx == last_idx)
+                if text.strip():
                     result.append(Text(content=text))
 
         return result if result else [Text(content="")]
+
+    @staticmethod
+    def _collapse_inline_fragment(text: str, is_first: bool, is_last: bool) -> str:
+        """Collapse whitespace runs in an inline text fragment, trimming only true edges.
+
+        mwparserfromhell splits inline content (a heading title, or the contents of a
+        Strong/Emphasis/Underline/Strikethrough tag) into one Text node per markup
+        boundary. Fully stripping each fragment (the old behaviour) discards the single
+        space that separates it from a neighbouring inline node, fusing words together
+        on render (e.g. "This is '''bold''' text" losing both spaces around "bold").
+        The two ends of the *whole* wikicode sequence are true boundaries and get
+        trimmed; everything in between keeps a single separating space on each side
+        that abuts another node.
+
+        Parameters
+        ----------
+        text : str
+            Raw fragment text
+        is_first : bool
+            Whether this fragment is the first node in the enclosing wikicode sequence
+        is_last : bool
+            Whether this fragment is the last node in the enclosing wikicode sequence
+
+        Returns
+        -------
+        str
+            Whitespace-collapsed fragment, with true boundary edges trimmed
+
+        """
+        collapsed = re.sub(r"\s+", " ", text)
+        if is_first:
+            collapsed = collapsed.lstrip(" ")
+        if is_last:
+            collapsed = collapsed.rstrip(" ")
+        return collapsed
 
     def _process_inline_tag(self, tag: Any) -> Node | None:
         """Process an inline Tag node.
