@@ -77,6 +77,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   encoded. Measured at 1 image in 70 across 20 PMC articles, in `save` and `base64` modes
   with `include_image_captions` left at its default of `True`.
   ([#338](https://github.com/thomas-villani/all2md/issues/338))
+- **An AsciiDoc hard line break inside a table cell no longer splits the row.**
+  `AsciiDocRenderer.visit_line_break` emitted `' +\n'` for every hard break regardless of
+  context, and a table row is written as one source line, so a cell with an embedded hard
+  break carried a literal newline into the middle of it. The project's own `AsciiDocParser`
+  reads rows line by line: re-parsing `'line1 +\nline2 |b'` produced a one-cell row
+  (`'line1 +'`) followed by a spurious second row (`'line2'`, `'b'`) instead of the original
+  two-cell row, and the `' +'` marker leaked into the first cell's text. The renderer now
+  tracks whether it is inside a table cell and, in that context, renders a hard break the
+  same way it already renders a soft one — as a single space — since AsciiDoc has no
+  in-cell line-break idiom this project's parser reads back as anything other than a new row.
 
 ### Changed
 
