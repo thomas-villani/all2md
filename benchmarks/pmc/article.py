@@ -357,6 +357,156 @@ def measure_precision(
     )
 
 
+@dataclass(frozen=True, slots=True)
+class BindingReport:
+    """Whether a figure's caption reached the figure, rather than merely reaching the output.
+
+    This lane already reports that figure caption *text* survives at close to 100%, because
+    `benchmarks.pmc.oracles.walk` yields each ``<fig>``'s caption as an ordinary text block
+    and the parser does emit those words. That number is true and it is not the question:
+    a caption emitted as free-floating prose scores exactly like one attached to its image.
+    What is missing is the binding, and nothing measured it.
+
+    Three counts, because the interesting failures are distinguishable and a single ratio
+    would hide which one is happening:
+
+    * ``bound`` -- the caption is carried by an emitted figure. The number to move.
+    * ``misfiled`` -- the caption was *found* by the parser and written into the image's
+      ``alt_text`` instead. Alt text substitutes for an image for a reader who cannot see
+      it; a caption sits beside one. Counting these apart separates "the detector failed"
+      from "the detector worked and the AST had nowhere to put the result" (#338), which
+      are opposite kinds of defect with opposite fixes.
+    * ``present`` -- the caption's words are somewhere in the output. Expected to stay near
+      the top whatever the other two do, and reported so that a low ``bound`` cannot be
+      misread as lost text.
+
+    Attributes
+    ----------
+    bound : int
+        Ground-truth figures whose caption is carried by an emitted figure.
+    misfiled : int
+        Ground-truth figures whose caption reached an emitted figure's alt text instead.
+    present : int
+        Ground-truth figures whose caption text appears anywhere in the output.
+    scored : int
+        Ground-truth figures with enough n-grams to look for.
+    too_short : int
+        Figures whose caption is too short to test, reported rather than counted either way.
+    images_emitted : int
+        `Image` nodes emitted across the corpus. Compared against ``scored``, this is the
+        granularity gap: a tiled or multi-panel figure emits several images under one
+        caption, measured at 345 rasters for 231 figures on this corpus.
+    captioned_emitted : int
+        Emitted images carrying a caption at all -- the converse denominator. A parser that
+        captioned every image with the same string would score well on ``bound`` alone.
+    control_bound : int
+        Captions "bound" to a *different* article's figures. The instrument's noise floor.
+    control_scored : int
+        Captions scored against the mismatched article.
+
+    """
+
+    bound: int
+    misfiled: int
+    present: int
+    scored: int
+    too_short: int
+    images_emitted: int
+    captioned_emitted: int
+    control_bound: int
+    control_scored: int
+
+    @property
+    def binding_rate(self) -> float:
+        """Share of testable figures whose caption is attached to a figure in the output."""
+        return self.bound / self.scored if self.scored else 0.0
+
+    @property
+    def misfiled_rate(self) -> float:
+        """Share whose caption was detected but written to alt text instead."""
+        return self.misfiled / self.scored if self.scored else 0.0
+
+    @property
+    def caption_recall(self) -> float:
+        """Share whose caption text survived anywhere -- the number that is already high."""
+        return self.present / self.scored if self.scored else 0.0
+
+    @property
+    def control_binding_rate(self) -> float:
+        """Share of captions 'bound' to the wrong article's figures."""
+        return self.control_bound / self.control_scored if self.control_scored else 0.0
+
+
+def measure_binding(
+    articles: Iterable[tuple[str, Sequence[str], Sequence[tuple[str, str]], str]],
+) -> BindingReport:
+    """Measure whether figure captions are bound to figures.
+
+    Matching is n-gram containment at `RECALL_MIN`, the same rule and threshold
+    `measure_recall` uses, so a caption that counts as recovered there and as unbound here
+    differs only in where it ended up -- not in how generously it was matched.
+
+    **Scored per ground-truth figure, never per emitted image.** A figure tiled into fifteen
+    rasters that all carry the correct caption is one binding, not fifteen; scoring the
+    emitted side would report that article as a triumph and an article whose single image
+    carries no caption as an equal failure.
+
+    Parameters
+    ----------
+    articles : Iterable
+        ``(article_id, truth_captions, emitted_figures, emitted_text)`` tuples, where
+        ``emitted_figures`` are ``(caption, alt_text)`` pairs from the converted AST.
+
+    Returns
+    -------
+    BindingReport
+        Binding, misfiling and caption survival, with the mismatched-article control.
+
+    """
+    indexed = [
+        (
+            [ngrams(normalize(caption)) for caption in truth],
+            [(ngrams(normalize(caption)), ngrams(normalize(alt))) for caption, alt in figures],
+            ngrams(normalize(emitted_text)),
+            len(figures),
+            sum(1 for caption, _alt in figures if caption.strip()),
+        )
+        for _article_id, truth, figures, emitted_text in articles
+    ]
+
+    bound = misfiled = present = scored = too_short = 0
+    images = captioned = control_bound = control_scored = 0
+    for position, (truth, figures, haystack, image_count, captioned_count) in enumerate(indexed):
+        images += image_count
+        captioned += captioned_count
+        # Pair with the neighbour rather than a random article, so the control reproduces
+        # exactly on a re-run -- as `measure_recall` does.
+        other = indexed[(position + 1) % len(indexed)][1]
+        for caption in truth:
+            if len(caption) < MIN_NGRAMS:
+                too_short += 1
+                continue
+            scored += 1
+            bound += any(emitted and _contained(caption, emitted) for emitted, _alt in figures)
+            misfiled += any(alt and _contained(caption, alt) for _emitted, alt in figures)
+            present += _contained(caption, haystack)
+            if other is not figures:
+                control_scored += 1
+                control_bound += any(emitted and _contained(caption, emitted) for emitted, _alt in other)
+
+    return BindingReport(
+        bound=bound,
+        misfiled=misfiled,
+        present=present,
+        scored=scored,
+        too_short=too_short,
+        images_emitted=images,
+        captioned_emitted=captioned,
+        control_bound=control_bound,
+        control_scored=control_scored,
+    )
+
+
 def summarize(values: Sequence[float]) -> dict[str, float]:
     """Summarize a dimension's distribution, so a gate can see whether it discriminates.
 

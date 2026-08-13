@@ -79,8 +79,7 @@ def test_jats_and_html_tables_are_counted_identically() -> None:
     from benchmarks.omnidocbench.oracles import _html_table
 
     markup = (
-        "<table><tr><th colspan='2'>Head</th></tr>"
-        "<tr><td rowspan='2'>A</td><td>B</td></tr><tr><td>C</td></tr></table>"
+        "<table><tr><th colspan='2'>Head</th></tr><tr><td rowspan='2'>A</td><td>B</td></tr><tr><td>C</td></tr></table>"
     )
     jats = oracles._jats_table(ElementTree.fromstring(markup))
     html = _html_table(markup)
@@ -499,6 +498,7 @@ def test_page_scores_and_the_error_budget_come_from_the_same_run(tmp_path: Path)
         ],
         recall=article.measure_recall([]),
         precision=article.measure_precision([]),
+        binding=article.measure_binding([]),
         all2md_commit="deadbeef",
         parser_runtime={},
     )
@@ -526,12 +526,122 @@ def test_recall_and_precision_are_reported_together() -> None:
         evaluations=[],
         recall=article.measure_recall(scored),
         precision=article.measure_precision(scored),
+        binding=article.measure_binding([]),
         all2md_commit="deadbeef",
         parser_runtime={},
     )
     assert payload["article_recall"]["attainable_recall"] > 0.0
     assert payload["article_precision"]["precision"] == pytest.approx(1.0)
     assert payload["article_precision"]["control_emitted"] > 0
+
+
+# ---------------------------------------------------------------------------
+# Figure-to-caption binding
+# ---------------------------------------------------------------------------
+
+_CAPTION = "Figure 1 mean response amplitude across the four experimental conditions shown"
+_OTHER_CAPTION = "Figure 2 electrode placement viewed from above with the reference channel marked"
+
+
+def test_a_figure_caption_is_ground_truth_separate_from_the_text_stream() -> None:
+    """`walk` already yields the caption as prose; binding needs it as a figure of its own."""
+    root = _jats(f"<fig><label>Figure 1</label><caption><p>{_CAPTION}</p></caption></fig>")
+
+    figures = tuple(oracles.walk_figures(root))
+
+    assert len(figures) == 1
+    assert figures[0].label == "Figure 1"
+    assert _CAPTION in figures[0].caption
+    # The same figure still reaches the text stream, unchanged: the two instruments read the
+    # same article and must not disagree about what it contains.
+    assert any(_CAPTION in block.text for block in oracles.walk(root))
+
+
+def test_unrendered_subtrees_hold_no_figures() -> None:
+    """A `<fig>` under a skipped element would be ground truth the page never prints."""
+    root = _jats(f"<counts><fig><caption><p>{_CAPTION}</p></caption></fig></counts>")
+
+    assert tuple(oracles.walk_figures(root)) == ()
+
+
+def test_a_bound_caption_is_recognised() -> None:
+    """Verify the judge can pass: the instrument must report a correct binding as correct.
+
+    This lane's binding rate is **zero by construction** until `Image` gains a caption field
+    (#338), and a gate whose only observable value is zero is indistinguishable from one
+    that cannot fire at all. Every other test here would pass against an instrument that
+    always returns zero; this one would not.
+    """
+    report = article.measure_binding([("A", [_CAPTION], [(_CAPTION, "")], _CAPTION)])
+
+    assert report.scored == 1
+    assert report.binding_rate == pytest.approx(1.0)
+    assert report.misfiled == 0
+
+
+def test_a_caption_that_reached_only_the_prose_is_not_counted_as_bound() -> None:
+    """The whole point: caption text surviving is not the caption being bound.
+
+    On this corpus caption text recall is close to 100% while nothing is bound at all, and
+    an instrument that could not tell those apart would report the parser as already correct.
+    """
+    report = article.measure_binding([("A", [_CAPTION], [("", "")], f"prose {_CAPTION} prose")])
+
+    assert report.binding_rate == pytest.approx(0.0)
+    assert report.caption_recall == pytest.approx(1.0)
+
+
+def test_a_caption_written_into_alt_text_is_counted_apart() -> None:
+    """Detector worked, AST had nowhere to put the result -- a different defect from a miss."""
+    report = article.measure_binding([("A", [_CAPTION], [("", _CAPTION)], _CAPTION)])
+
+    assert report.binding_rate == pytest.approx(0.0)
+    assert report.misfiled_rate == pytest.approx(1.0)
+
+
+def test_a_tiled_figure_counts_once_rather_than_once_per_panel() -> None:
+    """Measured: 231 ground-truth figures emit 345 rasters, one of them tiled fifteen ways.
+
+    Scoring the emitted side would let a single tiled figure outweigh whole articles.
+    """
+    panels = [(_CAPTION, "")] * 15
+    report = article.measure_binding([("A", [_CAPTION], panels, _CAPTION)])
+
+    assert report.bound == 1
+    assert report.scored == 1
+    assert report.images_emitted == 15
+    assert report.captioned_emitted == 15
+
+
+def test_binding_collapses_against_a_different_article() -> None:
+    """Without the control, a high binding rate might only mean captions look alike."""
+    report = article.measure_binding(
+        [
+            ("A", [_CAPTION], [(_CAPTION, "")], _CAPTION),
+            ("B", [_OTHER_CAPTION], [(_OTHER_CAPTION, "")], _OTHER_CAPTION),
+        ]
+    )
+
+    assert report.binding_rate == pytest.approx(1.0)
+    assert report.control_binding_rate == pytest.approx(0.0)
+    assert report.control_scored == 2
+
+
+def test_a_single_article_reports_no_binding_control_rather_than_a_flattering_zero() -> None:
+    """With one article there is no other to score against, as for recall and precision."""
+    report = article.measure_binding([("A", [_CAPTION], [(_CAPTION, "")], _CAPTION)])
+
+    assert report.control_scored == 0
+    assert report.control_binding_rate == pytest.approx(0.0)
+
+
+def test_the_lane_extracts_images_so_a_figure_defect_is_observable() -> None:
+    """Under the default `alt_text` mode the parser emits none, making the oracle vacuous.
+
+    The same argument the lane already makes for leaving OCR enabled: a policy that switches
+    the subsystem off makes its own clean result true by construction.
+    """
+    assert convert.pdf_options().attachment_mode == "base64"
 
 
 class _FakeEvaluation:

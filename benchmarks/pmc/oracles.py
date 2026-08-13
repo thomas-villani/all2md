@@ -353,6 +353,57 @@ def to_projection(blocks: tuple[JatsBlock, ...]) -> PageProjection:
     )
 
 
+@dataclass(frozen=True, slots=True)
+class JatsFigure:
+    """One ``<fig>``: the ground truth for caption-to-figure binding.
+
+    Kept apart from `JatsBlock` on purpose. `walk` already yields a figure's caption as a
+    ``text_block``, which is what makes caption *text* score ~100% on this corpus -- and that
+    number says nothing about whether the caption was bound to the figure it belongs to,
+    because a caption emitted as free-floating prose scores identically to one attached to
+    its image. The two questions need two instruments.
+
+    Attributes
+    ----------
+    label : str
+        The figure's ``<label>``, e.g. ``"Figure 3"``. Empty when unlabelled.
+    caption : str
+        Label and caption text joined as the page renders them, matching what `walk` puts
+        into the text stream so the two instruments describe the same string.
+
+    """
+
+    label: str
+    caption: str
+
+
+def walk_figures(root: Any) -> Iterator[JatsFigure]:
+    """Yield every ``<fig>`` in document order, respecting `SKIPPED`.
+
+    Parameters
+    ----------
+    root : xml.etree.ElementTree.Element
+        Parsed JATS article element or any subtree of one.
+
+    Yields
+    ------
+    JatsFigure
+        Figures in the order the article declares them.
+
+    """
+    tag = _tag(root)
+    if tag in SKIPPED:
+        return
+    if tag == "fig":
+        label = next((_all_text(child) for child in root if _tag(child) == "label"), "")
+        caption = _caption_of(root)
+        if caption:
+            yield JatsFigure(label=label, caption=caption)
+        return
+    for child in root:
+        yield from walk_figures(child)
+
+
 def project_jats(root: Any) -> tuple[tuple[JatsBlock, ...], PageProjection]:
     """Project a whole article, returning its blocks and their comparable projection.
 

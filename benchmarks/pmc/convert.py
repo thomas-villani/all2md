@@ -64,6 +64,30 @@ class DegradedFact:
 
 
 @dataclass(frozen=True, slots=True)
+class EmittedFigure:
+    """One `Image` node the parser emitted, and whatever caption it carries.
+
+    ``caption`` is read through `getattr` because `all2md.ast.nodes.Image` has no caption
+    field yet -- that is the defect this instrument exists to measure (#338). Reading it
+    defensively means the oracle ships before the field and reports the honest zero, rather
+    than the two having to land together and the baseline being unobservable.
+
+    Attributes
+    ----------
+    alt_text : str
+        The node's alt text. Today the PDF parser writes a detected caption here, which
+        conflates an accessibility description with visible page content; recorded so the
+        instrument can see a caption that was found but misfiled.
+    caption : str
+        The node's caption, once it has one. Empty until then.
+
+    """
+
+    alt_text: str
+    caption: str
+
+
+@dataclass(frozen=True, slots=True)
 class ConvertedArticle:
     """One article's AST, whole and split by page.
 
@@ -79,6 +103,8 @@ class ConvertedArticle:
     degraded : tuple[DegradedFact, ...]
         Degraded-conversion events the parser recorded, with their reason and occurrence
         count intact.
+    figures : tuple[EmittedFigure, ...]
+        Every `Image` node the parser emitted, in document order.
 
     """
 
@@ -86,6 +112,7 @@ class ConvertedArticle:
     pages: tuple[Document, ...]
     ocr_page_fraction: float
     degraded: tuple[DegradedFact, ...]
+    figures: tuple[EmittedFigure, ...] = ()
 
 
 def pdf_options(**overrides: Any) -> PdfOptions:
@@ -94,6 +121,19 @@ def pdf_options(**overrides: Any) -> PdfOptions:
     OCR is left **enabled in auto mode** rather than switched off. Disabling it would make
     "no page needed OCR" true by construction; leaving it on means the reported OCR fraction
     is a measurement that can fail, and a corpus that is not born-digital would say so.
+
+    **Image extraction is enabled for the same reason.** The default ``alt_text`` mode
+    returns early before extraction runs, so a lane that inherited the default would report
+    "no figures" by construction and could never see a figure defect at all. ``base64`` is
+    chosen over ``save`` because it needs no temporary directory to create and clean up on
+    a CI runner.
+
+    This costs the text instruments nothing, which is why it can be turned on without
+    disturbing the published figures: the shared oracle's ``_node_text`` returns ``""`` for
+    an `Image` -- the node has no ``content`` and no children -- so extracted images add
+    empty entries to the block stream and contribute not one word to recall or precision.
+    They do add ``text_block`` kinds, which moves ``block_structure_similarity``; that
+    dimension is already declared ungateable here for unrelated reasons.
 
     Parameters
     ----------
@@ -114,6 +154,7 @@ def pdf_options(**overrides: Any) -> PdfOptions:
         "include_page_numbers": True,
         "page_separator_template": PAGE_SEPARATOR_TEMPLATE,
         "ocr": OCROptions(enabled=True, mode="auto", engine="tesseract", languages="eng", dpi=200),
+        "attachment_mode": "base64",
     }
     settings.update(overrides)
     return PdfOptions(**settings)
@@ -228,4 +269,38 @@ def convert_article(pdf_path: Path, expected_pages: int, *, options: PdfOptions 
         pages=split_pages(document, expected_pages),
         ocr_page_fraction=fraction,
         degraded=tuple(sorted(events, key=lambda fact: (fact.kind, fact.reason or ""))),
+        figures=collect_figures(document),
+    )
+
+
+def collect_figures(document: Any) -> tuple[EmittedFigure, ...]:
+    """Return every `Image` node in a converted document, in document order.
+
+    Uses `NodeCollector` rather than recursing ``.children``: images live inside paragraphs
+    and other inline containers, and a ``.children`` walk misses whole node types on this
+    AST -- it finds 170 of 5,233 nodes on a real article.
+
+    Parameters
+    ----------
+    document : Document
+        Converted article.
+
+    Returns
+    -------
+    tuple[EmittedFigure, ...]
+        Emitted figures in document order.
+
+    """
+    from all2md.ast.nodes import Image
+    from all2md.ast.transforms import NodeCollector
+
+    collector = NodeCollector(lambda node: isinstance(node, Image))
+    document.accept(collector)
+    images = [node for node in collector.collected if isinstance(node, Image)]
+    return tuple(
+        EmittedFigure(
+            alt_text=image.alt_text if isinstance(image.alt_text, str) else "",
+            caption=caption if isinstance(caption := getattr(image, "caption", ""), str) else "",
+        )
+        for image in images
     )
