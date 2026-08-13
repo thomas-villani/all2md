@@ -14,8 +14,19 @@ from utils import cleanup_test_dir, create_test_temp_dir
 try:
     from hypothesis import Phase, Verbosity, settings
 
-    # Register custom Hypothesis profiles
-    settings.register_profile("ci", max_examples=100, verbosity=Verbosity.verbose)
+    # Register custom Hypothesis profiles.
+    #
+    # Do NOT set ``verbosity`` on the "ci" profile. Hypothesis ships its own
+    # profile of that exact name and auto-loads it when it detects CI, and
+    # ``register_profile`` re-loads a profile that is already the active one.
+    # So registering "ci" here lands on the live profile in CI, and every
+    # profile registered *after* it -- including "dev", which is what actually
+    # runs -- inherits whatever we set. A stray ``verbosity=Verbosity.verbose``
+    # therefore made CI, and only CI, pretty-print every generated example;
+    # that printer calls ``ast.parse``/``inspect.getsource`` per example and
+    # cost ~35s on a complex document, turning a ~40s fuzz run into 68 minutes.
+    # Use ``--hypothesis-verbosity=verbose`` for a one-off noisy run instead.
+    settings.register_profile("ci", max_examples=100)
     settings.register_profile("dev", max_examples=20)
     settings.register_profile(
         "debug", max_examples=10, verbosity=Verbosity.verbose, phases=[Phase.explicit, Phase.reuse, Phase.generate]
