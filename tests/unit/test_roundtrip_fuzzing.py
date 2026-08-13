@@ -60,7 +60,6 @@ from all2md.ast.nodes import (
     CodeBlock,
     Document,
     Heading,
-    LineBreak,
     List,
     ListItem,
     Paragraph,
@@ -143,13 +142,12 @@ LOSSLESS_FORMATS = ("ast",)
 #: output its own parser rejects is always a bug. They are listed so the gate can
 #: distinguish "already known" from "newly introduced". Minimal reproductions for
 #: every entry are pinned in :class:`TestKnownCrashRepros` below.
-KNOWN_CRASHES: dict[tuple[str, str], str] = {
-    ("asciidoc", "Cannot nest to level 2 without a parent item at level 1"): (
-        "#343: an item whose paragraph opens with a hard line break renders as "
-        "`*  +` -- marker and continuation on one line -- and the asciidoc parser "
-        "does not read that back as a level-1 item, so a nested `**` has no parent."
-    ),
-}
+#:
+#: Empty since #343 closed the asciidoc one. That entry read as a hard-break
+#: rendering problem; it was the parser never joining an item's run-on lines,
+#: which both leaked the text out of the item and ended the list. The regression
+#: tests live with the parser, in tests/unit/parsers/test_asciidoc_parser.py.
+KNOWN_CRASHES: dict[tuple[str, str], str] = {}
 
 
 def is_known(fmt: str, exc: BaseException) -> bool:
@@ -330,42 +328,6 @@ NESTED_TASK_ITEM = Document(
 )
 
 
-#: An outer list item whose paragraph opens with a *hard* line break and then has
-#: text, wrapping a nested empty item that carries a task status. asciidoc writes
-#: this as::
-#:
-#:     *  +
-#:     0
-#:       ** [x]
-#:
-#: and its own parser rejects the `**` for want of a level-1 parent. All three
-#: parts are load-bearing, measured by removing each in turn: without the line
-#: break, without the text after it, with a soft break, with a non-empty inner
-#: item, or with the inner ``task_status`` dropped, the round trip succeeds.
-#: `unchecked` fails the same way as `checked`. #343.
-LINEBREAK_OPENS_LIST_ITEM = Document(
-    children=[
-        List(
-            ordered=False,
-            tight=False,
-            items=[
-                ListItem(
-                    task_status=None,
-                    children=[
-                        Paragraph(content=[LineBreak(soft=False), Text(content="0")]),
-                        List(
-                            ordered=False,
-                            tight=False,
-                            items=[ListItem(children=[], task_status="checked")],
-                        ),
-                    ],
-                )
-            ],
-        )
-    ]
-)
-
-
 @pytest.mark.unit
 @pytest.mark.fuzzing
 class TestKnownCrashRepros:
@@ -379,14 +341,7 @@ class TestKnownCrashRepros:
 
     @pytest.mark.parametrize(
         ("doc", "fmt"),
-        [
-            pytest.param(
-                LINEBREAK_OPENS_LIST_ITEM,
-                "asciidoc",
-                marks=pytest.mark.xfail(strict=True, reason="#343"),
-                id="asciidoc-hard-break-opens-item",
-            ),
-        ],
+        [],
     )
     def test_known_crash_still_reproduces(self, doc: Document, fmt: str) -> None:
         """Each known crash reproduces from a minimal document.

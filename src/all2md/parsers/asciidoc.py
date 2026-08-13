@@ -790,6 +790,22 @@ class AsciiDocParser(BaseParser):
             return None
         return stripped[1:].strip() or None
 
+    def _is_table_block_title(self) -> bool:
+        """Return whether the cursor sits on a `.Title` line belonging to a table.
+
+        Recognized only directly above a table, with nothing but block
+        attributes in between, so an ordinary paragraph opening with a period
+        stays a paragraph. Both ``_parse_block`` and the list-item loop have to
+        agree on this, or a caption would be swallowed as an item's text.
+        """
+        token = self._current_token()
+        if token.type != TokenType.TEXT_LINE or not self._block_title_match(token.content):
+            return False
+        offset = 1
+        while self._peek_token(offset).type == TokenType.BLOCK_ATTRIBUTE:
+            offset += 1
+        return self._peek_token(offset).type == TokenType.TABLE_DELIMITER
+
     def _parse_block(self) -> Node | list[Node] | None:
         """Parse a single block-level element.
 
@@ -811,14 +827,10 @@ class AsciiDocParser(BaseParser):
         # caption made the trip out and not the trip in. Recognized only directly above
         # a table, and only with the delimiter or a block attribute in between, so an
         # ordinary paragraph opening with a period is still a paragraph.
-        if token.type == TokenType.TEXT_LINE and self._block_title_match(token.content):
-            offset = 1
-            while self._peek_token(offset).type == TokenType.BLOCK_ATTRIBUTE:
-                offset += 1
-            if self._peek_token(offset).type == TokenType.TABLE_DELIMITER:
-                self.pending_block_attrs["title"] = self._block_title_match(token.content)
-                self._advance()
-                return None
+        if self._is_table_block_title():
+            self.pending_block_attrs["title"] = self._block_title_match(token.content)
+            self._advance()
+            return None
 
         # Comment (block-level //)
         if token.type == TokenType.COMMENT:
@@ -950,6 +962,64 @@ class AsciiDocParser(BaseParser):
         metadata = {"comment_type": "asciidoc"}
         return Comment(content=content, metadata=metadata)
 
+    def _inline_from_lines(self, lines: list[str]) -> list[Node]:
+        """Join consecutive source lines into one run of inline content.
+
+        AsciiDoc wraps freely: adjacent non-blank lines are one paragraph, and a
+        line ending in ``' +'`` is an explicit break within it. Both a paragraph
+        and a list item's principal text follow those rules, so both call this.
+        It lived inside :meth:`_parse_paragraph` until list items needed it too,
+        and a list item that re-implemented the joining would drift from the
+        paragraph one the first time either was touched.
+
+        Parameters
+        ----------
+        lines
+            Source lines, hard-break markers still attached.
+
+        Returns
+        -------
+        list[Node]
+            Inline nodes, with :class:`LineBreak` where a break was marked and a
+            single space where the newline was merely a wrap.
+
+        """
+        if not self.options.honor_hard_breaks:
+            return self._parse_inline(" ".join(lines))
+
+        content: list[Node] = []
+        for i, line in enumerate(lines):
+            # Hard line break marker: a trailing space and plus.
+            has_hard_break = line.endswith(" +")
+            if has_hard_break:
+                line = line[:-2].rstrip()
+
+            if line:  # an empty line contributes no nodes, only its break
+                content.extend(self._parse_inline(line))
+
+            if has_hard_break:
+                content.append(LineBreak())
+            elif i < len(lines) - 1 and content and not isinstance(content[-1], LineBreak):
+                # A wrapped line: the newline reads as a single space. Merge it
+                # into the preceding text rather than emitting a bare space node.
+                if isinstance(content[-1], Text):
+                    content[-1] = Text(content=content[-1].content + " ")
+                else:
+                    content.append(Text(content=" "))
+
+        # Merge the Text nodes the wrap left adjacent. Without this, "alpha" on
+        # one line and "beta" on the next parse to two nodes where the same text
+        # written on a single line parses to one -- identical documents that
+        # compare unequal, and one more node for every consumer to walk.
+        merged: list[Node] = []
+        for node in content:
+            if isinstance(node, Text) and merged and isinstance(merged[-1], Text) and not node.metadata:
+                merged[-1] = Text(content=merged[-1].content + node.content, metadata=merged[-1].metadata)
+            else:
+                merged.append(node)
+
+        return merged
+
     def _parse_paragraph(self) -> Paragraph | BlockQuote:
         """Parse a paragraph (consecutive text lines).
 
@@ -976,39 +1046,7 @@ class AsciiDocParser(BaseParser):
             if self._current_token().type == TokenType.BLANK_LINE:
                 break
 
-        # Process lines with hard break support
-        if self.options.honor_hard_breaks:
-            content: list[Node] = []
-
-            for i, line in enumerate(lines):
-                # Check for hard line break marker (trailing space + plus)
-                has_hard_break = line.endswith(" +")
-
-                # Strip the hard break marker if present
-                if has_hard_break:
-                    line = line[:-2].rstrip()  # Remove ' +' and any additional trailing spaces
-
-                # Parse inline content for this line
-                if line:  # Only parse non-empty lines
-                    line_nodes = self._parse_inline(line)
-                    content.extend(line_nodes)
-
-                # Add line break if needed
-                if has_hard_break:
-                    content.append(LineBreak())
-                elif i < len(lines) - 1:
-                    # Add space between lines (unless it's the last line or has hard break)
-                    if content and not isinstance(content[-1], LineBreak):
-                        # Merge space into previous text node if possible
-                        if content and isinstance(content[-1], Text):
-                            content[-1] = Text(content=content[-1].content + " ")
-                        else:
-                            content.append(Text(content=" "))
-
-        else:
-            # Original behavior: join all lines with spaces
-            text = " ".join(lines)
-            content = self._parse_inline(text)
+        content = self._inline_from_lines(lines)
 
         # Apply metadata if present
         metadata = {}
@@ -1533,8 +1571,26 @@ class AsciiDocParser(BaseParser):
             content_text = token.content
             self._advance()  # Consume the list item token
 
+            # An item's principal text runs on to the lines that follow it, up
+            # to a blank line, another item, or a block -- the same wrapping
+            # rule a paragraph follows, which is why both share
+            # ``_inline_from_lines``.
+            #
+            # Nothing collected them before, and the damage was not just that
+            # the text leaked out of the item as a sibling paragraph: a run-on
+            # line ended the list, so the next nested item had no level-1 parent
+            # and the AST builder raised ValueError. `* a` / `b` / `** c` --
+            # three lines of ordinary hand-written AsciiDoc -- was enough. #343.
+            item_lines = [content_text]
+            while self._current_token().type == TokenType.TEXT_LINE and not self._is_list_continuation():
+                # A `.Caption` line directly above a table is a block title, not
+                # this item's text. Same guard `_parse_block` applies.
+                if self._is_table_block_title():
+                    break
+                item_lines.append(self._advance().content)
+
             # Parse inline content and wrap in paragraph
-            content_nodes = self._parse_inline(content_text)
+            content_nodes = self._inline_from_lines(item_lines)
             item_content: list[Node] = [Paragraph(content=content_nodes)]
 
             # Add to builder with proper level
