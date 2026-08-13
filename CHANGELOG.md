@@ -36,6 +36,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A line break inside a Markdown table cell or heading no longer destroys the block it
+  sits in.** `visit_line_break` emitted a real newline (`"\n"`, or `"  \n"` for a hard
+  break) whatever the surrounding context was, and cell rendering escaped pipes but never
+  newlines. A cell holding a hard break therefore rendered as `| line1  <newline>line2 | b |`,
+  which splits the pipe row: the table reparsed with *zero* data rows and the remains
+  became a stray paragraph. The same break in a heading ended the heading early and dropped
+  everything after it into a paragraph of its own. Cells and headings now render their
+  inline content in a single-line context: a hard break becomes `<br>` (GFM's spelling
+  inside a cell, which our Markdown parser keeps as inline HTML in the cell it belongs to)
+  and a soft break — a source-wrapping artifact — becomes a space, matching what the CSV
+  renderer already did with the same nodes. Newlines arriving from anywhere else (a `Text`
+  node with an embedded newline, multi-line raw inline HTML) are flattened to a space as a
+  backstop. The ASCII-art table fallback gets the same treatment, since a newline broke the
+  grid it was being measured for. Line breaks in paragraphs are unchanged.
 - **A Markdown block quote nested in a list item is no longer indented twice.** The quote's
   children were rendered to a string while the list item's marker-width indent was still
   active, so a child paragraph already carried that indent; the quote then prefixed

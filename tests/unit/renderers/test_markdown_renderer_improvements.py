@@ -1,7 +1,21 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """Unit tests for new Markdown renderer improvements."""
 
-from all2md.ast import BlockQuote, Document, Heading, Link, List, ListItem, Paragraph, Strong, Text
+from all2md.ast import (
+    BlockQuote,
+    Document,
+    Heading,
+    LineBreak,
+    Link,
+    List,
+    ListItem,
+    Paragraph,
+    Strong,
+    Table,
+    TableCell,
+    TableRow,
+    Text,
+)
 from all2md.options.markdown import MarkdownRendererOptions
 from all2md.parsers.markdown import markdown_to_ast
 from all2md.renderers.markdown import MarkdownRenderer
@@ -360,3 +374,137 @@ class TestBlockQuoteInsideListItem:
 
         renderer = MarkdownRenderer(options=MarkdownRendererOptions())
         assert renderer.render_to_string(doc) == "> top"
+
+
+class TestLineBreakInSingleLineContexts:
+    """Tests for line breaks inside table cells and headings (#27)."""
+
+    @staticmethod
+    def _table_with_break(soft: bool) -> Document:
+        """Build a 2x2 table whose first data cell holds a line break."""
+        return Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[
+                            TableCell(content=[Text(content="h1")]),
+                            TableCell(content=[Text(content="h2")]),
+                        ]
+                    ),
+                    rows=[
+                        TableRow(
+                            cells=[
+                                TableCell(
+                                    content=[
+                                        Text(content="line1"),
+                                        LineBreak(soft=soft),
+                                        Text(content="line2"),
+                                    ]
+                                ),
+                                TableCell(content=[Text(content="b")]),
+                            ]
+                        )
+                    ],
+                )
+            ]
+        )
+
+    def test_hard_break_in_cell_uses_br(self) -> None:
+        """A hard break in a cell becomes <br>, never a newline."""
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(self._table_with_break(soft=False))
+
+        assert "\n| line1<br>line2 | b |" in output
+        assert "line1  \nline2" not in output
+
+    def test_soft_break_in_cell_becomes_space(self) -> None:
+        """A soft break in a cell degrades to a space."""
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(self._table_with_break(soft=True))
+
+        assert "\n| line1 line2 | b |" in output
+
+    def test_cell_break_roundtrips_with_table_intact(self) -> None:
+        """The table keeps its row and both cells after a reparse."""
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(self._table_with_break(soft=False))
+
+        reparsed = markdown_to_ast(output)
+        assert [type(child).__name__ for child in reparsed.children] == ["Table"]
+        table = reparsed.children[0]
+        assert len(table.rows) == 1
+        assert len(table.rows[0].cells) == 2
+        assert table.rows[0].cells[1].content[0].content == "b"
+        # Both halves of the broken cell stay in the cell they belong to.
+        cell_text = "".join(getattr(node, "content", "") for node in table.rows[0].cells[0].content)
+        assert cell_text == "line1<br>line2"
+
+    def test_hard_break_in_heading_uses_br(self) -> None:
+        """A hard break in a heading becomes <br> so the heading stays whole."""
+        doc = Document(
+            children=[
+                Heading(
+                    level=2,
+                    content=[Text(content="part1"), LineBreak(soft=False), Text(content="part2")],
+                )
+            ]
+        )
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(doc)
+
+        assert output == "## part1<br>part2"
+
+    def test_heading_break_roundtrips_without_losing_the_tail(self) -> None:
+        """Text after the break stays in the heading instead of falling out."""
+        doc = Document(
+            children=[
+                Heading(
+                    level=2,
+                    content=[Text(content="part1"), LineBreak(soft=False), Text(content="part2")],
+                )
+            ]
+        )
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(doc)
+
+        reparsed = markdown_to_ast(output)
+        assert [type(child).__name__ for child in reparsed.children] == ["Heading"]
+        heading_text = "".join(getattr(node, "content", "") for node in reparsed.children[0].content)
+        assert heading_text == "part1<br>part2"
+
+    def test_soft_break_in_heading_becomes_space(self) -> None:
+        """A soft break in a heading degrades to a space."""
+        doc = Document(
+            children=[Heading(level=2, content=[Text(content="a"), LineBreak(soft=True), Text(content="b")])]
+        )
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+
+        assert renderer.render_to_string(doc) == "## a b"
+
+    def test_paragraph_breaks_are_untouched(self) -> None:
+        """Outside a cell or heading, line breaks still render as newlines."""
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="a"), LineBreak(soft=False), Text(content="b")]),
+                Paragraph(content=[Text(content="c"), LineBreak(soft=True), Text(content="d")]),
+            ]
+        )
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+
+        assert renderer.render_to_string(doc) == "a  \nb\n\nc\nd"
+
+    def test_embedded_newline_in_cell_text_is_flattened(self) -> None:
+        """A Text node carrying a newline cannot break the row either."""
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(cells=[TableCell(content=[Text(content="h")])]),
+                    rows=[TableRow(cells=[TableCell(content=[Text(content="one\ntwo")])])],
+                )
+            ]
+        )
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(doc)
+
+        assert "\n| one two |" in output
+        assert len(markdown_to_ast(output).children[0].rows) == 1

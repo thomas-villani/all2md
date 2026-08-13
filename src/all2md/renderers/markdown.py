@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import html
 import re
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import IO, Any, Union
 
@@ -124,6 +126,9 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._link_references: dict[str, int] = {}  # url -> ref_id for reference-style links
         self._next_ref_id: int = 1
         self._block_link_references: dict[str, int] = {}  # url -> ref_id for current block
+        # True while rendering inline content that must stay on one source line
+        # (a table cell, a heading). See _single_line().
+        self._in_single_line: bool = False
 
     @staticmethod
     def _get_flavor(flavor_name: str) -> MarkdownFlavor:
@@ -173,6 +178,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._link_references = {}
         self._next_ref_id = 1
         self._block_link_references = {}
+        self._in_single_line = False
 
         document.accept(self)
 
@@ -460,6 +466,52 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # Clear block references after emitting
         self._block_link_references.clear()
 
+    @contextmanager
+    def _single_line(self) -> Iterator[None]:
+        """Render inline content for a context that cannot contain a newline.
+
+        A table cell and a heading are each a single line of Markdown source: a
+        real newline emitted inside one ends the pipe row (dropping every cell
+        after it, and every row after that) or truncates the heading. Inside
+        this context ``visit_line_break`` emits ``<br>`` / a space instead, and
+        the caller flattens anything else that still slipped a newline through
+        with :meth:`_flatten_to_single_line`.
+        """
+        saved = self._in_single_line
+        self._in_single_line = True
+        try:
+            yield
+        finally:
+            self._in_single_line = saved
+
+    @staticmethod
+    def _flatten_to_single_line(content: str) -> str:
+        """Collapse any remaining newline in single-line inline content.
+
+        ``visit_line_break`` already avoids emitting newlines in a single-line
+        context; this is the backstop for the other sources (a ``Text`` node
+        carrying an embedded newline, raw inline HTML spanning lines), which
+        would otherwise break the enclosing row or heading just as badly.
+
+        Parameters
+        ----------
+        content : str
+            Rendered inline content
+
+        Returns
+        -------
+        str
+            Content with every newline turned into a single space
+
+        """
+        if "\n" not in content and "\r" not in content:
+            return content
+        flattened = content.replace("\r\n", "\n").replace("\r", "\n")
+        # A hard break renders as two trailing spaces plus a newline; drop the
+        # padding rather than leave it stranded mid-line.
+        flattened = re.sub(r"[ \t]*\n[ \t]*", " ", flattened)
+        return flattened.strip()
+
     def _current_indent(self) -> str:
         """Get the current indentation string.
 
@@ -588,7 +640,11 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Heading to render
 
         """
-        content = self._render_inline_content(node.content)
+        # A heading is one line of source, whichever style it is written in: a
+        # newline in its content ends the heading early and the remainder falls
+        # out into a paragraph of its own.
+        with self._single_line():
+            content = self._flatten_to_single_line(self._render_inline_content(node.content))
 
         # Apply heading level offset (clamped to valid range 1-6)
         adjusted_level = max(1, min(6, node.level + self.options.heading_level_offset))
@@ -1010,14 +1066,17 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         rendered_rows: list[list[str]] = []
-        for row in rows:
-            cells: list[str] = []
-            for cell in row.cells:
-                content = self._render_inline_content(cell.content)
-                if self.options.table_pipe_escape:
-                    content = content.replace("|", "\\|")
-                cells.append(content)
-            rendered_rows.append(cells)
+        # A cell occupies one line of a pipe row: a newline inside one truncates
+        # the row and everything after it stops being part of the table.
+        with self._single_line():
+            for row in rows:
+                cells: list[str] = []
+                for cell in row.cells:
+                    content = self._flatten_to_single_line(self._render_inline_content(cell.content))
+                    if self.options.table_pipe_escape:
+                        content = content.replace("|", "\\|")
+                    cells.append(content)
+                rendered_rows.append(cells)
         return rendered_rows
 
     def _calculate_column_widths(self, rendered_rows: list[list[str]], num_cols: int) -> list[int]:
@@ -1267,14 +1326,16 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         num_cols = self._compute_table_columns(rows_to_render)
 
-        # Render all cells to determine column widths
+        # Render all cells to determine column widths. As with a pipe table, a
+        # newline inside a cell would break the grid it is being measured for.
         rendered_rows: list[list[str]] = []
-        for row in rows_to_render:
-            cells: list[str] = []
-            for cell in row.cells:
-                content = self._render_inline_content(cell.content)
-                cells.append(content)
-            rendered_rows.append(cells)
+        with self._single_line():
+            for row in rows_to_render:
+                cells: list[str] = []
+                for cell in row.cells:
+                    content = self._flatten_to_single_line(self._render_inline_content(cell.content))
+                    cells.append(content)
+                rendered_rows.append(cells)
 
         # Calculate column widths
         col_widths: list[int] = [0] * num_cols
@@ -1526,7 +1587,16 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Line break to render
 
         """
-        if node.soft:
+        if self._in_single_line:
+            # A newline inside a table cell ends the pipe row (the table then
+            # reparses with no data rows at all) and inside a heading truncates
+            # it, dropping everything after the break into a stray paragraph.
+            # GFM spells a hard break inside a cell "<br>", which our Markdown
+            # parser keeps as inline HTML in the cell it belongs to; a soft break
+            # is a source-wrapping artifact and degrades to a space, matching
+            # what the CSV renderer does with the same nodes (#27).
+            self._output.append(" " if node.soft else "<br>")
+        elif node.soft:
             self._output.append("\n")
         else:
             self._output.append("  \n")
