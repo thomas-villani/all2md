@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **One rejected table region is no longer counted as two** (PDF). When the layout model
+  predicts a table region and a grid is found there but then refused, the refusing guard
+  records its own specific reason — `text_grid_splits_words`, `degenerate_grid`,
+  `mostly_empty`. The method that owns this already carried a note forbidding the vaguer
+  `layout_region_not_tabular` from being added on top, because that counts the same region
+  twice and takes a second bite out of the confidence score. The flag the note relies on did
+  not work for the case it was written for: `found_grid` was set *after* the split-word
+  guard, and that guard `continue`s, so the flag was only ever true for grids that
+  *survived* — never for a grid found and then rejected.
+  The signature is unmistakable on the born-digital corpus. Across 12 articles the two
+  reasons appear in exact 1:1 correspondence in every affected article — 1/1, 4/4, 6/6,
+  12/12, 29 each in total — which is one region counted twice rather than two regions
+  rejected. So the confidence score was penalised twice for a single refusal, and the
+  benchmark's headline `table_rejected` count roughly doubles its dominant case, which
+  matters because that number is read as "tables we threw away". The flag is now set when a
+  grid is *found*, which is what its name and the note both already said it meant.
+  The existing regression test asserted this property but only on the arm that satisfied it:
+  it drives `lines_strict` with a degenerate grid, reaching the foot of the method with the
+  flag already set. The new one drives the text-alignment arm where the defect lived, and
+  asserts the recorded *reasons* rather than the counter — a counter cannot see one region
+  rejected under two names.
 - **The PMC born-digital corpus is back to 66 articles.** `PMC11000011.1` was withdrawn
   upstream (#329), and since #330 the lane degraded gracefully and scored 65 of 66. That is
   the right behaviour for an incident and the wrong steady state: a permanently-false
