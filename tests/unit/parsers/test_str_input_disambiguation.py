@@ -152,6 +152,40 @@ class TestResolveStrInput:
 
 
 @pytest.mark.unit
+class TestFormatDetectionAgreesWithTheLoader:
+    """Auto-detection must classify a ``str`` the same way the loader does.
+
+    The #233 rule lived only in the input loader. ``registry.detect_format`` still
+    treated every ``str`` as a filename, so the two disagreed and the same failure
+    class resurfaced one layer down: ``to_markdown`` picked a parser off the tail
+    of a sentence before the loader ever got to classify it.
+    """
+
+    def test_prose_mentioning_a_csv_is_not_parsed_as_a_table(self) -> None:
+        from all2md import to_markdown
+
+        result = to_markdown("Reminder: check results.csv")
+
+        assert "|" not in result, "prose was routed to the CSV parser and became a table"
+        assert "Reminder: check results.csv" in result
+
+    def test_prose_mentioning_a_pdf_does_not_raise_file_not_found(self) -> None:
+        """The caller passed content, so no path can be reported as missing."""
+        from all2md import to_markdown
+
+        result = to_markdown("Payload attached as invoice.pdf")
+
+        assert "Payload attached as invoice.pdf" in result
+
+    def test_a_mistyped_filename_still_raises(self) -> None:
+        """The #233 behaviour is preserved: no whitespace + known extension = a path."""
+        from all2md import to_markdown
+
+        with pytest.raises(All2MdFileNotFoundError):
+            to_markdown("does_not_exist.md")
+
+
+@pytest.mark.unit
 def test_prose_ending_in_a_dotted_word_still_parses() -> None:
     """Regression: ``.com`` is not an all2md extension, so this stays content.
 
