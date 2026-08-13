@@ -920,21 +920,32 @@ class PptxToAstConverter(BaseParser):
         # group_and_format_runs so bold/italic/etc. inside a link's text is
         # preserved, and hyperlinked stretches are wrapped in a Link node.
         # Run order (and therefore the order links appear relative to plain
-        # text) is preserved throughout.
+        # text) is preserved throughout. group_and_format_runs strips each
+        # group's edges, so whitespace at a segment boundary ("...to " before
+        # a linked run) must be re-emitted here or adjacent words fuse.
         result: list[Node] = []
         segment: list[Any] = []
         segment_url: str | None = None
+        pending_space = False
 
         def flush_segment() -> None:
-            nonlocal segment
+            nonlocal segment, pending_space
             if not segment:
                 return
+            raw = "".join(run.text or "" for run in segment)
             formatted = format_run_segment(segment)
             if formatted:
+                if result and (pending_space or raw[:1].isspace()):
+                    result.append(Text(content=" "))
                 if segment_url:
                     result.append(Link(url=segment_url, content=cast(list[Node], formatted)))
                 else:
                     result.extend(formatted)
+                pending_space = raw[-1:].isspace()
+            elif raw and result:
+                # Whitespace-only segment between content-bearing segments:
+                # keep a single separating space.
+                pending_space = True
             segment = []
 
         for run in paragraph.runs:
