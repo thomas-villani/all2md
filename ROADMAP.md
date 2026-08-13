@@ -6,6 +6,42 @@
 Legend: 🌱 natural next step · 🚀 ambitious · 🌙 moonshot · ✅ foundation already exists
 · 🚢 **shipped**
 
+**Status (2026-08-13).** A planning pass, not a release. Sequencing item 11 — restore the
+PMC corpus to 66 articles ([#332](https://github.com/thomas-villani/all2md/issues/332)) — is
+done and sits in `[Unreleased]`, with the published figures now *checked* against the
+artifacts they cite. The caption measurement that closed out that work opened a new defect
+stream: the **PDF figure pipeline** ([#338](https://github.com/thomas-villani/all2md/issues/338),
+[#340](https://github.com/thomas-villani/all2md/issues/340)), where default options emit zero
+`Image` nodes and detected captions are discarded in every mode. Decisions taken in this
+pass: the next batch is **Figures & the born-digital queue**, the outward-facing push starts
+when it ships, the PMC lane's ungated status now has an exit criterion, and structured
+extraction is promoted to a numbered slot. See **Suggested sequencing**.
+
+The pass also closed a months-old CI mystery. The generative round-trip gates had been
+exiled to a nightly because they took **68 minutes** on CI against ~40 seconds locally, and
+six theories had been refuted against that gap — Python version, Hypothesis version, the
+example database, example count, coverage instrumentation, a slow runner. The cause was one
+word in `tests/conftest.py`: Hypothesis ships a built-in profile named `ci` and auto-loads
+it when it detects CI, and `register_profile` *re-loads* a profile that is already active —
+so our own `register_profile("ci", …, verbosity=Verbosity.verbose)` landed on the live
+profile, and `dev`, registered next and what actually runs, inherited the verbosity. Verbose
+pretty-prints every generated example through a printer calling `ast.parse`, ~35s on a
+complex document. It could not reproduce locally because off CI nothing re-loads;
+`CI=true pytest` reproduces it in one command, and that is the transferable part — an
+environment-only oddity needs the environment, not a theory.
+
+The gates are back in per-PR CI ([#342](https://github.com/thomas-villani/all2md/pull/342))
+and found a real defect on their **first** run there
+([#343](https://github.com/thomas-villani/all2md/issues/343)). Two things about that are
+worth keeping. The allowlist entry we wrote for it blamed the wrong component — it read as a
+hard-break *rendering* problem and was the AsciiDoc parser never joining a list item's
+run-on lines, reachable from three lines of hand-written AsciiDoc rather than from anything
+exotic. And the nightly it replaced had been **structurally incapable** of discovering
+anything: it swept with `--hypothesis-seed=random`, which loses to the per-test
+`derandomize=True`, so it replayed the same corpus every night. Measured by fingerprinting
+the drawn documents with and without the flag — identical. That is the vacuous-pass pattern
+again, in the instrument whose whole job is discovery.
+
 **Status (2026-08-12).** The **Born-digital ground truth** batch is complete and ships as
 **v1.12.0** — 55 commits in eight days. Its spine is a *second* external lane:
 `benchmarks/pmc`, a pinned 66-article PMC Open Access corpus of publisher PDFs scored
@@ -140,7 +176,10 @@ obvious.
 - 🚀 **Structured extraction** — *not started* (distinct from the shipped `--extract`
   selector, which pulls sections/tables/figures as Markdown). The ambition here is
   `all2md extract doc.pdf --schema invoice.json` → typed, schema-validated JSON
-  (tables → records, key/value fields). Document → data, not prose.
+  (tables → records, key/value fields). Document → data, not prose. *Promoted to a numbered
+  slot in **Suggested sequencing** (2026-08-13)* — it is the vision statement's "substrate
+  for LLM workflows" claim made literal, and the biggest unstarted user-visible item on the
+  board.
 - 🚀 **Loader adapters (two tiers).** Every framework wants the same payload —
   *text + metadata records* — which our AST + chunker already produces. Split the work:
   - **RAG-framework adapters** (🌱, easy, high-visibility) — one thin module each, roughly a
@@ -270,19 +309,35 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
   `xfail(strict=True)`, so they can only shrink — fixing an entry XPASSes and fails CI until
   the entry is deleted. It is the **noisy** instrument to `benchmarks/roundtrip`'s sharp one.
 
-  **Its measured blind spot**, because the ratchet batch's lesson demands we look for one.
-  Injecting deliberate renderer breaks and checking the gate goes red: a break on a shape
-  present in ~20% of generated documents is caught; one at ~7% (a level-6 heading) passes
-  silently. The cause is `@given(documents(), st.sampled_from(TEXT_FORMATS))` at
-  `max_examples=25` — 25 examples spread over 11 formats is ~2 documents each. Parametrizing
-  over the format instead gives each its own 25 examples, drops the detection floor below 7%,
-  and names the offending format in the test id, for ~12s more wall clock. *Until that lands,
-  do not read a green here as "no crash exists" — read it as "nothing common is broken".*
+  **Its blind spots, each measured**, because the ratchet batch's lesson demands we look for
+  them. The first is closed: injecting deliberate renderer breaks showed that a shape in ~20%
+  of documents was caught while one at ~7% (a level-6 heading) passed silently, because
+  `@given(documents(), st.sampled_from(TEXT_FORMATS))` at `max_examples=25` gave each format
+  ~2 documents. The format is now a `parametrize` argument, so each gets its own 25 and the
+  test id names the offender.
+
+  The second is open and much larger: **the strategy can only build 19 of the 34 AST node
+  types.** `Comment`, `DefinitionList`/`Term`/`Description`, `FootnoteDefinition`,
+  `FootnoteReference`, `HTMLBlock`, `HTMLInline`, `Mark`, `MathBlock`, `MathInline`,
+  `Subscript`, `Superscript` and `Underline` are unreachable at any example count, and
+  format metacharacters are excluded from the text alphabet by design. This is the
+  distinction that matters when someone asks to "expand the fuzzer": raising `max_examples`
+  deepens coverage only of shapes already reachable, so **more coverage, not more examples**.
+  A footnote round-trip bug is invisible here however long it runs — and `benchmarks/roundtrip`
+  has already found real self-escaping-HTML bugs in exactly footnotes and marks, so this is a
+  demonstrated gap rather than a theoretical one. Widening it should go one node-type group
+  per PR, since each group will bring its own allowlist churn and a batch would make the reds
+  unattributable. The cheap companion item is extending the invariant matrix from 6 formats
+  to include textile/mediawiki/dokuwiki, which is deterministic and near-free and is exactly
+  where the original empty-list-item defects (#160, #159, #119) shipped.
 
   What it produced on first contact: six crash classes (#206–#211), an exception-contract
   hole (#212), and the first **enumerated** — rather than suspected — list of round-trip gaps
   in the org and asciidoc renderers (table captions, ordered-list `start`, the `#+BEGIN_SRC`
-  language, and an asciidoc trailing pipe its own parser reads as a phantom column).
+  language, and an asciidoc trailing pipe its own parser reads as a phantom column). What it
+  produced on its first *per-PR* run, months later, was #343 — three lines of ordinary
+  AsciiDoc that crashed the parser, sitting in a format we had already fuzzed, because the
+  nightly it had been exiled to was replaying one fixed corpus rather than drawing new ones.
 - 🚢 **External ground truth** — *lane landed in `benchmarks/omnidocbench`; baseline recorded
   2026-08-01.* `roundtrip_report` (🚢) is **self-referential**: it proves we invert our own
   parsers, not that we read the document correctly. A garbled table can round-trip perfectly.
@@ -360,7 +415,23 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
 
   **The lane is ungated on fidelity by design** — it exists to find bugs right now, and
   baselines wait until the defect stream it opened runs dry. It is scheduled monthly and does
-  gate on crashing.
+  gate on crashing. *Dry* now has a definition rather than a mood (2026-08-13): **two
+  consecutive scheduled runs that open no new defect issue → record the fidelity baseline
+  and gate**, on the same ratchet shape as the raster lane. Without a written exit
+  criterion, ungated-by-design decays into ungated-by-inertia, and from outside the two are
+  indistinguishable.
+- 🌱 **The PDF figure pipeline** — *opened by the born-digital lane's caption measurement*
+  ([#340](https://github.com/thomas-villani/all2md/issues/340),
+  [#338](https://github.com/thomas-villani/all2md/issues/338)). Three losses, each verified
+  by direct call rather than inferred (#340): **default options emit zero `Image` nodes** for
+  a PDF's figures, `include_image_captions` is inert in every attachment mode, and
+  vector-drawn figures yield nothing under any settings — raster count ≠ figure count, so
+  the caption metric was measuring association against a population that mostly isn't
+  there. The fix direction (#338) is to bind captions to figures and **give figures a home
+  in the AST** — which is the missing prerequisite for Theme 8 Stage 4's caption↔figure
+  association (a caption cannot be bound to a figure the output does not contain), and the
+  node where Stage 3's provenance metadata will ride. Headline of the next batch — see
+  **Suggested sequencing**.
 - 🚢 **Conversion confidence report** — *shipped (v1.9.0).* `all2md report <file>` and
   `Document.metadata['confidence']` surface the sanity signals the PDF/DOCX parsers already
   computed as guards (table cell-fill density, dot-leader ratio, ghost-image counts,
@@ -730,33 +801,44 @@ more than planned:
 
 **Remaining, ordered by leverage-per-effort.**
 
-11. **Restore the PMC corpus to 66 articles** ([#332](https://github.com/thomas-villani/all2md/issues/332),
-    Theme 2, small but time-sensitive). `PMC11000011.1` was withdrawn upstream; since
-    [#330](https://github.com/thomas-villani/all2md/pull/330) the lane degrades gracefully and
-    reports 65 of 66, which is right for an incident and wrong as a steady state — a
-    permanently-false `complete_corpus` is a permanently-yellow test, and it silently eats the
-    tolerance budget that exists for the *next* withdrawal. Re-walk the one seed with the
-    committed stride and filter rather than hand-picking a replacement, then re-record the
-    reference and the published figures **in the same change**, since the docs and the pin
-    must never disagree.
-12. **Close the born-digital work queue** (Theme 2 → Theme 8). The lane's own reading names
-    the order: **tables are the worst area** (88 emitted against 117 expected, with
-    *detection* rather than extraction as the bottleneck), then **lists** (recall 0.059,
-    of which markerless lists are the part no marker rule can recover), then the residual
-    heading gap. Run-in headings ([#296](https://github.com/thomas-villani/all2md/issues/296))
-    are **parked with a measurement**: every gate tried invents more headings than it
-    recovers, and the body-length rule that looked clean on 12 articles collapsed on 66.
-13. **Make the raster lane actionable** ([#257](https://github.com/thomas-villani/all2md/issues/257),
-    Theme 2). Now cheaper than it was, because one of its three parts is resolved and another
-    is closed: **honest `unsupported_dimensions` messages** shipped in v1.11.0, and the
-    **`block_structure_similarity` content floor** ([#256](https://github.com/thomas-villani/all2md/issues/256))
-    was answered by declaring the dimension ungatable in a shared `dimensions.py` both lanes
-    read — a metric that rises when half the content is deleted cannot evidence a regression
-    *or* an improvement, so a content floor is now an optional repair rather than a
-    prerequisite. What remains is **stratified scoring**: `page_attribute` is already required
-    and validated by the corpus and then ignored by the oracle, and one aggregate over
-    newspapers, handwritten notes, slides, textbooks and papers is not actionable. Still costs
-    an ~80-minute re-baseline, so batch it with any other oracle change.
+11. 🚢 **Restore the PMC corpus to 66 articles** ([#332](https://github.com/thomas-villani/all2md/issues/332),
+    Theme 2) — *done post-v1.12.0, in `[Unreleased]`.* The replacement was drawn by
+    re-walking the one seed through the committed stride and filter rather than hand-picked,
+    the reference and the published figures moved **in the same change**, and the published
+    page is now *checked* against the artifacts it cites — a stale figure there used to read
+    exactly like a measured one. The headline readings held to the published precision
+    (95.3% attainable-text recall), which is what a representative corpus should do when one
+    article of 66 swaps.
+12. **Next batch (decided 2026-08-13): Figures & the born-digital queue** (Theme 2 →
+    Theme 8). The spine is the **PDF figure pipeline**
+    ([#340](https://github.com/thomas-villani/all2md/issues/340),
+    [#338](https://github.com/thomas-villani/all2md/issues/338)) — see the new Theme 2
+    entry. It is user-visible in a way benchmark plumbing is not ("your PDF's figures now
+    appear at all"), and giving figures an AST home is groundwork Theme 8 Stages 3–4 sit on,
+    so the batch advances the big bet rather than deferring it. Around the spine, the rest
+    of the lane's queue: **tables remain the worst area** (92 emitted against 121 expected
+    on the restored corpus, with *detection* rather than extraction as the bottleneck, even
+    after the v1.12.0 text-alignment fallback), the remainder of the **list gap** (the
+    marker-rule half is fixed — the item-end rule #299 and symbol-font bullets #300 are both
+    closed — leaving markerless lists, which no marker rule can recover, and a re-measure of
+    the 0.059 recall now that the fixes are in). The fuzzer's newest find
+    ([#343](https://github.com/thomas-villani/all2md/issues/343)) is already fixed; an
+    intermittent PDF render crash from the same sweep is **uncharacterised** — it appeared in
+    2 of 4 runs and then not in the next 4, so it is open on a small sample rather than
+    cleared. Run-in headings
+    ([#296](https://github.com/thomas-villani/all2md/issues/296)) stay **parked with a
+    measurement**: every gate tried invents more headings than it recovers, and the
+    body-length rule that looked clean on 12 articles collapsed on 66.
+13. **The outward-facing push** (Theme 5; decided 2026-08-13: starts when batch 12 ships).
+    The public-channels work was deferred until the born-digital benchmark landed — it
+    landed, and `docs/source/benchmarks.rst` with a control beside every figure is exactly
+    the artifact that makes a listing credible rather than promotional. Scope: MCP-registry
+    listings, the Marketplace call
+    ([#186](https://github.com/thomas-villani/all2md/issues/186)), and — if the moment wants
+    something new to announce — the Theme 1 loader adapters as filler. Sequenced *after* the
+    figure batch on purpose: fix "figures don't appear" before inviting eyes. The push is
+    mostly writing rather than engineering, so it can interleave with early Theme 8 work
+    instead of occupying a batch alone.
 14. **Theme 8: positional fidelity** (OCR geometry → provenance → layout). Stage 1 is
     substantially done; the open pieces are span granularity, carrying OCR confidence through,
     and the EasyOCR adapter that still flattens. Then Stage 2 (decouple the contract from
@@ -769,30 +851,40 @@ more than planned:
     perfectly on all three lanes. Until a non-Latin corpus exists, a character-level change
     is unmeasured no matter how green the run — write cross-script tests rather than reading
     the benchmarks as coverage. M6Doc (scanned + CJK) is the obvious candidate corpus.
-16. **OCR the embedded image, not a re-render, when a PDF page is one full-page image**
-    (Theme 8, small). Measured on corpus samples: rendering at a fixed 200 dpi produces up to
-    **4.3x** the embedded raster's pixels. No detail is lost — the render is native or above
-    on every page sampled — so this is a speed and cost item, not a fidelity one, and it
-    should not be sold as the latter.
-17. **Async facade + async I/O edge** — unblocks the server/MCP story (see the Async
-    Architecture Decision); the deferred-asset-resolution phase is the user-visible win. Also
-    a prerequisite for clean multi-worker training-corpus loading (Theme 1).
-18. **Math support** (Theme 2) — deepens the fidelity moat; pairs with the arXiv source↔PDF
+16. **Structured extraction** (Theme 1, promoted 2026-08-13). `all2md extract doc.pdf
+    --schema invoice.json` → typed, schema-validated JSON — document → *data*, not prose.
+    The biggest unstarted user-visible item on the board. Sequenced *behind* Theme 8 Stage 3
+    rather than before it, deliberately: extraction wants the same provenance the loader
+    adapters want, and a typed field that can cite the page and bbox it came from is the
+    version nobody else ships.
+17. **Math support** (Theme 2) — deepens the fidelity moat; pairs with the arXiv source↔PDF
     ground-truth corpus. Note that neither external lane can grade it: OmniDocBench's 260
     formula pages are rasters, so recovering them is OCR-side maths recognition rather than
     parsing, and the PMC lane's JATS records maths as MathML the page does not print in that
     form. The arXiv source↔PDF pairs are the instrument that would actually measure it.
 
 **Smaller open items**, none blocking:
+[#257](https://github.com/thomas-villani/all2md/issues/257) (stratify the raster lane's
+score — demoted from the numbered list 2026-08-13; two of its three parts already resolved,
+and what remains costs an ~80-minute re-baseline, so batch it with the next oracle change
+rather than running it alone);
 [#328](https://github.com/thomas-villani/all2md/issues/328) (triage the 16 Semgrep findings
 outside `src/` — `defusedxml` in the two corpus fetchers is worth doing on its own merits;
 the rest is a suppress-or-scope decision);
 [#183](https://github.com/thomas-villani/all2md/issues/183) (corpus throughput gate, parked
 on runner variance, and the variance study it waits on is accumulating on every push);
-[#186](https://github.com/thomas-villani/all2md/issues/186) (Marketplace listing — a public
-call, not an engineering one). Two CI gaps also remain: `scripts/` is in no gate — `mypy`
-covers `src/` and `benchmarks/` only — and the Windows leg runs tests but not `mypy`, so the
-`msvcrt` branch has never been type-checked in CI.
+**widen the generative strategy's node-type coverage** (Theme 2, one node-type group per PR
+— footnotes first, where `benchmarks/roundtrip` already found real bugs; see the fuzzer
+entry for why this is not the same request as raising `max_examples`);
+**OCR the embedded image, not a 200-dpi re-render**, when a PDF page is one full-page image
+(Theme 8, small) — measured at up to **4.3x** the pixels for zero detail gain, so a speed
+and cost item that should not be sold as fidelity. Two CI gaps also remain: `scripts/` is in
+no gate — `mypy` covers `src/` and `benchmarks/` only — and the Windows leg runs tests but
+not `mypy`, so the `msvcrt` branch has never been type-checked in CI. The **async facade**
+(Theme 3) also comes off the numbered list (2026-08-13): it has lost the
+leverage-per-effort argument three batches running, which is a verdict rather than an
+accident — it becomes urgent exactly when the server/MCP story or multi-worker
+training-corpus loading finds a real user, so pull it forward then, not before.
 
 Two of the fuzzer's defects were worth doing regardless of how the batch went, because they
 are reachable from ordinary input rather than from a generated AST:
@@ -802,9 +894,16 @@ are reachable from ordinary input rather than from a generated AST:
 - 🚢 **#212 — `from_ast` can raise bare `ValueError`/`KeyError`.** A documented contract that two
   renderers did not honour, so `except All2MdError` did not catch what the docs said it would.
   Fixed.
+- 🚢 **#343 — a list item's text may run onto the lines below it (AsciiDoc).** `* a` / `b` /
+  `** c` is three lines of ordinary hand-written AsciiDoc and it raised outright; without the
+  nested item it merely leaked the run-on line out of the list as a sibling paragraph. Fixed
+  by sharing the paragraph joiner rather than giving list items a second copy of it.
 
 The batch closed as intended: the instrument that generated the backlog was made trustworthy
-before we leaned on it further — twice, as it turned out.
+before we leaned on it further — twice, as it turned out. Make that three times: the same
+instrument later needed its *runtime* explained (a verbose profile, not the gates) and its
+discovery sweep shown capable of drawing anything at all, before it could be trusted back
+into per-PR CI.
 
 Everything below 🚀/🌙 is opportunistic — pull forward whatever a real user asks for. The
 RAG-framework loader adapters (Theme 1) remain the cheapest filler on the board (~a day each)
