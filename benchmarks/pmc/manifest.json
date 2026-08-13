@@ -56,14 +56,6 @@
       "xml_sha256": "c982b8bf7167544f57703266814451f4a6722051bb730a44c1931d6836df923f",
       "xml_size_bytes": 41377
     },
-    "PMC11000011.1": {
-      "licence": "https://creativecommons.org/licenses/by/4.0/",
-      "paragraphs": 64,
-      "pdf_sha256": "ddc5a5421d0878e4bd72c3348be627565e9e9edc5c23f87bf0d4de049807788c",
-      "pdf_size_bytes": 4829374,
-      "xml_sha256": "b724e3c933e10c5acf3b1d5253b19983985828cfc85f63f186a4580c315def1b",
-      "xml_size_bytes": 316408
-    },
     "PMC11000022.1": {
       "licence": "https://creativecommons.org/licenses/by-nc/4.0/",
       "paragraphs": 42,
@@ -71,6 +63,14 @@
       "pdf_size_bytes": 1780546,
       "xml_sha256": "746e77c4dafb1fdbca3eae89d771f23ae8ac25f6379a90739a5f390ecdaf9ba9",
       "xml_size_bytes": 105792
+    },
+    "PMC11000033.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 48,
+      "pdf_sha256": "e0551b507fc62ee655277519af9589e16daad3f000168e16408d7ee8508ad3a7",
+      "pdf_size_bytes": 132089,
+      "xml_sha256": "5baab31409350fe0570da0a2575e23b859436f8e0203738cfe730a1c0f3c38e9",
+      "xml_size_bytes": 61719
     },
     "PMC11500000.1": {
       "licence": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
@@ -532,6 +532,7 @@
   "bucket": "pmc-oa-opendata",
   "rejected": {
     "PMC10000000.1": "no_paragraphs",
+    "PMC11000011.1": "pdf_missing",
     "PMC4000013.1": "pdf_missing",
     "PMC4000025.1": "pdf_missing",
     "PMC4000036.1": "pdf_missing",
@@ -574,17 +575,26 @@
   "rejection_counts": {
     "no_paragraphs": 32,
     "no_vector_drawings": 0,
-    "pdf_missing": 7,
+    "pdf_missing": 8,
     "pdf_unreadable": 0,
     "xml_missing": 0,
     "xml_unparsable": 0
   },
   "schema_version": 1,
   "selection": {
-    "candidates": 105,
+    "candidates": 106,
     "filter": "JATS <p> > 0 and vector drawings on some PDF page",
     "max_candidates_per_seed": 60,
     "per_seed": 3,
+    "rewalks": [
+      {
+        "accepted": "PMC11000033.1",
+        "issue": 332,
+        "reason": "PMC11000011.1 withdrawn from the bucket; its PDF 404s while the prefix still lists",
+        "rejected": "PMC11000011.1",
+        "seed": "PMC11000000"
+      }
+    ],
     "seeds": [
       "PMC1500000",
       "PMC2000000",
