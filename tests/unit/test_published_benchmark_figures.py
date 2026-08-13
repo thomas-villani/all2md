@@ -30,6 +30,7 @@ produce a *passing* test.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Callable
 from pathlib import Path
@@ -130,6 +131,37 @@ def test_published_figures_match_their_artifacts() -> None:
     """Every number on the fidelity page comes from a committed artifact."""
     mismatches = _mismatches()
     assert not mismatches, "docs/source/benchmarks.rst disagrees with its artifacts:\n  " + "\n  ".join(mismatches)
+
+
+def test_the_reference_was_recorded_against_the_committed_manifest() -> None:
+    """The strongest form of "the docs and the pin must never disagree".
+
+    The figures above are only meaningful if the run that produced them scored
+    the corpus this repository actually names. ``corpus_pin`` is the SHA-256 of
+    the manifest, so a manifest edit that lands without a re-record -- exactly
+    what #332 had to repair -- is caught here rather than at the next scheduled
+    run, or not at all.
+    """
+    manifest = _REPO / "benchmarks" / "pmc" / "manifest.json"
+    recorded = json.loads(_PMC.read_bytes())["provenance"]["corpus_pin"]
+    actual = hashlib.sha256(manifest.read_bytes()).hexdigest()
+    assert recorded == actual, (
+        f"benchmarks/pmc/reference.json was recorded against corpus pin {recorded[:16]}, "
+        f"but the committed manifest hashes to {actual[:16]} -- re-record the reference"
+    )
+
+
+def test_the_reference_covers_the_whole_corpus() -> None:
+    """A partial run must not sit behind figures the page presents as the corpus.
+
+    ``complete_corpus`` going false is the lane's incident signal (#330). It is
+    the right behaviour for a run and the wrong state for a *published*
+    reference, because the page quotes the artifact as the reading.
+    """
+    reference = json.loads(_PMC.read_bytes())
+    manifest_articles = len(json.loads((_REPO / "benchmarks" / "pmc" / "manifest.json").read_bytes())["articles"])
+    assert reference["provenance"]["complete_corpus"] is True, "the published reference is a partial run"
+    assert reference["corpus"]["articles_scored"] == manifest_articles
 
 
 def test_a_perturbed_artifact_is_caught() -> None:
