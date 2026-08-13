@@ -212,9 +212,11 @@ class MediaWikiParser(BaseParser):
         if hasattr(node, "wiki_markup") and node.wiki_markup:
             if node.wiki_markup in ("*", "#"):
                 self._flush_inline_buffer(inline_buffer, result)
-                list_node, consumed = self._parse_list_from_position(nodes_list, i)
+                list_node, consumed, leftover_text = self._parse_list_from_position(nodes_list, i)
                 if list_node:
                     result.append(list_node)
+                if leftover_text:
+                    self._process_text_content(leftover_text, inline_buffer, result)
                 return consumed
 
             elif node.wiki_markup == "{|":
@@ -231,9 +233,11 @@ class MediaWikiParser(BaseParser):
 
             elif node.wiki_markup == ":":
                 self._flush_inline_buffer(inline_buffer, result)
-                quote, consumed = self._parse_blockquote_from_position(nodes_list, i)
+                quote, consumed, leftover_text = self._parse_blockquote_from_position(nodes_list, i)
                 if quote:
                     result.append(quote)
+                if leftover_text:
+                    self._process_text_content(leftover_text, inline_buffer, result)
                 return consumed
 
         # Inline formatting tag
@@ -344,8 +348,27 @@ class MediaWikiParser(BaseParser):
             Number of nodes consumed (always 1)
 
         """
-        text_content = str(node)
+        self._process_text_content(str(node), inline_buffer, result)
+        return 1
 
+    def _process_text_content(self, text_content: str, inline_buffer: list[Node], result: list[Node]) -> None:
+        """Process raw text content into paragraphs/thematic breaks/block quotes.
+
+        This is the shared core of ``_handle_text_node``. It is also used to process
+        text that is left over once a list or ':' block quote has consumed only part
+        of a Text node (see ``_parse_list_from_position`` / ``_parse_blockquote_from_position``),
+        so that paragraphs following a list or quote are not silently dropped.
+
+        Parameters
+        ----------
+        text_content : str
+            Raw text content to process
+        inline_buffer : list of Node
+            Current inline buffer
+        result : list of Node
+            Result list
+
+        """
         # Handle text with paragraph breaks
         if "\n\n" in text_content:
             parts = text_content.split("\n\n")
@@ -381,8 +404,6 @@ class MediaWikiParser(BaseParser):
                         result.append(quote)
                 else:
                     inline_buffer.append(Text(content=text_content))
-
-        return 1
 
     def _process_wikicode(self, wikicode: Any) -> list[Node]:
         """Process mwparserfromhell Wikicode into AST nodes.
@@ -659,7 +680,7 @@ class MediaWikiParser(BaseParser):
             return HTMLInline(content=sanitized)
         return None
 
-    def _parse_list_from_position(self, nodes_list: list[Any], start_idx: int) -> tuple[List | None, int]:
+    def _parse_list_from_position(self, nodes_list: list[Any], start_idx: int) -> tuple[List | None, int, str]:
         """Parse a list starting from a position in the nodes list.
 
         Parameters
@@ -671,11 +692,17 @@ class MediaWikiParser(BaseParser):
 
         Returns
         -------
-        tuple of (List or None, int)
-            Parsed list and number of nodes consumed
+        tuple of (List or None, int, str)
+            Parsed list, number of nodes consumed, and any leftover text that trailed
+            the last marker line inside a Text node but is not itself list content
+            (mwparserfromhell lumps everything up to the next markup construct into a
+            single Text node, so text after the list lives inside that node too). The
+            caller must feed this text back through normal paragraph processing instead
+            of discarding it.
 
         """
         items: list[ListItem] = []
+        leftover_parts: list[str] = []
         ordered = False
         i = start_idx
 
@@ -702,9 +729,13 @@ class MediaWikiParser(BaseParser):
                     text_node = nodes_list[i]
                     text_content = str(text_node).strip()
 
-                    # Extract just the first line (items are one per line)
+                    # Extract just the first line (items are one per line); anything after
+                    # that first line is not part of this item and must not be dropped.
                     if "\n" in text_content:
-                        text_content = text_content.split("\n")[0].strip()
+                        first_line, remainder = text_content.split("\n", 1)
+                        text_content = first_line.strip()
+                        if remainder.strip():
+                            leftover_parts.append(remainder)
 
                     # Keep empty items (bare "*" / "#") so list length matches the wikitext
                     item_content: list[Node] = [Text(content=text_content)] if text_content else []
@@ -718,12 +749,15 @@ class MediaWikiParser(BaseParser):
                 break
 
         if not items:
-            return None, 1
+            return None, 1, ""
 
         consumed = i - start_idx
-        return List(ordered=ordered, items=items), consumed
+        leftover_text = "\n\n".join(leftover_parts)
+        return List(ordered=ordered, items=items), consumed, leftover_text
 
-    def _parse_blockquote_from_position(self, nodes_list: list[Any], start_idx: int) -> tuple[BlockQuote | None, int]:
+    def _parse_blockquote_from_position(
+        self, nodes_list: list[Any], start_idx: int
+    ) -> tuple[BlockQuote | None, int, str]:
         """Parse a block quote starting from a position in the nodes list.
 
         Parameters
@@ -735,11 +769,16 @@ class MediaWikiParser(BaseParser):
 
         Returns
         -------
-        tuple of (BlockQuote or None, int)
-            Parsed block quote and number of nodes consumed
+        tuple of (BlockQuote or None, int, str)
+            Parsed block quote, number of nodes consumed, and any leftover text that
+            trailed the last quote line inside a Text node but is not itself quote
+            content (see ``_parse_list_from_position`` for why this happens). The
+            caller must feed this text back through normal paragraph processing
+            instead of discarding it.
 
         """
         text_parts: list[str] = []
+        leftover_parts: list[str] = []
         i = start_idx
 
         # Collect block quote lines
@@ -756,9 +795,13 @@ class MediaWikiParser(BaseParser):
                     text_node = nodes_list[i]
                     text_content = str(text_node).strip()
 
-                    # Extract just the first line (quote lines are one per line)
+                    # Extract just the first line (quote lines are one per line); anything
+                    # after that first line is not part of this quote and must not be dropped.
                     if "\n" in text_content:
-                        text_content = text_content.split("\n")[0].strip()
+                        first_line, remainder = text_content.split("\n", 1)
+                        text_content = first_line.strip()
+                        if remainder.strip():
+                            leftover_parts.append(remainder)
 
                     if text_content:
                         text_parts.append(text_content)
@@ -771,12 +814,13 @@ class MediaWikiParser(BaseParser):
                 break
 
         if not text_parts:
-            return None, 1
+            return None, 1, ""
 
         quote_text = " ".join(text_parts)
         content = [Text(content=quote_text)]
         consumed = i - start_idx
-        return BlockQuote(children=[Paragraph(content=cast(list[Node], content))]), consumed
+        leftover_text = "\n\n".join(leftover_parts)
+        return BlockQuote(children=[Paragraph(content=cast(list[Node], content))]), consumed, leftover_text
 
     @staticmethod
     def _strip_cell_attributes(cell_text: str) -> str:
