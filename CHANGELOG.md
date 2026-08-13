@@ -36,6 +36,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **PPTX grouped shapes no longer drop all of their contents.** `_process_shape_to_ast`
+  handled text frames, tables, images, and charts and then fell through to `None` for
+  everything else. A `GroupShape` has none of those attributes itself — its content lives
+  entirely in its member shapes — so slides with a grouped diagram, SmartArt-converted
+  shapes, or manually grouped callouts (all extremely common in real decks) lost that
+  content with no warning and no degraded-content signal. The parser now recurses into
+  `shape.shapes` for any `GroupShape`, in document order, and handles groups nested inside
+  groups.
 - **A PDF figure caption is now taken from the layout model's `caption` region**, not
   guessed from a fixed band of text near the image. The old rule matched a figure cue
   (`Figure 3`) against a 50pt band above and below the image and, failing that, accepted
