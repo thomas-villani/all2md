@@ -44,7 +44,7 @@ from benchmarks.pmc.article import (
     measure_recall,
     summarize,
 )
-from benchmarks.pmc.convert import convert_article, pdf_options
+from benchmarks.pmc.convert import DegradedFact, convert_article, pdf_options
 from benchmarks.pmc.oracles import coverage, project_jats, to_projection
 from benchmarks.pmc.pages import ASSIGNMENTS, assign_pages, index_pages
 
@@ -53,7 +53,13 @@ from benchmarks.pmc.pages import ASSIGNMENTS, assign_pages, index_pages
 #: 3 adds ``corpus.articles_unavailable``. Under 2 a run that lost pinned articles was
 #: indistinguishable from one that scored them all, so every payload without this key has
 #: an unknown denominator rather than a complete one.
-SCHEMA_VERSION = 3
+#: 4 reshapes ``degraded_events`` from a flat count of coalesced event *objects* to
+#: occurrences broken down by reason and by how many articles each reached. Under 3 an
+#: article rejecting twelve regions counted the same as one rejecting a single region, and
+#: the nine reasons behind ``table_rejected`` were indistinguishable -- so the number could
+#: not tell an improvement from a regression, because some of those reasons are the parser
+#: correctly refusing to grid a page of prose.
+SCHEMA_VERSION = 4
 ORACLE_SCHEMA_VERSION = 1
 
 #: Fixed seed: a control that scrambles differently every run cannot be compared across
@@ -130,7 +136,7 @@ class ArticleEvaluation:
     excluded: Mapping[str, int]
     coverage: float
     ocr_page_fraction: float
-    degraded_kinds: tuple[str, ...]
+    degraded: tuple[DegradedFact, ...]
     duration_seconds: float
     ground_truth_blocks: int
     emitted_text: str = ""
@@ -138,6 +144,42 @@ class ArticleEvaluation:
     pdf_text: str = ""
     truth_blocks: tuple[tuple[str, str], ...] = field(default_factory=tuple)
     error: str | None = None
+
+
+def _degraded_summary(evaluations: Sequence[Any]) -> dict[str, Any]:
+    """Total each degraded-event kind by occurrence, and break it down by reason.
+
+    ``articles`` is reported beside ``occurrences`` because the two answer different
+    questions and diverge sharply here: one article contributed twelve
+    ``text_grid_splits_words`` rejections out of twenty-nine measured across twelve
+    articles, so a corpus total alone reads as a widespread failure when it can be a
+    single pathological document.
+    """
+    totals: Counter[str] = Counter()
+    articles: Counter[str] = Counter()
+    reasons: dict[str, Counter[str]] = {}
+    reason_articles: dict[str, Counter[str]] = {}
+    for result in evaluations:
+        for kind in {fact.kind for fact in result.degraded}:
+            articles[kind] += 1
+        for kind, reason in {(fact.kind, fact.reason) for fact in result.degraded}:
+            if reason is not None:
+                reason_articles.setdefault(kind, Counter())[reason] += 1
+        for fact in result.degraded:
+            totals[fact.kind] += fact.occurrences
+            if fact.reason is not None:
+                reasons.setdefault(fact.kind, Counter())[fact.reason] += fact.occurrences
+
+    summary: dict[str, Any] = {}
+    for kind in sorted(totals):
+        entry: dict[str, Any] = {"occurrences": totals[kind], "articles": articles[kind]}
+        if kind in reasons:
+            entry["by_reason"] = {
+                reason: {"occurrences": count, "articles": reason_articles[kind][reason]}
+                for reason, count in sorted(reasons[kind].items(), key=lambda item: (-item[1], item[0]))
+            }
+        summary[kind] = entry
+    return summary
 
 
 def _pdf_facts(pdf_path: Path) -> tuple[int, int, str]:
@@ -187,7 +229,7 @@ def evaluate_article(article: Any, *, options: Any = None) -> ArticleEvaluation:
             excluded=dict(Counter(assignment.excluded)),
             coverage=coverage(whole, pdf_words),
             ocr_page_fraction=0.0,
-            degraded_kinds=(),
+            degraded=(),
             duration_seconds=time.perf_counter() - started,
             ground_truth_blocks=len(blocks),
             truth_blocks=truth_pairs,
@@ -228,7 +270,7 @@ def evaluate_article(article: Any, *, options: Any = None) -> ArticleEvaluation:
         excluded=dict(Counter(assignment.excluded)),
         coverage=coverage(whole, pdf_words),
         ocr_page_fraction=converted.ocr_page_fraction,
-        degraded_kinds=converted.degraded_kinds,
+        degraded=converted.degraded,
         duration_seconds=time.perf_counter() - started,
         ground_truth_blocks=len(blocks),
         emitted_text=" ".join(block for page in emitted for block in page.text_blocks),
@@ -445,9 +487,13 @@ def normalize_results(
         # Expected to be empty: this corpus was characterized as 0.0% scan-shaped. A
         # non-empty list means the corpus is not what the characterization says it is.
         "ocr_articles": ocr_articles,
-        "degraded_events": dict(
-            sorted(Counter(kind for result in evaluations for kind in result.degraded_kinds).items())
-        ),
+        # Occurrences, not event objects, and broken down by the guard that fired. The
+        # previous shape counted coalesced *events* -- one per (kind, reason) per article --
+        # so an article rejecting twelve regions and one rejecting a single region
+        # contributed identically, and the nine reasons behind `table_rejected` were
+        # indistinguishable. Neither number could tell an improvement from a regression,
+        # because some of those reasons are the parser correctly refusing to grid prose.
+        "degraded_events": _degraded_summary(evaluations),
     }
 
 

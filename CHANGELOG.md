@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The born-digital lane records *why* a table region was rejected, and how many were**
+  (payload schema 4). The parser distinguishes nine reasons for rejecting a table region and
+  coalesces repeats of `(parser, kind, detail, severity)` while summing their counts. The
+  lane read back only `kind`, and then counted coalesced *event objects* — so an article
+  rejecting twelve regions and one rejecting a single region contributed identically, and
+  `table_rejected: 101` was neither a count of regions nor of articles but of event objects,
+  which is the least meaningful of the three. Nothing downstream could tell a corpus-wide
+  detection failure from one pathological document, and nothing could tell an improvement
+  from a regression, because some of those reasons are the parser *correctly* refusing to
+  grid a page of prose.
+  `degraded_events` now reports occurrences broken down by reason, with the number of
+  articles each reached beside it — the two answer different questions and diverge sharply
+  here, since a single article contributed twelve of the twenty-nine
+  `text_grid_splits_words` rejections measured across twelve articles. This is a benchmark
+  payload change only; no conversion behaviour changes, and no published figure moves.
+
 ### Fixed
 
 - **One rejected table region is no longer counted as two** (PDF). When the layout model
