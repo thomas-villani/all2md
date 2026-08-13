@@ -254,3 +254,85 @@ This is a test message.
         assert "mailbox_format" in doc.metadata
         assert "message_count" in doc.metadata
         assert doc.metadata["message_count"] == 1
+
+
+def _mbox_bytes(message_bytes: bytes) -> bytes:
+    """Wrap a raw RFC-822 message in an mbox ``From `` envelope."""
+    return b"From sender@example.com Mon Jan  1 00:00:00 2024\r\n" + message_bytes + b"\r\n"
+
+
+@pytest.mark.unit
+class TestMboxAttachmentAndMarkdownBodyParity:
+    r"""The mbox path must agree with the .eml path on attachments and rich bodies.
+
+    ``_process_single_message`` concatenated the attachment section's Markdown
+    onto the body string, and ``_add_message_nodes`` flattened every body into
+    ``Paragraph(content=[Text(...)])`` regardless of ``content_is_markdown``. The
+    renderer then escaped both, producing ``\## Attachments`` and ``\*\*bold\*\*``
+    where the .eml parser produced a real heading and real emphasis.
+    """
+
+    def _render(self, doc) -> str:
+        from all2md.renderers.markdown import MarkdownRenderer
+
+        return MarkdownRenderer().render_to_string(doc)
+
+    def test_plain_body_attachment_is_not_escaped(self, tmp_path):
+        """A plain-text body plus an attachment renders a real heading and image."""
+        from tests.unit.parsers.test_eml_parser import _plain_email_with_png_attachment
+
+        mbox_file = tmp_path / "test.mbox"
+        mbox_file.write_bytes(_mbox_bytes(_plain_email_with_png_attachment()))
+
+        doc = MboxToAstConverter(MboxOptions(attachment_mode="base64")).parse(mbox_file)
+        markdown = self._render(doc)
+
+        assert r"\##" not in markdown
+        assert r"!\[" not in markdown
+        assert "## Attachments" in markdown
+        assert "![pic.png](data:image/png;base64," in markdown
+
+    def test_attachment_output_matches_eml_path(self, tmp_path):
+        """Same message, .eml parser vs mbox parser: identical attachment rendering."""
+        from io import BytesIO
+
+        from all2md.options import EmlOptions
+        from all2md.parsers.eml import EmlToAstConverter
+        from tests.unit.parsers.test_eml_parser import _plain_email_with_png_attachment
+
+        raw = _plain_email_with_png_attachment()
+        mbox_file = tmp_path / "test.mbox"
+        mbox_file.write_bytes(_mbox_bytes(raw))
+
+        eml_md = self._render(EmlToAstConverter(EmlOptions(attachment_mode="base64")).parse(BytesIO(raw)))
+        mbox_md = self._render(MboxToAstConverter(MboxOptions(attachment_mode="base64")).parse(mbox_file))
+
+        assert eml_md == mbox_md
+
+    def test_rtf_body_renders_real_emphasis(self, tmp_path):
+        r"""Default options: an RTF body's bold run survives as emphasis, not ``\*\*``."""
+        from tests.unit.parsers.test_eml_parser import RTF_BODY_EMAIL
+
+        mbox_file = tmp_path / "rtf.mbox"
+        mbox_file.write_bytes(_mbox_bytes(RTF_BODY_EMAIL))
+
+        markdown = self._render(MboxToAstConverter(MboxOptions()).parse(mbox_file))
+
+        assert "**Bold heading**" in markdown
+        assert r"\*\*" not in markdown
+
+    def test_rtf_body_output_matches_eml_path(self, tmp_path):
+        """Same RTF message, .eml parser vs mbox parser: identical body rendering."""
+        from io import BytesIO
+
+        from all2md.options import EmlOptions
+        from all2md.parsers.eml import EmlToAstConverter
+        from tests.unit.parsers.test_eml_parser import RTF_BODY_EMAIL
+
+        mbox_file = tmp_path / "rtf.mbox"
+        mbox_file.write_bytes(_mbox_bytes(RTF_BODY_EMAIL))
+
+        eml_md = self._render(EmlToAstConverter(EmlOptions()).parse(BytesIO(RTF_BODY_EMAIL)))
+        mbox_md = self._render(MboxToAstConverter(MboxOptions()).parse(mbox_file))
+
+        assert eml_md == mbox_md
