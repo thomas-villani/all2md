@@ -77,6 +77,16 @@ def converter() -> PdfToAstConverter:
     return conv
 
 
+def _rejection_reasons(converter: PdfToAstConverter) -> list[str]:
+    """The ``detail`` of every ``table_rejected`` event, in the order recorded.
+
+    Asserting on the counter alone cannot see a region rejected twice under two different
+    reasons, which is precisely the defect these tests pin.
+    """
+    events = converter.__dict__.get("_degraded_events", [])
+    return [event.detail for event in events if event.kind == "table_rejected"]
+
+
 def _rect(*values: float):
     import pymupdf
 
@@ -182,3 +192,26 @@ class TestLayoutRegionExtraction:
         converter._extract_table_from_layout_region(page, _rect(0, 0, 100, 50), page_num=0)
 
         assert converter._tables_rejected == 1, "the degenerate-grid guard already recorded this region"
+        assert _rejection_reasons(converter) == ["degenerate_grid"]
+
+    def test_the_split_word_guard_rejection_is_not_counted_twice(self, converter):
+        """The sibling arm of the test above, and the one where the double count really happened.
+
+        The test above reaches the bottom of the method with ``found_grid`` already set,
+        because ``lines_strict`` returned a grid that ``_process_table_to_ast`` then rejected.
+        The split-word guard ``continue``s *before* that assignment, so the flag stayed false
+        and every guarded rejection also recorded the vaguer ``layout_region_not_tabular`` --
+        the exact case the note at the foot of the method forbids.
+
+        The signature on the born-digital corpus is unmistakable: the two reasons appeared in
+        exact 1:1 correspondence in every affected article (1/1, 4/4, 6/6, 12/12), which is
+        one region counted twice rather than two regions rejected.
+        """
+        page = _FakePage(PROSE_TEXT, {"text": [_FakeTable(SHREDDED_PROSE, (0, 0, 100, 50))]})
+        node = converter._extract_table_from_layout_region(page, _rect(0, 0, 100, 50), page_num=0)
+
+        assert isinstance(node, AstParagraph), "the region's text must still survive as prose"
+        assert _rejection_reasons(converter) == [
+            "text_grid_splits_words"
+        ], "the specific guard reports; the vaguer layout_region_not_tabular must not pile on"
+        assert converter._tables_rejected == 1, "one region, one rejection, one hit to confidence"
