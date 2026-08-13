@@ -690,10 +690,9 @@ def to_markdown(
         actual_format: DocumentFormat = source_format
         logger.debug(f"Using explicitly specified format: {actual_format}")
     else:
-        detected = registry.detect_format(detection_input, hint=None)  # type: ignore[arg-type]
-        if detected is None:
-            raise ValueError("Could not detect format from source")
-        actual_format = detected  # type: ignore[assignment]
+        # ``detect_format`` always returns a name (it falls back to "plaintext"),
+        # so there is no "undetected" case to guard against here.
+        actual_format = registry.detect_format(detection_input, hint=None)  # type: ignore[arg-type,assignment]
 
     # Split kwargs between parser and renderer
     parser_kwargs, renderer_kwargs = _split_kwargs_for_parser_and_renderer(actual_format, "markdown", kwargs)
@@ -1807,8 +1806,15 @@ def convert(
     elif isinstance(renderer, str):
         actual_target_format = renderer
     elif isinstance(output, (str, Path)):
+        # ``detect_format`` falls back to "plaintext" when it recognises nothing,
+        # so an inferred "plaintext" means "no target format could be read off the
+        # output path" -- not "the caller asked for the plaintext renderer". Writing
+        # markdown there matches the documented default and keeps ``out.txt`` from
+        # silently stripping headings, emphasis and link URLs. An explicit
+        # ``target_format="plaintext"`` is handled above and still selects the
+        # plaintext renderer.
         inferred = registry.detect_format(output)
-        actual_target_format = inferred if inferred != "txt" else "markdown"
+        actual_target_format = inferred if inferred != "plaintext" else "markdown"
     else:
         actual_target_format = "markdown"
 

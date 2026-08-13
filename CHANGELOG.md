@@ -36,6 +36,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Writing to `out.txt` no longer silently strips every piece of formatting.** When no
+  `target_format` was given, `convert()` inferred one from the output path — and
+  `registry.detect_format` answers `"plaintext"` for anything it does not recognise,
+  including a `.txt` extension and any unknown one. That answer is a *no-match* signal, but
+  it was used as a renderer choice, so `convert("in.md", "out.txt")` rendered through the
+  plaintext renderer: `# Title` became `Title`, `**bold**` became `bold`, and
+  `[a link](https://example.com)` lost its URL entirely. The code had a guard for exactly
+  this, comparing the inferred format against `"txt"` and substituting markdown, but
+  `detect_format` has returned `"plaintext"` — never `"txt"` — since it was rewritten, so
+  the guard had been dead the whole time and the documented "defaults to markdown"
+  behaviour never fired. All three sites (`convert()`, and the CLI's merge and
+  single-file conversion paths) now compare against `"plaintext"`. Only *inference* is
+  remapped: an explicit `target_format="plaintext"` or `--to plaintext` still selects the
+  plaintext renderer, and a recognised extension such as `.html` or `.docx` is still
+  honoured.
 - **PPTX run hyperlinks are no longer discarded.** `_process_paragraph_runs_to_inline` built
   a `Link` node for every hyperlinked run into a local `result` list, but both of the
   function's exit paths returned `inline_nodes` (the output of `group_and_format_runs`,
