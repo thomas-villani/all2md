@@ -62,7 +62,7 @@ from all2md.ast import (
     Underline,
 )
 from all2md.ast.utils import extract_text
-from all2md.constants import DEPS_MARKDOWN, MARKDOWN_TABLE_CAPTION_MARKER
+from all2md.constants import DEPS_MARKDOWN, MARKDOWN_IMAGE_CAPTION_MARKER, MARKDOWN_TABLE_CAPTION_MARKER
 from all2md.converter_metadata import ConverterMetadata
 from all2md.options.markdown import MarkdownParserOptions
 from all2md.parsers.base import BaseParser
@@ -476,7 +476,7 @@ class MarkdownToAstConverter(BaseParser):
 
         # Convert tokens to AST (tokens should always be a list for our configuration)
         if isinstance(tokens, list):
-            children = self._reattach_table_captions(self._process_tokens(tokens))
+            children = self._reattach_captions(self._process_tokens(tokens))
         else:
             # Fallback for unexpected token format
             children = []
@@ -1216,15 +1216,16 @@ class MarkdownToAstConverter(BaseParser):
 
         return self._fold_underline_html(nodes)
 
-    def _reattach_table_captions(self, nodes: list[Node]) -> list[Node]:
-        """Fold ``*caption*`` + marker comment + table back into ``Table.caption``.
+    def _reattach_captions(self, nodes: list[Node]) -> list[Node]:
+        """Fold rendered caption groups back into ``Table.caption`` and ``Image.caption``.
 
         Markdown has no caption syntax, so the renderer emits the caption twice
         over: an italic paragraph a reader can see, and a marker comment that
         says the paragraph was a caption rather than prose (#237). Without the
         marker there is nothing to distinguish the two on the way back in, and a
         round trip both lost the caption *and* gained a paragraph node -- a
-        structural change, not just a missing attribute.
+        structural change, not just a missing attribute. Figures use the same
+        device with the caption below rather than above (#338).
 
         Deliberately conservative. Only the exact triple folds, and only when the
         paragraph holds a single Emphasis; a bare marker, a marker with no table
@@ -1254,7 +1255,7 @@ class MarkdownToAstConverter(BaseParser):
             for attribute in ("children", "items"):
                 container = getattr(node, attribute, None)
                 if isinstance(container, list) and container and all(isinstance(c, Node) for c in container):
-                    setattr(node, attribute, self._reattach_table_captions(container))
+                    setattr(node, attribute, self._reattach_captions(container))
 
         result: list[Node] = []
         index = 0
@@ -1267,6 +1268,15 @@ class MarkdownToAstConverter(BaseParser):
                 result.append(table)
                 index += 3
                 continue
+
+            image_caption = self._image_caption_from_triple(nodes, index)
+            if image_caption is not None:
+                image, text = image_caption
+                image.caption = text
+                result.append(nodes[index])
+                index += 3
+                continue
+
             result.append(nodes[index])
             index += 1
         return result
@@ -1288,6 +1298,46 @@ class MarkdownToAstConverter(BaseParser):
 
         text = extract_text(paragraph.content[0], joiner="").strip()
         return text or None
+
+    def _image_caption_from_triple(self, nodes: list[Node], index: int) -> tuple[Image, str] | None:
+        """Return the image and its caption if ``nodes[index:index + 3]`` is a figure triple.
+
+        The mirror of :meth:`_caption_from_triple` for figures, and deliberately
+        just as conservative. The order differs because the rendered order does:
+        a figure's caption sits *below* it, so the triple runs image, caption,
+        marker rather than caption, marker, table.
+
+        Parameters
+        ----------
+        nodes : list of Node
+            Block-level nodes, in document order
+        index : int
+            Position to test as the start of a triple
+
+        Returns
+        -------
+        tuple of (Image, str), or None
+            The image to caption and the text to give it, or None if this is not
+            a figure triple
+
+        """
+        if index + 2 >= len(nodes):
+            return None
+
+        figure, caption, comment = nodes[index], nodes[index + 1], nodes[index + 2]
+        if not (isinstance(figure, Paragraph) and isinstance(caption, Paragraph) and isinstance(comment, Comment)):
+            return None
+        if comment.content.strip() != MARKDOWN_IMAGE_CAPTION_MARKER:
+            return None
+        if len(figure.content) != 1 or not isinstance(figure.content[0], Image):
+            return None
+        if figure.content[0].caption:
+            return None
+        if len(caption.content) != 1 or not isinstance(caption.content[0], Emphasis):
+            return None
+
+        text = extract_text(caption.content[0], joiner="").strip()
+        return (figure.content[0], text) if text else None
 
     def _fold_underline_html(self, nodes: list[Node]) -> list[Node]:
         """Fold ``<u>``/``<ins>`` HTMLInline pairs back into Underline nodes.

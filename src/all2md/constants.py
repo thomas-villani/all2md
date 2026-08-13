@@ -402,6 +402,12 @@ DEFAULT_MARKDOWN_HTML_PASSTHROUGH_MODE: HtmlPassthroughMode = "pass-through"
 # caption text, so editing the visible line edits the caption. See #237.
 MARKDOWN_TABLE_CAPTION_MARKER = "all2md:table-caption"
 
+# The same device for figure captions (#338). The one difference is placement: a
+# table's caption is conventionally set above it and a figure's below it, so this
+# marker follows the caption paragraph rather than preceding the content. The
+# triple is therefore image-paragraph, caption-paragraph, marker.
+MARKDOWN_IMAGE_CAPTION_MARKER = "all2md:image-caption"
+
 # Boilerplate text removal patterns (used by RemoveBoilerplateTextTransform)
 DEFAULT_BOILERPLATE_PATTERNS = [
     r"^CONFIDENTIAL$",
