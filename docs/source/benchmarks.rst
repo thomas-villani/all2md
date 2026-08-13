@@ -55,7 +55,7 @@ scores the result against the JATS XML the publisher deposited alongside them. T
 pinned by a committed manifest of per-file SHA-256 digests, revalidated on every load.
 
 The figures below are :file:`benchmarks/pmc/reference.json`, recorded on Linux with
-dependencies resolved from the lockfile. It covers **65 articles and 699 pages**.
+dependencies resolved from the lockfile. It covers **66 articles and 706 pages**.
 
 Did the text survive?
 ~~~~~~~~~~~~~~~~~~~~~
@@ -68,8 +68,8 @@ Did the text survive?
      - Value
      -
    * - Raw recall
-     - 60.1%
-     - of 8,805 ground-truth blocks
+     - 60.2%
+     - of 8,905 ground-truth blocks
    * - Attainable ceiling
      - 62.4%
      - what the PDF's own text layer reproduces
@@ -80,7 +80,7 @@ Did the text survive?
      - 0.4%
      - wants to be ~0%
 
-Raw recall is 60.1%, and that figure is close to meaningless on its own. A large share of
+Raw recall is 60.2%, and that figure is close to meaningless on its own. A large share of
 any JATS article cannot be recovered by *any* parser, because the markup records words in an
 order the page never prints — author affiliation blocks, structured metadata, citation
 fields. Charging a PDF parser for failing to reproduce text the PDF does not contain
@@ -101,17 +101,17 @@ By block kind:
      - Recovered
      - Share of attainable
    * - Text blocks
-     - 3,124 of 6,289
-     - 3,079
+     - 3,160 of 6,356
+     - 3,115
      - **97.6%**
    * - Titles
-     - 2,263 of 2,397
-     - 2,123
-     - **92.7%**
+     - 2,291 of 2,426
+     - 2,151
+     - **92.8%**
    * - Tables
-     - 107 of 119
-     - 90
-     - **83.2%**
+     - 110 of 123
+     - 93
+     - **83.6%**
 
 Did the output invent anything?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -135,7 +135,7 @@ Unsupported output is therefore split in two:
      - Share
      - Meaning
    * - Supported
-     - **93.8%**
+     - **93.9%**
      - the n-gram appears in the document's text layer
    * - Resequenced
      - 5.2%
@@ -150,7 +150,7 @@ Unsupported output is therefore split in two:
      - 0.7%
      - wants to be ~0%
 
-Over 438,975 emitted n-grams, 4,261 are novel. Reporting the raw unsupported figure instead
+Over 443,281 emitted n-grams, 4,287 are novel. Reporting the raw unsupported figure instead
 would have made the result roughly six times worse than the parser deserves.
 
 Duplication is counted apart from both, because it is invisible to either. Text emitted
@@ -159,8 +159,8 @@ twice is an unchanged *set* and a doubled *multiset* — no set-based score can 
 Tables
 ~~~~~~
 
-Tables are the weakest area and the artifact says so plainly: **88 emitted against 117
-expected**, on 67 of 92 pages that should carry one.
+Tables are the weakest area and the artifact says so plainly: **92 emitted against 121
+expected**, on 69 of 94 pages that should carry one.
 
 The bottleneck is detection rather than extraction. On the pages that miss, the table's text
 is usually present in the output as ordinary prose — the content survived, the *structure*
