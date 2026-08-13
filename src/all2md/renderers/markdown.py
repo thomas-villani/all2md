@@ -718,14 +718,34 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         Block children are separated by a blank line, mirroring the spacing
         ``visit_document`` applies between top-level blocks.
+
+        The list-item indentation state is suspended while the children render,
+        because the caller re-applies the indent itself when it prefixes each
+        line (``"> "`` for a quote, four spaces for an admonition body). Left
+        active, a child paragraph would bake the indent in and the caller would
+        add it a second time; once the marker is four columns wide (``"10. "``)
+        the doubly indented text reparses as an indented code block inside the
+        quote rather than a paragraph (#25).
         """
         saved_output = self._output
+        saved_stack = self._marker_width_stack.copy()
+        saved_indent_level = self._indent_level
+        saved_in_list = self._in_list
+        self._marker_width_stack.clear()
+        self._indent_level = 0
+        self._in_list = False
+
         parts: list[str] = []
-        for child in node.children:
-            self._output = []
-            child.accept(self)
-            parts.append("".join(self._output))
-        self._output = saved_output
+        try:
+            for child in node.children:
+                self._output = []
+                child.accept(self)
+                parts.append("".join(self._output))
+        finally:
+            self._output = saved_output
+            self._marker_width_stack[:] = saved_stack
+            self._indent_level = saved_indent_level
+            self._in_list = saved_in_list
         return "\n\n".join(parts)
 
     def _render_mkdocs_admonition(self, node: BlockQuote) -> None:
@@ -760,10 +780,15 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             title = metadata["admonition_title"]
             header += f' "{title}"'
 
+        # The body renders with the list indent suspended, so this is the one
+        # place that applies it -- to the header as well as the body, which
+        # keeps a nested admonition whole instead of splitting its header off
+        # at column zero. At the top level the indent is empty.
+        indent = self._current_indent()
         body = self._render_children_to_string(node).strip("\n")
-        lines = [header]
+        lines = [f"{indent}{header}"]
         for line in body.split("\n"):
-            lines.append(f"    {line}" if line else "")
+            lines.append(f"{indent}    {line}" if line else "")
 
         self._output.append("\n".join(lines))
 

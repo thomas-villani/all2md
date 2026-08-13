@@ -36,6 +36,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A Markdown block quote nested in a list item is no longer indented twice.** The quote's
+  children were rendered to a string while the list item's marker-width indent was still
+  active, so a child paragraph already carried that indent; the quote then prefixed
+  `"{indent}> "` onto the very same lines. For a marker four columns wide or more (`"10. "`,
+  or any bullet at the second nesting level) the quoted text landed four-plus spaces past the
+  `>`, and the round trip read it back as an *indented code block inside the quote* rather
+  than a paragraph. Only quotes that were not the item's first child were affected, because
+  the first child renders with the indent state already cleared. The indent state is now
+  suspended while the children render and applied once, by the quote, as it prefixes each
+  line. Material for MkDocs admonitions render through the same helper and now carry the
+  indent on their `!!!` header too, so a nested admonition no longer splits its header off at
+  column zero.
 - **PPTX run hyperlinks are no longer discarded.** `_process_paragraph_runs_to_inline` built
   a `Link` node for every hyperlinked run into a local `result` list, but both of the
   function's exit paths returned `inline_nodes` (the output of `group_and_format_runs`,

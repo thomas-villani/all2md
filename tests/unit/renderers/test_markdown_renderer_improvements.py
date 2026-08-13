@@ -1,8 +1,9 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """Unit tests for new Markdown renderer improvements."""
 
-from all2md.ast import Document, Heading, Link, Paragraph, Strong, Text
+from all2md.ast import BlockQuote, Document, Heading, Link, List, ListItem, Paragraph, Strong, Text
 from all2md.options.markdown import MarkdownRendererOptions
+from all2md.parsers.markdown import markdown_to_ast
 from all2md.renderers.markdown import MarkdownRenderer
 
 
@@ -269,3 +270,93 @@ class TestMarkdownBareUrlAutolinking:
         output = renderer.render_to_string(doc)
 
         assert "<ftp://user@ftp.example.com/files>" in output
+
+
+class TestBlockQuoteInsideListItem:
+    """Tests for block quotes nested in a list item (single indent, not double)."""
+
+    @staticmethod
+    def _list_with_quote(start: int = 1, ordered: bool = True) -> Document:
+        """Build a one-item list whose second child is a block quote."""
+        return Document(
+            children=[
+                List(
+                    ordered=ordered,
+                    start=start,
+                    items=[
+                        ListItem(
+                            children=[
+                                Paragraph(content=[Text(content="first para")]),
+                                BlockQuote(children=[Paragraph(content=[Text(content="quoted text")])]),
+                            ]
+                        )
+                    ],
+                )
+            ]
+        )
+
+    def test_wide_marker_quote_is_not_double_indented(self) -> None:
+        """A quote under a four-column marker keeps a single indent."""
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(self._list_with_quote(start=10))
+
+        assert output == "10. first para\n    > quoted text"
+
+    def test_wide_marker_quote_roundtrips_as_paragraph(self) -> None:
+        """The quote reparses as BlockQuote > Paragraph, not BlockQuote > CodeBlock."""
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(self._list_with_quote(start=10))
+
+        reparsed = markdown_to_ast(output)
+        item = reparsed.children[0].items[0]
+        quote = item.children[1]
+        assert isinstance(quote, BlockQuote)
+        assert len(quote.children) == 1
+        assert isinstance(quote.children[0], Paragraph)
+        assert quote.children[0].content[0].content == "quoted text"
+
+    def test_bullet_marker_quote_roundtrips(self) -> None:
+        """The same holds for a two-column bullet marker."""
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(self._list_with_quote(ordered=False))
+
+        assert output == "* first para\n  > quoted text"
+        quote = markdown_to_ast(output).children[0].items[0].children[1]
+        assert isinstance(quote.children[0], Paragraph)
+
+    def test_multi_paragraph_quote_in_list_item_roundtrips(self) -> None:
+        """Every block of a nested quote survives, each as a paragraph."""
+        doc = Document(
+            children=[
+                List(
+                    ordered=True,
+                    start=10,
+                    items=[
+                        ListItem(
+                            children=[
+                                Paragraph(content=[Text(content="lead")]),
+                                BlockQuote(
+                                    children=[
+                                        Paragraph(content=[Text(content="one")]),
+                                        Paragraph(content=[Text(content="two")]),
+                                    ]
+                                ),
+                            ]
+                        )
+                    ],
+                )
+            ]
+        )
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(doc)
+
+        quote = markdown_to_ast(output).children[0].items[0].children[1]
+        assert isinstance(quote, BlockQuote)
+        assert [type(child).__name__ for child in quote.children] == ["Paragraph", "Paragraph"]
+
+    def test_top_level_quote_is_unchanged(self) -> None:
+        """A quote outside a list still renders with no leading indent."""
+        doc = Document(children=[BlockQuote(children=[Paragraph(content=[Text(content="top")])])])
+
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        assert renderer.render_to_string(doc) == "> top"
