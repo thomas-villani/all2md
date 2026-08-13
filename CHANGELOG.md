@@ -36,6 +36,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Words no longer fuse across a formatting change in run-based formats.**
+  `group_and_format_runs` — the shared helper that turns a paragraph's runs into inline
+  nodes for PPTX (and available to any run-based parser) — joined each same-format group
+  and then called `.strip()` on it. The comment claimed this preserved inter-*run*
+  whitespace, and it did; what it also removed was inter-*group* whitespace, which is the
+  only thing separating the words either side of a formatting boundary. Runs
+  `("This is ", plain)`, `("bold", bold)`, `(" and after.", plain)` therefore produced
+  `Text("This is")`, `Strong([Text("bold")])`, `Text("and after.")` and every renderer
+  emitted `This is**bold**and after.` — a bug that fired on every bolded, italicised or
+  underlined span with a space next to it. Whitespace at a group edge is now collapsed to a
+  single separating space and re-emitted; whitespace *inside* a group is still preserved
+  verbatim, whitespace at the true edges of the run sequence (the paragraph boundary) is
+  still dropped, and a whitespace-only group between two content groups collapses to one
+  space rather than vanishing. The separating space is always placed *outside* any
+  formatting wrapper — on an adjacent plain `Text` node where there is one, otherwise as its
+  own `Text(" ")` node — because a space inside emphasis markers (`**bold **`) is not valid
+  markdown. The PPTX text extractor's own compensation for the old behaviour (strip each
+  run, then re-append a trailing space) has been removed now that it is not merely redundant
+  but harmful: it dropped *leading* run whitespace, which the helper needs in order to see
+  the boundary. The hyperlink-segment path keeps its separate boundary-space handling, since
+  the helper is called once per link segment and cannot see across two of them.
 - **PPTX run hyperlinks are no longer discarded.** `_process_paragraph_runs_to_inline` built
   a `Link` node for every hyperlinked run into a local `result` list, but both of the
   function's exit paths returned `inline_nodes` (the output of `group_and_format_runs`,
