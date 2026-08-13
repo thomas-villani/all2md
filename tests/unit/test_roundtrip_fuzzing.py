@@ -19,7 +19,7 @@ format. ``tests/document_strategies.py`` builds those documents.
 How the gates work
 ------------------
 
-Three gates, in increasing tightness:
+Four gates, in increasing tightness:
 
 ``test_ast_round_trip_is_lossless``
     The ``ast`` format must score exactly 100 on every generated document. This
@@ -39,6 +39,15 @@ Three gates, in increasing tightness:
     XPASS and CI tells the contributor to remove the marker. The allowlist can
     only shrink.
 
+``test_footnotes_survive``
+    Footnote references and definitions, generated in matched pairs, keep their
+    count and their definition paragraphs across a round trip. Same strict-xfail
+    ratchet. This is the first gate aimed at a node class the strategies could
+    not previously build at all: they reached 19 of the AST's 34 concrete node
+    types, and a defect in the other 15 was invisible at any example budget --
+    which is why "expand the fuzz tests" was answered with more coverage rather
+    than more examples.
+
 Adding to the allowlists
 ------------------------
 
@@ -52,13 +61,15 @@ import io
 import os
 
 import pytest
-from document_strategies import documents, documents_of, lists, tables
+from document_strategies import documents, documents_of, documents_with_footnotes, lists, tables
 from hypothesis import HealthCheck, given, settings
 
 from all2md import from_ast, roundtrip_report, roundtrippable_formats, to_ast
 from all2md.ast.nodes import (
     CodeBlock,
     Document,
+    FootnoteDefinition,
+    FootnoteReference,
     Heading,
     List,
     ListItem,
@@ -554,3 +565,123 @@ class TestGeneratedTablesAndLists:
         was dropped by the renderer rather than squeezed out by the syntax.
         """
         assert _list_item_count(_round_trip(doc, "html")) == _list_item_count(doc)
+
+
+# --------------------------------------------------------------------------- #
+# Footnotes
+# --------------------------------------------------------------------------- #
+#
+# The first node class added after measuring that the strategies could only
+# build 19 of the AST's 34 concrete node types. Raising ``max_examples`` could
+# never have found any of the gaps below, because nothing in the generator drew
+# a footnote -- which is why the answer to "expand the fuzz tests" was more
+# coverage rather than more examples.
+
+
+def _footnote_counts(doc: Document) -> tuple[int, int]:
+    """Return ``(references, definitions)`` in *doc*."""
+    return len(_collect(doc, FootnoteReference)), len(_collect(doc, FootnoteDefinition))
+
+
+def _definition_paragraphs(doc: Document) -> int:
+    """Return the total number of paragraphs across every footnote definition."""
+    return sum(len(_collect(definition, Paragraph)) for definition in _collect(doc, FootnoteDefinition))
+
+
+#: Formats the footnote gate covers: the text formats whose renderer emits
+#: footnotes at all. The container formats are excluded for the same reason they
+#: are excluded from the structural invariants -- every one would need an
+#: allowlist line saying "this format has no footnotes", which teaches nothing.
+FOOTNOTE_FORMATS = ("ast", "markdown", "html", "rst", "org", "asciidoc", "dokuwiki")
+
+#: Known footnote round-trip gaps, keyed by ``(format, property)``. Same ratchet
+#: as the other allowlists in this file: fixing one makes its test XPASS, which
+#: fails CI until the entry is deleted, so a fix cannot silently leave a stale
+#: reason behind.
+#:
+#: Every reason below was read off the rendered output, not inferred from the
+#: count that failed. That distinction has bitten this file before -- four
+#: earlier entries named the wrong side of the trip -- and it mattered again
+#: here: "asciidoc loses every footnote" reads like a renderer that drops them,
+#: and the renderer is in fact correct.
+KNOWN_FOOTNOTE_GAPS: dict[tuple[str, str], str] = {
+    ("asciidoc", "markers"): (
+        "The AsciiDoc parser does not recognise the named inline form. The renderer emits "
+        "`footnote:a1[text]`, which is valid Asciidoctor, but the parser's patterns match only "
+        "`footnote:[text]` and `footnoteref:[id,text]` -- so its own output comes back as literal "
+        "text and the raw markup leaks into the prose."
+    ),
+    ("asciidoc", "definition_paragraphs"): (
+        "The AsciiDoc renderer flattens a multi-paragraph definition into one inline argument: "
+        "two paragraphs render as `footnote:a1[note one note two]`. Lost at render time, before "
+        "the parser gap above is even reached."
+    ),
+    ("html", "markers"): (
+        "The HTML renderer emits a real footnote section -- `<sup id=fnref-a1><a href=#fn-a1>` and "
+        "a `<section id=footnotes>` -- but the HTML parser has no rule for reading it back, so "
+        "html->html keeps the text and loses the structure. HTML has no native footnote element, "
+        "so this is recovering our own convention rather than a standard one."
+    ),
+    (
+        "html",
+        "definition_paragraphs",
+    ): "Follows from the markers gap: there is no definition left to count paragraphs in.",
+    ("rst", "markers"): (
+        "The reST renderer emits `body[a1]_` and `.. [a1] text`. With an alphanumeric label that is "
+        "reST *citation* syntax, not footnote syntax (which wants `[#name]_` or a number), so the "
+        "identifiers the generator draws do not survive as footnotes."
+    ),
+    ("rst", "definition_paragraphs"): (
+        "A multi-paragraph definition renders as indented continuation lines under `.. [a1]`, which "
+        "reads back as one paragraph rather than two. #347"
+    ),
+    ("markdown", "definition_paragraphs"): (
+        "Multi-paragraph footnote definitions do not survive intact -- the same collapse the "
+        "roundtrip benchmark corpus found. Counts move in both directions, so this is not a pure "
+        "loss: one shape came back with more paragraphs than it started with. #347"
+    ),
+    ("org", "definition_paragraphs"): "Multi-paragraph definitions collapse toward a single paragraph. #347",
+    ("dokuwiki", "definition_paragraphs"): "Multi-paragraph definitions collapse toward a single paragraph. #347",
+}
+
+#: The properties the gate asserts, and how to measure each.
+FOOTNOTE_PROPERTIES = {
+    "markers": _footnote_counts,
+    "definition_paragraphs": _definition_paragraphs,
+}
+
+
+def _footnote_params() -> list:
+    """Build one parametrization per (format, property), xfailing known gaps."""
+    params = []
+    for fmt in FOOTNOTE_FORMATS:
+        for name in FOOTNOTE_PROPERTIES:
+            reason = KNOWN_FOOTNOTE_GAPS.get((fmt, name))
+            marks = [pytest.mark.xfail(strict=True, reason=reason)] if reason else []
+            params.append(pytest.param(fmt, name, id=f"{fmt}-{name}", marks=marks))
+    return params
+
+
+@pytest.mark.unit
+@pytest.mark.fuzzing
+@pytest.mark.generative
+class TestGeneratedFootnotes:
+    """Footnotes survive a round trip, or the gap is written down and attributed."""
+
+    @pytest.mark.parametrize(("fmt", "prop"), _footnote_params())
+    def test_footnotes_survive(self, fmt: str, prop: str) -> None:
+        """Property: a document's footnotes come back with the same shape.
+
+        References and definitions are generated in matched pairs. An unmatched
+        reference is a different property with a different answer per format --
+        drop it, keep it as text, synthesise an empty note -- and mixing the two
+        would make every failure ambiguous about which one it was.
+        """
+        measure = FOOTNOTE_PROPERTIES[prop]
+
+        @settings(deadline=None, max_examples=25, suppress_health_check=[HealthCheck.too_slow])
+        @given(documents_with_footnotes())
+        def property_holds(doc: Document) -> None:
+            assert measure(_round_trip(doc, fmt)) == measure(doc)
+
+        property_holds()

@@ -49,6 +49,8 @@ from all2md.ast.nodes import (
     CodeBlock,
     Document,
     Emphasis,
+    FootnoteDefinition,
+    FootnoteReference,
     Heading,
     Image,
     LineBreak,
@@ -294,3 +296,77 @@ def documents_of(*strategies: st.SearchStrategy) -> st.SearchStrategy[Document]:
         def test_table_captions_survive(doc): ...
     """
     return st.builds(Document, children=st.lists(st.one_of(*strategies), min_size=1, max_size=3))
+
+
+# --------------------------------------------------------------------------- #
+# Footnotes
+# --------------------------------------------------------------------------- #
+#
+# Footnotes are the first node class added after the discovery that these
+# strategies could only build 19 of the AST's 34 concrete node types. That is a
+# ceiling no example budget can lift: a footnote round-trip defect is invisible
+# at any ``max_examples`` if nothing ever draws a footnote. They are first
+# because the ``benchmarks/roundtrip`` corpus already found real defects here --
+# self-escaping HTML in footnote markers, and multi-paragraph definitions
+# collapsing to one -- so this is a class known to break, not a speculative one.
+
+
+def footnote_identifiers() -> st.SearchStrategy[str]:
+    """Return a strategy for footnote identifiers.
+
+    Lowercase alphanumerics only. Identifiers appear inside the marker syntax of
+    every target format (``[^id]``, ``.. [id]``, ``footnote:id[]``), so a
+    metacharacter here tests escaping rather than structure -- the same
+    separation of concerns the module docstring draws for text.
+    """
+    return st.text(alphabet="abcdefghijklmnopqrstuvwxyz0123456789", min_size=1, max_size=6)
+
+
+def footnote_definitions(identifier: str) -> st.SearchStrategy[FootnoteDefinition]:
+    """Return a strategy for one footnote's definition, given its identifier.
+
+    The body is one or two paragraphs. Two matters: a multi-paragraph footnote
+    is a shape the roundtrip benchmark caught collapsing into a single
+    paragraph, and a strategy that only ever builds one-paragraph definitions
+    cannot see that class.
+    """
+    return st.builds(
+        FootnoteDefinition,
+        identifier=st.just(identifier),
+        content=st.lists(paragraphs(), min_size=1, max_size=2),
+    )
+
+
+@st.composite
+def documents_with_footnotes(draw: st.DrawFn, min_notes: int = 1, max_notes: int = 3) -> Document:
+    """Return a strategy for documents whose footnote references all resolve.
+
+    References and definitions are drawn together rather than independently,
+    because an unmatched reference is a *different* property. Every format has
+    to invent something for a marker with no definition -- drop it, keep it as
+    literal text, synthesise an empty note -- so a document containing one fails
+    a structural round trip for reasons that say nothing about footnote support.
+    Generate those deliberately, in a test that asserts what should happen to
+    them, rather than letting them contaminate this one.
+
+    Each reference is placed inside a paragraph next to ordinary text, which is
+    where footnote markers actually occur, and every definition is appended
+    after the body, which is where every target format puts them.
+    """
+    identifiers = draw(
+        st.lists(footnote_identifiers(), min_size=min_notes, max_size=max_notes, unique=True),
+    )
+
+    body: list[object] = []
+    for identifier in identifiers:
+        body.append(
+            Paragraph(
+                content=[
+                    Text(content=draw(safe_words())),
+                    FootnoteReference(identifier=identifier),
+                ]
+            )
+        )
+
+    definitions = [draw(footnote_definitions(identifier)) for identifier in identifiers]
+    return Document(children=[*body, *definitions])
