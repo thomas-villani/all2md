@@ -677,7 +677,7 @@ class ConverterRegistry:
                 return format_name
 
         # Default fallback
-        logger.debug("No format detected, defaulting to txt")
+        logger.debug("No format detected, defaulting to plaintext")
         return "plaintext"
 
     def _detect_by_filename(self, filename: str, content: Optional[bytes] = None) -> Optional[str]:
