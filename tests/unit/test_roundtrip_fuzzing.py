@@ -49,6 +49,7 @@ than leaving it as documentation.
 """
 
 import io
+import os
 
 import pytest
 from document_strategies import documents, documents_of, lists, tables
@@ -77,15 +78,24 @@ from all2md.ast.nodes import (
 #: nothing while thinning the security coverage.
 #:
 #: The gates that draw their corpus with Hypothesis carry a second marker,
-#: ``generative``, and per-PR CI deselects it: those run on a schedule instead
-#: (see .github/workflows/fuzz-corpus.yml). They are ``derandomize=True``, so a
-#: PR run recomputes a fixed answer over a fixed corpus and can only change when
-#: our code does -- the discovery value is in a seeded sweep, not in the 300th
-#: identical replay. What stays per-PR is everything deterministic and cheap:
-#: the classification check, the structural invariants, and the known-crash
-#: repros, whose strict xfails are what fail the moment someone fixes a bug and
-#: leaves the allowlist entry behind.
+#: ``generative``. They run per PR on the same single leg: they are
+#: ``derandomize=True``, so a PR replays a fixed corpus to recompute an answer
+#: that only moves when our code does, which is what a ratchet is for. They were
+#: briefly moved to a nightly schedule when they took over three hours, but that
+#: was a verbose Hypothesis profile leaking into CI (#341), not the gates; they
+#: cost ~20s.
 pytestmark = pytest.mark.matrix_single
+
+#: Draw a fresh corpus instead of replaying the fixed one. This is the *discovery*
+#: mode, run nightly by .github/workflows/fuzz-corpus.yml, and anything it finds
+#: belongs in :data:`KNOWN_CRASHES` with a reproduction.
+#:
+#: It needs an environment variable because ``--hypothesis-seed=random`` cannot do
+#: it: an explicit ``derandomize=True`` in ``@settings`` beats the flag, so that
+#: sweep silently replays the same documents. Measured, by fingerprinting the
+#: drawn corpus -- with and without the flag the fingerprints are identical. Do
+#: not put ``--hypothesis-seed=random`` in a workflow and call it discovery.
+DISCOVERY = os.environ.get("ALL2MD_FUZZ_DISCOVERY") == "1"
 
 # --------------------------------------------------------------------------- #
 # Format groups
@@ -208,12 +218,16 @@ class TestNoUnrecognisedCrash:
     which reads as a flaky test and trains people to re-run CI until it passes.
 
     The cost is that these gates stop discovering new defects once the seed is
-    fixed. Discovery is a separate activity, run on purpose rather than on every
-    commit::
+    fixed. Discovery is a separate activity, run nightly and on purpose rather
+    than on every commit::
 
-        HYPOTHESIS_PROFILE=ci python -m pytest -m fuzzing --hypothesis-seed=random
+        ALL2MD_FUZZ_DISCOVERY=1 python -m pytest -m generative
 
     Anything that finds belongs in :data:`KNOWN_CRASHES` with a reproduction.
+
+    Use that variable, not ``--hypothesis-seed=random``: the flag loses to the
+    explicit ``derandomize`` here and quietly replays the same corpus, so a
+    sweep built on it is vacuous. See :data:`DISCOVERY`.
 
     The format comes from ``parametrize`` rather than from ``sampled_from``
     inside the strategy, so ``max_examples`` is a budget *per format* instead of
@@ -231,7 +245,7 @@ class TestNoUnrecognisedCrash:
     @settings(
         deadline=None,
         max_examples=25,
-        derandomize=True,
+        derandomize=not DISCOVERY,
         suppress_health_check=[HealthCheck.too_slow],
     )
     @given(documents())
@@ -254,7 +268,7 @@ class TestNoUnrecognisedCrash:
     @settings(
         deadline=None,
         max_examples=10,
-        derandomize=True,
+        derandomize=not DISCOVERY,
         suppress_health_check=[HealthCheck.too_slow],
     )
     @given(documents(max_blocks=3))
