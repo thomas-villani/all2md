@@ -113,18 +113,17 @@ jobs:
           # They run on 3.12 — the same leg that uploads coverage, so the reported
           # figure still includes them.
           #
-          # The 3.12 leg additionally drops `generative`: the Hypothesis-drawn
-          # roundtrip gates are derandomized, so a per-PR run replays a fixed
-          # corpus for an answer that only moves when our code does. They run on
-          # a schedule instead (fuzz-corpus.yml). This is what took the leg from
-          # ~6 min to over 3 hours and made it the critical path for every PR.
+          # The generative gates run here too, on this one leg. They were pulled
+          # out in #230 when they took over 3 hours and made this the critical
+          # path for every PR; #341 found the cause (a verbose Hypothesis profile
+          # leaking into CI, nothing to do with the gates themselves) and they now
+          # finish in ~20s. Replaying a fixed corpus per PR is exactly the point of
+          # a ratchet: it fails the moment our code changes the answer.
           #
           # --durations is cheap and prints the 25 slowest tests, so the next
           # time a leg blows up the log says which test rather than which file.
           ARGS=(tests/ -v --durations=25 --cov=all2md --cov-report=xml --cov-report=term)
-          if [ "$PYTHON_VERSION" = "3.12" ]; then
-            ARGS+=(-m "not generative")
-          else
+          if [ "$PYTHON_VERSION" != "3.12" ]; then
             ARGS+=(-m "not matrix_single")
           fi
           pytest "${ARGS[@]}"

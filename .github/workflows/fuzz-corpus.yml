@@ -1,17 +1,26 @@
-name: Generative Roundtrip Gates
+name: Generative Roundtrip Discovery
 
-# The Hypothesis-drawn roundtrip gates from tests/unit/test_roundtrip_fuzzing.py,
-# split off the per-PR run. See that file's header for which gates stay per-PR.
+# A *discovery* sweep of tests/unit/test_roundtrip_fuzzing.py: it draws a fresh
+# corpus every run and reports round trips that crash in a way KNOWN_CRASHES
+# does not already describe. The same gates now also run per PR (ci.yml, the
+# 3.12 leg) against their fixed corpus, which is the ratchet; this is the half
+# that finds new defects rather than re-proving old ones.
 #
-# Why they are not per-PR: every gate here is `derandomize=True`, so it draws the
-# same corpus every run. A PR replays a fixed set of documents to recompute an
-# answer that can only change when our code changes -- and the deterministic
-# half of the file (invariants, known-crash repros) already catches that in ~2s.
-# The discovery value is in a seeded sweep, which is a deliberate activity:
+# Why an env var and not a flag: `--hypothesis-seed=random` does NOT override
+# the explicit `derandomize=True` on these gates. Measured by fingerprinting the
+# drawn corpus -- with the flag and without it, the documents are identical. The
+# workflow this replaces used that flag and was therefore a vacuous sweep: it
+# replayed the same corpus the per-PR run already covers. `ALL2MD_FUZZ_DISCOVERY=1`
+# is what actually redraws (fingerprints differ every run, verified both ways).
 #
-#     HYPOTHESIS_PROFILE=ci pytest -m fuzzing --hypothesis-seed=random
+# NOT on a schedule yet, deliberately. Discovery currently fails on its first
+# run -- e.g. the asciidoc renderer emits a nested list its own parser rejects
+# with "Cannot nest to level 2 without a parent item at level 1". A nightly that
+# is red every morning teaches people to ignore it. Restore the cron once the
+# findings it produces are triaged into KNOWN_CRASHES with repros and issues,
+# which is the process tests/unit/test_roundtrip_fuzzing.py documents.
 #
-# What forced the split: these took over 3 hours on the 3.12 leg against ~60s
+# What forced the earlier split: these took over 3 hours on the 3.12 leg against ~60s
 # locally. That is now understood and fixed, and it was never about CI at all.
 #
 # The cause was a one-word setting in tests/conftest.py. Hypothesis ships a
