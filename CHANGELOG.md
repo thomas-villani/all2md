@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The PMC born-digital corpus is back to 66 articles.** `PMC11000011.1` was withdrawn
+  upstream (#329), and since #330 the lane degraded gracefully and scored 65 of 66. That is
+  the right behaviour for an incident and the wrong steady state: a permanently-false
+  `complete_corpus` is a permanently-yellow test, so the *second* withdrawal would be
+  invisible against a run that already looks like that — and it quietly consumes the
+  tolerance budget that exists for real incidents, which aborts the load past a tenth of the
+  selection.
+  The replacement is drawn by the selection process rather than chosen: only the
+  `PMC11000000` seed was re-walked, through the same `build_manifest` entry point with the
+  committed stride, `per_seed`, candidate cap and filter, because a hand-picked article would
+  bias the corpus in a way nothing downstream could detect. The walk also shows the
+  withdrawal is a rejection rather than an outage — the prefix still lists and only the PDF
+  404s — so stride alignment is preserved and the seed's two surviving members re-select
+  byte-for-byte identically. Only the third slot moves, to `PMC11000033.1`. The pin moves
+  `34cc7c50` → `9ba5c0cd`, so the next run uses a new digest-keyed cache directory.
+  Re-recorded `benchmarks/pmc/reference.json` against the new pin on CI, and updated every
+  figure in `docs/source/benchmarks.rst` in the same change. The headline readings barely
+  move, which is what a representative corpus should do when one article of 66 is swapped:
+  recall of attainable text 95.3%, novel n-grams 1.0%, both unchanged to the published
+  precision. Tables go from 88-against-117 to 92-against-121 (#332).
+- **The published fidelity figures are now checked against the artifacts they come from.**
+  `docs/source/benchmarks.rst` is the one place the project makes a public quality claim, and
+  the claim rests entirely on each number coming from a committed artifact — but nothing
+  enforced the correspondence. The page and the artifacts were written in the same change and
+  agreed on the day; the first time a pin moved they could silently stop agreeing, and a
+  stale figure on that page reads exactly like a measured one. This lane had already
+  published a comparison between two runs covering different corpora, so the failure mode is
+  demonstrated rather than theoretical.
+  The check is built the strong way round: rather than scraping numbers out of the prose and
+  asking whether each looks plausible — which cannot see a figure that should be there and is
+  not, and needs an exemption for every incidental integer — each published claim is declared
+  as a snippet rendered *from* the artifact, and the page must contain it verbatim. Matching
+  the whole line rather than the number alone means a stale line fails too. Verified the
+  judge can fail: against the pre-update page it reports exactly the nine figures that
+  moved, while the unchanged OmniDocBench readings still match.
+
 ## [1.12.0] - 2026-08-12
 
 ### Added
