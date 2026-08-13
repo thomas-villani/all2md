@@ -44,6 +44,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the whole line rather than the number alone means a stale line fails too. Verified the
   judge can fail: against the pre-update page it reports exactly the nine figures that
   moved, while the unchanged OmniDocBench readings still match.
+  Two stronger invariants ride along, because matching rendered text still assumes the
+  artifact itself describes the right corpus. `reference.json`'s `corpus_pin` must equal the
+  SHA-256 of the committed `manifest.json`, so a manifest edit landing without a re-record —
+  precisely what #332 had to repair — fails immediately rather than at the next scheduled run;
+  and the published reference must be a *complete* run covering every article the manifest
+  names, since `complete_corpus` going false is the right signal for a run and the wrong state
+  for the artifact a public page quotes as its reading.
 
 ## [1.12.0] - 2026-08-12
 
