@@ -4,7 +4,12 @@ Each source fetches documents from a public HTTP endpoint and caches them under
 ``benchmarks/corpus/.cache/<source>/``. A per-source ``_index.json`` records what
 was fetched, so re-running ``download`` is a no-op once the cache is populated.
 
-All fetchers use stdlib only (urllib, tarfile, zipfile, xml.etree, json).
+All fetchers use stdlib only (urllib, tarfile, zipfile, json), with one exception:
+XML arrives from third-party endpoints, so it is parsed with ``defusedxml`` rather
+than ``xml.etree``. Stdlib's parser expands external entities and nested entity
+definitions, which turns a hostile or compromised feed into local file disclosure
+or a memory exhaustion. ``defusedxml`` is already a dependency of the ``all``
+extra, so this costs nothing to require here.
 """
 
 from __future__ import annotations
@@ -19,11 +24,12 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-import xml.etree.ElementTree as ET
 import zipfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Callable, Iterable
+
+import defusedxml.ElementTree as ET
 
 USER_AGENT = "all2md-corpus-benchmark/1.0 (mailto:thomas.villani@njii.com)"
 DEFAULT_TIMEOUT = 60
