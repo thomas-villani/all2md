@@ -19,7 +19,7 @@ format. ``tests/document_strategies.py`` builds those documents.
 How the gates work
 ------------------
 
-Four gates, in increasing tightness:
+Five gates, in increasing tightness:
 
 ``test_ast_round_trip_is_lossless``
     The ``ast`` format must score exactly 100 on every generated document. This
@@ -48,6 +48,19 @@ Four gates, in increasing tightness:
     which is why "expand the fuzz tests" was answered with more coverage rather
     than more examples.
 
+``test_definition_lists_survive``
+    The second such gate, covering ``DefinitionList``/``Term``/``Description``.
+    It runs only over the five formats whose *parser* can build a definition
+    list: sixteen renderers emit one, and a round trip through the other eleven
+    would fill the allowlist with entries saying nothing but "this format has no
+    syntax we read back".
+
+    Its descriptions hold plain text rather than arbitrary inline content, on
+    purpose. Drawing full paragraphs found a real crash on the first run --- and
+    the crash was an inline defect (#353) reachable from a bare paragraph, which
+    an entry in this gate's allowlist would have misattributed to definition
+    lists. A gate should fail for the reason it is named after.
+
 Adding to the allowlists
 ------------------------
 
@@ -61,12 +74,22 @@ import io
 import os
 
 import pytest
-from document_strategies import documents, documents_of, documents_with_footnotes, lists, tables
+from document_strategies import (
+    documents,
+    documents_of,
+    documents_with_definition_lists,
+    documents_with_footnotes,
+    lists,
+    tables,
+)
 from hypothesis import HealthCheck, given, settings
 
 from all2md import from_ast, roundtrip_report, roundtrippable_formats, to_ast
 from all2md.ast.nodes import (
     CodeBlock,
+    DefinitionDescription,
+    DefinitionList,
+    DefinitionTerm,
     Document,
     FootnoteDefinition,
     FootnoteReference,
@@ -377,8 +400,19 @@ def _round_trip(doc: Document, fmt: str) -> Document:
 
 
 def _collect(node: object, cls: type, found: list | None = None) -> list:
-    """Return every descendant of ``node`` that is an instance of ``cls``."""
+    """Return every descendant of ``node`` that is an instance of ``cls``.
+
+    Tuples and lists inside a child attribute are walked through rather than
+    treated as leaves. ``DefinitionList.items`` is a list of
+    ``(term, [description, ...])`` tuples, and without this a search for a
+    `DefinitionTerm` finds nothing at all -- which made the first version of the
+    definition-list gate compare 0 against 0 and pass while measuring nothing.
+    """
     found = [] if found is None else found
+    if isinstance(node, (tuple, list)):
+        for element in node:
+            _collect(element, cls, found)
+        return found
     if isinstance(node, cls):
         found.append(node)
     for attr in ("children", "content", "items", "rows", "cells"):
@@ -681,6 +715,101 @@ class TestGeneratedFootnotes:
 
         @settings(deadline=None, max_examples=25, suppress_health_check=[HealthCheck.too_slow])
         @given(documents_with_footnotes())
+        def property_holds(doc: Document) -> None:
+            assert measure(_round_trip(doc, fmt)) == measure(doc)
+
+        property_holds()
+
+
+def _definition_shape(doc: Document) -> tuple[int, int, int]:
+    """Return ``(lists, terms, descriptions)`` in *doc*."""
+    return (
+        len(_collect(doc, DefinitionList)),
+        len(_collect(doc, DefinitionTerm)),
+        len(_collect(doc, DefinitionDescription)),
+    )
+
+
+def _description_paragraphs(doc: Document) -> int:
+    """Return the total number of paragraphs across every description."""
+    return sum(len(_collect(description, Paragraph)) for description in _collect(doc, DefinitionDescription))
+
+
+#: Formats the definition-list gate covers: the ones whose *parser* can produce a
+#: `DefinitionList` at all. Sixteen renderers emit one, but only five read one
+#: back, and a round trip through the other eleven measures a documented absence
+#: rather than a defect -- it would fill the allowlist with entries that say
+#: nothing except "this format has no definition-list syntax we parse".
+DEFINITION_FORMATS = ("ast", "markdown", "html", "rst", "org", "asciidoc")
+
+#: Known definition-list round-trip gaps, keyed by ``(format, property)``. Same
+#: ratchet as the other allowlists here: fixing one makes its test XPASS, which
+#: fails CI until the entry is deleted.
+#: Markdown and HTML round-trip all three shapes here correctly, so none of these
+#: is a spec ambiguity about what a definition list means -- two formats get it
+#: right and three do not.
+KNOWN_DEFINITION_GAPS: dict[tuple[str, str], str] = {
+    ("asciidoc", "shape"): (
+        "The AsciiDoc parser drops every description and splits one list into one list per "
+        "term. `t::\\ndesc` comes back as a DefinitionTerm with no DefinitionDescription, the "
+        "description text becoming a sibling paragraph, and an N-term list comes back as N "
+        "single-term lists. The text survives; the binding between term and description does "
+        "not. See #351."
+    ),
+    ("asciidoc", "description_paragraphs"): (
+        "Follows from the same defect as ('asciidoc', 'shape'): with no DefinitionDescription "
+        "surviving the trip there is nothing left to count paragraphs inside. See #351."
+    ),
+    ("rst", "shape"): (
+        "The reStructuredText renderer emits a term's several descriptions as consecutive "
+        "indented lines with nothing between them, so they parse back as one description. "
+        "See #352."
+    ),
+    ("rst", "description_paragraphs"): (
+        "The reStructuredText renderer concatenates a description's paragraphs with no "
+        "separator at all -- two paragraphs 'alpha' and 'beta' render as 'alphabeta', which "
+        "fuses a word boundary rather than merely losing a break. See #352."
+    ),
+    ("org", "shape"): (
+        "Same defect as ('rst', 'shape') in the Org renderer: a term's several descriptions "
+        "are emitted as continuation lines and parse back as one. See #352."
+    ),
+    ("org", "description_paragraphs"): (
+        "Same defect as ('rst', 'description_paragraphs') in the Org renderer: a description's "
+        "paragraphs are concatenated with no separator, fusing the words either side. See #352."
+    ),
+}
+
+DEFINITION_PROPERTIES = {
+    "shape": _definition_shape,
+    "description_paragraphs": _description_paragraphs,
+}
+
+
+def _definition_params() -> list:
+    """Build one parametrization per (format, property), xfailing known gaps."""
+    params = []
+    for fmt in DEFINITION_FORMATS:
+        for name in DEFINITION_PROPERTIES:
+            reason = KNOWN_DEFINITION_GAPS.get((fmt, name))
+            marks = [pytest.mark.xfail(strict=True, reason=reason)] if reason else []
+            params.append(pytest.param(fmt, name, id=f"{fmt}-{name}", marks=marks))
+    return params
+
+
+@pytest.mark.unit
+@pytest.mark.generative
+@pytest.mark.fuzzing
+class TestGeneratedDefinitionLists:
+    """Definition lists survive a round trip, or the gap is written down and attributed."""
+
+    @pytest.mark.parametrize(("fmt", "prop"), _definition_params())
+    def test_definition_lists_survive(self, fmt: str, prop: str) -> None:
+        """Property: a document's definition lists come back with the same shape."""
+        measure = DEFINITION_PROPERTIES[prop]
+
+        @settings(deadline=None, max_examples=25, suppress_health_check=[HealthCheck.too_slow])
+        @given(documents_with_definition_lists())
         def property_holds(doc: Document) -> None:
             assert measure(_round_trip(doc, fmt)) == measure(doc)
 

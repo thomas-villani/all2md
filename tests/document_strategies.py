@@ -47,6 +47,9 @@ from all2md.ast.nodes import (
     BlockQuote,
     Code,
     CodeBlock,
+    DefinitionDescription,
+    DefinitionList,
+    DefinitionTerm,
     Document,
     Emphasis,
     FootnoteDefinition,
@@ -370,3 +373,84 @@ def documents_with_footnotes(draw: st.DrawFn, min_notes: int = 1, max_notes: int
 
     definitions = [draw(footnote_definitions(identifier)) for identifier in identifiers]
     return Document(children=[*body, *definitions])
+
+
+def definition_terms() -> st.SearchStrategy[DefinitionTerm]:
+    """Return a strategy for one term of a definition list.
+
+    A term is inline content on a single line in every target spelling, so it is
+    built from text rather than from blocks.
+    """
+    return st.builds(
+        DefinitionTerm,
+        content=st.lists(st.builds(Text, content=safe_words()), min_size=1, max_size=1),
+    )
+
+
+def definition_descriptions(max_paragraphs: int = 2) -> st.SearchStrategy[DefinitionDescription]:
+    """Return a strategy for one description of a definition list.
+
+    A description holds *blocks*, and generating more than one paragraph matters
+    for the same reason it does for footnotes: a multi-paragraph body is the
+    shape that collapses, and a strategy that only builds single-paragraph
+    descriptions cannot see that class of bug.
+
+    The paragraphs hold plain text rather than arbitrary inline content, so that
+    a failure here is attributable to definition lists. Drawing full
+    :func:`paragraphs` instead finds real bugs, but they are inline bugs: the
+    first run of this strategy crashed the AsciiDoc round trip on a nested
+    ``Strong`` wrapping a hard break, which reproduces from a bare paragraph
+    with no definition list anywhere near it. That belongs to the inline gates,
+    not to this one -- an allowlist entry blaming definition lists for it would
+    be a false attribution, and the reason string would send the next reader to
+    the wrong parser.
+    """
+    return st.builds(
+        DefinitionDescription,
+        content=st.lists(
+            st.builds(Paragraph, content=st.lists(st.builds(Text, content=safe_words()), min_size=1, max_size=1)),
+            min_size=1,
+            max_size=max_paragraphs,
+        ),
+    )
+
+
+@st.composite
+def definition_lists(draw: st.DrawFn, min_items: int = 1, max_items: int = 3) -> DefinitionList:
+    """Return a strategy for a definition list.
+
+    ``DefinitionList.items`` is a list of ``(term, [description, ...])`` tuples
+    rather than a flat child list, so it is built explicitly -- ``st.builds``
+    cannot infer that shape and a flat list of nodes would not type-check
+    against it.
+
+    A term is given one or two descriptions. Two matters: several formats spell
+    the second description by repeating the marker rather than nesting it, and a
+    term that only ever has one description never exercises that path.
+    """
+    count = draw(st.integers(min_value=min_items, max_value=max_items))
+    items = [
+        (
+            draw(definition_terms()),
+            draw(st.lists(definition_descriptions(), min_size=1, max_size=2)),
+        )
+        for _ in range(count)
+    ]
+    return DefinitionList(items=items)
+
+
+@st.composite
+def documents_with_definition_lists(draw: st.DrawFn) -> Document:
+    """Return a strategy for documents containing a definition list.
+
+    A paragraph precedes the list, because a definition list is the one block
+    here whose opening line is ordinary text: several formats mark a term only
+    by what follows it, so a list that starts the document cannot show whether
+    the preceding block was absorbed into the first term.
+    """
+    return Document(
+        children=[
+            Paragraph(content=[Text(content=draw(safe_words()))]),
+            draw(definition_lists()),
+        ]
+    )
