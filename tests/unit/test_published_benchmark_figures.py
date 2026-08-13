@@ -151,6 +151,23 @@ def test_the_reference_was_recorded_against_the_committed_manifest() -> None:
     )
 
 
+def test_the_reference_was_produced_by_the_current_payload_shape() -> None:
+    """A payload change without a re-record leaves the artifact describing an older run.
+
+    ``corpus_pin`` catches a *corpus* that moved underneath the reference; this catches the
+    *measurement* moving underneath it. Both matter, and neither implies the other -- the
+    schema bump that added this check reshaped ``degraded_events`` without touching a single
+    figure on the page, so nothing else here would have noticed.
+    """
+    from benchmarks.pmc.benchmark import SCHEMA_VERSION
+
+    recorded = json.loads(_PMC.read_bytes())["schema_version"]
+    assert recorded == SCHEMA_VERSION, (
+        f"benchmarks/pmc/reference.json is a schema {recorded} payload but the lane now emits "
+        f"{SCHEMA_VERSION} -- re-record the reference"
+    )
+
+
 def test_the_reference_covers_the_whole_corpus() -> None:
     """A partial run must not sit behind figures the page presents as the corpus.
 

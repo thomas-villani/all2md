@@ -36,6 +36,34 @@ class PageBoundaryError(RuntimeError):
 
 
 @dataclass(frozen=True, slots=True)
+class DegradedFact:
+    """One degraded-conversion event, with the two fields the lane used to discard.
+
+    The parser records nine distinct reasons for rejecting a table region alone, and
+    coalesces repeats of ``(parser, kind, detail, severity)`` while summing their counts.
+    Reading back only ``kind`` therefore threw away both halves of what the event says:
+    *which* guard fired, and *how many* regions it fired on. A run could report
+    ``table_rejected: 101`` with no way to tell one over-firing article from a corpus-wide
+    detection failure -- and no way to tell an improvement from a regression, since some of
+    those reasons are the parser correctly refusing to grid a page of prose.
+
+    Attributes
+    ----------
+    kind : str
+        Machine-readable event category, e.g. ``"table_rejected"``.
+    reason : str or None
+        The event's ``detail``, naming the specific guard that fired.
+    occurrences : int
+        How many times it fired, from the coalesced event's ``count``.
+
+    """
+
+    kind: str
+    reason: str | None
+    occurrences: int
+
+
+@dataclass(frozen=True, slots=True)
 class ConvertedArticle:
     """One article's AST, whole and split by page.
 
@@ -48,15 +76,16 @@ class ConvertedArticle:
     ocr_page_fraction : float
         Share of pages the parser OCR'd. Expected to be zero on a born-digital corpus, and
         reported rather than assumed so a non-zero is visible.
-    degraded_kinds : tuple[str, ...]
-        Degraded-conversion event kinds the parser recorded.
+    degraded : tuple[DegradedFact, ...]
+        Degraded-conversion events the parser recorded, with their reason and occurrence
+        count intact.
 
     """
 
     document: Document
     pages: tuple[Document, ...]
     ocr_page_fraction: float
-    degraded_kinds: tuple[str, ...]
+    degraded: tuple[DegradedFact, ...]
 
 
 def pdf_options(**overrides: Any) -> PdfOptions:
@@ -178,15 +207,25 @@ def convert_article(pdf_path: Path, expected_pages: int, *, options: PdfOptions 
     fraction = 0.0
     if isinstance(raw_fraction, (int, float)) and not isinstance(raw_fraction, bool):
         fraction = float(raw_fraction)
-    events = confidence.get("degraded_events") if isinstance(confidence, Mapping) else None
-    kinds = (
-        tuple(sorted(str(event["kind"]) for event in events if isinstance(event, Mapping) and "kind" in event))
-        if isinstance(events, list)
-        else ()
-    )
+    raw_events = confidence.get("degraded_events") if isinstance(confidence, Mapping) else None
+    events: list[DegradedFact] = []
+    if isinstance(raw_events, list):
+        for event in raw_events:
+            if not isinstance(event, Mapping) or "kind" not in event:
+                continue
+            raw_count = event.get("count", 1)
+            count = raw_count if isinstance(raw_count, int) and not isinstance(raw_count, bool) else 1
+            detail = event.get("detail")
+            events.append(
+                DegradedFact(
+                    kind=str(event["kind"]),
+                    reason=None if detail is None else str(detail),
+                    occurrences=max(count, 1),
+                )
+            )
     return ConvertedArticle(
         document=document,
         pages=split_pages(document, expected_pages),
         ocr_page_fraction=fraction,
-        degraded_kinds=kinds,
+        degraded=tuple(sorted(events, key=lambda fact: (fact.kind, fact.reason or ""))),
     )

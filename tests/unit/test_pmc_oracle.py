@@ -492,7 +492,7 @@ def test_page_scores_and_the_error_budget_come_from_the_same_run(tmp_path: Path)
                 excluded={"missing": 1},
                 coverage=1.0,
                 ocr_page_fraction=0.0,
-                degraded_kinds=(),
+                degraded=(),
                 duration_seconds=0.1,
                 ground_truth_blocks=10,
             )
@@ -532,3 +532,80 @@ def test_recall_and_precision_are_reported_together() -> None:
     assert payload["article_recall"]["attainable_recall"] > 0.0
     assert payload["article_precision"]["precision"] == pytest.approx(1.0)
     assert payload["article_precision"]["control_emitted"] > 0
+
+
+class _FakeEvaluation:
+    """Only the field `_degraded_summary` reads. The real one needs a scored corpus."""
+
+    def __init__(self, degraded: tuple[convert.DegradedFact, ...]) -> None:
+        self.degraded = degraded
+
+
+def _fact(kind: str, reason: str | None, occurrences: int) -> convert.DegradedFact:
+    return convert.DegradedFact(kind=kind, reason=reason, occurrences=occurrences)
+
+
+def test_degraded_events_count_occurrences_rather_than_coalesced_events() -> None:
+    """The parser coalesces repeats and sums their `count`; reading the event alone loses it.
+
+    Twelve regions rejected in one article is a different fact from one region rejected, and
+    under the old shape the two were identical.
+    """
+    evaluations = [_FakeEvaluation((_fact("table_rejected", "text_grid_splits_words", 12),))]
+
+    summary = benchmark._degraded_summary(evaluations)
+
+    assert summary["table_rejected"]["occurrences"] == 12
+    assert summary["table_rejected"]["by_reason"]["text_grid_splits_words"]["occurrences"] == 12
+
+
+def test_degraded_events_separate_a_pathological_article_from_a_corpus_wide_failure() -> None:
+    """`articles` is why the corpus total cannot be misread.
+
+    Twenty-nine rejections spread over nine articles is a detection gap; the same total from
+    one article is one bad document, and the work those two imply is not the same.
+    """
+    concentrated = [_FakeEvaluation((_fact("table_rejected", "text_grid_splits_words", 29),))]
+    spread = [_FakeEvaluation((_fact("table_rejected", "text_grid_splits_words", 1),)) for _ in range(29)]
+
+    one = benchmark._degraded_summary(concentrated)["table_rejected"]
+    many = benchmark._degraded_summary(spread)["table_rejected"]
+
+    assert one["occurrences"] == many["occurrences"] == 29, "the totals are deliberately identical"
+    assert one["articles"] == 1
+    assert many["articles"] == 29, "which is the only thing that tells them apart"
+
+
+def test_degraded_events_keep_the_reasons_apart() -> None:
+    """Nine guards reject a table region, and some of those rejections are correct.
+
+    Collapsing them into one number cannot distinguish the parser refusing to grid a page of
+    prose -- which is the behaviour we want -- from a real table lost.
+    """
+    evaluations = [
+        _FakeEvaluation(
+            (
+                _fact("table_rejected", "text_grid_splits_words", 6),
+                _fact("table_rejected", "mostly_empty", 6),
+            )
+        ),
+        _FakeEvaluation((_fact("table_rejected", "degenerate_grid", 1),)),
+    ]
+
+    entry = benchmark._degraded_summary(evaluations)["table_rejected"]
+
+    assert entry["occurrences"] == 13
+    assert entry["articles"] == 2
+    assert list(entry["by_reason"]) == [
+        "mostly_empty",
+        "text_grid_splits_words",
+        "degenerate_grid",
+    ], "ordered by occurrences, so the dominant cause leads"
+    assert entry["by_reason"]["degenerate_grid"] == {"occurrences": 1, "articles": 1}
+
+
+def test_an_event_with_no_reason_still_totals() -> None:
+    """Not every degraded event carries a detail; those must not vanish from the total."""
+    summary = benchmark._degraded_summary([_FakeEvaluation((_fact("ocr_failed", None, 3),))])
+
+    assert summary["ocr_failed"] == {"occurrences": 3, "articles": 1}
