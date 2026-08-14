@@ -7,7 +7,7 @@ import warnings
 from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import fields, is_dataclass
+from dataclasses import fields, is_dataclass, replace
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Optional, TypeVar, Union, cast, get_type_hints
 
@@ -52,6 +52,10 @@ def _transforms() -> Any:
 
 # TypeVar for generic options creation
 OptionsT = TypeVar("OptionsT", BaseParserOptions, BaseRendererOptions)
+
+# TypeVar for updating an existing options instance. Bound rather than value-restricted
+# so the caller's concrete class (e.g. MarkdownRendererOptions) survives the round trip.
+OptionsInstanceT = TypeVar("OptionsInstanceT", bound=Union[BaseParserOptions, BaseRendererOptions])
 
 
 def _resolve_document_source(
@@ -421,6 +425,74 @@ def _create_options_from_kwargs(
     return options_class(**valid_kwargs)
 
 
+def _nested_dataclass_type(field_type: Any) -> type[Any] | None:
+    """Return the options dataclass an annotation refers to, unwrapping ``Optional``.
+
+    Returns ``None`` when the annotation is not (or does not contain) a dataclass.
+    """
+    if field_type is None:
+        return None
+    if isinstance(field_type, type) and is_dataclass(field_type):
+        return field_type
+    for arg in getattr(field_type, "__args__", ()):
+        if arg is not type(None) and isinstance(arg, type) and is_dataclass(arg):
+            return arg
+    return None
+
+
+def _merge_kwargs_into_options(options: OptionsInstanceT, kwargs: dict[str, Any], stacklevel: int) -> OptionsInstanceT:
+    """Apply loose keyword arguments on top of an options object the caller built.
+
+    ``create_updated`` is :func:`dataclasses.replace`, so on its own it fails two ways
+    that are routine at the API surface, where kwargs arrive beside a pre-built options
+    instance: a name the dataclass has no field for raises ``TypeError`` instead of the
+    documented warn-and-drop, and a field of a *nested* options dataclass
+    (``network_timeout`` lives on ``options.network``) raises even though it is a
+    perfectly good option for that format. The no-options branch
+    (``_create_options_from_kwargs``) handles both, so this makes the with-options
+    branch behave the same way (#12).
+
+    ``stacklevel`` is counted from the caller's frame, as if it had called
+    ``warnings.warn`` itself.
+    """
+    options_class = cast("type[BaseParserOptions] | type[BaseRendererOptions]", type(options))
+    nested_info = _collect_nested_dataclass_kwargs(options_class, kwargs)
+    type_hints = _option_type_hints(options_class)
+
+    updates: dict[str, Any] = {}
+    dropped: list[str] = []
+
+    # Fold nested names into the nested instance already on ``options`` so unrelated
+    # fields of that nested object survive; build a fresh one only if it is absent.
+    for nested_field_name, nested_kwargs in nested_info["nested"].items():
+        current: Any = getattr(options, nested_field_name, None)
+        if current is not None and is_dataclass(type(current)):
+            updates[nested_field_name] = replace(current, **nested_kwargs)
+            continue
+        nested_class = _nested_dataclass_type(type_hints.get(nested_field_name))
+        if nested_class is not None:
+            updates[nested_field_name] = nested_class(**nested_kwargs)
+        else:  # pragma: no cover - defensive, the field was resolved as a dataclass
+            dropped.extend(nested_kwargs)
+
+    option_names = {field.name for field in fields(options_class)}
+    for name, value in nested_info["remaining"].items():
+        if name in option_names:
+            updates[name] = value
+        else:
+            dropped.append(name)
+
+    if dropped:
+        logger.debug(f"Skipping unknown {options_class.__name__} options: {dropped}")
+        _warn_dropped_kwargs(dropped, stacklevel=stacklevel)
+
+    if not updates:
+        return options
+    # ``create_updated`` returns ``Self``, which mypy resolves against the TypeVar's
+    # union bound rather than the concrete class the caller passed.
+    return cast(OptionsInstanceT, options.create_updated(**updates))
+
+
 def _create_parser_options_from_kwargs(format: DocumentFormat, **kwargs: Any) -> BaseParserOptions | None:
     """Create format-specific parser options object from keyword arguments.
 
@@ -462,7 +534,12 @@ def _create_renderer_options_from_kwargs(format: DocumentFormat, **kwargs: Any) 
 
 
 def _split_kwargs_for_parser_and_renderer(
-    parser_format: DocumentFormat, renderer_format: DocumentFormat, kwargs: dict
+    parser_format: DocumentFormat,
+    renderer_format: DocumentFormat,
+    kwargs: dict,
+    *,
+    parser_options: BaseParserOptions | None = None,
+    renderer_options: BaseRendererOptions | None = None,
 ) -> tuple[dict, dict]:
     """Split kwargs between parser and renderer based on their field names.
 
@@ -474,15 +551,37 @@ def _split_kwargs_for_parser_and_renderer(
         Renderer format to determine which kwargs belong to renderer
     kwargs : dict
         Keyword arguments to split
+    parser_options : BaseParserOptions, optional
+        The options instance the parser kwargs will actually be merged into. When
+        given, its own class decides which names are parser names -- see Notes.
+    renderer_options : BaseRendererOptions, optional
+        The options instance the renderer kwargs will actually be merged into.
 
     Returns
     -------
     tuple[dict, dict]
         (parser_kwargs, renderer_kwargs)
 
+    Notes
+    -----
+    The formats are only a stand-in for "the class that will receive these kwargs".
+    When the caller also passed an options *instance*, that instance is what receives
+    them, and it need not be the detected format's own options class -- parsers accept
+    any subclass of what they expect, and detection can land on a neighbouring format.
+    Validating against the format's class then splits by the wrong field list: a name
+    the instance accepts is dropped as unmatched, and a name it does not accept is
+    routed onward to a bare ``dataclasses.replace`` that raises ``TypeError`` instead
+    of warning (#12).
+
     """
-    parser_class = _get_parser_options_class_for_format(parser_format)
-    renderer_class = _get_renderer_options_class_for_format(renderer_format)
+    parser_class = (
+        type(parser_options) if parser_options is not None else _get_parser_options_class_for_format(parser_format)
+    )
+    renderer_class = (
+        type(renderer_options)
+        if renderer_options is not None
+        else _get_renderer_options_class_for_format(renderer_format)
+    )
 
     parser_kwargs = {}
     renderer_kwargs = {}
@@ -650,11 +749,13 @@ def to_markdown(
             kwargs["flavor"] = flavor
 
         # Split kwargs for renderer (parser kwargs are irrelevant for AST input)
-        _, renderer_kwargs = _split_kwargs_for_parser_and_renderer("markdown", "markdown", kwargs)
+        _, renderer_kwargs = _split_kwargs_for_parser_and_renderer(
+            "markdown", "markdown", kwargs, renderer_options=renderer_options
+        )
 
         final_renderer_options: MarkdownRendererOptions
         if renderer_kwargs and renderer_options:
-            final_renderer_options = renderer_options.create_updated(**renderer_kwargs)
+            final_renderer_options = _merge_kwargs_into_options(renderer_options, renderer_kwargs, stacklevel=3)
         elif renderer_kwargs:
             result = _create_renderer_options_from_kwargs("markdown", **renderer_kwargs)
             assert result is None or isinstance(result, MarkdownRendererOptions)
@@ -695,12 +796,18 @@ def to_markdown(
         actual_format = registry.detect_format(detection_input, hint=None)  # type: ignore[arg-type,assignment]
 
     # Split kwargs between parser and renderer
-    parser_kwargs, renderer_kwargs = _split_kwargs_for_parser_and_renderer(actual_format, "markdown", kwargs)
+    parser_kwargs, renderer_kwargs = _split_kwargs_for_parser_and_renderer(
+        actual_format,
+        "markdown",
+        kwargs,
+        parser_options=parser_options,
+        renderer_options=renderer_options,
+    )
 
     # Prepare parser options
     final_parser_options: BaseParserOptions | None
     if parser_kwargs and parser_options:
-        final_parser_options = parser_options.create_updated(**parser_kwargs)
+        final_parser_options = _merge_kwargs_into_options(parser_options, parser_kwargs, stacklevel=3)
     elif parser_kwargs:
         final_parser_options = _create_parser_options_from_kwargs(actual_format, **parser_kwargs)
     else:
@@ -711,7 +818,7 @@ def to_markdown(
         renderer_kwargs["flavor"] = flavor
 
     if renderer_kwargs and renderer_options:
-        final_renderer_options = renderer_options.create_updated(**renderer_kwargs)
+        final_renderer_options = _merge_kwargs_into_options(renderer_options, renderer_kwargs, stacklevel=3)
     elif renderer_kwargs:
         result = _create_renderer_options_from_kwargs("markdown", **renderer_kwargs)
         assert result is None or isinstance(result, MarkdownRendererOptions)
@@ -869,7 +976,7 @@ def to_ast(
     # Prepare parser options
     final_parser_options: BaseParserOptions | None
     if kwargs and parser_options:
-        final_parser_options = parser_options.create_updated(**kwargs)
+        final_parser_options = _merge_kwargs_into_options(parser_options, kwargs, stacklevel=3)
     elif kwargs:
         opts = _create_parser_options_from_kwargs(actual_format, **kwargs)
         if opts is None:
@@ -1224,7 +1331,7 @@ def roundtrip_report(
             raise FormatError("Cannot auto-detect format from text-mode stream. Please specify source_format.")
 
         parser_kwargs, _ = _split_kwargs_for_parser_and_renderer(
-            cast(DocumentFormat, actual_source_format), via, dict(kwargs)
+            cast(DocumentFormat, actual_source_format), via, dict(kwargs), parser_options=parser_options
         )
         original = to_ast(
             cast(Union[str, Path, IO[bytes], bytes], resolved_payload),
@@ -1235,11 +1342,11 @@ def roundtrip_report(
         )
 
     _, renderer_kwargs = _split_kwargs_for_parser_and_renderer(
-        cast(DocumentFormat, actual_source_format), via, dict(kwargs)
+        cast(DocumentFormat, actual_source_format), via, dict(kwargs), renderer_options=renderer_options
     )
     final_renderer_options: Optional[BaseRendererOptions]
     if renderer_kwargs and renderer_options:
-        final_renderer_options = renderer_options.create_updated(**renderer_kwargs)
+        final_renderer_options = _merge_kwargs_into_options(renderer_options, renderer_kwargs, stacklevel=3)
     elif renderer_kwargs:
         final_renderer_options = _create_renderer_options_from_kwargs(via, **renderer_kwargs)
     else:
@@ -1546,7 +1653,7 @@ def from_ast(
     # Prepare renderer options
     final_renderer_options: Optional[BaseRendererOptions]
     if kwargs and renderer_options:
-        final_renderer_options = renderer_options.create_updated(**kwargs)
+        final_renderer_options = _merge_kwargs_into_options(renderer_options, kwargs, stacklevel=3)
     elif kwargs:
         final_renderer_options = _create_renderer_options_from_kwargs(target_format, **kwargs)
     else:
@@ -1823,12 +1930,14 @@ def convert(
         cast(DocumentFormat, actual_source_format),
         cast(DocumentFormat, actual_target_format),
         kwargs,
+        parser_options=parser_options,
+        renderer_options=renderer_options,
     )
 
     # Parse to AST
     final_parser_options: Optional[BaseParserOptions]
     if parser_kwargs and parser_options:
-        final_parser_options = parser_options.create_updated(**parser_kwargs)
+        final_parser_options = _merge_kwargs_into_options(parser_options, parser_kwargs, stacklevel=3)
     elif parser_kwargs:
         final_parser_options = _create_parser_options_from_kwargs(
             cast(DocumentFormat, actual_source_format), **parser_kwargs
@@ -1864,7 +1973,7 @@ def convert(
     final_renderer_options: Optional[BaseRendererOptions]
     with library_injected_options(*injected_by_shorthand):
         if renderer_kwargs and renderer_options:
-            final_renderer_options = renderer_options.create_updated(**renderer_kwargs)
+            final_renderer_options = _merge_kwargs_into_options(renderer_options, renderer_kwargs, stacklevel=3)
         elif renderer_kwargs:
             final_renderer_options = _create_renderer_options_from_kwargs(
                 cast(DocumentFormat, actual_target_format), **renderer_kwargs

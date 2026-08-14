@@ -110,7 +110,7 @@ Each line is a flat object with these keys:
 `chunk_id`, `index`, `text`, `token_count`, `token_counter`, `strategy`, `document_id`, `document_path`, `section_heading`, `section_level`, `section_index`, `page`, `page_end`, `source_line_start`, `source_line_end`, `char_start`, `char_end`, `char_basis`, `prev_chunk_id`, `next_chunk_id`.
 
 Notes:
-- `char_start`/`char_end` index into the chunk's rendered **section text** (`char_basis="section_text"`), not the original binary.
+- `char_start`/`char_end` index into the chunk's rendered **section text** (`char_basis="section_text"`), not the original binary. Check `char_basis` before slicing: under `--avoid-table-split`/`--avoid-code-split`, a chunk whose segment could not be located in the section text reports `char_basis="segment_text"` and its span is relative to that segment.
 - `page`/`page_end` are populated only for formats that track pages (PDF and similar); otherwise `null`.
 - `section_index` is `-1` for preamble / pre-heading content.
 - `prev_chunk_id`/`next_chunk_id` chain chunks in reading order within a document.
