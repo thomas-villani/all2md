@@ -396,6 +396,16 @@ def group_and_format_runs(
 
     This matches the rendering order where bold appears before italic in markdown.
 
+    Whitespace handling: whitespace *inside* a group is preserved verbatim, and
+    whitespace at the edge *between* two groups is collapsed to a single
+    separating space so that words either side of a formatting change do not
+    fuse (``This is **bold** and after.`` rather than
+    ``This is**bold**and after.``). Whitespace at the true edges of the run
+    sequence - before the first group and after the last - is dropped, since
+    that is the paragraph boundary. A separating space is always emitted
+    *outside* any formatting wrapper, because a trailing space inside emphasis
+    markers (``**bold **``) is not valid markdown.
+
     """
     # Default format builders if not provided
     if format_builders is None:
@@ -405,36 +415,21 @@ def group_and_format_runs(
             lambda nodes: Underline(content=nodes),
         )
 
-    result: list[Node] = []
+    builders: tuple[Callable[[list["Node"]], "Node"], ...] = format_builders
+
+    # Pass 1: collect consecutive same-format runs into groups, keeping each
+    # group's raw text (edges included) so pass 2 can see boundary whitespace.
+    groups: list[tuple[tuple[bool, ...], str]] = []
     current_text: list[str] = []
     current_format: tuple[bool, ...] | None = None
 
     def flush_group() -> None:
-        """Flush current text group as formatted node."""
+        """Flush current text group into the group list."""
         if not current_text:
             return
-
-        # Join text and strip only at the group level to preserve inter-run whitespace
-        text_value = "".join(current_text).strip()
-        if not text_value:
-            # Skip whitespace-only groups
-            current_text.clear()
-            return
-
-        # Build inline node with formatting
-        inline_node: Node = Text(content=text_value)
-
-        if current_format:
-            # Apply formatting layers in reverse order (innermost first)
-            # This ensures proper nesting: Text -> Underline -> Strong -> Emphasis
-            for i in range(len(current_format) - 1, -1, -1):
-                if current_format[i] and i < len(format_builders):
-                    inline_node = format_builders[i]([inline_node])
-
-        result.append(inline_node)
+        groups.append((current_format or (), "".join(current_text)))
         current_text.clear()
 
-    # Process runs
     for run in runs:
         # Extract text and skip completely empty runs
         text = text_extractor(run)
@@ -454,6 +449,51 @@ def group_and_format_runs(
 
     # Flush final group
     flush_group()
+
+    def build_node(format_key: tuple[bool, ...], text_value: str) -> "Node":
+        """Wrap ``text_value`` in the formatting layers named by ``format_key``."""
+        inline_node: Node = Text(content=text_value)
+        # Apply formatting layers in reverse order (innermost first)
+        # This ensures proper nesting: Text -> Underline -> Strong -> Emphasis
+        for i in range(len(format_key) - 1, -1, -1):
+            if format_key[i] and i < len(builders):
+                inline_node = builders[i]([inline_node])
+        return inline_node
+
+    # Pass 2: build nodes, re-emitting a single space at every group boundary
+    # that carried whitespace on either side.
+    result: list[Node] = []
+    pending_space = False
+
+    for format_key, raw_text in groups:
+        text_value = raw_text.strip()
+        if not text_value:
+            # Whitespace-only group: it separates its neighbours rather than
+            # contributing a node of its own. Leading whitespace-only groups are
+            # dropped (``result`` is still empty); a trailing one is dropped
+            # because nothing consumes ``pending_space`` afterwards.
+            if result:
+                pending_space = True
+            continue
+
+        needs_space = bool(result) and (pending_space or raw_text[:1].isspace())
+        pending_space = raw_text[-1:].isspace()
+
+        inline_node = build_node(format_key, text_value)
+
+        if needs_space:
+            # Keep the space outside any formatting wrapper: attach it to an
+            # adjacent unformatted Text node when there is one, otherwise emit a
+            # standalone separator node.
+            previous = result[-1]
+            if isinstance(previous, Text):
+                previous.content += " "
+            elif isinstance(inline_node, Text):
+                inline_node.content = " " + inline_node.content
+            else:
+                result.append(Text(content=" "))
+
+        result.append(inline_node)
 
     return result
 

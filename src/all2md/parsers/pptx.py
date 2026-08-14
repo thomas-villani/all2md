@@ -865,16 +865,11 @@ class PptxToAstConverter(BaseParser):
         """
 
         def text_extractor(run: Any) -> str:
-            # Add space after text to preserve word boundaries
-            # The helper strips and joins without separator, so we add space explicitly
-            text = run.text if run.text else ""
-            stripped = text.strip()
-            if not stripped:
-                return ""
-            # Add space suffix if original text had trailing whitespace
-            if text != stripped and text.endswith((" ", "\t", "\n")):
-                return stripped + " "
-            return stripped
+            # Hand the run's text through verbatim: group_and_format_runs keeps a
+            # single separating space at every format boundary and trims only the
+            # true edges of the run sequence, so re-synthesising word boundaries
+            # here would only drop leading spaces and double up trailing ones.
+            return run.text if run.text else ""
 
         def format_extractor(run: Any) -> tuple[bool, bool, bool, bool, bool, bool]:
             # Return format flags in order that matches desired application order
@@ -920,9 +915,12 @@ class PptxToAstConverter(BaseParser):
         # group_and_format_runs so bold/italic/etc. inside a link's text is
         # preserved, and hyperlinked stretches are wrapped in a Link node.
         # Run order (and therefore the order links appear relative to plain
-        # text) is preserved throughout. group_and_format_runs strips each
-        # group's edges, so whitespace at a segment boundary ("...to " before
-        # a linked run) must be re-emitted here or adjacent words fuse.
+        # text) is preserved throughout. group_and_format_runs keeps boundary
+        # whitespace *within* the run list it is handed but trims that list's
+        # outer edges, and it is called once per segment - so whitespace at a
+        # segment boundary ("...to " before a linked run) is invisible to it and
+        # must be re-emitted here or adjacent words fuse. Because the helper
+        # always trims those outer edges, re-emitting cannot double up.
         result: list[Node] = []
         segment: list[Any] = []
         segment_url: str | None = None
