@@ -26,6 +26,7 @@ from all2md.ast.nodes import (
     DefinitionTerm,
     Document,
     Emphasis,
+    Figure,
     FootnoteDefinition,
     FootnoteReference,
     Heading,
@@ -227,6 +228,30 @@ class TextileRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             if i > 0:
                 self._output.append("\n\n")
             child.accept(self)
+
+    def visit_figure(self, node: Figure) -> None:
+        """Render a Figure node.
+
+        Textile has no figure block, so the children render normally and the
+        caption follows as an italic line, emitted even with no children,
+        since for a vector-drawn PDF figure the caption is the only record the
+        figure existed.
+
+        Parameters
+        ----------
+        node : Figure
+            Figure to render
+
+        """
+        for i, child in enumerate(node.children):
+            if i > 0:
+                self._output.append("\n\n")
+            child.accept(self)
+
+        if node.caption:
+            if node.children:
+                self._output.append("\n\n")
+            self._output.append(f"_{node.caption}_")
 
     def visit_list(self, node: List) -> None:
         """Render a List node.

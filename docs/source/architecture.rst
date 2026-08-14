@@ -355,6 +355,7 @@ their own converters through the ``all2md.converters`` entry-point group:
    │   ├── Table
    │   ├── TableRow
    │   ├── TableCell
+   │   ├── Figure (caption-bearing container)
    │   ├── ThematicBreak
    │   ├── HTMLBlock
    │   ├── MathBlock

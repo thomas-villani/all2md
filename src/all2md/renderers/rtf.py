@@ -17,6 +17,7 @@ from all2md.ast.nodes import (
     DefinitionTerm,
     Document,
     Emphasis,
+    Figure,
     FootnoteDefinition,
     FootnoteReference,
     Heading,
@@ -270,6 +271,16 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
                     paragraphs.append(self._prefix_paragraph(block, "> "))
                 else:
                     paragraphs.append(block)
+        return paragraphs
+
+    def visit_figure(self, node: Figure) -> Any:
+        """Render a figure as its child blocks followed by its caption paragraph."""
+        paragraphs: list[Any] = []
+        Paragraph_cls = cast(Any, self._Paragraph)
+        for child in node.children:
+            paragraphs.extend(self._normalize_blocks(child.accept(self)))
+        if node.caption:
+            paragraphs.append(Paragraph_cls(content=[self._create_text_run(node.caption)]))
         return paragraphs
 
     def visit_list(self, node: List) -> Any:

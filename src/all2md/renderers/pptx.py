@@ -39,6 +39,7 @@ from all2md.ast.nodes import (
     DefinitionTerm,
     Document,
     Emphasis,
+    Figure,
     FootnoteDefinition,
     FootnoteReference,
     Heading,
@@ -1377,6 +1378,38 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         # Render children with indentation
         for child in node.children:
             child.accept(self)
+
+    def visit_figure(self, node: "Figure") -> None:
+        """Render a figure's child blocks, then its caption.
+
+        Table and Image children are routed to the slide-level renderers
+        (their visit_* methods are stubs); other blocks render into the
+        current text frame. The caption (if any) follows as an italic
+        paragraph.
+
+        Parameters
+        ----------
+        node : Figure
+            Figure to render
+
+        """
+        # Render children
+        for child in node.children:
+            if isinstance(child, Table) and self._current_slide is not None:
+                self._render_table(self._current_slide, child)
+            elif isinstance(child, Image) and self._current_slide is not None:
+                self._render_image(self._current_slide, child)
+            else:
+                child.accept(self)
+
+        # Add caption if present
+        if node.caption and self._current_textbox:
+            p = self._current_textbox.add_paragraph()
+            if not self._using_placeholder:
+                p.font.size = self._Pt(self.options.default_font_size)
+            run = p.add_run()
+            run.text = node.caption
+            run.font.italic = True
 
     def visit_thematic_break(self, node: "ThematicBreak") -> None:
         """Render thematic break as separator line.

@@ -37,6 +37,7 @@ from all2md.ast.nodes import (
     DefinitionTerm,
     Document,
     Emphasis,
+    Figure,
     FootnoteDefinition,
     FootnoteReference,
     Heading,
@@ -118,6 +119,7 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
 
         # Rendering state
         self._current_frame: Any | None = None  # Current text frame being rendered
+        self._current_page: Any | None = None  # Current page (slide) for table/image routing
         self._current_paragraph: Any = None
         self._list_ordered_stack: list[bool] = []  # Track ordered/unordered at each level
         self._temp_files: list[str] = []  # Track temp files for cleanup
@@ -343,8 +345,9 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
         content_frame = Frame(width="9in", height="6in", x="0.5in", y="1.75in")
         content_textbox = TextBox()
 
-        # Set current frame for rendering
+        # Set current frame and page for rendering
         self._current_frame = content_textbox
+        self._current_page = page
 
         # Render content nodes
         for node in nodes_to_render:
@@ -1032,6 +1035,33 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
         # Render children
         for child in node.children:
             child.accept(self)
+
+    def visit_figure(self, node: Figure) -> None:
+        """Render a figure's child blocks, then its caption.
+
+        Table and Image children are routed to the page-level renderers
+        (their visit_* methods are stubs); other blocks render into the
+        current text box. The caption (if any) follows as an italic
+        paragraph.
+        """
+        from odf.text import P, Span
+
+        # Render children
+        for child in node.children:
+            if isinstance(child, Table) and self._current_page is not None:
+                self._render_table(self._current_page, child)
+            elif isinstance(child, Image) and self._current_page is not None:
+                self._render_image(self._current_page, child)
+            else:
+                child.accept(self)
+
+        # Add caption if present
+        if node.caption and self._current_frame:
+            caption_para = P()
+            span = Span(stylename="Italic")
+            span.addText(node.caption)
+            caption_para.addElement(span)
+            self._current_frame.addElement(caption_para)
 
     def visit_thematic_break(self, node: ThematicBreak) -> None:
         """Render thematic break."""

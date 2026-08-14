@@ -884,6 +884,58 @@ class TableCell(Node):
 
 
 @dataclass
+class Figure(Node):
+    """Caption-bearing block container node.
+
+    Represents a figure in the HTML5 ``<figure>`` sense: a self-contained
+    block of content -- an image, a table, a code listing, a group of
+    panels -- with an optional caption set beside it. It is a general
+    container rather than an image wrapper because real figures are not
+    always single images: multi-panel journal figures embed one raster per
+    panel, LaTeXML wraps every arXiv table in ``<figure>``, and some PDF
+    figures are vector-drawn with no raster at all, leaving a caption with
+    no ``Image`` to carry it. See #338.
+
+    Parameters
+    ----------
+    children : list of Node, default = empty list
+        Block-level nodes making up the figure's content. May be empty for
+        a figure whose content could not be extracted (e.g. a vector-drawn
+        PDF figure), in which case the caption alone records its presence.
+    caption : str or None, default = None
+        Optional caption: text printed beside the content, such as a
+        journal figure's "Figure 1. ..." line or an HTML ``<figcaption>``.
+        Typed ``str`` to match ``Table.caption`` and ``Image.caption``.
+    metadata : dict, default = empty dict
+        Figure metadata
+    source_location : SourceLocation or None, default = None
+        Source location information
+
+    """
+
+    children: list[Node] = field(default_factory=list)
+    caption: Optional[str] = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    source_location: Optional[SourceLocation] = None
+
+    def accept(self, visitor: Any) -> Any:
+        """Accept a visitor for processing this figure.
+
+        Parameters
+        ----------
+        visitor : Any
+            A visitor object with visit_figure method
+
+        Returns
+        -------
+        Any
+            Result from visitor.visit_figure(self)
+
+        """
+        return visitor.visit_figure(self)
+
+
+@dataclass
 class ThematicBreak(Node):
     """Thematic break node (horizontal rule).
 
@@ -2028,7 +2080,7 @@ def get_node_children(node: Node) -> list[Node]:
 
     """
     # Block nodes with 'children' attribute
-    if isinstance(node, (Document, BlockQuote, ListItem)):
+    if isinstance(node, (Document, BlockQuote, ListItem, Figure)):
         return list(node.children)
 
     # Inline nodes with 'content' attribute (containing inline nodes)
@@ -2137,7 +2189,7 @@ def replace_node_children(node: Node, new_children: list[Node]) -> Node:
 
     """
     # Block nodes with 'children' attribute
-    if isinstance(node, (Document, BlockQuote, ListItem)):
+    if isinstance(node, (Document, BlockQuote, ListItem, Figure)):
         return replace(node, children=new_children)
 
     # Inline nodes with 'content' attribute

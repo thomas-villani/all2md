@@ -37,6 +37,7 @@ from all2md.ast.nodes import (  # noqa: E402
     DefinitionTerm,
     Document,
     Emphasis,
+    Figure,
     FootnoteDefinition,
     FootnoteReference,
     Heading,
@@ -867,6 +868,32 @@ hr {
             child.accept(self)
 
         self._output.append("</blockquote>\n")
+
+    def visit_figure(self, node: Figure) -> None:
+        """Render a Figure node.
+
+        The container maps directly onto ``<figure>``/``<figcaption>``, which
+        is also what our own parser reads back as a figure (#338). The caption
+        is set last, matching where the renderer's markdown spelling and the
+        HTML parser's extraction both expect it.
+
+        Parameters
+        ----------
+        node : Figure
+            Figure to render
+
+        """
+        css_class = self._get_custom_css_class("Figure")
+        self._output.append(f"<figure{css_class}>\n")
+
+        for child in node.children:
+            child.accept(self)
+
+        if node.caption:
+            caption = escape_html(node.caption, enabled=self.options.escape_html)
+            self._output.append(f"<figcaption>{caption}</figcaption>\n")
+
+        self._output.append("</figure>\n")
 
     def visit_list(self, node: List) -> None:
         """Render a List node.

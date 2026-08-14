@@ -122,7 +122,7 @@ A renderer converts the all2md AST back into your format. The SimpleDoc renderer
 
 .. literalinclude:: ../../examples/plugins/simpledoc-plugin/src/all2md_simpledoc/renderer.py
    :language: python
-   :lines: 52-105
+   :lines: 53-106
    :linenos:
    :emphasize-lines: 24-26,29-30,51
    :caption: SimpleDocRenderer - Core rendering structure
@@ -134,7 +134,7 @@ The renderer implements ``visit_*()`` methods for each AST node type:
 
 .. literalinclude:: ../../examples/plugins/simpledoc-plugin/src/all2md_simpledoc/renderer.py
    :language: python
-   :lines: 121-141
+   :lines: 122-142
    :linenos:
    :emphasize-lines: 14-16
    :caption: SimpleDocRenderer.visit_document() - Visitor pattern dispatch
@@ -146,7 +146,7 @@ Use the ``InlineContentMixin`` helper for inline nodes:
 
 .. literalinclude:: ../../examples/plugins/simpledoc-plugin/src/all2md_simpledoc/renderer.py
    :language: python
-   :lines: 181-194
+   :lines: 182-195
    :linenos:
    :emphasize-lines: 12
    :caption: SimpleDocRenderer.visit_heading() - Inline content extraction
@@ -163,7 +163,7 @@ For nodes that represent formatting your format doesn't support (bold, italic, s
 
 .. literalinclude:: ../../examples/plugins/simpledoc-plugin/src/all2md_simpledoc/renderer.py
    :language: python
-   :lines: 343-358
+   :lines: 344-359
    :linenos:
    :emphasize-lines: 15
    :caption: Handling unsupported formatting - Extract text content
@@ -185,14 +185,14 @@ For elements that have some meaningful equivalent, provide a simplified represen
 
 .. literalinclude:: ../../examples/plugins/simpledoc-plugin/src/all2md_simpledoc/renderer.py
    :language: python
-   :lines: 387-403
+   :lines: 388-404
    :linenos:
    :emphasize-lines: 17
    :caption: Handling links - Include URL in plain text
 
 .. literalinclude:: ../../examples/plugins/simpledoc-plugin/src/all2md_simpledoc/renderer.py
    :language: python
-   :lines: 284-319
+   :lines: 285-320
    :linenos:
    :emphasize-lines: 13-14,20-25,31-35
    :caption: Handling tables - Simplified text representation
@@ -212,7 +212,7 @@ For elements your format truly cannot represent, use ``pass`` with clear documen
 
 .. literalinclude:: ../../examples/plugins/simpledoc-plugin/src/all2md_simpledoc/renderer.py
    :language: python
-   :lines: 526-542
+   :lines: 548-564
    :linenos:
    :emphasize-lines: 14-17
    :caption: Handling HTML blocks - Skip entirely
@@ -231,7 +231,7 @@ Some nodes are only rendered as part of their parent:
 
 .. literalinclude:: ../../examples/plugins/simpledoc-plugin/src/all2md_simpledoc/renderer.py
    :language: python
-   :lines: 495-510
+   :lines: 496-511
    :linenos:
    :emphasize-lines: 13-16
    :caption: Structural nodes handled by parent

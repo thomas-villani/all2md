@@ -50,6 +50,7 @@ from all2md.ast.nodes import (
     DefinitionTerm,
     Document,
     Emphasis,
+    Figure,
     FootnoteDefinition,
     FootnoteReference,
     Heading,
@@ -298,6 +299,18 @@ def _serialize_table(node: Table) -> dict[str, Any]:
     return result
 
 
+def _serialize_figure(node: Figure) -> dict[str, Any]:
+    """Serialize a Figure node."""
+    result: dict[str, Any] = {
+        "node_type": "Figure",
+        "children": [ast_to_dict(child) for child in node.children],
+    }
+    if node.caption:
+        result["caption"] = node.caption
+    _add_metadata_and_source(result, node)
+    return result
+
+
 def _serialize_table_row(node: TableRow) -> dict[str, Any]:
     """Serialize a TableRow node."""
     result: dict[str, Any] = {
@@ -414,6 +427,7 @@ _SERIALIZATION_DISPATCH: dict[type, Any] = {
     DefinitionTerm: lambda n: _serialize_inline_content_node(n, "DefinitionTerm"),
     DefinitionDescription: lambda n: _serialize_inline_content_node(n, "DefinitionDescription"),
     Table: _serialize_table,
+    Figure: _serialize_figure,
     TableRow: _serialize_table_row,
     TableCell: _serialize_table_cell,
     ThematicBreak: _serialize_thematic_break,
@@ -726,6 +740,16 @@ def _deserialize_table(data: dict[str, Any]) -> Table:
     )
 
 
+def _deserialize_figure(data: dict[str, Any]) -> Figure:
+    """Deserialize Figure node."""
+    return Figure(
+        children=_deserialize_children(data.get("children")),
+        caption=data.get("caption"),
+        metadata=_opt(data, "metadata", {}),
+        source_location=_deserialize_source_location(data.get("source_location")),
+    )
+
+
 def _deserialize_table_row(data: dict[str, Any]) -> TableRow:
     """Deserialize TableRow node."""
     return TableRow(
@@ -963,6 +987,7 @@ _DESERIALIZATION_DISPATCH: dict[str, Any] = {
     "DefinitionTerm": _deserialize_definition_term,
     "DefinitionDescription": _deserialize_definition_description,
     "Table": _deserialize_table,
+    "Figure": _deserialize_figure,
     "TableRow": _deserialize_table_row,
     "TableCell": _deserialize_table_cell,
     "ThematicBreak": _deserialize_thematic_break,

@@ -27,6 +27,7 @@ from all2md.ast.nodes import (
     DefinitionTerm,
     Document,
     Emphasis,
+    Figure,
     FootnoteDefinition,
     FootnoteReference,
     Heading,
@@ -370,6 +371,44 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         if not self._output[-1].endswith("\n"):
             self._output.append("\n")
         self._output.append("____")
+
+    def visit_figure(self, node: Figure) -> None:
+        """Render a Figure node.
+
+        A single-block figure takes AsciiDoc's native captioning: the block
+        title (``.Caption``) this renderer already writes above captioned
+        tables and images. A multi-block or empty figure has no single block
+        to title, so the children render normally and the caption follows as
+        an italic line -- emitted even with no children, since for a
+        vector-drawn PDF figure the caption is the only record the figure
+        existed.
+
+        Parameters
+        ----------
+        node : Figure
+            Figure to render
+
+        """
+        if node.caption and len(node.children) == 1:
+            child = node.children[0]
+            # A child that writes its own block title would collide with ours.
+            carries_own_title = (isinstance(child, Table) and child.caption) or (
+                isinstance(child, Paragraph) and any(isinstance(item, Image) and item.caption for item in child.content)
+            )
+            if not carries_own_title:
+                self._output.append(f".{node.caption}\n")
+                child.accept(self)
+                return
+
+        for i, child in enumerate(node.children):
+            child.accept(self)
+            if i < len(node.children) - 1:
+                self._output.append("\n\n")
+
+        if node.caption:
+            if node.children:
+                self._output.append("\n\n")
+            self._output.append(f"_{escape_asciidoc(node.caption)}_")
 
     def _flatten_blocks_to_inline(self, nodes: list[Node]) -> str:
         """Flatten block-level nodes to inline text for use in inline contexts.

@@ -25,6 +25,7 @@ from all2md.ast.nodes import (
     DefinitionTerm,
     Document,
     Emphasis,
+    Figure,
     FootnoteDefinition,
     FootnoteReference,
     Heading,
@@ -217,6 +218,31 @@ class DokuWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # Remove trailing newline that will be added by block spacing
         if self._output and self._output[-1].endswith("\n"):
             self._output[-1] = self._output[-1].rstrip("\n")
+
+    def visit_figure(self, node: Figure) -> None:
+        """Render a Figure node.
+
+        DokuWiki has no figure block, so the children render normally and the
+        caption follows as an italic line, emitted even with no children,
+        since for a vector-drawn PDF figure the caption is the only record the
+        figure existed.
+
+        Parameters
+        ----------
+        node : Figure
+            Figure to render
+
+        """
+        for i, child in enumerate(node.children):
+            child.accept(self)
+            if i < len(node.children) - 1:
+                self._output.append("\n\n")
+
+        if node.caption:
+            if node.children:
+                self._output.append("\n\n")
+            caption = escape_dokuwiki(node.caption, context="text")
+            self._output.append(f"//{caption}//")
 
     def visit_list(self, node: List) -> None:
         """Render a List node.

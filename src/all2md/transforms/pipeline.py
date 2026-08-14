@@ -509,6 +509,7 @@ class Pipeline:
             "table",
             "table_row",
             "table_cell",
+            "figure",
             "thematic_break",
             "html_block",
             "text",

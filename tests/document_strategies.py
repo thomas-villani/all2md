@@ -52,6 +52,7 @@ from all2md.ast.nodes import (
     DefinitionTerm,
     Document,
     Emphasis,
+    Figure,
     FootnoteDefinition,
     FootnoteReference,
     Heading,
@@ -299,6 +300,47 @@ def documents_of(*strategies: st.SearchStrategy) -> st.SearchStrategy[Document]:
         def test_table_captions_survive(doc): ...
     """
     return st.builds(Document, children=st.lists(st.one_of(*strategies), min_size=1, max_size=3))
+
+
+# --------------------------------------------------------------------------- #
+# Figures
+# --------------------------------------------------------------------------- #
+#
+# Figure is the caption-bearing block container from #338. It is kept out of
+# the general ``blocks()`` union for now: most formats degrade the container to
+# its children on the way out, so wiring it into every structural property
+# would fail them for a documented absence rather than a defect. The dedicated
+# gate in ``test_roundtrip_fuzzing`` covers the formats whose parser can read
+# the container back.
+
+
+def figures() -> st.SearchStrategy[Figure]:
+    """Return a strategy for Figure containers.
+
+    Children run zero to two blocks. Zero matters: a vector-drawn PDF figure
+    has a caption and no extractable content, and that shape must survive as
+    "a figure was here" rather than collapse to nothing (#338). The caption
+    varies because caption loss is its own defect class, the same reason
+    :func:`tables` varies theirs.
+
+    Children are constrained to shapes that survive a bare round trip, for the
+    same reason definition descriptions hold plain text: a defect reachable
+    without the container -- doubled hard breaks splitting a paragraph, a
+    spanned table rendering a delimiter row markdown cannot read back -- would
+    be misattributed to figures by this gate's allowlist. Tables stay in the
+    mix deliberately (a Figure-wrapped table is the LaTeXML/arXiv shape this
+    container exists for), just without spans.
+    """
+    plain_paragraphs = st.builds(
+        Paragraph,
+        content=safe_words().map(lambda words: [Text(content=words)]),
+    )
+    children = st.one_of(plain_paragraphs, code_blocks(), tables(allow_span=False), st.just(ThematicBreak()))
+    return st.builds(
+        Figure,
+        children=st.lists(children, min_size=0, max_size=2),
+        caption=st.one_of(st.none(), safe_words(max_words=3)),
+    )
 
 
 # --------------------------------------------------------------------------- #

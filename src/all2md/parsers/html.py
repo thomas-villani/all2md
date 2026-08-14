@@ -32,6 +32,7 @@ from all2md.ast import (
     DefinitionTerm,
     Document,
     Emphasis,
+    Figure,
     Heading,
     HTMLBlock,
     Image,
@@ -1332,6 +1333,14 @@ class HtmlToAstConverter(BaseParser):
                 "figure_content_dropped",
                 detail="figure content produced no output",
             )
+
+        if mode == "figure":
+            # The AST has a container for exactly this (#338), so nothing needs
+            # rebinding or degrading: the content stays whatever it was and the
+            # caption rides on the node. An empty, captionless figure is nothing.
+            if not content and not caption_text:
+                return None
+            return Figure(children=content, caption=caption_text)
 
         if mode == "image_with_caption" and caption_text:
             # Bind the caption to the image instead of emitting it as its own paragraph.

@@ -77,6 +77,8 @@ def visit_definition_list(self, node: DefinitionList) -> None:
             self._output.append("\n")
 ```
 
+The block-level `Figure` container (child blocks plus an optional caption) fits the same pattern: render the child blocks normally, then keep the caption as a labelled `Caption:` line.
+
 **Why:** Users appreciate when content is preserved in some form, even if imperfect.
 
 ### 3. Structural Nodes (Handled Elsewhere)
@@ -143,7 +145,7 @@ def test_unsupported_formatting_preserves_content():
 | Category | Action | Example Nodes | Return Value |
 |----------|--------|---------------|--------------|
 | **Formatting** | Extract content | Strikethrough, Underline, Superscript, Subscript | None |
-| **Unsupported** | Skip or simplify | HTMLBlock, Footnotes, Math | None |
+| **Unsupported** | Skip or simplify | HTMLBlock, Footnotes, Math, Figure | None |
 | **Structural** | Parent handles it | TableCell, DefinitionTerm | None |
 
 ## Key Takeaway

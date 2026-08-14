@@ -37,6 +37,7 @@ from all2md.ast.nodes import (
     DefinitionTerm,
     Document,
     Emphasis,
+    Figure,
     FootnoteDefinition,
     FootnoteReference,
     Heading,
@@ -573,6 +574,36 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
                 saved_flowables.append(flowable)
 
         self._flowables = saved_flowables
+
+    def visit_figure(self, node: Figure) -> None:
+        """Render a Figure node.
+
+        Renders the figure's child blocks in order, then the caption (if any)
+        as a centered italic paragraph, mirroring the image-caption style.
+
+        Parameters
+        ----------
+        node : Figure
+            Figure to render
+
+        """
+        # Render children
+        for child in node.children:
+            child.accept(self)
+
+        # Add caption if present
+        if node.caption:
+            caption_style = self._ParagraphStyle(
+                "FigureCaption",
+                parent=self._styles["Normal"],
+                alignment=self._TA_CENTER,  # type: ignore[arg-type]
+                fontSize=self.options.font_size - 1,
+                textColor=self._colors.grey,
+            )
+            escaped = node.caption.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            caption = self._Paragraph(f"<i>{escaped}</i>", caption_style)
+            self._flowables.append(caption)
+            self._flowables.append(self._Spacer(1, 0.1 * self._inch))
 
     def visit_list(self, node: List) -> None:
         """Render a List node.

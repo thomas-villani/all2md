@@ -31,6 +31,7 @@ from all2md.ast.nodes import (
     DefinitionTerm,
     Document,
     Emphasis,
+    Figure,
     FootnoteDefinition,
     FootnoteReference,
     Heading,
@@ -681,6 +682,30 @@ class NodeVisitor(ABC):
         """
         pass
 
+    def visit_figure(self, node: "Figure") -> Any:
+        """Visit a Figure node.
+
+        Like ``visit_mark``, this is concrete rather than abstract so that
+        visitors predating the Figure node degrade gracefully: the default
+        visits the figure's children, emitting their content unwrapped, and
+        drops the caption. Visitors that can express a captioned container
+        should override this method.
+
+        Parameters
+        ----------
+        node : Figure
+            The figure node to visit
+
+        Returns
+        -------
+        Any
+            Result of processing this node
+
+        """
+        for child in node.children:
+            child.accept(self)
+        return None
+
     def generic_visit(self, node: Node) -> Any:
         """Fallback visitor for unhandled node types.
 
@@ -778,6 +803,7 @@ class ValidationVisitor(NodeVisitor):
             Table,
             TableRow,
             TableCell,
+            Figure,
             ThematicBreak,
             HTMLBlock,
             FootnoteDefinition,
@@ -944,6 +970,13 @@ class ValidationVisitor(NodeVisitor):
 
     def visit_block_quote(self, node: BlockQuote) -> None:
         """Validate a BlockQuote node."""
+        for child in node.children:
+            child.accept(self)
+
+    def visit_figure(self, node: Figure) -> None:
+        """Validate a Figure node."""
+        # Validate that figure children are block nodes
+        self._validate_children_are_blocks(node.children, "Figure")
         for child in node.children:
             child.accept(self)
 

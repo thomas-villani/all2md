@@ -33,6 +33,7 @@ from all2md.ast.nodes import (
     DefinitionTerm,
     Document,
     Emphasis,
+    Figure,
     FootnoteDefinition,
     FootnoteReference,
     Heading,
@@ -262,6 +263,29 @@ class PlainTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             child.accept(self)
             if i < len(node.children) - 1:
                 self._output.append(self.options.paragraph_separator)
+
+    def visit_figure(self, node: Figure) -> None:
+        """Render a Figure node (children plus caption as plain text).
+
+        The caption is emitted even with no children, since for a
+        vector-drawn PDF figure the caption is the only record the figure
+        existed.
+
+        Parameters
+        ----------
+        node : Figure
+            Figure to render
+
+        """
+        for i, child in enumerate(node.children):
+            child.accept(self)
+            if i < len(node.children) - 1:
+                self._output.append(self.options.paragraph_separator)
+
+        if node.caption:
+            if node.children:
+                self._output.append(self.options.paragraph_separator)
+            self._output.append(node.caption)
 
     def visit_list(self, node: List) -> None:
         """Render a List node.

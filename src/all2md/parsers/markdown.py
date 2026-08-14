@@ -35,6 +35,7 @@ from all2md.ast import (
     DefinitionTerm,
     Document,
     Emphasis,
+    Figure,
     FootnoteDefinition,
     FootnoteReference,
     Heading,
@@ -62,7 +63,14 @@ from all2md.ast import (
     Underline,
 )
 from all2md.ast.utils import extract_text
-from all2md.constants import DEPS_MARKDOWN, MARKDOWN_IMAGE_CAPTION_MARKER, MARKDOWN_TABLE_CAPTION_MARKER
+from all2md.constants import (
+    DEPS_MARKDOWN,
+    MARKDOWN_FIGURE_CAPTION_MARKER,
+    MARKDOWN_FIGURE_END_MARKER,
+    MARKDOWN_FIGURE_MARKER,
+    MARKDOWN_IMAGE_CAPTION_MARKER,
+    MARKDOWN_TABLE_CAPTION_MARKER,
+)
 from all2md.converter_metadata import ConverterMetadata
 from all2md.options.markdown import MarkdownParserOptions
 from all2md.parsers.base import BaseParser
@@ -476,7 +484,7 @@ class MarkdownToAstConverter(BaseParser):
 
         # Convert tokens to AST (tokens should always be a list for our configuration)
         if isinstance(tokens, list):
-            children = self._reattach_captions(self._process_tokens(tokens))
+            children = self._reattach_captions(self._fold_figures(self._process_tokens(tokens)))
         else:
             # Fallback for unexpected token format
             children = []
@@ -1215,6 +1223,104 @@ class MarkdownToAstConverter(BaseParser):
                     nodes.append(node)
 
         return self._fold_underline_html(nodes)
+
+    def _fold_figures(self, nodes: list[Node]) -> list[Node]:
+        """Fold rendered figure spans back into ``Figure`` nodes.
+
+        The renderer spells a Figure container as an opening marker comment,
+        the child blocks, and a closing marker -- the caption marker when the
+        figure has a caption (preceded by the visible italic caption line), the
+        end marker otherwise (#338). This runs before ``_reattach_captions`` so
+        that table and image caption triples *inside* a folded figure still
+        fold when that pass recurses into ``Figure.children``.
+
+        Conservative in the same way as caption reattachment: an opening
+        marker with no closing marker is left in place as an ordinary comment
+        rather than swallowing the rest of the document.
+
+        Parameters
+        ----------
+        nodes : list of Node
+            Block-level nodes, in document order
+
+        Returns
+        -------
+        list of Node
+            The same nodes with any figure spans collapsed into Figure nodes
+
+        """
+        for node in nodes:
+            # Same container recursion as _reattach_captions: figures nest
+            # inside list items and blockquotes too.
+            for attribute in ("children", "items"):
+                container = getattr(node, attribute, None)
+                if isinstance(container, list) and container and all(isinstance(c, Node) for c in container):
+                    setattr(node, attribute, self._fold_figures(container))
+
+        result: list[Node] = []
+        index = 0
+        while index < len(nodes):
+            node = nodes[index]
+            if isinstance(node, Comment) and node.content.strip() == MARKDOWN_FIGURE_MARKER:
+                folded = self._figure_from_span(nodes, index)
+                if folded is not None:
+                    figure, next_index = folded
+                    result.append(figure)
+                    index = next_index
+                    continue
+            result.append(node)
+            index += 1
+        return result
+
+    def _figure_from_span(self, nodes: list[Node], index: int) -> tuple[Figure, int] | None:
+        """Fold the figure span opening at ``nodes[index]``, if it closes.
+
+        Parameters
+        ----------
+        nodes : list of Node
+            Block-level nodes, in document order
+        index : int
+            Position of an opening figure marker comment
+
+        Returns
+        -------
+        tuple of (Figure, int), or None
+            The folded figure and the index just past its closing marker, or
+            None if no matching closing marker exists
+
+        """
+        depth = 0
+        end = None
+        terminator = None
+        for j in range(index + 1, len(nodes)):
+            candidate = nodes[j]
+            if not isinstance(candidate, Comment):
+                continue
+            marker = candidate.content.strip()
+            if marker == MARKDOWN_FIGURE_MARKER:
+                depth += 1
+            elif marker in (MARKDOWN_FIGURE_CAPTION_MARKER, MARKDOWN_FIGURE_END_MARKER):
+                if depth == 0:
+                    end, terminator = j, marker
+                    break
+                depth -= 1
+        if end is None:
+            return None
+
+        # The scan above skipped nested figure markers; fold them now so the
+        # children carry Figure nodes rather than raw marker comments.
+        children = self._fold_figures(nodes[index + 1 : end])
+
+        caption: str | None = None
+        if terminator == MARKDOWN_FIGURE_CAPTION_MARKER and children:
+            last = children[-1]
+            if isinstance(last, Paragraph) and len(last.content) == 1 and isinstance(last.content[0], Emphasis):
+                text = extract_text(last.content[0], joiner="").strip()
+                if text:
+                    caption = text
+                    children = children[:-1]
+
+        return Figure(children=children, caption=caption), end + 1
 
     def _reattach_captions(self, nodes: list[Node]) -> list[Node]:
         """Fold rendered caption groups back into ``Table.caption`` and ``Image.caption``.

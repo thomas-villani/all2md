@@ -26,6 +26,7 @@ from all2md.ast import (
     DefinitionTerm,
     Document,
     Emphasis,
+    Figure,
     FootnoteDefinition,
     Heading,
     Link,
@@ -187,7 +188,7 @@ def _build_parent_map(doc: Document) -> dict[int, Node]:
 
 
 # Containers whose children live in ``.children``.
-_CHILDREN_CONTAINERS = (Document, BlockQuote, ListItem)
+_CHILDREN_CONTAINERS = (Document, BlockQuote, ListItem, Figure)
 # Containers whose children live in ``.content`` (a list of inline/block nodes).
 _CONTENT_CONTAINERS = (
     Heading,

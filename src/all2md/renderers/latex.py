@@ -25,6 +25,7 @@ from all2md.ast.nodes import (
     DefinitionTerm,
     Document,
     Emphasis,
+    Figure,
     FootnoteDefinition,
     FootnoteReference,
     Heading,
@@ -287,6 +288,46 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 self._output.append("\n\n")
 
         self._output.append("\n\\end{quote}")
+
+    def visit_figure(self, node: Figure) -> None:
+        r"""Render a Figure node.
+
+        Paragraph and table content is safe inside a ``figure`` float, so such
+        figures render as ``\begin{figure}`` with a ``\caption``. Anything
+        else (code listings, lists, raw HTML) falls back to rendering the
+        children normally with the caption as an emphasised line, emitted even
+        with no children, since for a vector-drawn PDF figure the caption is
+        the only record the figure existed.
+
+        Parameters
+        ----------
+        node : Figure
+            Figure to render
+
+        """
+        figure_safe = all(isinstance(child, (Paragraph, Table)) for child in node.children)
+        if figure_safe:
+            self._output.append("\\begin{figure}\n")
+            for i, child in enumerate(node.children):
+                child.accept(self)
+                if i < len(node.children) - 1:
+                    self._output.append("\n\n")
+            if node.caption:
+                if node.children:
+                    self._output.append("\n")
+                self._output.append(f"\\caption{{{self._escape(node.caption)}}}")
+            self._output.append("\n\\end{figure}")
+            return
+
+        for i, child in enumerate(node.children):
+            child.accept(self)
+            if i < len(node.children) - 1:
+                self._output.append("\n\n")
+
+        if node.caption:
+            if node.children:
+                self._output.append("\n\n")
+            self._output.append(f"\\emph{{{self._escape(node.caption)}}}")
 
     def visit_list(self, node: List) -> None:
         """Render a List node.
