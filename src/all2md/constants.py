@@ -813,6 +813,10 @@ PDF_CAPTION_BAND_OVERHANG = 20.0
 # A caption is long-form prose, but not unbounded. Bounds the text handed to the cue
 # pattern so a runaway region cannot turn matching into a ReDoS surface.
 PDF_CAPTION_MAX_LENGTH = 500
+# A body text block whose whole text sits inside a bound caption is that caption's
+# duplicate and is suppressed -- unless it is shorter than this, which keeps a bare
+# cross-reference ("Figure 1.") from being mistaken for a caption fragment.
+PDF_CAPTION_DEDUP_MIN_CHARS = 10
 # When the layout model is available, also drop images that fall inside a
 # page-header / page-footer region (recurring logos, signature blocks).
 DEFAULT_FILTER_HEADER_FOOTER_IMAGES = True

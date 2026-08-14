@@ -648,7 +648,7 @@ class TestDetectedCaptionsReachTheImageNode:
 
     CAPTION = "Figure 1. Growth of the assay over twelve weeks."
 
-    def _pdf_with_image(self, tmp_path, caption_text=None):
+    def _pdf_with_image(self, tmp_path, caption_text=None, body_text=None):
         """A one-page PDF holding one raster image, optionally with a caption below it."""
         pymupdf = pytest.importorskip("pymupdf")
         source = pymupdf.open()
@@ -664,6 +664,8 @@ class TestDetectedCaptionsReachTheImageNode:
         page.insert_image(pymupdf.Rect(72.0, 120.0, 400.0, 240.0), pixmap=pixmap, keep_proportion=False)
         if caption_text:
             page.insert_text((72, 250.0), caption_text, fontsize=9)
+        if body_text:
+            page.insert_text((72, 320.0), body_text, fontsize=9)
         path = tmp_path / "figure.pdf"
         document.save(path)
         document.close()
@@ -702,3 +704,19 @@ class TestDetectedCaptionsReachTheImageNode:
 
         assert len(images) == 1
         assert images[0].caption is None
+
+    def test_the_bound_caption_appears_once_and_body_prose_survives(self, tmp_path) -> None:
+        """Binding must not double the caption: its body copy is suppressed.
+
+        The caption is real page text, so without suppression it would render
+        twice -- once as an ordinary paragraph and once as the caption line under
+        the image. Ordinary prose on the same page must be untouched.
+        """
+        from all2md.api import to_markdown
+
+        body = "The assay was repeated in triplicate across all cohorts."
+        path = self._pdf_with_image(tmp_path, caption_text=self.CAPTION, body_text=body)
+        markdown = to_markdown(path, attachment_mode="base64")
+
+        assert markdown.count(self.CAPTION) == 1
+        assert body in markdown

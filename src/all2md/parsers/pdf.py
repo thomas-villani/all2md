@@ -58,6 +58,7 @@ from all2md.ast.transforms import InlineFormattingConsolidator, extract_nodes
 from all2md.constants import (
     DEPS_PDF,
     DEPS_PDF_LAYOUT,
+    PDF_CAPTION_DEDUP_MIN_CHARS,
     PDF_MIN_PYMUPDF_VERSION,
     PDF_READING_ORDER_MIN_ROW_TOLERANCE,
     PDF_READING_ORDER_ROW_TOLERANCE_RATIO,
@@ -2086,9 +2087,18 @@ class PdfToAstConverter(BaseParser):
                     )
                     logger.debug("Layout analysis detected additional table at %s on page %d", pred_rect, page_num + 1)
 
+        # A caption bound to a figure renders beside that figure, so the body copy of
+        # the same text must not also survive as a paragraph -- every caption would
+        # appear twice. Matching is textual rather than geometric: the whole block,
+        # whitespace-normalized, must sit inside a caption actually bound on this
+        # page, so nothing that is not literally the caption can be dropped.
+        bound_captions = [" ".join(img["caption"].split()) for img in page_images if img.get("caption")]
+
         # Filter out blocks inside table regions
         text_blocks = []
         for block in all_blocks:
+            if bound_captions and self._is_bound_caption_block(block, bound_captions):
+                continue
             if "bbox" not in block:
                 text_blocks.append(block)
                 continue
@@ -3412,6 +3422,40 @@ class PdfToAstConverter(BaseParser):
             for pred in layout.get_predictions_by_label(label):
                 regions.append(pymupdf.Rect(pred.x0, pred.y0, pred.x1, pred.y1))
         return regions
+
+    @staticmethod
+    def _is_bound_caption_block(block: dict, bound_captions: list[str]) -> bool:
+        """Return True if this text block is the body copy of a bound figure caption.
+
+        The caption's text is real page text, so after binding it to an ``Image`` it
+        would otherwise also be emitted as an ordinary paragraph, and every caption
+        would appear twice in the output. A block is the body copy only when its
+        entire whitespace-normalized text sits inside a bound caption -- a block
+        holding the caption *plus* other prose keeps its place, because dropping it
+        would take that prose with it.
+
+        Parameters
+        ----------
+        block : dict
+            PyMuPDF text block
+        bound_captions : list of str
+            Whitespace-normalized captions bound to this page's images
+
+        Returns
+        -------
+        bool
+            True when the block should be suppressed as a duplicate
+
+        """
+        if block.get("type") != 0:
+            return False
+        text = " ".join(span.get("text", "") for line in block.get("lines", []) for span in line.get("spans", []))
+        text = " ".join(text.split())
+        # The floor keeps a short cross-reference ("Figure 1.") standing alone in the
+        # body from being mistaken for the caption fragment it is contained in.
+        if len(text) < PDF_CAPTION_DEDUP_MIN_CHARS:
+            return False
+        return any(text in caption for caption in bound_captions)
 
     def _create_image_node(self, img_info: dict, page_num: int) -> AstParagraph | None:
         """Create an image node from image info.
