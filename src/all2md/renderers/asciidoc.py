@@ -98,6 +98,7 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._list_ordered_stack: list[bool] = []  # Track ordered/unordered at each level
         self._footnote_collector: FootnoteCollector = FootnoteCollector()
         self._footnotes_emitted: set[str] = set()  # Track which footnotes have been emitted inline
+        self._in_table_cell: bool = False
 
     def render_to_string(self, document: Document) -> str:
         """Render a document AST to AsciiDoc string.
@@ -119,6 +120,7 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._list_ordered_stack = []
         self._footnote_collector = FootnoteCollector()
         self._footnotes_emitted = set()
+        self._in_table_cell = False
 
         document.accept(self)
 
@@ -537,11 +539,20 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             # why it replaces the `|` rather than following it.
             if not cells:
                 return
-            for index, cell in enumerate(cells):
-                content = self._render_inline_content(cell.content)
-                delimiter = cell_span(cell) or "|"
-                separator = "" if index == 0 else " "
-                self._output.append(f"{separator}{delimiter}{content}")
+            # A psv row is one line: the project's own parser (`_parse_table_row`)
+            # splits on '|' within a single source line, so any node that would
+            # normally emit a literal '\n' (a hard LineBreak's ' +\n') has to fall
+            # back to something line-safe while we're inside a cell.
+            was_in_table_cell = self._in_table_cell
+            self._in_table_cell = True
+            try:
+                for index, cell in enumerate(cells):
+                    content = self._render_inline_content(cell.content)
+                    delimiter = cell_span(cell) or "|"
+                    separator = "" if index == 0 else " "
+                    self._output.append(f"{separator}{delimiter}{content}")
+            finally:
+                self._in_table_cell = was_in_table_cell
             self._output.append("\n")
 
         # Render header
@@ -778,8 +789,12 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Line break to render
 
         """
-        if node.soft:
-            # Soft breaks render as space in AsciiDoc
+        if node.soft or self._in_table_cell:
+            # Soft breaks render as space in AsciiDoc. Inside a table cell the
+            # hard-break marker ' +\n' would embed a newline in a psv row and
+            # the project's own parser reads it back as a row split (the ' +'
+            # marker leaking into the first cell's text) rather than a break,
+            # so fall back to the same space used for soft breaks.
             self._output.append(" ")
         else:
             # Hard break with explicit line break

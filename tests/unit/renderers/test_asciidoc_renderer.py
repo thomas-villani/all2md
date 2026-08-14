@@ -1011,6 +1011,59 @@ class TestTableRendering:
         assert [(c.colspan, c.rowspan) for c in cells] == [(2, 1), (1, 3), (2, 3)]
         assert [c.content[0].content for c in cells] == ["Wide", "Tall", "Both"]
 
+    def test_hard_line_break_in_table_cell_round_trips_as_one_row(self) -> None:
+        """A hard LineBreak inside a cell must not split the psv row (#28).
+
+        `visit_line_break` used to emit ' +\\n' for every hard break regardless
+        of context. Embedded in a single-line table row that newline broke the
+        row in two once re-parsed: the project's own `AsciiDocParser` reads
+        rows line by line, so 'line1 +\\nline2 |b' came back as a one-cell row
+        ('line1 +') followed by a spurious two-cell row ('line2', 'b'), and the
+        ' +' marker leaked into the first cell's text. Inside a cell a hard
+        break now falls back to the same space a soft break uses.
+        """
+        from all2md.ast import LineBreak
+
+        doc = Document(
+            children=[
+                Table(
+                    header=None,
+                    rows=[
+                        TableRow(
+                            cells=[
+                                TableCell(
+                                    content=[
+                                        Text(content="line1"),
+                                        LineBreak(soft=False),
+                                        Text(content="line2"),
+                                    ]
+                                ),
+                                TableCell(content=[Text(content="b")]),
+                            ]
+                        )
+                    ],
+                )
+            ]
+        )
+        result = AsciiDocRenderer().render_to_string(doc)
+
+        # No embedded newline and no leaked ' +' marker inside the row.
+        assert "\n" not in result.split("|===\n", 1)[1].split("\n|===")[0]
+        assert " +" not in result
+
+        reparsed = AsciiDocParser().parse(result)
+        table = reparsed.children[0]
+        assert isinstance(table, Table)
+        # The parser's default "first-row" mode reads the lone row back as a
+        # header; what matters here is that it is still ONE two-cell row, not
+        # a one-cell row followed by a spurious second row.
+        assert not table.rows
+        assert table.header is not None
+        cells = table.header.cells
+        assert len(cells) == 2
+        assert "".join(c.content for c in cells[0].content if hasattr(c, "content")) == "line1 line2"
+        assert cells[1].content[0].content == "b"
+
     @pytest.mark.parametrize("columns", [1, 2, 3, 5])
     def test_a_table_round_trips_with_the_column_count_it_was_given(self, columns: int) -> None:
         """A row must not end with a delimiter, which would open one more cell.
