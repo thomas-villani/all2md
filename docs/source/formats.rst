@@ -111,10 +111,10 @@ HTML & Web Archives
 - Template modes (inject/replace/jinja) in the renderer support custom HTML generation
 - Native Hugo, Jekyll, MkDocs, Zola, and Eleventy site generation via ``generate-site`` command (:doc:`static_sites`)
 
-Email Messages (EML/MSG)
-~~~~~~~~~~~~~~~~~~~~~~~~
+Email Messages (EML)
+~~~~~~~~~~~~~~~~~~~~
 
-*Parser:* ``EmlToAstConverter``
+*Parser:* ``EmlToAstConverter`` (Outlook ``.msg`` files are handled by ``OutlookParser``)
 
 - Flattens email threads, quoted replies, and multipart content into readable Markdown
 - Preserves headers, inline images, and attachments; optional thread-aware formatting
