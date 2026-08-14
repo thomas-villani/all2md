@@ -30,14 +30,23 @@ class TestDocxEscaping:
         temp_file = self.temp_dir / "special_chars.docx"
         doc.save(str(temp_file))
 
-        # Test with escaping enabled (default)
+        # Test with escaping enabled (default). Mid-paragraph *, _, [, ], {, },
+        # backslash and backtick are escaped so they can't be misread as
+        # Markdown syntax. '#' is left bare here: it only needs escaping when
+        # it starts a line (ATX heading marker), and mid-paragraph it is
+        # unambiguous, so escaping it would be over-escaping.
         markdown = docx_to_markdown(str(temp_file))
         assert_markdown_valid(markdown)
 
-        # Common characters that should be escaped in certain contexts
-        assert "\\*" in markdown or "*" in markdown  # Depends on context
-        assert "\\_" in markdown or "_" in markdown
-        assert "\\#" in markdown or "#" in markdown
+        assert "Special characters: \\* \\_ # \\[ \\] ( ) \\{ \\} \\\\ \\` + - . ! ~ ^ | < >" in markdown
+        assert "\\#" not in markdown
+
+        # Test with escaping disabled: every character comes through raw.
+        renderer_options_no_escape = MarkdownRendererOptions(escape_special=False)
+        markdown_no_escape = docx_to_markdown(str(temp_file), renderer_options=renderer_options_no_escape)
+        assert_markdown_valid(markdown_no_escape)
+
+        assert "Special characters: * _ # [ ] ( ) { } \\ ` + - . ! ~ ^ | < >" in markdown_no_escape
 
     def test_escaping_in_different_contexts(self):
         """Test escaping behavior in different document contexts."""
@@ -91,25 +100,31 @@ class TestDocxEscaping:
         temp_file = self.temp_dir / "formatted_special_chars.docx"
         doc.save(str(temp_file))
 
-        # Test with escaping enabled
+        # Test with escaping enabled: formatting markers (** / *) come from the
+        # renderer, not the source text, so they appear either way; the
+        # literal *, _, {, and } characters from the source must be
+        # backslash-escaped so they aren't misread as emphasis/code syntax.
         parser_options = DocxOptions()
         renderer_options = MarkdownRendererOptions(escape_special=True)
         markdown = docx_to_markdown(str(temp_file), parser_options=parser_options, renderer_options=renderer_options)
         assert_markdown_valid(markdown)
 
-        # Should preserve formatting while handling special characters
-        assert "**" in markdown  # Bold formatting
-        assert "*" in markdown  # Italic formatting
-        assert "\\*" in markdown  # escaped
-        assert "\\`function() \\{" in markdown
+        assert "**Bold text with \\* asterisks \\***" in markdown
+        assert "*Italic text with \\_ underscores \\_*" in markdown
+        assert "Code: \\`function() \\{ return 'hello'; \\}\\`" in markdown
 
-        # Test with escaping disabled
+        # Test with escaping disabled: the same literal characters come
+        # through raw.
         parser_options_no_escape = DocxOptions()
         renderer_options_no_escape = MarkdownRendererOptions(escape_special=False)
         markdown_no_escape = docx_to_markdown(
             str(temp_file), parser_options=parser_options_no_escape, renderer_options=renderer_options_no_escape
         )
         assert_markdown_valid(markdown_no_escape)
+
+        assert "**Bold text with * asterisks ***" in markdown_no_escape
+        assert "*Italic text with _ underscores _*" in markdown_no_escape
+        assert "Code: `function() { return 'hello'; }`" in markdown_no_escape
 
     def test_code_blocks_and_inline_code(self):
         """Test special characters in code-like contexts."""
