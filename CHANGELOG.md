@@ -45,6 +45,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it — same responsibilities, different rotated-text, code-block and heading handling — so
   reading them gave a misleading picture of what the parser actually does, and any fix
   applied to one copy silently missed the other. No behaviour changes: nothing called them.
+- **Removed `enrich_metadata_with_conversion_info`** (`utils/metadata.py`). A repo-wide
+  search found no reference to it outside its own definition — not imported, not exported,
+  not called from any parser, test, or script. ~85 unmaintained lines, including a
+  stream-position trap for file-like input. No behaviour changes: nothing called it.
 
 ### Fixed
 
@@ -448,6 +452,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   real behaviour change for header detection: a font size that previously qualified on
   character count alone but occurs only a couple of times (and is not the page's largest)
   will no longer be treated as a heading size.
+- **WebArchive subresource extraction no longer silently drops files on Windows.**
+  `_extract_subresources` had two defects, both masked by the method's blanket
+  `except Exception: logger.warning(...)`. A text subresource (a plist `<string>`, not
+  `<data>`) was written with `Path.write_text()` and no explicit encoding, so on Windows —
+  where the platform default is cp1252 — any non-Latin content raised `UnicodeEncodeError`
+  and the resource was dropped; it's now written as UTF-8. Separately, the filename was
+  taken as `Path(resource_url).name`, which keeps a URL's query string (`img.png?v=1`); `?`
+  is illegal in a Windows filename, so the write raised `OSError` and the resource was
+  dropped. The filename is now taken from the URL's path only (query string and fragment
+  stripped) and run through the existing attachment-filename sanitizer.
 
 ### Changed
 

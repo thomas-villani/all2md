@@ -260,6 +260,35 @@ def test_a_short_block_on_no_unique_page_takes_the_page_of_what_it_introduces() 
     assert assigned.pages[0] == ()
 
 
+def test_a_pending_short_block_takes_the_phrase_placed_blocks_page_not_a_later_one() -> None:
+    """A phrase placement must flush pending short blocks too, or they inherit the wrong page.
+
+    "Results" is ambiguous (both pages print it), so it goes to `pending`. "Statistical
+    Analysis" then places by unique phrase on page 1. A later paragraph places cleanly on
+    page 2. The heading belongs with the phrase-placed block that follows it, on page 1 --
+    not with whatever happens to place after that.
+    """
+    heading = oracles.JatsBlock(kind="title", text="Results")
+    subheading = oracles.JatsBlock(kind="title", text="Statistical Analysis")
+    body = oracles.JatsBlock(
+        kind="text_block",
+        text="participants completed the protocol without any reported adverse events at all",
+    )
+    assigned = pages.assign_pages(
+        [heading, subheading, body],
+        [
+            # "Results" appears on both pages, so no phrase uniquely identifies one.
+            _page("results were mixed across every measured outcome results"),
+            _page("results statistical analysis was performed today"),
+            _page("participants completed the protocol without any reported adverse events at all"),
+        ],
+    )
+    assert [placed.assignment for placed in assigned.pages[1]] == ["inherited", "phrase"]
+    assert [placed.block.text for placed in assigned.pages[1]] == ["Results", "Statistical Analysis"]
+    assert assigned.pages[0] == ()
+    assert [placed.assignment for placed in assigned.pages[2]] == ["clean"]
+
+
 def test_a_short_block_with_nothing_after_it_is_excluded_rather_than_guessed() -> None:
     trailing = oracles.JatsBlock(kind="title", text="Results")
     assigned = pages.assign_pages([trailing], [_page("results here"), _page("results there")])
