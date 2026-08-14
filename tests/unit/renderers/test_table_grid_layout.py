@@ -11,6 +11,9 @@ widens rather than dropping a cell.
 
 """
 
+import io
+import zipfile
+
 import pytest
 
 from all2md import from_ast
@@ -35,6 +38,33 @@ def _overflow_rows() -> list[TableRow]:
         TableRow(cells=[_cell("C", colspan=1, rowspan=2), _cell("D")]),
         TableRow(cells=[_cell("E"), _cell("F", colspan=2)]),
     ]
+
+
+def _collision_rows() -> list[TableRow]:
+    """Rows where a declared colspan runs into an earlier rowspan's ground.
+
+    "CCC" asks for three columns but "BBB" already holds the one to its right,
+    so the span truncates to one and "DDD" lands in the last column. Renderers
+    that placed cells with the *declared* span instead pushed "DDD" past the
+    grid's width and dropped it (finding #26).
+    """
+    return [
+        TableRow(cells=[_cell("AAA"), _cell("BBB", rowspan=2)]),
+        TableRow(cells=[_cell("CCC", colspan=3), _cell("DDD")]),
+    ]
+
+
+def _odf_text(data: bytes) -> str:
+    """Pull the body XML out of an ODF package."""
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        return archive.read("content.xml").decode("utf-8")
+
+
+def _pdf_text(data: bytes) -> str:
+    """Pull the rendered text out of a PDF."""
+    pymupdf = pytest.importorskip("pymupdf")
+    with pymupdf.open(stream=data, filetype="pdf") as pdf:
+        return "".join(page.get_text() for page in pdf)
 
 
 @pytest.mark.unit
@@ -147,3 +177,60 @@ class TestOverflowingSpansRender:
         assert isinstance(output, str)
         missing = [label for label in self.LABELS if label not in output]
         assert not missing, f"{fmt} dropped {missing}"
+
+
+@pytest.mark.unit
+@pytest.mark.table
+class TestCollidingSpanKeepsTrailingCells:
+    """A span that collides with an earlier rowspan must not cost a cell.
+
+    Every renderer here used to take its width from the (truncating) shared
+    layout but place cells with their declared spans, so the last cell of the
+    row fell off the end of the grid and was silently discarded.
+    """
+
+    LABELS = ("AAA", "BBB", "CCC", "DDD")
+
+    def _doc(self) -> Document:
+        return Document(children=[Table(rows=_collision_rows())])
+
+    @pytest.mark.parametrize("fmt", ["rst", "org", "latex"])
+    def test_text_renderer_keeps_the_trailing_cell(self, fmt: str) -> None:
+        """The text renderers write straight to a string."""
+        output = from_ast(self._doc(), fmt)
+
+        assert isinstance(output, str)
+        missing = [label for label in self.LABELS if label not in output]
+        assert not missing, f"{fmt} dropped {missing}"
+
+    @pytest.mark.parametrize("fmt", ["odt", "odp"])
+    def test_odf_renderer_keeps_the_trailing_cell(self, fmt: str) -> None:
+        """ODT and ODP carry their cells in the package's ``content.xml``."""
+        pytest.importorskip("odf")
+
+        output = from_ast(self._doc(), fmt)
+
+        assert isinstance(output, bytes)
+        content = _odf_text(output)
+        missing = [label for label in self.LABELS if label not in content]
+        assert not missing, f"{fmt} dropped {missing}"
+
+    def test_pdf_renderer_keeps_the_trailing_cell(self) -> None:
+        """The PDF renderer lays cells into a ReportLab table."""
+        pytest.importorskip("reportlab")
+
+        output = from_ast(self._doc(), "pdf")
+
+        assert isinstance(output, bytes)
+        text = _pdf_text(output)
+        missing = [label for label in self.LABELS if label not in text]
+        assert not missing, f"pdf dropped {missing}"
+
+    def test_grid_truncates_the_colliding_span(self) -> None:
+        """The recovered cell exists because the collision truncated a span."""
+        grid = BaseRenderer._layout_table_grid(_collision_rows())
+        by_label = {p.cell.content[0].content: p for p in grid.placements}
+
+        assert grid.num_cols == 3
+        assert by_label["CCC"].colspan == 1
+        assert (by_label["DDD"].row, by_label["DDD"].col) == (1, 2)

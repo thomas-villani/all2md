@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import html
 import re
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import IO, Any, Union
 
@@ -77,6 +79,21 @@ from all2md.utils.metadata import (
     format_yaml_frontmatter,
 )
 
+# Soft wrapping never squeezes a paragraph below this many columns, however deep
+# the list indentation that eats into ``max_line_width`` gets.
+_MIN_WRAP_WIDTH = 20
+
+# A word that would begin a wrapped continuation line with one of these reparses
+# as the start of a new block -- a list item, heading, quote, table row, fence or
+# setext underline -- silently ending the paragraph. Wrapping refuses to break
+# in front of such a word and lets the line run long instead.
+_BLOCK_START_WORD = re.compile(r"^(?:[-+*>|=~#]|\d+[.)]|:)")
+
+# Constructs whose internal spacing is not safe to turn into a line break:
+# code spans, link/image destinations, reference-link labels, autolinks and raw
+# HTML, and math delimiters. A paragraph containing any of them is left alone.
+_UNWRAPPABLE_MARKERS = ("`", "](", "][", "<", "$")
+
 
 class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
     """Render AST nodes to markdown text.
@@ -124,6 +141,9 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._link_references: dict[str, int] = {}  # url -> ref_id for reference-style links
         self._next_ref_id: int = 1
         self._block_link_references: dict[str, int] = {}  # url -> ref_id for current block
+        # True while rendering inline content that must stay on one source line
+        # (a table cell, a heading). See _single_line().
+        self._in_single_line: bool = False
 
     @staticmethod
     def _get_flavor(flavor_name: str) -> MarkdownFlavor:
@@ -173,6 +193,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._link_references = {}
         self._next_ref_id = 1
         self._block_link_references = {}
+        self._in_single_line = False
 
         document.accept(self)
 
@@ -330,6 +351,99 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         return "".join(escaped_chars)
 
+    def _wrap_paragraph(self, content: str, width: int) -> str:
+        """Soft-wrap a paragraph's rendered content to ``width`` columns.
+
+        Only paragraph prose is wrapped, and only when ``max_line_width`` is
+        set (it defaults to None, which leaves output exactly as it was). Code
+        blocks, tables, headings, link destinations and reference definitions
+        are never touched, because this is the only caller.
+
+        The wrap is deliberately timid. A paragraph holding any construct whose
+        internal spacing is unsafe to break -- a code span, a link or image
+        destination, a reference label, an autolink or raw HTML, math -- is left
+        unwrapped rather than guessed at, and a break is never taken in front of
+        a word that would make the continuation line reparse as a new block.
+
+        Parameters
+        ----------
+        content : str
+            Rendered paragraph content, possibly already containing line breaks
+        width : int
+            Column to wrap at
+
+        Returns
+        -------
+        str
+            Content with soft line breaks inserted
+
+        """
+        if width <= 0 or any(marker in content for marker in _UNWRAPPABLE_MARKERS):
+            return content
+        return "\n".join(self._wrap_source_line(line, width) for line in content.split("\n"))
+
+    @staticmethod
+    def _wrap_source_line(line: str, width: int) -> str:
+        """Greedily wrap one already-emitted source line."""
+        stripped = line.rstrip()
+        if len(stripped) <= width:
+            return line
+        # A hard break's two trailing spaces belong to the end of the last
+        # wrapped line, not to the break point.
+        trailing = line[len(stripped) :]
+
+        # Each token carries its own following whitespace, so runs of spaces
+        # inside the line survive untouched; only the run at a break point is
+        # replaced by the newline.
+        tokens = re.findall(r"\S+[^\S\n]*", stripped)
+        lines: list[str] = []
+        current = ""
+        for token in tokens:
+            word = token.rstrip()
+            if not current:
+                current = token
+            elif len((current + token).rstrip()) <= width or _BLOCK_START_WORD.match(word):
+                current += token
+            else:
+                lines.append(current.rstrip())
+                current = token
+        if current:
+            lines.append(current.rstrip())
+        if not lines:
+            return line
+        lines[-1] += trailing
+        return "\n".join(lines)
+
+    def _escape_caption(self, caption: str) -> str:
+        """Escape a caption for the ``*...*`` device that carries it.
+
+        Markdown has no caption syntax, so a table or figure caption is written
+        as a single-emphasis paragraph plus a marker comment. The caption is
+        plain text, not inline nodes, and interpolating it raw let its own
+        metacharacters close that emphasis early: ``Sales *2024* results``
+        became ``*Sales *2024* results*``, whose asterisks silently vanished on
+        reparse, and shapes that leave the paragraph with more than one child
+        failed the parser's single-``Emphasis`` test outright -- losing the
+        caption and leaking a stray italic paragraph plus the marker comment
+        into the AST (#31). Escaping first makes the device's own text inert;
+        the ordinary text unescape on reparse gives the original back.
+
+        A newline is flattened for the same structural reason it is in a table
+        cell: it would end the caption paragraph and break the marker triple.
+
+        Parameters
+        ----------
+        caption : str
+            Raw caption text
+
+        Returns
+        -------
+        str
+            Caption safe to wrap in asterisks
+
+        """
+        return self._escape_markdown(self._flatten_to_single_line(caption))
+
     def _autolink_bare_urls(self, text: str) -> str:
         """Convert bare URLs to Markdown autolinks.
 
@@ -460,6 +574,52 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # Clear block references after emitting
         self._block_link_references.clear()
 
+    @contextmanager
+    def _single_line(self) -> Iterator[None]:
+        """Render inline content for a context that cannot contain a newline.
+
+        A table cell and a heading are each a single line of Markdown source: a
+        real newline emitted inside one ends the pipe row (dropping every cell
+        after it, and every row after that) or truncates the heading. Inside
+        this context ``visit_line_break`` emits ``<br>`` / a space instead, and
+        the caller flattens anything else that still slipped a newline through
+        with :meth:`_flatten_to_single_line`.
+        """
+        saved = self._in_single_line
+        self._in_single_line = True
+        try:
+            yield
+        finally:
+            self._in_single_line = saved
+
+    @staticmethod
+    def _flatten_to_single_line(content: str) -> str:
+        """Collapse any remaining newline in single-line inline content.
+
+        ``visit_line_break`` already avoids emitting newlines in a single-line
+        context; this is the backstop for the other sources (a ``Text`` node
+        carrying an embedded newline, raw inline HTML spanning lines), which
+        would otherwise break the enclosing row or heading just as badly.
+
+        Parameters
+        ----------
+        content : str
+            Rendered inline content
+
+        Returns
+        -------
+        str
+            Content with every newline turned into a single space
+
+        """
+        if "\n" not in content and "\r" not in content:
+            return content
+        flattened = content.replace("\r\n", "\n").replace("\r", "\n")
+        # A hard break renders as two trailing spaces plus a newline; drop the
+        # padding rather than leave it stranded mid-line.
+        flattened = re.sub(r"[ \t]*\n[ \t]*", " ", flattened)
+        return flattened.strip()
+
     def _current_indent(self) -> str:
         """Get the current indentation string.
 
@@ -588,7 +748,11 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Heading to render
 
         """
-        content = self._render_inline_content(node.content)
+        # A heading is one line of source, whichever style it is written in: a
+        # newline in its content ends the heading early and the remainder falls
+        # out into a paragraph of its own.
+        with self._single_line():
+            content = self._flatten_to_single_line(self._render_inline_content(node.content))
 
         # Apply heading level offset (clamped to valid range 1-6)
         adjusted_level = max(1, min(6, node.level + self.options.heading_level_offset))
@@ -620,6 +784,11 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         content = self._render_inline_content(node.content)
         indent = self._current_indent()
+        # Soft-wrap prose when the caller asked for a maximum line width. The
+        # indent this paragraph will carry eats into the budget, but never below
+        # a floor -- a deeply nested item should still wrap somewhere sane.
+        if self.options.max_line_width:
+            content = self._wrap_paragraph(content, max(self.options.max_line_width - len(indent), _MIN_WRAP_WIDTH))
         # A paragraph inside a list item may span several lines (soft-wrapped source
         # becomes embedded newlines). Every continuation line must carry the same indent
         # as the first, or it lands at column zero and reparses as a lazy continuation --
@@ -637,7 +806,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # the AST and simply does not render it here.
         image = self._sole_captioned_image(node)
         if image is not None and image.caption:
-            self._output.append(f"\n\n{indent}*{image.caption}*")
+            self._output.append(f"\n\n{indent}*{self._escape_caption(image.caption)}*")
             if self.options.comment_mode != "ignore":
                 self._output.append(f"\n\n{indent}<!-- {MARKDOWN_IMAGE_CAPTION_MARKER} -->")
 
@@ -718,14 +887,34 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         Block children are separated by a blank line, mirroring the spacing
         ``visit_document`` applies between top-level blocks.
+
+        The list-item indentation state is suspended while the children render,
+        because the caller re-applies the indent itself when it prefixes each
+        line (``"> "`` for a quote, four spaces for an admonition body). Left
+        active, a child paragraph would bake the indent in and the caller would
+        add it a second time; once the marker is four columns wide (``"10. "``)
+        the doubly indented text reparses as an indented code block inside the
+        quote rather than a paragraph (#25).
         """
         saved_output = self._output
+        saved_stack = self._marker_width_stack.copy()
+        saved_indent_level = self._indent_level
+        saved_in_list = self._in_list
+        self._marker_width_stack.clear()
+        self._indent_level = 0
+        self._in_list = False
+
         parts: list[str] = []
-        for child in node.children:
-            self._output = []
-            child.accept(self)
-            parts.append("".join(self._output))
-        self._output = saved_output
+        try:
+            for child in node.children:
+                self._output = []
+                child.accept(self)
+                parts.append("".join(self._output))
+        finally:
+            self._output = saved_output
+            self._marker_width_stack[:] = saved_stack
+            self._indent_level = saved_indent_level
+            self._in_list = saved_in_list
         return "\n\n".join(parts)
 
     def _render_mkdocs_admonition(self, node: BlockQuote) -> None:
@@ -760,10 +949,15 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             title = metadata["admonition_title"]
             header += f' "{title}"'
 
+        # The body renders with the list indent suspended, so this is the one
+        # place that applies it -- to the header as well as the body, which
+        # keeps a nested admonition whole instead of splitting its header off
+        # at column zero. At the top level the indent is empty.
+        indent = self._current_indent()
         body = self._render_children_to_string(node).strip("\n")
-        lines = [header]
+        lines = [f"{indent}{header}"]
         for line in body.split("\n"):
-            lines.append(f"    {line}" if line else "")
+            lines.append(f"{indent}    {line}" if line else "")
 
         self._output.append("\n".join(lines))
 
@@ -985,14 +1179,17 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         rendered_rows: list[list[str]] = []
-        for row in rows:
-            cells: list[str] = []
-            for cell in row.cells:
-                content = self._render_inline_content(cell.content)
-                if self.options.table_pipe_escape:
-                    content = content.replace("|", "\\|")
-                cells.append(content)
-            rendered_rows.append(cells)
+        # A cell occupies one line of a pipe row: a newline inside one truncates
+        # the row and everything after it stops being part of the table.
+        with self._single_line():
+            for row in rows:
+                cells: list[str] = []
+                for cell in row.cells:
+                    content = self._flatten_to_single_line(self._render_inline_content(cell.content))
+                    if self.options.table_pipe_escape:
+                        content = content.replace("|", "\\|")
+                    cells.append(content)
+                rendered_rows.append(cells)
         return rendered_rows
 
     def _calculate_column_widths(self, rendered_rows: list[list[str]], num_cols: int) -> list[int]:
@@ -1036,40 +1233,52 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Alignment row string
 
         """
+        explicit = list(node.alignments) if node.alignments else []
         alignments = []
-        for j, alignment in enumerate(node.alignments if node.alignments else []):
-            if j >= num_cols:
-                break
-            if col_widths:
-                # Padded mode
-                width = max(3, col_widths[j])
-                if alignment == "center":
-                    alignments.append(":" + "-" * width + ":")
-                elif alignment == "right":
-                    alignments.append("-" * width + ":")
-                elif alignment == "left":
-                    alignments.append(":" + "-" * width)
-                else:
-                    alignments.append("-" * width)
-            else:
-                # Minimal mode
-                if alignment == "center":
-                    alignments.append(":---:")
-                elif alignment == "right":
-                    alignments.append("---:")
-                elif alignment == "left":
-                    alignments.append(":---")
-                else:
-                    alignments.append("---")
-
-        # Fill remaining columns
-        while len(alignments) < num_cols:
-            if col_widths:
-                alignments.append("-" * max(3, col_widths[len(alignments)]))
-            else:
-                alignments.append("---")
+        for j in range(num_cols):
+            alignment = explicit[j] if j < len(explicit) else None
+            # Padded mode sizes the separator to the column; minimal mode is
+            # always three dashes.
+            width = max(3, col_widths[j]) if col_widths else 3
+            alignments.append(self._alignment_marker(alignment, width))
 
         return "|" + "|".join(alignments) + "|"
+
+    def _alignment_marker(self, alignment: str | None, width: int) -> str:
+        """Render one cell of a table's alignment separator row.
+
+        Parameters
+        ----------
+        alignment : str or None
+            The column's own alignment, or None if it has none
+        width : int
+            Number of dashes to use (colons are added outside it, as they
+            always have been in padded mode)
+
+        Returns
+        -------
+        str
+            Separator cell, e.g. ``---``, ``:---:`` or ``---:``
+
+        """
+        if not alignment:
+            alignment = self.options.table_alignment_default
+            # "left" is the option's default and stays a bare "---": a column
+            # with no alignment of its own is left-aligned anyway, and spelling
+            # it ":---" would rewrite every table this renderer has ever
+            # emitted. Only an explicit "center"/"right" default marks up the
+            # unaligned columns.
+            if alignment == "left":
+                alignment = None
+
+        dashes = "-" * width
+        if alignment == "center":
+            return f":{dashes}:"
+        if alignment == "right":
+            return f"{dashes}:"
+        if alignment == "left":
+            return f":{dashes}"
+        return dashes
 
     def _render_padded_table(self, node: Table, rendered_rows: list[list[str]], num_cols: int) -> None:
         """Render table with cell padding.
@@ -1166,7 +1375,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # comment_mode="ignore", which asks for no comments in the output at all;
         # the caption then degrades to the italic paragraph, as it always did.
         if node.caption:
-            self._output.append(f"*{node.caption}*\n\n")
+            self._output.append(f"*{self._escape_caption(node.caption)}*\n\n")
             if self.options.comment_mode != "ignore":
                 self._output.append(f"<!-- {MARKDOWN_TABLE_CAPTION_MARKER} -->\n\n")
 
@@ -1242,14 +1451,16 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         num_cols = self._compute_table_columns(rows_to_render)
 
-        # Render all cells to determine column widths
+        # Render all cells to determine column widths. As with a pipe table, a
+        # newline inside a cell would break the grid it is being measured for.
         rendered_rows: list[list[str]] = []
-        for row in rows_to_render:
-            cells: list[str] = []
-            for cell in row.cells:
-                content = self._render_inline_content(cell.content)
-                cells.append(content)
-            rendered_rows.append(cells)
+        with self._single_line():
+            for row in rows_to_render:
+                cells: list[str] = []
+                for cell in row.cells:
+                    content = self._flatten_to_single_line(self._render_inline_content(cell.content))
+                    cells.append(content)
+                rendered_rows.append(cells)
 
         # Calculate column widths
         col_widths: list[int] = [0] * num_cols
@@ -1501,7 +1712,16 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Line break to render
 
         """
-        if node.soft:
+        if self._in_single_line:
+            # A newline inside a table cell ends the pipe row (the table then
+            # reparses with no data rows at all) and inside a heading truncates
+            # it, dropping everything after the break into a stray paragraph.
+            # GFM spells a hard break inside a cell "<br>", which our Markdown
+            # parser keeps as inline HTML in the cell it belongs to; a soft break
+            # is a source-wrapping artifact and degrades to a space, matching
+            # what the CSV renderer does with the same nodes (#27).
+            self._output.append(" " if node.soft else "<br>")
+        elif node.soft:
             self._output.append("\n")
         else:
             self._output.append("  \n")

@@ -57,6 +57,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   but harmful: it dropped *leading* run whitespace, which the helper needs in order to see
   the boundary. The hyperlink-segment path keeps its separate boundary-space handling, since
   the helper is called once per link segment and cannot see across two of them.
+- **`MarkdownRendererOptions.max_line_width` and `table_alignment_default` now do
+  something.** Both fields carried help metadata, so both surfaced as CLI flags and in the
+  generated options documentation, and the Markdown renderer read neither — setting them
+  changed nothing at all. `table_alignment_default` is now used for columns that state no
+  alignment of their own: the default `"left"` still writes a bare `---` (a column with no
+  alignment is left-aligned anyway, and spelling it `:---` would rewrite every table this
+  renderer has ever emitted), while `"center"` and `"right"` write `:---:` and `---:`. A
+  column with an explicit alignment is unaffected. `max_line_width` (still `None` by
+  default, meaning no wrapping and byte-identical output) now soft-wraps paragraph prose,
+  and only paragraph prose — code blocks, tables, headings, link destinations and reference
+  definitions are never touched. The wrap is deliberately timid: a paragraph containing a
+  code span, a link or image destination, a reference label, an autolink, raw HTML or math
+  is left unwrapped rather than broken at a guess, and a break is never taken in front of a
+  word that would make the continuation line reparse as a new block (`-`, `#`, `1998.`, and
+  friends). Note that soft-wrapped lines come back as soft line breaks when reparsed, which
+  is what a soft wrap means.
+- **Table and figure captions are escaped before being wrapped in the `*...*` caption
+  device.** Markdown has no caption syntax, so a caption is rendered as a single-emphasis
+  paragraph plus a marker comment naming it a caption. The caption text was interpolated
+  raw, so its own metacharacters closed that emphasis early: `Sales *2024* results` rendered
+  as `*Sales *2024* results*` and round-tripped to `Sales 2024 results`, the literal
+  asterisks silently deleted. Shapes that left the paragraph with more than one child failed
+  the parser's single-`Emphasis` test outright, which lost the caption *and* leaked a stray
+  italic paragraph plus the `<!-- all2md:table-caption -->` comment into the AST. Captions
+  now go through the renderer's normal text escaping (and, like a table cell, have any
+  newline flattened, since one would end the caption paragraph and break the marker triple);
+  the ordinary text unescape on reparse gives the original string back.
+- **A line break inside a Markdown table cell or heading no longer destroys the block it
+  sits in.** `visit_line_break` emitted a real newline (`"\n"`, or `"  \n"` for a hard
+  break) whatever the surrounding context was, and cell rendering escaped pipes but never
+  newlines. A cell holding a hard break therefore rendered as `| line1  <newline>line2 | b |`,
+  which splits the pipe row: the table reparsed with *zero* data rows and the remains
+  became a stray paragraph. The same break in a heading ended the heading early and dropped
+  everything after it into a paragraph of its own. Cells and headings now render their
+  inline content in a single-line context: a hard break becomes `<br>` (GFM's spelling
+  inside a cell, which our Markdown parser keeps as inline HTML in the cell it belongs to)
+  and a soft break — a source-wrapping artifact — becomes a space, matching what the CSV
+  renderer already did with the same nodes. Newlines arriving from anywhere else (a `Text`
+  node with an embedded newline, multi-line raw inline HTML) are flattened to a space as a
+  backstop. The ASCII-art table fallback gets the same treatment, since a newline broke the
+  grid it was being measured for. Line breaks in paragraphs are unchanged.
+- **A Markdown block quote nested in a list item is no longer indented twice.** The quote's
+  children were rendered to a string while the list item's marker-width indent was still
+  active, so a child paragraph already carried that indent; the quote then prefixed
+  `"{indent}> "` onto the very same lines. For a marker four columns wide or more (`"10. "`,
+  or any bullet at the second nesting level) the quoted text landed four-plus spaces past the
+  `>`, and the round trip read it back as an *indented code block inside the quote* rather
+  than a paragraph. Only quotes that were not the item's first child were affected, because
+  the first child renders with the indent state already cleared. The indent state is now
+  suspended while the children render and applied once, by the quote, as it prefixes each
+  line. Material for MkDocs admonitions render through the same helper and now carry the
+  indent on their `!!!` header too, so a nested admonition no longer splits its header off at
+  column zero.
+- **Six table renderers no longer drop cells when a span collides.** `BaseRenderer._layout_table_grid`
+  resolves declared `colspan`/`rowspan` values — which real documents routinely overstate — onto a
+  grid, truncating a span rather than letting it overlap and widening the table rather than dropping
+  a cell that no longer fits. Only the DOCX and PPTX renderers were migrated onto it; the
+  reStructuredText, Org, LaTeX, ODT, ODP and PDF renderers each kept a copy-pasted fill loop that
+  took the table's *width* from that layout but then placed cells at their *declared* spans, ending
+  the row with `if col_idx >= num_cols: break`. Any cell pushed past the last column by an earlier
+  row's `rowspan` was discarded with no warning: a two-row table whose second row declares
+  `colspan=3` under a `rowspan=2` neighbour lost its final cell's content entirely in all six
+  formats. All six now consume the shared grid's placements and emit the *effective* spans, so a
+  collision costs a merge instead of content. Well-formed tables render byte-for-byte as before.
 - **An email's attachment section is now built from AST nodes instead of Markdown spliced
   into the message body.** `process_email_attachments()` returned a Markdown string
   (`"\n\n## Attachments\n\n"` plus `![name](url)` lines) that was concatenated onto

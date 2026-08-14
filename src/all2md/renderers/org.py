@@ -600,43 +600,18 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         if node.caption:
             self._output.append(f"#+CAPTION: {node.caption}\n")
 
-        # Compute grid dimensions accounting for colspan/rowspan
-        num_rows = len(rows_to_render)
-        num_cols = self._compute_table_columns(rows_to_render)
+        # Resolve the grid once, centrally: a declared span that collides with
+        # ground an earlier rowspan claimed would otherwise push the rest of the
+        # row past the last column, silently dropping those cells.
+        grid = self._layout_table_grid(rows_to_render)
+        num_rows, num_cols = grid.num_rows, grid.num_cols
 
-        # Build expanded grid
+        # Build expanded grid. Org has no span syntax, so a cell's content goes
+        # at its anchor and the positions it covers stay empty.
         rendered_grid = [["" for _ in range(num_cols)] for _ in range(num_rows)]
-        occupied = [[False] * num_cols for _ in range(num_rows)]
 
-        # Fill the grid
-        for row_idx, ast_row in enumerate(rows_to_render):
-            col_idx = 0
-            for ast_cell in ast_row.cells:
-                # Skip occupied cells
-                while col_idx < num_cols and occupied[row_idx][col_idx]:
-                    col_idx += 1
-
-                if col_idx >= num_cols:
-                    break
-
-                # Render cell content
-                content = self._render_inline_content(ast_cell.content)
-
-                # Handle cell spanning
-                colspan = ast_cell.colspan
-                rowspan = ast_cell.rowspan
-
-                # Fill the grid - center content in spanned area
-                rendered_grid[row_idx][col_idx] = content
-
-                # Fill remaining spanned cells with empty strings
-                for r in range(row_idx, min(row_idx + rowspan, num_rows)):
-                    for c in range(col_idx, min(col_idx + colspan, num_cols)):
-                        occupied[r][c] = True
-                        if r != row_idx or c != col_idx:
-                            rendered_grid[r][c] = ""
-
-                col_idx += colspan
+        for placement in grid.placements:
+            rendered_grid[placement.row][placement.col] = self._render_inline_content(placement.cell.content)
 
         # Calculate column widths from expanded grid
         col_widths = [0] * num_cols

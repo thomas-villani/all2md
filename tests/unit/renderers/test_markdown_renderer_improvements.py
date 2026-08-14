@@ -1,8 +1,26 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """Unit tests for new Markdown renderer improvements."""
 
-from all2md.ast import Document, Heading, Link, Paragraph, Strong, Text
+import pytest
+
+from all2md.ast import (
+    BlockQuote,
+    Document,
+    Heading,
+    Image,
+    LineBreak,
+    Link,
+    List,
+    ListItem,
+    Paragraph,
+    Strong,
+    Table,
+    TableCell,
+    TableRow,
+    Text,
+)
 from all2md.options.markdown import MarkdownRendererOptions
+from all2md.parsers.markdown import markdown_to_ast
 from all2md.renderers.markdown import MarkdownRenderer
 
 
@@ -269,3 +287,497 @@ class TestMarkdownBareUrlAutolinking:
         output = renderer.render_to_string(doc)
 
         assert "<ftp://user@ftp.example.com/files>" in output
+
+
+class TestBlockQuoteInsideListItem:
+    """Tests for block quotes nested in a list item (single indent, not double)."""
+
+    @staticmethod
+    def _list_with_quote(start: int = 1, ordered: bool = True) -> Document:
+        """Build a one-item list whose second child is a block quote."""
+        return Document(
+            children=[
+                List(
+                    ordered=ordered,
+                    start=start,
+                    items=[
+                        ListItem(
+                            children=[
+                                Paragraph(content=[Text(content="first para")]),
+                                BlockQuote(children=[Paragraph(content=[Text(content="quoted text")])]),
+                            ]
+                        )
+                    ],
+                )
+            ]
+        )
+
+    def test_wide_marker_quote_is_not_double_indented(self) -> None:
+        """A quote under a four-column marker keeps a single indent."""
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(self._list_with_quote(start=10))
+
+        assert output == "10. first para\n    > quoted text"
+
+    def test_wide_marker_quote_roundtrips_as_paragraph(self) -> None:
+        """The quote reparses as BlockQuote > Paragraph, not BlockQuote > CodeBlock."""
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(self._list_with_quote(start=10))
+
+        reparsed = markdown_to_ast(output)
+        item = reparsed.children[0].items[0]
+        quote = item.children[1]
+        assert isinstance(quote, BlockQuote)
+        assert len(quote.children) == 1
+        assert isinstance(quote.children[0], Paragraph)
+        assert quote.children[0].content[0].content == "quoted text"
+
+    def test_bullet_marker_quote_roundtrips(self) -> None:
+        """The same holds for a two-column bullet marker."""
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(self._list_with_quote(ordered=False))
+
+        assert output == "* first para\n  > quoted text"
+        quote = markdown_to_ast(output).children[0].items[0].children[1]
+        assert isinstance(quote.children[0], Paragraph)
+
+    def test_multi_paragraph_quote_in_list_item_roundtrips(self) -> None:
+        """Every block of a nested quote survives, each as a paragraph."""
+        doc = Document(
+            children=[
+                List(
+                    ordered=True,
+                    start=10,
+                    items=[
+                        ListItem(
+                            children=[
+                                Paragraph(content=[Text(content="lead")]),
+                                BlockQuote(
+                                    children=[
+                                        Paragraph(content=[Text(content="one")]),
+                                        Paragraph(content=[Text(content="two")]),
+                                    ]
+                                ),
+                            ]
+                        )
+                    ],
+                )
+            ]
+        )
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(doc)
+
+        quote = markdown_to_ast(output).children[0].items[0].children[1]
+        assert isinstance(quote, BlockQuote)
+        assert [type(child).__name__ for child in quote.children] == ["Paragraph", "Paragraph"]
+
+    def test_top_level_quote_is_unchanged(self) -> None:
+        """A quote outside a list still renders with no leading indent."""
+        doc = Document(children=[BlockQuote(children=[Paragraph(content=[Text(content="top")])])])
+
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        assert renderer.render_to_string(doc) == "> top"
+
+
+class TestLineBreakInSingleLineContexts:
+    """Tests for line breaks inside table cells and headings (#27)."""
+
+    @staticmethod
+    def _table_with_break(soft: bool) -> Document:
+        """Build a 2x2 table whose first data cell holds a line break."""
+        return Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[
+                            TableCell(content=[Text(content="h1")]),
+                            TableCell(content=[Text(content="h2")]),
+                        ]
+                    ),
+                    rows=[
+                        TableRow(
+                            cells=[
+                                TableCell(
+                                    content=[
+                                        Text(content="line1"),
+                                        LineBreak(soft=soft),
+                                        Text(content="line2"),
+                                    ]
+                                ),
+                                TableCell(content=[Text(content="b")]),
+                            ]
+                        )
+                    ],
+                )
+            ]
+        )
+
+    def test_hard_break_in_cell_uses_br(self) -> None:
+        """A hard break in a cell becomes <br>, never a newline."""
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(self._table_with_break(soft=False))
+
+        assert "\n| line1<br>line2 | b |" in output
+        assert "line1  \nline2" not in output
+
+    def test_soft_break_in_cell_becomes_space(self) -> None:
+        """A soft break in a cell degrades to a space."""
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(self._table_with_break(soft=True))
+
+        assert "\n| line1 line2 | b |" in output
+
+    def test_cell_break_roundtrips_with_table_intact(self) -> None:
+        """The table keeps its row and both cells after a reparse."""
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(self._table_with_break(soft=False))
+
+        reparsed = markdown_to_ast(output)
+        assert [type(child).__name__ for child in reparsed.children] == ["Table"]
+        table = reparsed.children[0]
+        assert len(table.rows) == 1
+        assert len(table.rows[0].cells) == 2
+        assert table.rows[0].cells[1].content[0].content == "b"
+        # Both halves of the broken cell stay in the cell they belong to.
+        cell_text = "".join(getattr(node, "content", "") for node in table.rows[0].cells[0].content)
+        assert cell_text == "line1<br>line2"
+
+    def test_hard_break_in_heading_uses_br(self) -> None:
+        """A hard break in a heading becomes <br> so the heading stays whole."""
+        doc = Document(
+            children=[
+                Heading(
+                    level=2,
+                    content=[Text(content="part1"), LineBreak(soft=False), Text(content="part2")],
+                )
+            ]
+        )
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(doc)
+
+        assert output == "## part1<br>part2"
+
+    def test_heading_break_roundtrips_without_losing_the_tail(self) -> None:
+        """Text after the break stays in the heading instead of falling out."""
+        doc = Document(
+            children=[
+                Heading(
+                    level=2,
+                    content=[Text(content="part1"), LineBreak(soft=False), Text(content="part2")],
+                )
+            ]
+        )
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(doc)
+
+        reparsed = markdown_to_ast(output)
+        assert [type(child).__name__ for child in reparsed.children] == ["Heading"]
+        heading_text = "".join(getattr(node, "content", "") for node in reparsed.children[0].content)
+        assert heading_text == "part1<br>part2"
+
+    def test_soft_break_in_heading_becomes_space(self) -> None:
+        """A soft break in a heading degrades to a space."""
+        doc = Document(
+            children=[Heading(level=2, content=[Text(content="a"), LineBreak(soft=True), Text(content="b")])]
+        )
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+
+        assert renderer.render_to_string(doc) == "## a b"
+
+    def test_paragraph_breaks_are_untouched(self) -> None:
+        """Outside a cell or heading, line breaks still render as newlines."""
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="a"), LineBreak(soft=False), Text(content="b")]),
+                Paragraph(content=[Text(content="c"), LineBreak(soft=True), Text(content="d")]),
+            ]
+        )
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+
+        assert renderer.render_to_string(doc) == "a  \nb\n\nc\nd"
+
+    def test_embedded_newline_in_cell_text_is_flattened(self) -> None:
+        """A Text node carrying a newline cannot break the row either."""
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(cells=[TableCell(content=[Text(content="h")])]),
+                    rows=[TableRow(cells=[TableCell(content=[Text(content="one\ntwo")])])],
+                )
+            ]
+        )
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(doc)
+
+        assert "\n| one two |" in output
+        assert len(markdown_to_ast(output).children[0].rows) == 1
+
+
+class TestCaptionEscaping:
+    """Tests for metacharacters in table and figure captions (#31)."""
+
+    @staticmethod
+    def _table(caption: str) -> Document:
+        """Build a one-cell captioned table."""
+        return Document(
+            children=[
+                Table(
+                    caption=caption,
+                    header=TableRow(cells=[TableCell(content=[Text(content="a")])]),
+                    rows=[TableRow(cells=[TableCell(content=[Text(content="1")])])],
+                )
+            ]
+        )
+
+    @staticmethod
+    def _figure(caption: str) -> Document:
+        """Build a paragraph holding a single captioned image."""
+        return Document(children=[Paragraph(content=[Image(url="a.png", alt_text="alt", caption=caption)])])
+
+    def test_table_caption_asterisks_are_escaped(self) -> None:
+        """Asterisks in a caption no longer close the emphasis early."""
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(self._table("Sales *2024* results"))
+
+        assert output.startswith("*Sales \\*2024\\* results*\n")
+
+    @pytest.mark.parametrize(
+        "caption",
+        [
+            "Sales *2024* results",
+            "Table [1]: a_b_c",
+            "*leading",
+            "a * b * c * d",
+            "100% of `results`",
+        ],
+    )
+    def test_table_caption_roundtrips_verbatim(self, caption: str) -> None:
+        """The caption comes back exactly as it went in, attached to the table."""
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(self._table(caption))
+
+        reparsed = markdown_to_ast(output)
+        assert [type(child).__name__ for child in reparsed.children] == ["Table"]
+        assert reparsed.children[0].caption == caption
+
+    @pytest.mark.parametrize(
+        "caption",
+        [
+            "Fig *1* [x]",
+            "Figure 2. Results_summary",
+            "a * b * c * d",
+        ],
+    )
+    def test_figure_caption_roundtrips_verbatim(self, caption: str) -> None:
+        """A figure caption survives its metacharacters too."""
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(self._figure(caption))
+
+        reparsed = markdown_to_ast(output)
+        assert [type(child).__name__ for child in reparsed.children] == ["Paragraph"]
+        image = reparsed.children[0].content[0]
+        assert isinstance(image, Image)
+        assert image.caption == caption
+
+    def test_plain_caption_is_not_over_escaped(self) -> None:
+        """A caption with nothing special in it renders unchanged."""
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(self._table("Quarterly results"))
+
+        assert output.startswith("*Quarterly results*\n")
+
+    def test_caption_newline_is_flattened(self) -> None:
+        """A newline would end the caption paragraph and break the marker triple."""
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(self._table("Two\nlines"))
+
+        assert output.startswith("*Two lines*\n")
+        assert markdown_to_ast(output).children[0].caption == "Two lines"
+
+
+class TestTableAlignmentDefault:
+    """Tests for the table_alignment_default option (#30)."""
+
+    @staticmethod
+    def _table(alignments: list[str | None] | None = None) -> Document:
+        """Build a two-column table with the given per-column alignments."""
+        return Document(
+            children=[
+                Table(
+                    header=TableRow(
+                        cells=[
+                            TableCell(content=[Text(content="a")]),
+                            TableCell(content=[Text(content="b")]),
+                        ]
+                    ),
+                    rows=[
+                        TableRow(
+                            cells=[
+                                TableCell(content=[Text(content="1")]),
+                                TableCell(content=[Text(content="2")]),
+                            ]
+                        )
+                    ],
+                    alignments=alignments,
+                )
+            ]
+        )
+
+    def test_default_left_emits_bare_dashes(self) -> None:
+        """The shipped default leaves the separator row exactly as it was."""
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+        output = renderer.render_to_string(self._table())
+
+        assert "\n|---|---|\n" in output
+
+    def test_center_default_marks_unaligned_columns(self) -> None:
+        """A center default writes :---: for columns with no alignment."""
+        options = MarkdownRendererOptions(table_alignment_default="center")
+        output = MarkdownRenderer(options=options).render_to_string(self._table())
+
+        assert "\n|:---:|:---:|\n" in output
+
+    def test_right_default_marks_unaligned_columns(self) -> None:
+        """A right default writes ---: for columns with no alignment."""
+        options = MarkdownRendererOptions(table_alignment_default="right")
+        output = MarkdownRenderer(options=options).render_to_string(self._table())
+
+        assert "\n|---:|---:|\n" in output
+
+    def test_explicit_alignment_beats_the_default(self) -> None:
+        """A column that states its own alignment ignores the default."""
+        options = MarkdownRendererOptions(table_alignment_default="center")
+        output = MarkdownRenderer(options=options).render_to_string(self._table(["right", None]))
+
+        assert "\n|---:|:---:|\n" in output
+
+    def test_default_applies_in_padded_mode(self) -> None:
+        """Padded tables honour the default and keep their column widths."""
+        options = MarkdownRendererOptions(table_alignment_default="right", pad_table_cells=True)
+        output = MarkdownRenderer(options=options).render_to_string(self._table())
+
+        assert "\n|---:|---:|\n" in output
+
+    def test_center_default_roundtrips_as_center(self) -> None:
+        """The emitted markers are read back as real alignments."""
+        options = MarkdownRendererOptions(table_alignment_default="center")
+        output = MarkdownRenderer(options=options).render_to_string(self._table())
+
+        assert markdown_to_ast(output).children[0].alignments == ["center", "center"]
+
+
+class TestMaxLineWidth:
+    """Tests for the max_line_width option (#30)."""
+
+    PROSE = "The quick brown fox jumps over the lazy dog and then keeps running for a while"
+
+    def _prose_doc(self, text: str | None = None) -> Document:
+        """Build a single-paragraph document."""
+        return Document(children=[Paragraph(content=[Text(content=text if text is not None else self.PROSE)])])
+
+    def test_unset_width_does_not_wrap(self) -> None:
+        """The default (None) leaves the paragraph on one line."""
+        renderer = MarkdownRenderer(options=MarkdownRendererOptions())
+
+        assert renderer.render_to_string(self._prose_doc()) == self.PROSE
+
+    def test_prose_is_wrapped_at_the_width(self) -> None:
+        """Every wrapped line fits inside the width."""
+        options = MarkdownRendererOptions(max_line_width=30)
+        output = MarkdownRenderer(options=options).render_to_string(self._prose_doc())
+
+        lines = output.split("\n")
+        assert len(lines) > 1
+        assert all(len(line) <= 30 for line in lines)
+        assert " ".join(lines) == self.PROSE
+
+    def test_wrapped_paragraph_stays_one_paragraph(self) -> None:
+        """Soft-wrapped lines reparse as a single paragraph."""
+        options = MarkdownRendererOptions(max_line_width=30)
+        output = MarkdownRenderer(options=options).render_to_string(self._prose_doc())
+
+        reparsed = markdown_to_ast(output)
+        assert [type(child).__name__ for child in reparsed.children] == ["Paragraph"]
+
+    def test_no_break_in_front_of_a_block_starting_word(self) -> None:
+        """A break that would start a line with "1998." is refused."""
+        options = MarkdownRendererOptions(max_line_width=22)
+        doc = self._prose_doc("alpha beta gamma delta 1998. epsilon zeta")
+        output = MarkdownRenderer(options=options).render_to_string(doc)
+
+        assert not any(line.startswith("1998.") for line in output.split("\n"))
+        assert [type(child).__name__ for child in markdown_to_ast(output).children] == ["Paragraph"]
+
+    def test_paragraph_with_a_link_is_left_alone(self) -> None:
+        """A destination's spacing is not safe to break, so nothing is wrapped."""
+        options = MarkdownRendererOptions(max_line_width=25)
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="see "),
+                        Link(url="http://x.com", content=[Text(content="this long link here")]),
+                        Text(content=" and more words to push past the width"),
+                    ]
+                )
+            ]
+        )
+        output = MarkdownRenderer(options=options).render_to_string(doc)
+
+        assert "\n" not in output
+
+    def test_headings_and_tables_are_never_wrapped(self) -> None:
+        """Only paragraph prose is wrapped."""
+        options = MarkdownRendererOptions(max_line_width=20)
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="A rather long heading that exceeds the width")]),
+                Table(
+                    header=TableRow(cells=[TableCell(content=[Text(content="a column header that is long")])]),
+                    rows=[TableRow(cells=[TableCell(content=[Text(content="a cell value that is long")])])],
+                ),
+            ]
+        )
+        output = MarkdownRenderer(options=options).render_to_string(doc)
+
+        assert "# A rather long heading that exceeds the width" in output
+        assert "| a column header that is long |" in output
+
+    def test_hard_break_survives_wrapping(self) -> None:
+        """The two trailing spaces of a hard break stay at the end of their line."""
+        options = MarkdownRendererOptions(max_line_width=25)
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="first half of the line here"),
+                        LineBreak(soft=False),
+                        Text(content="second half of the line here"),
+                    ]
+                )
+            ]
+        )
+        output = MarkdownRenderer(options=options).render_to_string(doc)
+
+        assert "  \n" in output
+        reparsed = markdown_to_ast(output)
+        assert [type(child).__name__ for child in reparsed.children] == ["Paragraph"]
+
+    def test_wrapping_inside_a_list_item_keeps_the_item(self) -> None:
+        """A wrapped paragraph in a list item stays part of the item."""
+        options = MarkdownRendererOptions(max_line_width=40)
+        doc = Document(
+            children=[
+                List(
+                    ordered=True,
+                    start=10,
+                    items=[ListItem(children=[Paragraph(content=[Text(content=self.PROSE)])])],
+                )
+            ]
+        )
+        output = MarkdownRenderer(options=options).render_to_string(doc)
+
+        assert "\n" in output
+        reparsed = markdown_to_ast(output)
+        assert [type(child).__name__ for child in reparsed.children] == ["List"]
+        assert len(reparsed.children[0].items) == 1
