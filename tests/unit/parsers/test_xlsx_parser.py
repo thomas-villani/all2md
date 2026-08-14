@@ -192,6 +192,92 @@ class TestXlsxBasicConversion:
 
 @pytest.mark.unit
 @pytest.mark.skipif(not HAS_OPENPYXL, reason="openpyxl not installed")
+class TestXlsxHyperlinks:
+    """Tests for cell hyperlinks in XLSX files.
+
+    Regression tests: a hyperlinked cell used to be flattened into a
+    markdown-syntax string ('[text](url)') that flowed into a plain Text
+    node, so the Markdown renderer's Text-escaping turned every hyperlinked
+    cell into a literal, escaped bracket-and-parens sequence instead of a
+    working link.
+    """
+
+    def test_hyperlinked_cell_produces_link_node(self) -> None:
+        """A cell with a hyperlink should produce a Link node in the TableCell, not escaped markdown text."""
+        from all2md.ast import Link, Text
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws["A1"] = "Name"
+        ws["B1"] = "Site"
+        ws["A2"] = "Example"
+        ws["B2"] = "Click here"
+        ws["B2"].hyperlink = "http://example.com"
+
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        converter = XlsxToAstConverter()
+        ast_doc = converter.parse(output)
+
+        table = next(child for child in ast_doc.children if isinstance(child, Table))
+        link_cell = table.rows[0].cells[1]
+
+        assert len(link_cell.content) == 1
+        link_node = link_cell.content[0]
+        assert isinstance(link_node, Link)
+        assert link_node.url == "http://example.com"
+        assert isinstance(link_node.content[0], Text)
+        assert link_node.content[0].content == "Click here"
+
+    def test_hyperlinked_cell_renders_unescaped_markdown_link(self) -> None:
+        """The rendered markdown for a hyperlinked cell must contain a real, unescaped link."""
+        from all2md import to_markdown
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws["A1"] = "Name"
+        ws["B1"] = "Site"
+        ws["A2"] = "Example"
+        ws["B2"] = "Click here"
+        ws["B2"].hyperlink = "http://example.com"
+
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        markdown = to_markdown(output, source_format="xlsx")
+
+        assert "[Click here](http://example.com)" in markdown
+        assert r"\[Click here\]" not in markdown
+
+    def test_non_hyperlinked_cell_stays_plain_text(self) -> None:
+        """A cell with no hyperlink is unaffected and still produces a plain Text node."""
+        from all2md.ast import Text
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws["A1"] = "Name"
+        ws["A2"] = "Plain value"
+
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        converter = XlsxToAstConverter()
+        ast_doc = converter.parse(output)
+
+        table = next(child for child in ast_doc.children if isinstance(child, Table))
+        cell = table.rows[0].cells[0]
+
+        assert len(cell.content) == 1
+        assert isinstance(cell.content[0], Text)
+        assert cell.content[0].content == "Plain value"
+
+
+@pytest.mark.unit
+@pytest.mark.skipif(not HAS_OPENPYXL, reason="openpyxl not installed")
 class TestXlsxImageExtraction:
     """Tests for image extraction from XLSX files."""
 

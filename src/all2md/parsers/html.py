@@ -283,23 +283,23 @@ class HtmlToAstConverter(BaseParser):
         return None
 
     def _process_body_children(self, soup: Any) -> list[Node]:
-        """Process body or root element children to AST nodes."""
+        """Process body or root element children to AST nodes.
+
+        Delegates to :meth:`_process_block_container`, which already knows how to
+        interleave block and inline content: adjacent inline content (bare text,
+        inline tags) is accumulated and wrapped in a single ``Paragraph`` when a
+        block-level sibling is reached (or at the end of the walk), and
+        whitespace-only text between block elements produces no node at all.
+        Without this, bare text directly under ``<body>`` -- or in a parser-fed
+        HTML fragment with no ``<body>`` at all -- was silently discarded, since
+        the old implementation only processed ``Tag`` children and skipped every
+        ``NavigableString``.
+        """
         from bs4.element import Tag
 
         body = soup.find("body")
         root = body if isinstance(body, Tag) else soup
-        children: list[Node] = []
-
-        for child in root.children:
-            if not isinstance(child, Tag):
-                continue
-            nodes = self._process_node_to_ast(child)
-            if nodes:
-                if isinstance(nodes, list):
-                    children.extend(nodes)
-                else:
-                    children.append(nodes)
-        return children
+        return self._process_block_container(root)
 
     def convert_to_ast(self, html_content: str) -> Document:
         """Convert HTML string to AST Document.
@@ -1037,8 +1037,17 @@ class HtmlToAstConverter(BaseParser):
             List of block nodes (Paragraph, Heading, List, etc.)
 
         """
+        from bs4.element import Comment, NavigableString
+
         children: list[Node] = []
         inline_buffer: list[Node] = []
+        # A whitespace-only text child yields no node, but between two inline
+        # siblings it is still a separator -- HTML collapses it to one space, it
+        # does not delete it. Dropping it fused adjacent inline elements
+        # (``<img>``/newline/``<img>`` became two images with nothing between
+        # them). It only ever separates: at a block boundary or the end of the
+        # container it goes back to being ignorable formatting.
+        pending_space = False
 
         for child in node.children:
             if skip is not None and child is skip:
@@ -1049,6 +1058,7 @@ class HtmlToAstConverter(BaseParser):
                 if inline_buffer:
                     children.append(Paragraph(content=inline_buffer))
                     inline_buffer = []
+                pending_space = False
 
                 # Process block element
                 block_node = self._process_node_to_ast(child)
@@ -1061,10 +1071,20 @@ class HtmlToAstConverter(BaseParser):
                 # Inline element or text: add to buffer
                 inline_nodes = self._process_node_to_ast(child)
                 if inline_nodes:
+                    if pending_space:
+                        inline_buffer.append(Text(content=" "))
+                        pending_space = False
                     if isinstance(inline_nodes, list):
                         inline_buffer.extend(inline_nodes)
                     else:
                         inline_buffer.append(inline_nodes)
+                elif (
+                    inline_buffer
+                    and isinstance(child, NavigableString)
+                    and not isinstance(child, Comment)
+                    and not str(child).strip()
+                ):
+                    pending_space = True
 
         # Flush remaining inline content
         if inline_buffer:

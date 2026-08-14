@@ -59,6 +59,9 @@ from datetime import datetime, timezone
 from typing import cast
 
 from all2md.ast.nodes import (
+    DefinitionDescription,
+    DefinitionList,
+    DefinitionTerm,
     Document,
     FootnoteDefinition,
     Heading,
@@ -69,6 +72,7 @@ from all2md.ast.nodes import (
     Node,
     Paragraph,
     Text,
+    get_node_children,
     replace_node_children,
 )
 from all2md.ast.transforms import NodeTransformer
@@ -1081,15 +1085,10 @@ class AddAttachmentFootnotesTransform(NodeTransformer):
             # Use helper to add label with automatic duplicate handling
             self._add_footnote_label(base_label, source_text)
 
-        # Recurse into children
-        if hasattr(node, "children") and isinstance(node.children, list):
-            for child in node.children:
-                self._collect_footnote_refs(child)
-
-        # Recurse into content
-        if hasattr(node, "content") and isinstance(node.content, list):
-            for child in node.content:
-                self._collect_footnote_refs(child)
+        # Recurse into all children, regardless of the attribute they're
+        # stored under (children/content/items/header/rows/cells/...).
+        for child in get_node_children(node):
+            self._collect_footnote_refs(child)
 
     def _add_footnote_label(self, base_label: str, source_text: str) -> None:
         """Add a footnote label with automatic duplicate handling.
@@ -1321,16 +1320,14 @@ class GenerateTocTransform(NodeTransformer):
                     self._heading_id_map[heading_idx] = heading_id
 
             self._headings.append((node.level, text, heading_id))
+            # Headings never nest inside other headings; no need to recurse
+            # into their own content.
+            return
 
-        # Recurse into children
-        if hasattr(node, "children") and isinstance(node.children, list):
-            for child in node.children:
-                self._collect_headings(child)
-
-        # Recurse into content
-        if hasattr(node, "content") and isinstance(node.content, list):
-            for child in node.content:
-                self._collect_headings(child)
+        # Recurse into all children, regardless of the attribute they're
+        # stored under (children/content/items/header/rows/cells/...).
+        for child in get_node_children(node):
+            self._collect_headings(child)
 
     def _generate_id(self, text: str) -> str:
         """Generate a slugified ID from heading text.
@@ -1393,24 +1390,29 @@ class GenerateTocTransform(NodeTransformer):
             else:
                 return node
 
-        # Recurse into children
-        if hasattr(node, "children") and isinstance(node.children, list):
-            new_children = []
-            for child in node.children:
-                updated_child = self._inject_heading_ids(child)
-                new_children.append(updated_child)
+        # DefinitionList has a (term, [descriptions]) structure that
+        # replace_node_children cannot rebuild generically, so handle it here.
+        if isinstance(node, DefinitionList):
+            new_items = [
+                (
+                    cast(DefinitionTerm, self._inject_heading_ids(term)),
+                    [
+                        cast(DefinitionDescription, self._inject_heading_ids(description))
+                        for description in descriptions
+                    ],
+                )
+                for term, descriptions in node.items
+            ]
+            return DefinitionList(items=new_items, metadata=node.metadata, source_location=node.source_location)
 
-            # Rebuild node with updated children
-            if isinstance(node, Document):
-                return Document(children=new_children, metadata=node.metadata, source_location=node.source_location)
-            elif isinstance(node, Paragraph):
-                return node  # Paragraphs can't have Heading children
-            else:
-                # For other node types, try to update children if they have that attribute
-                if hasattr(node, "children"):
-                    return replace_node_children(node, new_children)
+        # Recurse into all children, regardless of the attribute they're
+        # stored under (children/content/items/header/rows/cells/...).
+        children = get_node_children(node)
+        if not children:
+            return node
 
-        return node
+        new_children = [self._inject_heading_ids(child) for child in children]
+        return replace_node_children(node, new_children)
 
     def _generate_toc(self) -> list[Node]:
         """Generate TOC nodes from collected headings.

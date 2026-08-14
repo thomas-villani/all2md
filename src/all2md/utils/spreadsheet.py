@@ -9,9 +9,35 @@ to reduce code duplication and improve maintainability.
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, Sequence
 
-from all2md.ast import Alignment, Table, TableCell, TableRow, Text
+from all2md.ast import Alignment, Node, Table, TableCell, TableRow, Text
+
+# A cell's content for build_table_ast(): either plain text (the common case,
+# used by CSV/ODS) or a pre-built list of inline nodes (used by XLSX for a
+# hyperlinked cell, which needs a real Link node rather than a markdown-syntax
+# string that a renderer's Text-escaping would mangle).
+CellValue = str | list[Node]
+
+
+def _cell_content(cell: CellValue) -> list[Node]:
+    """Build TableCell inline content from a cell value.
+
+    Parameters
+    ----------
+    cell : str or list of Node
+        Plain text, wrapped in a single Text node, or a pre-built list of
+        inline nodes used as-is.
+
+    Returns
+    -------
+    list of Node
+        Inline content for a TableCell.
+
+    """
+    if isinstance(cell, str):
+        return [Text(content=cell)]
+    return cell
 
 
 def sanitize_cell_text(text: Any, preserve_newlines: bool = False) -> str:
@@ -49,14 +75,21 @@ def sanitize_cell_text(text: Any, preserve_newlines: bool = False) -> str:
     return s
 
 
-def build_table_ast(header: list[str], rows: list[list[str]], alignments: list[Alignment]) -> Table:
+def build_table_ast(
+    header: Sequence[CellValue], rows: Sequence[Sequence[CellValue]], alignments: list[Alignment]
+) -> Table:
     """Build an AST Table from header, rows, and alignments.
 
     Parameters
     ----------
-    header : list[str]
-        Header row cells
-    rows : list[list[str]]
+    header : sequence of (str or list of Node)
+        Header row cells. Most callers pass plain strings; a cell needing
+        richer inline content (e.g. a hyperlink) can pass a pre-built
+        ``list[Node]`` instead (see :data:`CellValue`). Declared as
+        ``Sequence`` rather than ``list`` so a plain ``list[str]`` -- what
+        every caller besides XLSX passes -- remains assignable despite
+        ``list`` being invariant in its element type.
+    rows : sequence of sequence of (str or list of Node)
         Data rows
     alignments : list[Alignment]
         Column alignments ('left', 'center', 'right')
@@ -69,7 +102,7 @@ def build_table_ast(header: list[str], rows: list[list[str]], alignments: list[A
     """
     # Build header row
     header_cells = [
-        TableCell(content=[Text(content=cell)], alignment=alignments[i] if i < len(alignments) else "center")
+        TableCell(content=_cell_content(cell), alignment=alignments[i] if i < len(alignments) else "center")
         for i, cell in enumerate(header)
     ]
     header_row = TableRow(cells=header_cells, is_header=True)
@@ -78,7 +111,7 @@ def build_table_ast(header: list[str], rows: list[list[str]], alignments: list[A
     data_rows = []
     for row in rows:
         row_cells = [
-            TableCell(content=[Text(content=cell)], alignment=alignments[i] if i < len(alignments) else "center")
+            TableCell(content=_cell_content(cell), alignment=alignments[i] if i < len(alignments) else "center")
             for i, cell in enumerate(row)
         ]
         data_rows.append(TableRow(cells=row_cells, is_header=False))

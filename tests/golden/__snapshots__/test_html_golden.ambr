@@ -54,9 +54,7 @@
   '''
   ## Images
   
-  ![First image](https://example.com/image1.png)
-  
-  ![Second image](https://example.com/image2.jpg)
+  ![First image](https://example.com/image1.png) ![Second image](https://example.com/image2.jpg)
   '''
 # ---
 # name: TestHTMLGolden.test_html_with_lists

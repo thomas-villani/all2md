@@ -21,6 +21,7 @@ from all2md.ast import (
     Heading,
     HTMLInline,
     Image,
+    Link,
     Node,
     Paragraph,
     Table,
@@ -39,51 +40,52 @@ from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.parser_helpers import attachment_result_to_image_node
 from all2md.utils.spreadsheet import (
+    CellValue,
     build_table_ast,
     sanitize_cell_text,
     transform_header_case,
-    trim_columns,
-    trim_rows,
 )
 
 logger = logging.getLogger(__name__)
 
 
-def _format_link_or_text(cell: Any, text: str, preserve_newlines: bool = False) -> str:
-    """Get cell text, checking for hyperlinks.
+def _cell_hyperlink_url(cell: Any) -> Optional[str]:
+    """Extract a cell's hyperlink target, if it has one.
 
     Parameters
     ----------
     cell : Any
         Cell object (openpyxl)
-    text : str
-        Cell text value
-    preserve_newlines : bool
-        Whether to preserve newlines in cells
 
     Returns
     -------
-    str
-        Cell text with hyperlinks formatted as markdown links if present
+    str or None
+        The hyperlink's URL (or ``#location`` for an internal link), or None
+        if the cell has no hyperlink.
 
     """
-    # Check if cell has a hyperlink
-    if hasattr(cell, "hyperlink") and cell.hyperlink:
-        # Extract the URL from the hyperlink
-        url = None
-        if hasattr(cell.hyperlink, "target") and cell.hyperlink.target:
-            url = cell.hyperlink.target
-        elif hasattr(cell.hyperlink, "location") and cell.hyperlink.location:
-            # Internal link (cell reference)
-            url = f"#{cell.hyperlink.location}"
+    hyperlink = getattr(cell, "hyperlink", None)
+    if not hyperlink:
+        return None
+    if getattr(hyperlink, "target", None):
+        return cast(str, hyperlink.target)
+    if getattr(hyperlink, "location", None):
+        # Internal link (cell reference)
+        return f"#{hyperlink.location}"
+    return None
 
-        if url:
-            # Format as markdown link: [text](url)
-            sanitized_text = sanitize_cell_text(text, preserve_newlines)
-            return f"[{sanitized_text}]({url})"
 
-    # No hyperlink, return sanitized text
-    return sanitize_cell_text(text, preserve_newlines)
+def _paired_cell(text: str, url: Optional[str]) -> CellValue:
+    """Build a build_table_ast() cell value from cell text and an optional hyperlink.
+
+    A hyperlinked cell becomes a real ``Link`` node (rather than a markdown-syntax
+    string, which a renderer's Text-escaping would turn into a literal, escaped
+    bracket-and-parens sequence); a plain cell stays a bare string.
+
+    """
+    if url:
+        return [Link(url=url, content=[Text(content=text)])]
+    return text
 
 
 def _alignment_for_cell(cell: Any) -> Alignment:
@@ -118,6 +120,72 @@ def _alignment_for_cell(cell: Any) -> Alignment:
         pass
 
     return "center"
+
+
+def _trim_paired_rows(
+    rows: list[list[tuple[str, Optional[str]]]], trim_mode: str
+) -> list[list[tuple[str, Optional[str]]]]:
+    """Trim empty leading/trailing rows from (text, url) cell pairs.
+
+    Mirrors :func:`all2md.utils.spreadsheet.trim_rows`, whose emptiness test
+    (``cell == ""``) only makes sense for plain text. XLSX cells carry a
+    parallel hyperlink URL that must survive the same trim decisions, so this
+    is a small local duplicate of that logic operating on the text half of
+    each pair.
+
+    """
+    if not rows or trim_mode == "none":
+        return rows
+
+    if trim_mode in ("leading", "both"):
+        while rows and all(text == "" for text, _ in rows[0]):
+            rows.pop(0)
+
+    if trim_mode in ("trailing", "both"):
+        while rows and all(text == "" for text, _ in rows[-1]):
+            rows.pop()
+
+    return rows
+
+
+def _trim_paired_columns(
+    rows: list[list[tuple[str, Optional[str]]]], trim_mode: str
+) -> list[list[tuple[str, Optional[str]]]]:
+    """Trim empty leading/trailing columns from (text, url) cell pairs.
+
+    See :func:`_trim_paired_rows` for why this duplicates
+    :func:`all2md.utils.spreadsheet.trim_columns` instead of reusing it.
+
+    """
+    if not rows or trim_mode == "none":
+        return rows
+
+    if not rows[0]:
+        return rows
+
+    num_cols = len(rows[0])
+
+    leading_empty = 0
+    if trim_mode in ("leading", "both"):
+        for col_idx in range(num_cols):
+            if all((row[col_idx][0] == "") if col_idx < len(row) else True for row in rows):
+                leading_empty += 1
+            else:
+                break
+
+    trailing_empty = 0
+    if trim_mode in ("trailing", "both"):
+        for col_idx in range(num_cols - 1, -1, -1):
+            if all((row[col_idx][0] == "") if col_idx < len(row) else True for row in rows):
+                trailing_empty += 1
+            else:
+                break
+
+    if leading_empty > 0 or trailing_empty > 0:
+        end_col = num_cols - trailing_empty
+        return [row[leading_empty:end_col] for row in rows]
+
+    return rows
 
 
 def _xlsx_iter_rows(sheet: Any, max_rows: int | None, max_cols: int | None) -> Iterable[list[Any]]:
@@ -519,8 +587,10 @@ class XlsxToAstConverter(BaseParser):
             return [n for n in sheet_names if pattern.search(n)]
         return sheet_names
 
-    def _convert_rows_to_strings(self, raw_rows: list[list[Any]], merged_map: dict[str, str]) -> list[list[str]]:
-        """Convert raw cell rows to string rows, handling merged cells.
+    def _convert_rows_to_cells(
+        self, raw_rows: list[list[Any]], merged_map: dict[str, str]
+    ) -> list[list[tuple[str, Optional[str]]]]:
+        """Convert raw cell rows to (text, hyperlink_url) pairs, handling merged cells.
 
         Parameters
         ----------
@@ -531,13 +601,13 @@ class XlsxToAstConverter(BaseParser):
 
         Returns
         -------
-        list[list[str]]
-            Rows as string values
+        list[list[tuple[str, str | None]]]
+            Rows of (cell text, hyperlink URL or None) pairs
 
         """
-        str_rows: list[list[str]] = []
+        cell_rows: list[list[tuple[str, Optional[str]]]] = []
         for row in raw_rows:
-            out: list[str] = []
+            out: list[tuple[str, Optional[str]]] = []
             for cell in row:
                 coord = getattr(cell, "coordinate", None)
                 # Only apply merged cell logic if mode is "flatten"
@@ -547,11 +617,12 @@ class XlsxToAstConverter(BaseParser):
                     and coord in merged_map
                     and merged_map[coord] != coord
                 ):
-                    out.append("")
+                    out.append(("", None))
                 else:
-                    out.append(_format_link_or_text(cell, cell.value, self.options.preserve_newlines_in_cells))
-            str_rows.append(out)
-        return str_rows
+                    text = sanitize_cell_text(cell.value, self.options.preserve_newlines_in_cells)
+                    out.append((text, _cell_hyperlink_url(cell)))
+            cell_rows.append(out)
+        return cell_rows
 
     def _compute_alignments(self, sheet: Any, num_cols: int) -> list[Alignment]:
         """Compute column alignments from header cells.
@@ -614,23 +685,30 @@ class XlsxToAstConverter(BaseParser):
         if not raw_rows:
             return children
 
-        # Convert to strings
-        str_rows = self._convert_rows_to_strings(raw_rows, merged_map)
+        # Convert to (text, hyperlink_url) pairs
+        cell_rows = self._convert_rows_to_cells(raw_rows, merged_map)
 
-        # Trim empty rows and columns
-        str_rows = trim_rows(str_rows, cast(Any, self.options.trim_empty))
-        if not str_rows:
+        # Trim empty rows and columns (mirrors trim_rows/trim_columns, but keeps
+        # each cell's hyperlink URL alongside its text through the trim)
+        cell_rows = _trim_paired_rows(cell_rows, cast(Any, self.options.trim_empty))
+        if not cell_rows:
             return children
 
-        str_rows = trim_columns(str_rows, cast(Any, self.options.trim_empty))
-        if not str_rows or not any(str_rows):
+        cell_rows = _trim_paired_columns(cell_rows, cast(Any, self.options.trim_empty))
+        if not cell_rows or not any(cell_rows):
             return children
 
-        # Build table
-        header = str_rows[0]
-        data = str_rows[1:] if len(str_rows) > 1 else []
-        header = transform_header_case(header, self.options.header_case)
-        alignments = self._compute_alignments(sheet, len(header))
+        # Build table: transform_header_case operates on plain text, so split
+        # text/url apart for the header row and re-pair them afterward.
+        header_pairs = cell_rows[0]
+        data_pairs = cell_rows[1:] if len(cell_rows) > 1 else []
+
+        header_text = transform_header_case([text for text, _ in header_pairs], self.options.header_case)
+        header_urls = [url for _, url in header_pairs]
+        alignments = self._compute_alignments(sheet, len(header_text))
+
+        header: list[CellValue] = [_paired_cell(text, url) for text, url in zip(header_text, header_urls, strict=True)]
+        data: list[list[CellValue]] = [[_paired_cell(text, url) for text, url in row] for row in data_pairs]
 
         table = build_table_ast(header, data, alignments)
         children.append(table)

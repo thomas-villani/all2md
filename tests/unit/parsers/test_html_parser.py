@@ -840,6 +840,66 @@ class TestEdgeCases:
         # Div should create a paragraph-like structure
         assert isinstance(doc.children[0], Paragraph)
 
+    def test_loose_leading_text_becomes_paragraph(self) -> None:
+        """Bare text directly under <body>, before any block element, is not dropped."""
+        html = "<html><body>Loose text at top. <p>In a paragraph.</p></body></html>"
+        converter = HtmlToAstConverter()
+        doc = converter.convert_to_ast(html)
+
+        assert len(doc.children) == 2
+        assert isinstance(doc.children[0], Paragraph)
+        assert doc.children[0].content[0].content == "Loose text at top. "
+        assert isinstance(doc.children[1], Paragraph)
+        assert doc.children[1].content[0].content == "In a paragraph."
+
+    def test_loose_trailing_text_becomes_paragraph(self) -> None:
+        """Bare text directly under <body>, after a block element, is not dropped."""
+        html = "<html><body><p>In a paragraph.</p>Trailing loose text.</body></html>"
+        converter = HtmlToAstConverter()
+        doc = converter.convert_to_ast(html)
+
+        assert len(doc.children) == 2
+        assert isinstance(doc.children[0], Paragraph)
+        assert doc.children[0].content[0].content == "In a paragraph."
+        assert isinstance(doc.children[1], Paragraph)
+        assert doc.children[1].content[0].content == "Trailing loose text."
+
+    def test_pure_fragment_with_inline_markup_keeps_all_content(self) -> None:
+        """A body-less fragment mixing bare text and inline tags is not discarded.
+
+        Regression test for a bug where the top-level walk only processed Tag
+        children of <body>/root and silently dropped every NavigableString, so
+        this fragment parsed to a Document containing only the Strong('bold')
+        node with all surrounding plain text deleted.
+        """
+        html = "Just plain text with <b>bold</b> inside"
+        converter = HtmlToAstConverter()
+        doc = converter.convert_to_ast(html)
+
+        assert len(doc.children) == 1
+        para = doc.children[0]
+        assert isinstance(para, Paragraph)
+        # Loose text before and after the inline tag must form ONE paragraph together
+        # with the inline element, not separate fragments.
+        assert len(para.content) == 3
+        assert isinstance(para.content[0], Text)
+        assert para.content[0].content == "Just plain text with "
+        assert isinstance(para.content[1], Strong)
+        assert para.content[1].content[0].content == "bold"
+        assert isinstance(para.content[2], Text)
+        assert para.content[2].content == " inside"
+
+    def test_whitespace_only_text_between_blocks_produces_no_paragraph(self) -> None:
+        """Whitespace-only text nodes between block elements must not become paragraphs."""
+        html = "<p>A</p>\n  \n<p>B</p>"
+        converter = HtmlToAstConverter()
+        doc = converter.convert_to_ast(html)
+
+        assert len(doc.children) == 2
+        assert all(isinstance(child, Paragraph) for child in doc.children)
+        assert doc.children[0].content[0].content == "A"
+        assert doc.children[1].content[0].content == "B"
+
 
 @pytest.mark.unit
 class TestNetworkOptionsForwarding:
