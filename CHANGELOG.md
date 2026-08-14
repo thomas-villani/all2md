@@ -65,6 +65,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   included: it means "detect the region, don't build a table from it", and the region's
   text has already been excluded by the time it is honoured — but it is not counted as a
   table rejection, because nothing was rejected.
+- **A framed text box no longer becomes a one-cell PDF "table".** `_pdf_tables` states
+  that its caps "apply to both PyMuPDF's `find_tables()` output and our ruling-line
+  detector since both can fire on the same false-positive shapes", and the `find_tables()`
+  path enforces `MIN_TABLE_ROWS` x `MIN_TABLE_COLS` accordingly. The ruling-line detector
+  did not: it asked only for two horizontal and two vertical lines, which is a *single
+  cell*, so a stroked callout box that cleared the sparsity guard came out as one cell of
+  prose wrapped in pipes — the exact shape those constants exist to reject. It now applies
+  the same minimum to the grid the lines actually bound (`len(lines) - 1` per axis), and
+  demotes what it rejects to a paragraph like every other guard. The same function had also
+  re-hardcoded two shared thresholds as bare literals — `> 0.70` beside the imported
+  `MAX_TABLE_EMPTY_RATIO`, `>= 5` beside `MIN_FILLED_FOR_UNIFORMITY_CHECK` — which happened
+  to agree with them and would have drifted silently the first time either was retuned;
+  both now read the constant.
 - **Words no longer fuse across a formatting change in run-based formats.**
   `group_and_format_runs` — the shared helper that turns a paragraph's runs into inline
   nodes for PPTX (and available to any run-based parser) — joined each same-format group

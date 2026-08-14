@@ -3119,13 +3119,6 @@ class PdfToAstConverter(BaseParser):
         h_lines_sorted = sorted(h_lines, key=lambda line: line[1])  # Sort by y-coordinate
         v_lines_sorted = sorted(v_lines, key=lambda line: line[0])  # Sort by x-coordinate
 
-        if len(h_lines_sorted) < 2 or len(v_lines_sorted) < 2:
-            # Need at least 2 horizontal and 2 vertical lines to form cells
-            return self._region_text_as_paragraph(page, table_rect, page_num)
-
-        # Create grid cells from line intersections
-        rows: list[TableRow] = []
-
         # Extract y-coordinates for rows (between consecutive h_lines)
         row_y_coords = [(h_lines_sorted[i][1], h_lines_sorted[i + 1][1]) for i in range(len(h_lines_sorted) - 1)]
 
@@ -3135,6 +3128,23 @@ class PdfToAstConverter(BaseParser):
         n_rows = len(row_y_coords)
         n_cols = len(col_x_coords)
         n_cells = n_rows * n_cols
+
+        # The same degenerate-grid cap the find_tables() path applies, on the grid the
+        # ruling lines actually bound: n lines on an axis bound n-1 cells, so the old
+        # ">= 2 lines on each axis" test admitted a 1x1 "table" -- a framed text box that
+        # cleared the sparsity guard came out as a single cell of prose wrapped in pipes.
+        # Fewer than two lines on an axis bounds no cells at all and lands here too.
+        if n_rows < MIN_TABLE_ROWS or n_cols < MIN_TABLE_COLS:
+            logger.debug(
+                f"Rejecting ruling-line table on page {page_num + 1}: "
+                f"{n_rows}x{n_cols} is not a grid (needs at least "
+                f"{MIN_TABLE_ROWS}x{MIN_TABLE_COLS})"
+            )
+            self._record_table_rejection("degenerate_grid")
+            return self._region_text_as_paragraph(page, table_rect, page_num)
+
+        # Create grid cells from line intersections
+        rows: list[TableRow] = []
 
         import pymupdf
 
@@ -3165,9 +3175,9 @@ class PdfToAstConverter(BaseParser):
         if not rows:
             return self._region_text_as_paragraph(page, table_rect, page_num)
 
-        # Sparsity guard: real tables are not mostly empty. A "table" with
-        # >70% empty cells is almost always a misfire on a bordered region.
-        if n_cells > 0 and n_empty / n_cells > 0.70:
+        # Sparsity guard: real tables are not mostly empty. A "table" past
+        # MAX_TABLE_EMPTY_RATIO is almost always a misfire on a bordered region.
+        if n_cells > 0 and n_empty / n_cells > MAX_TABLE_EMPTY_RATIO:
             logger.debug(
                 f"Rejecting ruling-line table on page {page_num + 1}: "
                 f"{n_empty}/{n_cells} ({n_empty / n_cells:.0%}) cells empty"
@@ -3179,7 +3189,7 @@ class PdfToAstConverter(BaseParser):
         # content is the prompt-callout pattern (decorative box with a
         # repeated title fragment scattered across cells).
         n_filled = n_cells - n_empty
-        if len(unique_texts) == 1 and n_filled >= 5:
+        if len(unique_texts) == 1 and n_filled >= MIN_FILLED_FOR_UNIFORMITY_CHECK:
             logger.debug(
                 f"Rejecting ruling-line table on page {page_num + 1}: "
                 f"all {n_filled} non-empty cells have identical content"

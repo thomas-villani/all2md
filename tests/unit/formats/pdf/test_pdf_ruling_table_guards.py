@@ -177,6 +177,70 @@ def test_an_empty_region_still_yields_nothing(converter):
     assert node is None
 
 
+# --- the caps are shared, not re-derived -------------------------------------------
+#
+# ``_pdf_tables`` says the caps "apply to both PyMuPDF's find_tables() output and our
+# ruling-line detector since both can fire on the same false-positive shapes". The
+# ruling path did not honour that: it required only two lines on each axis, which bound
+# a *single cell*, and it re-hardcoded the empty ratio and the uniformity floor as bare
+# literals next to the constants that name them.
+#
+# These are parity tests rather than ideal-outcome tests. The requirement is that the
+# two detectors agree about what a table is; asserting an ideal for either one would
+# encode a spec neither meets.
+
+
+class _FakeTable:
+    """The shape of a PyMuPDF table: an ``extract()`` grid and a ``bbox``."""
+
+    def __init__(self, grid: list[list[str]], bbox: tuple[float, float, float, float]) -> None:
+        self._grid = grid
+        self.bbox = bbox
+
+    def extract(self) -> list[list[str]]:
+        return self._grid
+
+
+SHARED_CAP_GRIDS = [
+    pytest.param([["A framed callout, not a table."]], id="1x1-framed-box"),
+    pytest.param([["What", "is", "the", "capital"]], id="1xN-single-row"),
+    pytest.param([["one"], ["two"], ["three"]], id="Nx1-single-column"),
+    pytest.param(REAL_GRID, id="2x2-real-grid"),
+    # Sparsity, either side of MAX_TABLE_EMPTY_RATIO: 7/10 empty is not *past* 0.70.
+    pytest.param([["a", "b", "c", "", ""], ["", "", "", "", ""]], id="empty-at-the-line"),
+    pytest.param([["a", "b", "", "", ""], ["", "", "", "", ""]], id="empty-past-the-line"),
+    # Uniformity, either side of MIN_FILLED_FOR_UNIFORMITY_CHECK.
+    pytest.param([["X", "X"], ["X", "X"]], id="uniform-under-the-floor"),
+    pytest.param([["X", "X", "X"], ["X", "X", "X"]], id="uniform-over-the-floor"),
+]
+
+
+@pytest.mark.parametrize("cells", SHARED_CAP_GRIDS)
+def test_both_detectors_agree_on_what_counts_as_a_table(cells):
+    """The same grid must be accepted, or rejected, by both detectors alike."""
+    region = _grid(cells)
+    by_ruling = _extract(PdfToAstConverter(), region)
+    by_find_tables = PdfToAstConverter()._process_table_to_ast(
+        _FakeTable(cells, tuple(region.rect)), region, page_num=0
+    )
+
+    assert isinstance(by_ruling, AstTable) == isinstance(by_find_tables, AstTable), (
+        f"the ruling-line detector and find_tables() disagree about {cells!r}: " f"{by_ruling!r} vs {by_find_tables!r}"
+    )
+
+
+def test_a_framed_text_box_is_prose_not_a_one_cell_table(converter):
+    """Two lines on each axis bound one cell. One cell is a frame, not a grid."""
+    region = _grid([["A framed callout, not a table."]])
+
+    node = _extract(converter, region)
+
+    assert not isinstance(node, AstTable), "a 1x1 region is a framed box, not a table"
+    assert isinstance(node, AstParagraph)
+    assert "framed callout" in extract_text(node)
+    assert converter._tables_rejected == 1
+
+
 # --- end to end -------------------------------------------------------------------
 #
 # The unit tests above call the method directly. This one drives the whole converter
