@@ -265,6 +265,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   or heading (trimmed once, when the fragment buffer is flushed) are stripped, so trailing
   newlines and leading blank lines still produce clean paragraph/heading text with no stray
   edge whitespace.
+- **The PDF image-caption fallback no longer treats a plural sentence opener as a figure
+  cue.** The fallback (used when the layout model has no `caption` region for an image)
+  matches a line against a "Figure 3" / "Fig. 2b"-style opener, but the pattern allowed zero
+  whitespace before its letter alternative and matched the whole thing case-insensitively —
+  so `[A-Z]` also matched the lowercase trailing "s" of a plural: "Figures in this study",
+  "Images were acquired using a confocal microscope" and "Tables 1 and 2" all satisfied the
+  cue as if the "s" were a figure-letter locator like "Fig B". The locator half of the match
+  (the digits or letter after the keyword) is now checked case-sensitively and, for a letter,
+  requires real whitespace before it, so a plural opener's trailing "s" can no longer stand in
+  for one. Genuine cues ("Figure 3:", "FIGURE 4", "Fig B", "Table 1.") are unaffected.
 
 ### Changed
 
