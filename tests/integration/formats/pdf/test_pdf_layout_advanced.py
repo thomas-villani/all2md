@@ -100,7 +100,7 @@ class TestPdfLayoutAdvanced:
         assert len(columns) == 1
         assert len(columns[0]) == len(blocks)
 
-    @patch("all2md.parsers.pdf.pymupdf.open")
+    @patch("pymupdf.open")
     def test_rotated_text_handling(self, mock_fitz_open):
         """Test handling of rotated text blocks."""
         # Mock PDF with rotated text
@@ -216,7 +216,7 @@ class TestPdfLayoutAdvanced:
         columns_large = detect_columns(blocks, column_gap_threshold=50)
         assert len(columns_large) <= 3
 
-    @patch("all2md.parsers.pdf.pymupdf.open")
+    @patch("pymupdf.open")
     def test_header_detection_with_rotation(self, mock_fitz_open):
         """Test header detection considering rotated text."""
         mock_doc = Mock()
