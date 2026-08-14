@@ -34,8 +34,122 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   assumed.
   ([#338](https://github.com/thomas-villani/all2md/issues/338))
 
+### Changed
+
+- **Removed an unreachable second block-processing pipeline from the PDF parser.**
+  `_process_text_region_to_ast` and the five helpers it alone called
+  (`_process_text_blocks_to_nodes`, `_process_blocks_line_text`,
+  `_process_blocks_line_monospace`, `_apply_column_detection` and
+  `_merge_columns_for_reading_order`) had no callers anywhere in the package or the test
+  suite. They were a near-duplicate of the live per-block path that had drifted away from
+  it — same responsibilities, different rotated-text, code-block and heading handling — so
+  reading them gave a misleading picture of what the parser actually does, and any fix
+  applied to one copy silently missed the other. No behaviour changes: nothing called them.
+
 ### Fixed
 
+- **A PDF's ruling-line table fallback no longer deletes the text of any region it
+  rejects.** Text that falls inside a detected table's bounding box is removed from the
+  page's ordinary text blocks *before* the table is validated, so that it is not emitted
+  twice. The `find_tables()` path knows this and hands the region's text back as a
+  paragraph from every one of its rejection branches. The ruling-line fallback —
+  `_extract_table_from_ruling_rect`, which reads a page's stroked lines directly — did
+  not: it returned bare `None` when extraction was switched off, when fewer than 2x2
+  ruling lines were found, and from each of its sparsity, uniformity and dot-leader/TOC
+  guards. Every one of those deleted the framed region's prose outright, and the
+  conversion still reported success. On a synthetic page holding a stroked frame with one
+  internal rule and a sentence inside it, `table_detection_mode="ruling"` produced *no
+  output at all* — the 2x2 grid was 75% empty, the sparsity guard rejected it, and the
+  sentence went with it. All five paths now return the region's text as a paragraph, the
+  same way the `find_tables()` path does. `table_fallback_extraction_mode="none"` is
+  included: it means "detect the region, don't build a table from it", and the region's
+  text has already been excluded by the time it is honoured — but it is not counted as a
+  table rejection, because nothing was rejected.
+- **A PDF list no longer nests a parent item underneath its own child.**
+  `_determine_list_level_from_x` assigned each newly seen indent the level
+  `len(x_levels)` — arrival order — and never compared the x-coordinates to each other.
+  The first list item of a run was therefore level 0 whatever its indent, and every new
+  indent after it was one level *deeper* whether it lay to the right or to the left. A
+  nested list that continues at the top of a column or page begins on a sub-bullet, which
+  is routine in two-column typesetting; the sub-bullet took level 0, the genuine top-level
+  bullet after it took level 1, and since the list builder reads a larger level as deeper,
+  the parent list ended up nested inside its own child. Levels are now assigned by
+  comparing x: within tolerance of an established indent is that indent's level, further
+  right than all of them opens a deeper one, further left than all of them opens a
+  shallower one, and an indent arriving between two known ones lands between their levels.
+  The numbers are no longer 0-based or contiguous — they are an ordering key, and
+  renumbering them would strand the levels the list builder has already recorded on its
+  stack. A list run that starts on a sub-bullet now emits that sub-list in its own right
+  rather than dropping it when the stack unwinds past its bottom. **Not** addressed: this
+  is still blind to columns, so the first item of a right-hand column reads as deeper than
+  anything in the left one.
+- **A PDF page whose text cannot be read no longer disappears without a trace.**
+  `_process_page_to_ast` wrapped its `page.get_text("dict", ...)` call in
+  `except (AttributeError, KeyError, Exception): return []` — no log line, no degraded
+  event, no progress event. A page that failed to extract was indistinguishable in the
+  output from a page that was genuinely blank, and the conversion still reported success;
+  worse, if every page tripped it, the document-level OCR safety net saw an empty document
+  and could put a perfectly good text PDF through OCR. The failure is now logged at
+  `WARNING` with the page number and the underlying exception, and recorded as a
+  `page_text_extraction_failed` degraded event at `error` severity so it reaches the
+  confidence report. The tolerance itself is unchanged and deliberate — one unreadable
+  page must not cost the other four hundred, and the parser is driven with mock pages that
+  cannot answer `get_text()` at all — so the page is still skipped rather than raising.
+  The in-place `dehyphenate_blocks()` call, which had drifted inside the same `try`, has
+  been hoisted out of it: it runs on blocks that were already read successfully, so a
+  failure there is a bug in all2md rather than an unreadable page, and it was being
+  laundered into the same silent empty page.
+- **A framed text box no longer becomes a one-cell PDF "table".** `_pdf_tables` states
+  that its caps "apply to both PyMuPDF's `find_tables()` output and our ruling-line
+  detector since both can fire on the same false-positive shapes", and the `find_tables()`
+  path enforces `MIN_TABLE_ROWS` x `MIN_TABLE_COLS` accordingly. The ruling-line detector
+  did not: it asked only for two horizontal and two vertical lines, which is a *single
+  cell*, so a stroked callout box that cleared the sparsity guard came out as one cell of
+  prose wrapped in pipes — the exact shape those constants exist to reject. It now applies
+  the same minimum to the grid the lines actually bound (`len(lines) - 1` per axis), and
+  demotes what it rejects to a paragraph like every other guard. The same function had also
+  re-hardcoded two shared thresholds as bare literals — `> 0.70` beside the imported
+  `MAX_TABLE_EMPTY_RATIO`, `>= 5` beside `MIN_FILLED_FOR_UNIFORMITY_CHECK` — which happened
+  to agree with them and would have drifted silently the first time either was retuned;
+  both now read the constant.
+- **Chunk character spans stay on the basis they claim under `--avoid-table-split` /
+  `--avoid-code-split`.** Every chunk is stamped `char_basis="section_text"` — the span
+  indexes the section's rendered Markdown — and that held only while a section was
+  chunked in one piece. Segmenting a section around an atomic table or code block
+  computed each segment's offsets against *that segment's* own text: the atomic piece
+  got the constant span `(0, len(text))` and each prose segment restarted at 0. On a
+  prose/table/prose section every chunk after the first therefore reported a span that
+  overlapped its predecessors and, sliced out of the section text as documented,
+  returned the wrong text — 45 of 119 chunks over this repository's README across five
+  strategies. Each segment is now located in the section's own rendering and its windows
+  shifted by that offset, so the spans are true, ordered and non-overlapping. Searching
+  forward from the previous segment's end keeps two identically-rendered segments (two
+  tables with the same cells) in document order. Rendering a fragment is not guaranteed
+  to reproduce a substring of rendering the whole — footnote definitions, for one, are
+  collected at the end of whatever document they are rendered in — so a segment that
+  cannot be located keeps its segment-relative span and says so with a new
+  `char_basis="segment_text"`, rather than reporting a section offset that is wrong.
+  Check `char_basis` before slicing.
+- **An unknown keyword argument passed beside an options object now warns instead of
+  raising `TypeError`.** `to_ast`, `from_ast`, `to_markdown`, `convert` and `roundtrip`
+  document a single rule for a keyword argument no options class has a field for: warn
+  and drop it. That rule only ever ran on the branch where the caller passed *no* options
+  object. Pass one — `to_ast(src, parser_options=MarkdownParserOptions(), bogus=1)` — and
+  the kwargs went straight to `create_updated`, which is `dataclasses.replace`, so the
+  same typo escaped as `MarkdownParserOptions.__init__() got an unexpected keyword
+  argument 'bogus'` instead. The same branch could not reach a field of a *nested* options
+  dataclass either: `network_timeout` lives on `options.network`, the no-options branch
+  has always folded it in, and the with-options branch raised on it even though it is a
+  perfectly valid option for that format. Both are now handled the same way on both
+  branches, with the existing warning categories and wording.
+  Related: the kwargs that `to_markdown`/`convert` pre-split were checked against the
+  *detected format's* options class rather than the class of the options instance that
+  actually receives them. Options classes inherit (`MboxOptions` is an `EmlOptions`) and
+  parsers accept any subclass of what they expect, so a caller could legitimately pass an
+  instance whose class is not the format's own — and a field of *that* class, such as
+  `max_messages` on an eml parse, was dropped as "not for the formats in this conversion"
+  and silently applied nothing. The split now uses the receiving instance's class when one
+  is given.
 - **An Org greater block containing a blank line is no longer torn apart.** The Org
   parser split a heading's body on blank lines and only *then* looked for
   `#+BEGIN_`/`#+END_` delimiters, so a block whose contents contained a blank line — an
@@ -306,6 +420,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   or heading (trimmed once, when the fragment buffer is flushed) are stripped, so trailing
   newlines and leading blank lines still produce clean paragraph/heading text with no stray
   edge whitespace.
+- **The PDF image-caption fallback no longer treats a plural sentence opener as a figure
+  cue.** The fallback (used when the layout model has no `caption` region for an image)
+  matches a line against a "Figure 3" / "Fig. 2b"-style opener, but the pattern allowed zero
+  whitespace before its letter alternative and matched the whole thing case-insensitively —
+  so `[A-Z]` also matched the lowercase trailing "s" of a plural: "Figures in this study",
+  "Images were acquired using a confocal microscope" and "Tables 1 and 2" all satisfied the
+  cue as if the "s" were a figure-letter locator like "Fig B". The locator half of the match
+  (the digits or letter after the keyword) is now checked case-sensitively and, for a letter,
+  requires real whitespace before it, so a plural opener's trailing "s" can no longer stand in
+  for one. Genuine cues ("Figure 3:", "FIGURE 4", "Fig B", "Table 1.") are unaffected.
+- **`header_min_occurrences` now actually filters by occurrence.** The option is documented
+  as "minimum occurrences of a font size to consider it for headers" (its docstring's stale
+  "default 3" is also corrected to the real default, 5), but the statistic it was checked
+  against accumulated *characters*, not occurrences: `fontsizes[size] += len(text)` per span.
+  A font size needed fewer than 5 rendered characters — trivial for almost any span — to be
+  dropped, so the filter was a near no-op regardless of how many times that size actually
+  appeared. A separate line-occurrence count is now tracked and checked against
+  `header_min_occurrences` instead. Body-text detection ("which size covers most of the
+  page") still runs on the character-count statistic, unaffected by this change, since
+  characters and occurrences answer different questions and a paragraph condensed onto one
+  packed line should still out-rank a heading for body status. The single largest font size
+  on the page is exempt from the occurrence check: by convention it is the document's title,
+  which renders once by design and would otherwise never clear a repetition threshold now
+  that repetition is measured for real. Every other size — subordinate headings, and any
+  one-off oversized span the filter exists to catch — is filtered as documented. This is a
+  real behaviour change for header detection: a font size that previously qualified on
+  character count alone but occurs only a couple of times (and is not the page's largest)
+  will no longer be treated as a heading size.
 
 ### Changed
 

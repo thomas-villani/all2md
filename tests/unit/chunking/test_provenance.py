@@ -223,6 +223,143 @@ class TestAvoidCodeSplit:
         assert len(code_chunks) >= 2
 
 
+class TestCharSpansIndexTheSectionText:
+    """``char_start``/``char_end`` must mean what ``char_basis`` says they mean.
+
+    Every chunk is stamped ``char_basis="section_text"``: an index into the section's
+    rendered Markdown. The segmented path (``avoid_table_split`` / ``avoid_code_split``)
+    used to compute its offsets against each *segment's* text instead -- atomic pieces
+    got the constant span ``(0, len(text))`` and each prose segment restarted at 0 -- so
+    a consumer slicing the section text by those spans got the wrong text for every
+    chunk after the first segment, and the spans overlapped.
+    """
+
+    def _section_text(self, nodes):
+        """The string the spans are documented to index into."""
+        from all2md.chunking.provenance import _render_markdown
+
+        return _render_markdown(list(nodes))
+
+    def _doc_with_table(self):
+        """A section shaped prose / table / prose."""
+        return Document(
+            children=[
+                Heading(level=1, content=[Text(content="Data")]),
+                Paragraph(content=[Text(content="Intro paragraph with several words to chunk.")]),
+                _table(8),
+                Paragraph(content=[Text(content="Trailing paragraph after the table here.")]),
+            ]
+        )
+
+    def _doc_with_code(self):
+        """A section shaped prose / code / prose."""
+        code = "\n".join(f"line_{i} = compute(value_{i}, other_{i})" for i in range(12))
+        return Document(
+            children=[
+                Heading(level=1, content=[Text(content="Code")]),
+                Paragraph(content=[Text(content="Intro paragraph before the code block here.")]),
+                CodeBlock(content=code, language="python"),
+                Paragraph(content=[Text(content="Trailing paragraph after the code here.")]),
+            ]
+        )
+
+    @pytest.mark.parametrize("strategy", ["paragraph", "word", "line", "sentence"])
+    def test_each_span_slices_its_own_text_out_of_the_section(self, strategy):
+        doc = self._doc_with_table()
+        section_text = self._section_text(doc.children)
+
+        chunks = chunk_ast(doc, strategy=strategy, max_tokens=8, avoid_table_split=True, token_counter="whitespace")
+
+        assert len(chunks) > 1, "this document must segment for the test to mean anything"
+        for chunk in chunks:
+            assert chunk.char_basis == "section_text"
+            assert section_text[chunk.char_start : chunk.char_end] == chunk.text
+
+    def test_spans_advance_and_do_not_overlap(self):
+        doc = self._doc_with_table()
+        chunks = chunk_ast(doc, strategy="paragraph", max_tokens=8, avoid_table_split=True, token_counter="whitespace")
+
+        starts = [c.char_start for c in chunks]
+        assert starts == sorted(starts)
+        for earlier, later in zip(chunks, chunks[1:], strict=False):
+            assert later.char_start >= earlier.char_end
+
+    def test_the_atomic_chunk_is_not_pinned_to_zero(self):
+        """The atomic piece used to be stamped ``(0, len(text))`` whatever preceded it."""
+        doc = self._doc_with_table()
+        chunks = chunk_ast(doc, strategy="paragraph", max_tokens=8, avoid_table_split=True, token_counter="whitespace")
+
+        table_chunk = next(c for c in chunks if "|" in c.text)
+        assert table_chunk.char_start > 0
+        assert self._section_text(doc.children)[table_chunk.char_start : table_chunk.char_end] == table_chunk.text
+
+    def test_code_segmentation_too(self):
+        doc = self._doc_with_code()
+        section_text = self._section_text(doc.children)
+
+        chunks = chunk_ast(doc, strategy="paragraph", max_tokens=8, avoid_code_split=True, token_counter="whitespace")
+
+        assert any("compute(" in c.text for c in chunks)
+        for chunk in chunks:
+            assert section_text[chunk.char_start : chunk.char_end] == chunk.text
+
+    def test_two_identical_segments_get_different_spans(self):
+        """Searching from the previous segment's end keeps repeats in document order."""
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Twice")]),
+                Paragraph(content=[Text(content="Between the first and second copy.")]),
+                _table(2),
+                Paragraph(content=[Text(content="Between the first and second copy.")]),
+                _table(2),
+            ]
+        )
+        section_text = self._section_text(doc.children)
+
+        chunks = chunk_ast(doc, strategy="paragraph", max_tokens=8, avoid_table_split=True, token_counter="whitespace")
+
+        table_chunks = [c for c in chunks if "|" in c.text]
+        assert len(table_chunks) == 2
+        assert table_chunks[0].char_start != table_chunks[1].char_start
+        for chunk in chunks:
+            assert section_text[chunk.char_start : chunk.char_end] == chunk.text
+
+    def test_the_unsegmented_path_is_unchanged(self):
+        """Control: the path that already honoured the contract still does."""
+        doc = self._doc_with_table()
+        section_text = self._section_text(doc.children)
+
+        chunks = chunk_ast(doc, strategy="paragraph", max_tokens=8, token_counter="whitespace")
+
+        for chunk in chunks:
+            assert chunk.char_basis == "section_text"
+            assert section_text[chunk.char_start : chunk.char_end] == chunk.text
+
+    def test_an_unlocatable_segment_admits_its_basis(self, monkeypatch):
+        """Rendering a fragment is not always a substring of rendering the whole.
+
+        Footnote definitions, for one, are collected at the end of whatever document
+        they are rendered in. Rather than report a section offset that is wrong, such a
+        chunk keeps its segment-relative span and renames the basis.
+        """
+        from all2md.chunking import provenance
+
+        doc = self._doc_with_table()
+        whole = len(doc.children)
+        original = provenance._render_markdown
+
+        def render_fragments_differently(nodes, elide_data_uris=True):
+            text = original(nodes, elide_data_uris)
+            return text if len(nodes) == whole else f"<<<{text}"
+
+        monkeypatch.setattr(provenance, "_render_markdown", render_fragments_differently)
+        chunks = chunk_ast(doc, strategy="paragraph", max_tokens=8, avoid_table_split=True, token_counter="whitespace")
+
+        assert chunks
+        assert {c.char_basis for c in chunks} == {"segment_text"}
+        assert chunks[0].char_start == 0
+
+
 class TestDataUriElision:
     """Long base64 data URIs are elided from chunk text by default."""
 

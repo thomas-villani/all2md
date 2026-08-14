@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from all2md.parsers._pdf_images import detect_image_caption
+from all2md.parsers._pdf_images import _matches_caption_cue, detect_image_caption
 
 pytestmark = [pytest.mark.unit, pytest.mark.pdf, pytest.mark.image]
 
@@ -128,6 +128,43 @@ class TestTheCue:
             assert detect_image_caption(page, bbox) is None
         finally:
             document.close()
+
+
+class TestTheCueRejectsPluralOpeners:
+    """A plural sentence opener ("Figures ...") must not read as a caption cue.
+
+    The old pattern allowed zero whitespace before its letter alternative and matched it
+    case-insensitively, so ``[A-Z]`` also matched the trailing "s" of a plural: "Figures in
+    this study" satisfied "Figure" + "s" as if "s" were a figure-letter locator like "Fig B".
+    """
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "Figures in this study",
+            "Images were acquired using a confocal microscope",
+            "Photos courtesy of the author",
+            "Charts and graphs follow",
+            "Tables 1 and 2",
+        ],
+    )
+    def test_plural_openers_are_not_cues(self, text: str) -> None:
+        assert _matches_caption_cue(text) is False
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "Figure 3: results",
+            "Fig. 2 shows",
+            "FIGURE 4",
+            "figure 5",
+            "Table 1. Demographics",
+            "Figure A: schematic",
+            "Fig B",
+        ],
+    )
+    def test_genuine_captions_are_still_cues(self, text: str) -> None:
+        assert _matches_caption_cue(text) is True
 
 
 class TestTheLayoutRegion:
