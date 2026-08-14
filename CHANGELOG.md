@@ -64,10 +64,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fixed point, so the reparsed (now loose) document renders byte-identically. Renumbering
   the sublist from 1 was rejected: ordinal markers are real data — a PDF bibliography
   continues its numbering across list fragments, and rewriting it would silently falsify
-  the citation numbers. **Formatting note:** a list whose item holds such a sublist now
-  renders loose, so blank lines appear between its items where there were none before.
-  Lists with no offset-numbered sublist are untouched — tight stays tight, and the golden
-  snapshot suite is unchanged.
+  the citation numbers. **Formatting note:** a list gains blank lines between its items
+  when one of them holds an offset-numbered sublist *after* some other block — that is
+  the shape that was broken. A sublist that is an item's very first block sits against
+  the marker, already reads as a nested list, and keeps its tight rendering. Lists with
+  no offset-numbered sublist are untouched — tight stays tight, and the golden snapshot
+  suite is unchanged.
 - **A PDF's ruling-line table fallback no longer deletes the text of any region it
   rejects.** Text that falls inside a detected table's bounding box is removed from the
   page's ordinary text blocks *before* the table is validated, so that it is not emitted
