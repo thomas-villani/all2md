@@ -1359,3 +1359,67 @@ class TestEmptyListItems:
         items = doc.children[0].items
         assert items[0].children == []
         assert [type(child) for child in items[1].children] == [Paragraph]
+
+
+@pytest.mark.unit
+class TestListItemRunOnLines:
+    """An item's text wrapping onto the next line must join it, not disappear.
+
+    The loop kept only lines matching a marker and had no other branch, so a wrapped
+    continuation line was silently deleted. The AsciiDoc parser joins run-on lines the
+    same way (#343).
+    """
+
+    @pytest.mark.parametrize(
+        ("wrapped", "flat"),
+        [
+            (
+                "- item one continues\n  onto a wrapped line\n- item two\n",
+                "- item one continues onto a wrapped line\n- item two\n",
+            ),
+            (
+                "1. first\n   wrapped on\n2. second\n",
+                "1. first wrapped on\n2. second\n",
+            ),
+            (
+                "- only item\n  line two\n  line three\n",
+                "- only item line two line three\n",
+            ),
+        ],
+        ids=["unordered", "ordered", "several-lines"],
+    )
+    def test_a_wrapped_item_parses_the_same_as_the_unwrapped_one(self, wrapped: str, flat: str) -> None:
+        """Parity, not a hand-written node list, so the two paths cannot drift."""
+        parser = OrgParser()
+
+        assert parser.parse(wrapped) == parser.parse(flat)
+
+    def test_the_continuation_text_is_present_at_all(self) -> None:
+        """The reported symptom: the wrapped line appeared nowhere in the document."""
+        parser = OrgParser()
+
+        doc = parser.parse("- item one continues\n  onto a wrapped line\n- item two\n")
+
+        lists = [node for node in doc.children if isinstance(node, List)]
+        assert len(lists) == 1
+        assert len(lists[0].items) == 2
+        assert lists[0].items[0].children[0].content[0].content == "item one continues onto a wrapped line"
+
+    def test_a_continuation_line_does_not_leak_into_the_next_item(self) -> None:
+        """Joining stops at the next marker."""
+        parser = OrgParser()
+
+        doc = parser.parse("- one\n  more of one\n- two\n  more of two\n")
+
+        items = doc.children[0].items
+        assert [item.children[0].content[0].content for item in items] == ["one more of one", "two more of two"]
+
+    def test_a_continuation_line_after_an_empty_item_becomes_that_item_s_text(self) -> None:
+        """An empty bullet with a following line is an item whose text wrapped."""
+        parser = OrgParser()
+
+        doc = parser.parse("- a\n-\n  text below the bare marker\n- b\n")
+
+        items = doc.children[0].items
+        assert len(items) == 3
+        assert items[1].children[0].content[0].content == "text below the bare marker"

@@ -1106,6 +1106,12 @@ class OrgParser(BaseParser):
         List or None
             List AST node
 
+        Notes
+        -----
+        Nested items are still flattened to a single level: the loop strips a line
+        before matching it, so a sub-item's indentation -- the only thing marking it as
+        one -- is gone by the time the marker is read.
+
         """
         lines = block.split("\n")
         items: list[ListItem] = []
@@ -1122,33 +1128,42 @@ class OrgParser(BaseParser):
             # the number was present in the document and discarded on the way in.
             start = int(first_number.group(1))
 
+        # Match list item. The content group is optional: a bullet with nothing
+        # after it is still an item, and requiring content silently deleted it --
+        # `- \n- b` came back as a one-item list. An empty item carries no
+        # Paragraph, which is the shape the Markdown parser already produces.
+        marker = re.compile(r"^\d+[\.\)](?:\s+(.*))?$" if ordered else r"^[\-\+\*](?:\s+(.*))?$")
+
+        # Group the block's lines into one text per item. A line carrying no marker is
+        # not a line to discard: it is the previous item's principal text wrapping onto
+        # the next line. The loop kept only matching lines and had no other branch, so
+        # `- item one continues` / `  onto a wrapped line` lost the second line
+        # entirely. The AsciiDoc parser joins an item's run-on lines the same way,
+        # separated by a single space (#343).
+        item_texts: list[str] = []
         for line in lines:
             line_stripped = line.strip()
             if not line_stripped:
                 continue
 
-            # Match list item. The content group is optional: a bullet with nothing
-            # after it is still an item, and requiring content silently deleted it --
-            # `- \n- b` came back as a one-item list. An empty item carries no
-            # Paragraph, which is the shape the Markdown parser already produces.
-            if ordered:
-                match = re.match(r"^\d+[\.\)](?:\s+(.*))?$", line_stripped)
-            else:
-                match = re.match(r"^[\-\+\*](?:\s+(.*))?$", line_stripped)
-
+            match = marker.match(line_stripped)
             if match:
-                item_text = (match.group(1) or "").strip()
-                # `[@N]` is Org's own counter set, and it wins over the literal number
-                # it follows -- that is the whole point of writing it.
-                counter = re.match(r"^\[@(\d+)\]\s*(.*)$", item_text, re.DOTALL)
-                if counter:
-                    if not items:
-                        start = int(counter.group(1))
-                    item_text = counter.group(2).strip()
-                if item_text:
-                    items.append(ListItem(children=[Paragraph(content=self._parse_inline(item_text))]))
-                else:
-                    items.append(ListItem(children=[]))
+                item_texts.append((match.group(1) or "").strip())
+            elif item_texts:
+                item_texts[-1] = f"{item_texts[-1]} {line_stripped}".strip()
+
+        for item_text in item_texts:
+            # `[@N]` is Org's own counter set, and it wins over the literal number
+            # it follows -- that is the whole point of writing it.
+            counter = re.match(r"^\[@(\d+)\]\s*(.*)$", item_text, re.DOTALL)
+            if counter:
+                if not items:
+                    start = int(counter.group(1))
+                item_text = counter.group(2).strip()
+            if item_text:
+                items.append(ListItem(children=[Paragraph(content=self._parse_inline(item_text))]))
+            else:
+                items.append(ListItem(children=[]))
 
         return List(ordered=ordered, start=start, items=items)
 

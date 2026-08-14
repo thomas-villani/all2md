@@ -53,6 +53,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   blank line separates them — which additionally recovers text written directly after
   `#+END_SRC`, previously swallowed by the block and dropped. Affiliated keywords such as
   `#+CAPTION:` still attach to the block beneath them.
+- **An Org list item's wrapped continuation line is no longer deleted.** `_parse_list`
+  kept only the lines that matched a bullet or number marker and had no branch for
+  anything else, so a line continuing an item's text onto the next line — how any
+  reasonably long item is written — simply vanished. `- item one continues` /
+  `  onto a wrapped line` / `- item two` produced a two-item list in which
+  `onto a wrapped line` appeared nowhere at all, with nothing to indicate text had been
+  dropped. A non-marker line now joins the preceding item's principal text separated by
+  a single space, which is the rule the AsciiDoc parser was given for the same defect in
+  [#343](https://github.com/thomas-villani/all2md/issues/343); a wrapped item and the
+  same item written on one line now parse to equal documents. Nested items are still
+  flattened to a single level — the loop strips each line before matching it, so the
+  indentation that marks a sub-item is gone before the marker is read — and that is
+  unchanged by this fix.
 - **Words no longer fuse across a formatting change in run-based formats.**
   `group_and_format_runs` — the shared helper that turns a paragraph's runs into inline
   nodes for PPTX (and available to any run-based parser) — joined each same-format group
