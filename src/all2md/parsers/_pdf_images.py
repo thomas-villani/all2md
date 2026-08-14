@@ -183,7 +183,11 @@ def extract_page_images(
     """Extract images from a PDF page with their positions.
 
     Extracts all images from the page and optionally saves them to disk
-    or converts to base64 data URIs for embedding in Markdown.
+    or converts to base64 data URIs for embedding in Markdown. Under
+    ``attachment_mode="alt_text"`` no pixmap is ever decoded: the pass records
+    geometry and detected captions only, and returns just the figures that carry
+    a caption -- a captioned figure with no URL is meaningful output, an
+    uncaptioned ``![alt]()`` placeholder is not (#338).
 
     Parameters
     ----------
@@ -232,11 +236,14 @@ def extract_page_images(
     if not options or options.attachment_mode == "skip":
         return [], collected_footnotes
 
-    # In alt_text mode there is no URL to point markers at, so emitting
-    # ``![alt]()`` placeholders is just noise. Skip extraction entirely —
-    # this also avoids decoding every pixmap only to throw the bytes away.
+    # In alt_text mode there are no bytes to embed, so what is worth emitting is a
+    # *captioned* figure: the caption is meaningful page content, while an uncaptioned
+    # URL-less ``![alt]()`` placeholder is just noise (#338, #340). The pass below
+    # detects geometry and captions without ever decoding a pixmap; with caption
+    # detection off there is nothing it could emit, so skip it entirely.
     # ``image_placement_markers`` remains meaningful for ``save`` / ``base64``.
-    if options.attachment_mode == "alt_text":
+    caption_only = options.attachment_mode == "alt_text"
+    if caption_only and not options.include_image_captions:
         return [], collected_footnotes
 
     import pymupdf
@@ -271,6 +278,27 @@ def extract_page_images(
             # Filter out images that sit inside layout-detected page-header /
             # page-footer regions.
             if exclusion_rects and _bbox_in_any_region(bbox, exclusion_rects):
+                continue
+
+            if caption_only:
+                # Captioned figures survive the default mode; uncaptioned ones stay
+                # suppressed as noise. No pixmap is ever decoded on this path, and
+                # ``process_attachment`` with no data reduces to the alt-text result,
+                # so footnote-style alt text keeps working.
+                caption = detect_image_caption(page, bbox, caption_regions)
+                if not caption:
+                    continue
+                result = process_attachment(
+                    attachment_data=None,
+                    attachment_name=f"{base_filename}-page{page_num + 1}-img{img_idx + 1}",
+                    alt_text=f"Image from page {page_num + 1}",
+                    attachment_mode="alt_text",
+                    is_image=True,
+                    alt_text_mode=options.alt_text_mode,
+                )
+                if result.get("footnote_label") and result.get("footnote_content"):
+                    collected_footnotes[result["footnote_label"]] = result["footnote_content"]
+                images.append({"bbox": bbox, "result": result, "caption": caption})
                 continue
 
             pix = pymupdf.Pixmap(page.parent, xref)
