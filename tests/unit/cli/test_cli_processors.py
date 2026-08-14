@@ -630,6 +630,67 @@ def test_determine_output_format_explicit_to_overrides_extension() -> None:
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize("output_name", ["out.txt", "out.zzunknownext"])
+def test_determine_output_format_falls_back_to_markdown(output_name: str) -> None:
+    """An output extension carrying no target format defaults to markdown.
+
+    ``registry.detect_format`` answers "plaintext" when nothing matches, which is
+    a no-match signal rather than a request for the plaintext renderer. Treating
+    it as the latter silently stripped headings, emphasis and link URLs.
+    """
+    from pathlib import Path
+
+    from all2md.cli.builder import create_parser
+    from all2md.cli.processors import _determine_output_format
+
+    parser = create_parser()
+    args = parser.parse_args(["doc.md"])
+
+    assert _determine_output_format(args, Path(output_name)) == "markdown"
+
+
+@pytest.mark.unit
+def test_determine_output_format_honors_explicit_plaintext() -> None:
+    """An explicit ``--to plaintext`` still selects the plaintext renderer."""
+    from pathlib import Path
+
+    from all2md.cli.builder import create_parser
+    from all2md.cli.processors import _determine_output_format
+
+    parser = create_parser()
+    args = parser.parse_args(["doc.md", "--to", "plaintext"])
+
+    assert _determine_output_format(args, Path("out.txt")) == "plaintext"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("output_name", ["out.txt", "out.zzunknownext"])
+def test_detect_renderer_hint_leaves_unknown_extension_auto(output_name: str) -> None:
+    """A .txt (or unknown) output path leaves the hint at "auto", not plaintext.
+
+    ``_handle_normal_conversion`` maps "auto" to markdown, so this is the seam
+    that keeps ``all2md doc.md --out notes.txt`` writing Markdown.
+    """
+    from pathlib import Path
+
+    from all2md.cli.processors import _detect_renderer_hint
+
+    assert _detect_renderer_hint("auto", Path(output_name)) == "auto"
+
+
+@pytest.mark.unit
+def test_detect_renderer_hint_still_reads_known_extensions() -> None:
+    """A recognised output extension is still inferred as the renderer hint."""
+    from pathlib import Path
+
+    from all2md.cli.processors import _detect_renderer_hint
+
+    assert _detect_renderer_hint("auto", Path("out.html")) == "html"
+    # An explicit target short-circuits inference entirely.
+    assert _detect_renderer_hint("plaintext", Path("out.html")) == "plaintext"
+
+
+@pytest.mark.unit
 def test_validation_outline_and_extract_mutually_exclusive() -> None:
     """Test validation catches when both --outline and --extract are used."""
     from all2md.cli.validation import ValidationSeverity, collect_argument_problems
