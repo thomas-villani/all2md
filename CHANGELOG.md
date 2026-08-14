@@ -52,6 +52,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A nested ordered list numbered from anything but 1 no longer collapses into the
+  paragraph above it.** CommonMark lets only a `1.` ordered item interrupt a paragraph.
+  The Markdown renderer put a nested list on the line straight after its item's text, so
+  a sublist starting at `10.` — or at `0.` — was read back as more paragraph text and the
+  entire sublist vanished: two `List` nodes went in, one came out, and the numbers ended
+  up inside a sentence. This hit tight *and* loose parents alike, since loose rendering
+  only put blank lines *between* items and never between a paragraph and the sublist
+  *inside* one. The renderer now emits a blank line before such a sublist and renders the
+  list containing it loose, which is what makes that blank line legal; the output is a
+  fixed point, so the reparsed (now loose) document renders byte-identically. Renumbering
+  the sublist from 1 was rejected: ordinal markers are real data — a PDF bibliography
+  continues its numbering across list fragments, and rewriting it would silently falsify
+  the citation numbers. **Formatting note:** a list whose item holds such a sublist now
+  renders loose, so blank lines appear between its items where there were none before.
+  Lists with no offset-numbered sublist are untouched — tight stays tight, and the golden
+  snapshot suite is unchanged.
 - **A PDF's ruling-line table fallback no longer deletes the text of any region it
   rejects.** Text that falls inside a detected table's bounding box is removed from the
   page's ordinary text blocks *before* the table is validated, so that it is not emitted

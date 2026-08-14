@@ -896,6 +896,158 @@ class TestLists:
 
 
 @pytest.mark.unit
+class TestNestedOrderedListStartOffset:
+    """A nested ordered list numbered from anything but 1 must survive a reparse.
+
+    CommonMark lets only a ``1.`` ordered item interrupt a paragraph. Rendering
+    ``10. alpha`` on the line straight after its item's paragraph made the whole
+    sublist read as more paragraph text, so it was silently swallowed: two List
+    nodes went in, one came out. The renderer now puts a blank line in front of
+    such a sublist and renders the containing list loose.
+    """
+
+    @staticmethod
+    def _sublist_doc(*, parent_ordered=True, parent_tight=True, start=10, first_child=False):
+        """Build a two-item list whose first item carries an ordered sublist."""
+        sublist = List(
+            ordered=True,
+            start=start,
+            items=[
+                ListItem(children=[Paragraph(content=[Text(content="alpha")])]),
+                ListItem(children=[Paragraph(content=[Text(content="beta")])]),
+            ],
+        )
+        first_children = [sublist] if first_child else [Paragraph(content=[Text(content="outer one")]), sublist]
+        return Document(
+            children=[
+                List(
+                    ordered=parent_ordered,
+                    tight=parent_tight,
+                    items=[
+                        ListItem(children=first_children),
+                        ListItem(children=[Paragraph(content=[Text(content="outer two")])]),
+                    ],
+                )
+            ]
+        )
+
+    @staticmethod
+    def _lists(node):
+        """Collect every List reachable from ``node``, outermost first."""
+        found = []
+        for child in getattr(node, "children", []) or []:
+            if isinstance(child, List):
+                found.append(child)
+                for item in child.items:
+                    found.extend(TestNestedOrderedListStartOffset._lists(item))
+            else:
+                found.extend(TestNestedOrderedListStartOffset._lists(child))
+        return found
+
+    def test_render_separates_offset_sublist_and_loosens_parent(self):
+        """The target layout: blank line before the sublist, loose parent."""
+        result = MarkdownRenderer().render_to_string(self._sublist_doc())
+        assert result == "1. outer one\n\n   10. alpha\n   11. beta\n\n2. outer two"
+
+    def test_offset_sublist_survives_the_round_trip(self):
+        """Both lists come back, with the sublist's numbering intact."""
+        from all2md import to_ast
+
+        rendered = MarkdownRenderer().render_to_string(self._sublist_doc())
+        lists = self._lists(to_ast(rendered, source_format="markdown"))
+        assert len(lists) == 2, f"nested list was swallowed: {rendered!r}"
+        assert lists[1].start == 10
+        assert [item.children[0].content[0].content for item in lists[1].items] == ["alpha", "beta"]
+
+    @pytest.mark.parametrize(
+        ("parent_ordered", "parent_tight", "start", "first_child"),
+        [
+            (True, True, 10, False),  # the reported shape
+            (True, False, 10, False),  # parent already loose
+            (False, True, 10, False),  # unordered parent, ordered sublist
+            (True, True, 0, False),  # 0. may not interrupt a paragraph either
+            (True, True, 10, True),  # sublist is the item's first block
+        ],
+    )
+    def test_offset_sublist_is_byte_idempotent_from_cycle_one(self, parent_ordered, parent_tight, start, first_child):
+        """Promotion must be a fixed point: the reparsed loose parent renders the same."""
+        from all2md import to_ast
+
+        doc = self._sublist_doc(
+            parent_ordered=parent_ordered, parent_tight=parent_tight, start=start, first_child=first_child
+        )
+        renderer = MarkdownRenderer()
+        md1 = renderer.render_to_string(doc)
+        md2 = MarkdownRenderer().render_to_string(to_ast(md1, source_format="markdown"))
+        assert md1 == md2, f"not idempotent:\n{md1!r}\n{md2!r}"
+
+        lists = self._lists(to_ast(md1, source_format="markdown"))
+        assert len(lists) == 2, f"nested list was swallowed: {md1!r}"
+        assert lists[1].start == start
+
+    def test_sublist_starting_at_one_is_left_tight(self):
+        """A ``1.`` sublist may interrupt a paragraph, so nothing changes for it."""
+        result = MarkdownRenderer().render_to_string(self._sublist_doc(start=1))
+        assert result == "1. outer one\n   1. alpha\n   2. beta\n2. outer two"
+
+    def test_unordered_sublist_is_left_tight(self):
+        """A bullet sublist was never at risk and must keep its tight layout."""
+        doc = Document(
+            children=[
+                List(
+                    ordered=True,
+                    items=[
+                        ListItem(
+                            children=[
+                                Paragraph(content=[Text(content="outer one")]),
+                                List(
+                                    ordered=False,
+                                    items=[ListItem(children=[Paragraph(content=[Text(content="alpha")])])],
+                                ),
+                            ]
+                        ),
+                        ListItem(children=[Paragraph(content=[Text(content="outer two")])]),
+                    ],
+                )
+            ]
+        )
+        assert MarkdownRenderer().render_to_string(doc) == "1. outer one\n   - alpha\n2. outer two"
+
+    def test_promotion_applies_per_level(self):
+        """Only the level that holds the offset sublist loosens, not its ancestors."""
+        from all2md import to_ast
+
+        level3 = List(ordered=True, start=7, items=[ListItem(children=[Paragraph(content=[Text(content="L3")])])])
+        level2 = List(
+            ordered=True,
+            items=[
+                ListItem(children=[Paragraph(content=[Text(content="L2")]), level3]),
+                ListItem(children=[Paragraph(content=[Text(content="L2b")])]),
+            ],
+        )
+        doc = Document(
+            children=[
+                List(
+                    ordered=True,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="L1")]), level2]),
+                        ListItem(children=[Paragraph(content=[Text(content="L1b")])]),
+                    ],
+                )
+            ]
+        )
+        md1 = MarkdownRenderer().render_to_string(doc)
+        # The outer list keeps its tight layout; only the middle one loosens.
+        assert md1 == "1. L1\n   1. L2\n\n      7. L3\n\n   2. L2b\n2. L1b"
+
+        md2 = MarkdownRenderer().render_to_string(to_ast(md1, source_format="markdown"))
+        assert md1 == md2
+        lists = self._lists(to_ast(md1, source_format="markdown"))
+        assert [lst.start for lst in lists] == [1, 1, 7]
+        assert [lst.tight for lst in lists] == [True, False, True]
+
+
+@pytest.mark.unit
 class TestTables:
     """Tests for table rendering."""
 

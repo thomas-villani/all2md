@@ -46,6 +46,7 @@ from all2md.ast.nodes import (
     Mark,
     MathBlock,
     MathInline,
+    Node,
     Paragraph,
     Strikethrough,
     Strong,
@@ -93,6 +94,29 @@ _BLOCK_START_WORD = re.compile(r"^(?:[-+*>|=~#]|\d+[.)]|:)")
 # code spans, link/image destinations, reference-link labels, autolinks and raw
 # HTML, and math delimiters. A paragraph containing any of them is left alone.
 _UNWRAPPABLE_MARKERS = ("`", "](", "][", "<", "$")
+
+
+def _interrupts_paragraph(node: Node) -> bool:
+    """Report whether an ordered list may not follow a paragraph line directly.
+
+    CommonMark lets only a ``1.`` ordered item interrupt a paragraph. A nested
+    ordered list numbered from anything else -- ``10.``, ``0.`` -- placed on the
+    line after its item's paragraph is read as more paragraph text, so the whole
+    sublist is swallowed and lost on reparse. Such a list needs a blank line in
+    front of it, which in turn makes its containing list loose.
+
+    Parameters
+    ----------
+    node : Node
+        Candidate child of a list item.
+
+    Returns
+    -------
+    bool
+        True for an ordered List whose numbering does not start at 1.
+
+    """
+    return isinstance(node, List) and node.ordered and node.start != 1
 
 
 class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
@@ -1051,7 +1075,14 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             self._indent_level += 1
 
         self._in_list = True
-        self._list_tight = node.tight
+        # An item holding an ordered sublist that does not start at 1 needs a
+        # blank line in front of that sublist (see ``_interrupts_paragraph``),
+        # and a list with a blank line inside an item is loose. Derive the
+        # tightness we render with rather than mutating the node.
+        effective_tight = node.tight and not any(
+            any(_interrupts_paragraph(child) for child in item.children) for item in node.items
+        )
+        self._list_tight = effective_tight
 
         for i, item in enumerate(node.items):
             if node.ordered:
@@ -1066,7 +1097,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             self._list_marker_stack.pop()
 
             if i < len(node.items) - 1:
-                if node.tight:
+                if effective_tight:
                     self._output.append("\n")
                 else:
                     self._output.append("\n\n")
@@ -1153,8 +1184,15 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 # Both nested lists and other blocks (paragraphs, code blocks, etc.)
                 # will use _current_indent() which now includes the marker width.
                 # In a loose list, block-level siblings (paragraphs, code) are
-                # separated by a blank line; a nested list attaches directly.
-                if not self._list_tight and not isinstance(child, List):
+                # separated by a blank line; a nested list attaches directly --
+                # unless it is an ordered list numbered from something other than
+                # 1, which may not interrupt the preceding paragraph and would be
+                # swallowed by it. That one always takes a blank line, whether or
+                # not the containing list was already loose, so that the promoted
+                # output is a fixed point of the round trip.
+                if _interrupts_paragraph(child):
+                    self._output.append("\n\n")
+                elif not self._list_tight and not isinstance(child, List):
                     self._output.append("\n\n")
                 else:
                     self._output.append("\n")
