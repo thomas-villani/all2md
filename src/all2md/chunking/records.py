@@ -55,8 +55,14 @@ class ProvenanceChunk:
         Character span of this chunk. By default these index into the
         section's extracted text (see ``char_basis``), not the original binary.
     char_basis : str
-        What ``char_start``/``char_end`` index into. ``"section_text"`` for
-        fine-grained strategies; ``"document"`` is reserved for future
+        What ``char_start``/``char_end`` index into -- always check it before
+        slicing. ``"section_text"`` (the usual value) is the section's rendered
+        Markdown, the string you get by rendering the section's nodes.
+        ``"segment_text"`` appears only under ``avoid_table_split`` /
+        ``avoid_code_split``, for a chunk whose atomic segment could not be
+        located in that section text (rendering a fragment is not always a
+        substring of rendering the whole); the span is then relative to that
+        segment's own rendered Markdown. ``"document"`` is reserved for future
         binary-accurate spans.
     prev_chunk_id, next_chunk_id : str or None
         Neighbor ids, for reconstructing reading order downstream.

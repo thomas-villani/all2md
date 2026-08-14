@@ -743,7 +743,10 @@ Each line is a flat object: ``chunk_id``, ``index``, ``text``, ``token_count``,
 ``source_line_start``, ``source_line_end``, ``char_start``, ``char_end``,
 ``char_basis``, ``prev_chunk_id``, ``next_chunk_id``. Character spans index into
 the chunk's rendered section text (``char_basis="section_text"``), and ``page``
-fields are populated only for formats that track pages.
+fields are populated only for formats that track pages. Check ``char_basis``
+before slicing: under ``--avoid-table-split`` / ``--avoid-code-split`` a chunk
+whose segment could not be located in the section text reports
+``char_basis="segment_text"``, with the span relative to that segment instead.
 
 Python API
 ~~~~~~~~~~

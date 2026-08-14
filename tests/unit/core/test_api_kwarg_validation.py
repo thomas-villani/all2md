@@ -14,6 +14,7 @@ import warnings
 import pytest
 
 from all2md import from_ast, to_ast, to_markdown
+from all2md.options import HtmlOptions, MarkdownParserOptions, MarkdownRendererOptions
 
 MARKDOWN_SRC = "# Heading\n\nBody text.\n"
 
@@ -234,3 +235,133 @@ class TestUnknownKwargsStillApplyTheGoodOnes:
             warnings.simplefilter("ignore")
             out = to_markdown(MARKDOWN_SRC, source_format="markdown", flavor="commonmark", bogus_xyz=1)
         assert "Heading" in out
+
+
+@pytest.mark.unit
+class TestKwargsBesideAnOptionsInstance:
+    """The warn-and-drop contract held only when no options object was passed (#12).
+
+    With one, the kwargs went to ``create_updated`` -- a bare ``dataclasses.replace``
+    -- so an unknown name raised ``TypeError`` from inside the library instead of
+    warning, and a field of a nested options dataclass raised too even though it is a
+    real option for that format.
+    """
+
+    def test_to_ast_warns_instead_of_raising(self):
+        found = _warnings_matching(
+            TYPO, to_ast, MARKDOWN_SRC, source_format="markdown", parser_options=MarkdownParserOptions(), bogus_xyz=1
+        )
+        assert found, "to_ast with parser_options did not warn about an unknown kwarg"
+        assert "bogus_xyz" in str(found[0].message)
+
+    def test_from_ast_warns_instead_of_raising(self):
+        doc = to_ast(MARKDOWN_SRC, source_format="markdown")
+        found = _warnings_matching(
+            TYPO, from_ast, doc, "markdown", renderer_options=MarkdownRendererOptions(), bogus_xyz=1
+        )
+        assert found, "from_ast with renderer_options did not warn about an unknown kwarg"
+        assert "bogus_xyz" in str(found[0].message)
+
+    def test_to_markdown_warns_instead_of_raising(self):
+        found = _warnings_matching(
+            TYPO,
+            to_markdown,
+            MARKDOWN_SRC,
+            source_format="markdown",
+            parser_options=MarkdownParserOptions(),
+            bogus_xyz=1,
+        )
+        assert found, "to_markdown with parser_options did not warn about an unknown kwarg"
+        assert "bogus_xyz" in str(found[0].message)
+
+    @pytest.mark.parametrize("entry_point", [to_ast, to_markdown])
+    def test_the_two_branches_agree(self, entry_point):
+        """Parity, not an ideal: passing options must not change what a bad name does."""
+        without = [
+            str(w.message) for w in _warnings_from(entry_point, MARKDOWN_SRC, source_format="markdown", bogus_xyz=1)
+        ]
+        with_options = [
+            str(w.message)
+            for w in _warnings_from(
+                entry_point,
+                MARKDOWN_SRC,
+                source_format="markdown",
+                parser_options=MarkdownParserOptions(),
+                bogus_xyz=1,
+            )
+        ]
+        assert with_options == without
+
+    def test_a_nested_option_field_still_lands_on_the_nested_object(self):
+        """``network_timeout`` lives on ``options.network``; replace() cannot see it."""
+        from all2md.api import _merge_kwargs_into_options
+
+        options = HtmlOptions()
+        merged = _merge_kwargs_into_options(options, {"network_timeout": 5}, stacklevel=3)
+
+        assert merged.network.network_timeout == 5
+        assert options.network.network_timeout != 5, "the caller's options object was mutated"
+        # Sibling fields of the nested object survive the merge.
+        assert merged.network.max_redirects == options.network.max_redirects
+
+    def test_a_nested_option_field_does_not_raise_through_the_api(self):
+        assert not _warnings_from(
+            to_markdown, "<p>x</p>", source_format="html", parser_options=HtmlOptions(), network_timeout=5
+        )
+
+    def test_the_good_kwargs_beside_the_bad_one_still_apply(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            out = to_markdown(
+                "Some *emph* text.\n",
+                source_format="markdown",
+                renderer_options=MarkdownRendererOptions(),
+                emphasis_symbol="_",
+                bogus_xyz=1,
+            )
+        assert "_emph_" in out
+
+
+@pytest.mark.unit
+class TestKwargsAreCheckedAgainstTheInstanceThatReceivesThem:
+    """The kwargs go onto the options object passed, so that object sets the field list.
+
+    Options classes inherit (``MboxOptions`` is an ``EmlOptions``) and parsers accept
+    any subclass of what they expect, so the instance a caller hands in need not be the
+    detected format's own options class. Splitting kwargs by the *format's* class then
+    dropped a name the receiving object accepts -- silently applying nothing (#12).
+    """
+
+    EML_SRC = b"From: a@b.com\nSubject: Hi\n\nBody text here.\n"
+
+    def test_a_field_of_the_passed_class_is_not_dropped(self):
+        from all2md.options import MboxOptions
+
+        found = _warnings_from(
+            to_markdown, self.EML_SRC, source_format="eml", parser_options=MboxOptions(), max_messages=5
+        )
+        assert not found, f"a field of the options object passed was dropped: {[str(w.message) for w in found]}"
+
+    def test_it_reaches_the_options_object(self, monkeypatch):
+        from all2md import api
+        from all2md.options import MboxOptions
+
+        received = {}
+        original = api._merge_kwargs_into_options
+
+        def spy(options, kwargs, stacklevel):
+            received["class"] = type(options).__name__
+            received["kwargs"] = dict(kwargs)
+            return original(options, kwargs, stacklevel)
+
+        monkeypatch.setattr(api, "_merge_kwargs_into_options", spy)
+        to_markdown(self.EML_SRC, source_format="eml", parser_options=MboxOptions(), max_messages=5)
+
+        assert received == {"class": "MboxOptions", "kwargs": {"max_messages": 5}}
+
+    def test_a_name_the_passed_class_lacks_is_still_diagnosed(self):
+        """The other direction: it is dropped with the usual warning, not raised."""
+        found = _warnings_from(
+            to_markdown, MARKDOWN_SRC, source_format="markdown", parser_options=MarkdownParserOptions(), pages="1-3"
+        )
+        assert found and "pages" in str(found[0].message)

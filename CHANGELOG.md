@@ -36,6 +36,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Chunk character spans stay on the basis they claim under `--avoid-table-split` /
+  `--avoid-code-split`.** Every chunk is stamped `char_basis="section_text"` — the span
+  indexes the section's rendered Markdown — and that held only while a section was
+  chunked in one piece. Segmenting a section around an atomic table or code block
+  computed each segment's offsets against *that segment's* own text: the atomic piece
+  got the constant span `(0, len(text))` and each prose segment restarted at 0. On a
+  prose/table/prose section every chunk after the first therefore reported a span that
+  overlapped its predecessors and, sliced out of the section text as documented,
+  returned the wrong text — 45 of 119 chunks over this repository's README across five
+  strategies. Each segment is now located in the section's own rendering and its windows
+  shifted by that offset, so the spans are true, ordered and non-overlapping. Searching
+  forward from the previous segment's end keeps two identically-rendered segments (two
+  tables with the same cells) in document order. Rendering a fragment is not guaranteed
+  to reproduce a substring of rendering the whole — footnote definitions, for one, are
+  collected at the end of whatever document they are rendered in — so a segment that
+  cannot be located keeps its segment-relative span and says so with a new
+  `char_basis="segment_text"`, rather than reporting a section offset that is wrong.
+  Check `char_basis` before slicing.
+- **An unknown keyword argument passed beside an options object now warns instead of
+  raising `TypeError`.** `to_ast`, `from_ast`, `to_markdown`, `convert` and `roundtrip`
+  document a single rule for a keyword argument no options class has a field for: warn
+  and drop it. That rule only ever ran on the branch where the caller passed *no* options
+  object. Pass one — `to_ast(src, parser_options=MarkdownParserOptions(), bogus=1)` — and
+  the kwargs went straight to `create_updated`, which is `dataclasses.replace`, so the
+  same typo escaped as `MarkdownParserOptions.__init__() got an unexpected keyword
+  argument 'bogus'` instead. The same branch could not reach a field of a *nested* options
+  dataclass either: `network_timeout` lives on `options.network`, the no-options branch
+  has always folded it in, and the with-options branch raised on it even though it is a
+  perfectly valid option for that format. Both are now handled the same way on both
+  branches, with the existing warning categories and wording.
+  Related: the kwargs that `to_markdown`/`convert` pre-split were checked against the
+  *detected format's* options class rather than the class of the options instance that
+  actually receives them. Options classes inherit (`MboxOptions` is an `EmlOptions`) and
+  parsers accept any subclass of what they expect, so a caller could legitimately pass an
+  instance whose class is not the format's own — and a field of *that* class, such as
+  `max_messages` on an eml parse, was dropped as "not for the formats in this conversion"
+  and silently applied nothing. The split now uses the receiving instance's class when one
+  is given.
 - **An Org greater block containing a blank line is no longer torn apart.** The Org
   parser split a heading's body on blank lines and only *then* looked for
   `#+BEGIN_`/`#+END_` delimiters, so a block whose contents contained a blank line — an
