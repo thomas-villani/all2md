@@ -773,6 +773,58 @@ class TestAddAttachmentFootnotesTransform:
         footnote_defs = [n for n in result.children if isinstance(n, FootnoteDefinition)]
         assert len(footnote_defs) == 1
 
+    def test_finds_footnote_ref_image_nested_in_list_item(self):
+        """Test that a footnote-ref image nested inside a list item is still found.
+
+        Regression test: the walker used to recurse only via
+        ``hasattr(node, "children"/"content")``, which stops dead at List
+        nodes (children live in ``.items``) and ListItem nodes have
+        ``.children`` but the List itself does not expose a plain
+        ``children`` attribute the walker recognized transitively through
+        List -> ListItem -> Paragraph -> Image.
+        """
+        from all2md.ast.nodes import FootnoteDefinition, ListItem
+        from all2md.ast.nodes import List as ListNode
+
+        doc = Document(
+            children=[
+                ListNode(
+                    ordered=False,
+                    items=[
+                        ListItem(
+                            children=[Paragraph(content=[Image(url="", alt_text="nested.png")])],
+                        )
+                    ],
+                )
+            ]
+        )
+
+        transform = AddAttachmentFootnotesTransform()
+        result = transform.transform(doc)
+
+        footnote_defs = [n for n in result.children if isinstance(n, FootnoteDefinition)]
+        assert len(footnote_defs) == 1
+        assert footnote_defs[0].identifier == "nested"
+
+    def test_finds_footnote_ref_image_nested_in_table_cell(self):
+        """Test that a footnote-ref image nested inside a table cell is still found."""
+        from all2md.ast.nodes import FootnoteDefinition, Table, TableCell, TableRow
+
+        doc = Document(
+            children=[
+                Table(
+                    rows=[TableRow(cells=[TableCell(content=[Image(url="", alt_text="in_table.png")])])],
+                )
+            ]
+        )
+
+        transform = AddAttachmentFootnotesTransform()
+        result = transform.transform(doc)
+
+        footnote_defs = [n for n in result.children if isinstance(n, FootnoteDefinition)]
+        assert len(footnote_defs) == 1
+        assert footnote_defs[0].identifier == "in_table"
+
 
 # GenerateTocTransform tests
 
@@ -1183,6 +1235,74 @@ class TestGenerateTocTransform:
 
         assert doc2_headings[0].metadata.get("id") == "heading-a"
         assert doc2_headings[1].metadata.get("id") == "heading-b"
+
+    def test_toc_finds_heading_nested_in_list_item(self):
+        """Test that a heading nested inside a list item is collected into the TOC.
+
+        Regression test: the walker used to recurse only via
+        ``hasattr(node, "children"/"content")``, which stops dead at List
+        nodes since children live in ``.items``.
+        """
+        from all2md.ast.nodes import List as ListNode
+        from all2md.ast.nodes import ListItem
+
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="Top Heading")]),
+                ListNode(
+                    ordered=False,
+                    items=[
+                        ListItem(children=[Heading(level=2, content=[Text(content="Nested Heading")])]),
+                    ],
+                ),
+            ]
+        )
+
+        transform = GenerateTocTransform(add_links=True, set_ids_if_missing=True)
+        result = transform.transform(doc)
+
+        toc_list = result.children[1]
+        # Top heading plus its nested sub-item for "Nested Heading"
+        assert len(toc_list.items) == 1
+        nested_lists = [child for child in toc_list.items[0].children if isinstance(child, ListNode)]
+        assert len(nested_lists) == 1
+        nested_urls = [item.children[0].content[0].url for item in nested_lists[0].items]
+        assert "#nested-heading" in nested_urls
+
+        # The nested heading should also have had its id injected into the document.
+        list_node = result.children[3]
+        nested_heading = list_node.items[0].children[0]
+        assert isinstance(nested_heading, Heading)
+        assert nested_heading.metadata.get("id") == "nested-heading"
+
+    def test_toc_finds_heading_nested_in_table_cell(self):
+        """Test that a heading nested inside a table cell is collected and id-injected."""
+        from all2md.ast.nodes import Table, TableCell, TableRow
+
+        doc = Document(
+            children=[
+                Table(
+                    rows=[
+                        TableRow(cells=[TableCell(content=[Heading(level=2, content=[Text(content="Cell Heading")])])])
+                    ],
+                )
+            ]
+        )
+
+        transform = GenerateTocTransform(add_links=True, set_ids_if_missing=True)
+        result = transform.transform(doc)
+
+        toc_list = result.children[1]
+        assert len(toc_list.items) == 1
+        para = toc_list.items[0].children[0]
+        link = para.content[0]
+        assert link.url == "#cell-heading"
+
+        # Id should be injected back into the heading inside the table cell.
+        table_node = result.children[2]
+        injected_heading = table_node.rows[0].cells[0].content[0]
+        assert isinstance(injected_heading, Heading)
+        assert injected_heading.metadata.get("id") == "cell-heading"
 
 
 # TitlePromotionTransform tests

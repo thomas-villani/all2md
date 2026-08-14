@@ -368,6 +368,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and the published reference must be a *complete* run covering every article the manifest
   names, since `complete_corpus` going false is the right signal for a run and the wrong state
   for the artifact a public page quotes as its reading.
+- **Three AST walkers stopped dead at List and Table nodes.**
+  `AddAttachmentFootnotesTransform._collect_footnote_refs`,
+  `GenerateTocTransform._collect_headings`, and `GenerateTocTransform._inject_heading_ids`
+  recursed only through `hasattr(node, "children")` / `hasattr(node, "content")`, but `List`
+  stores its items in `.items`, `Table` in `.header`/`.rows`, `TableRow` in `.cells`, and
+  `DefinitionList` in `.items` tuples — none of which the check saw, so recursion silently
+  stopped the moment it reached one of those nodes. In practice, the CLI's
+  `add-attachment-footnotes` transform never emitted a `FootnoteDefinition` for an
+  empty-URL `Image`/`Link` nested in a list or table cell, and `GenerateTocTransform`
+  (Python-API-only) omitted headings nested the same way from the generated TOC and never
+  injected their ids. All three walkers now recurse via the shared `get_node_children()`
+  helper (`src/all2md/ast/nodes.py`) that every other AST walker in this codebase already
+  uses, so they see every node type uniformly. `_inject_heading_ids` also had to gain
+  a hand-rolled `DefinitionList` case, since `replace_node_children()` deliberately refuses
+  to rebuild that node's `(term, [descriptions])` tuple structure generically.
 
 ## [1.12.0] - 2026-08-12
 
