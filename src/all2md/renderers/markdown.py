@@ -1075,12 +1075,15 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             self._indent_level += 1
 
         self._in_list = True
-        # An item holding an ordered sublist that does not start at 1 needs a
-        # blank line in front of that sublist (see ``_interrupts_paragraph``),
-        # and a list with a blank line inside an item is loose. Derive the
-        # tightness we render with rather than mutating the node.
+        # An ordered sublist that does not start at 1 needs a blank line in
+        # front of it (see ``_interrupts_paragraph``), and a list with a blank
+        # line inside an item is loose. Only a sublist that *follows* another
+        # block has a paragraph to be swallowed by, so an item whose very first
+        # block is such a sublist needs nothing: it sits directly against the
+        # marker, where it already reads as a nested list. Derive the tightness
+        # we render with rather than mutating the node.
         effective_tight = node.tight and not any(
-            any(_interrupts_paragraph(child) for child in item.children) for item in node.items
+            any(_interrupts_paragraph(child) for child in item.children[1:]) for item in node.items
         )
         self._list_tight = effective_tight
 

@@ -985,6 +985,26 @@ class TestNestedOrderedListStartOffset:
         assert len(lists) == 2, f"nested list was swallowed: {md1!r}"
         assert lists[1].start == start
 
+    def test_offset_sublist_as_an_items_first_block_is_left_tight(self):
+        """With no block in front of it there is no paragraph to be swallowed by.
+
+        The sublist sits directly against the parent's marker, where it already
+        reads as a nested list, so neither the blank line nor the loose parent is
+        needed. This shape round-tripped before the fix and must keep its layout:
+        the promotion looks only at blocks after an item's first.
+        """
+        from all2md import to_ast
+
+        md1 = MarkdownRenderer().render_to_string(self._sublist_doc(first_child=True))
+        assert md1 == "1. 10. alpha\n   11. beta\n2. outer two"
+
+        # Still correct, and still a fixed point.
+        md2 = MarkdownRenderer().render_to_string(to_ast(md1, source_format="markdown"))
+        assert md1 == md2
+        lists = self._lists(to_ast(md1, source_format="markdown"))
+        assert [lst.start for lst in lists] == [1, 10]
+        assert [lst.tight for lst in lists] == [True, True]
+
     def test_sublist_starting_at_one_is_left_tight(self):
         """A ``1.`` sublist may interrupt a paragraph, so nothing changes for it."""
         result = MarkdownRenderer().render_to_string(self._sublist_doc(start=1))
