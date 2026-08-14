@@ -253,6 +253,37 @@ class TestRegistryNewAPI:
         """
         assert registry.detect_format("example.md") == "markdown"
 
+    def test_msg_extension_routes_to_outlook_not_eml(self, tmp_path):
+        """An Outlook ``.msg`` file must reach the Outlook parser, not the EML parser.
+
+        ``eml`` used to claim ``.msg`` in its extension list at a higher detection
+        priority than ``outlook``. Because extension matching runs before content
+        sniffing, every ``.msg`` path routed to the RFC-822 parser, which happily
+        fed OLE/CFBF bytes through ``message_from_binary_file`` and emitted mojibake
+        instead of raising.
+        """
+        ole_magic = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 64
+        msg_file = tmp_path / "mail.msg"
+        msg_file.write_bytes(ole_magic)
+
+        assert registry.detect_format(str(msg_file)) == "outlook"
+
+    def test_msg_named_stream_routes_to_outlook(self):
+        """A named binary stream ending in ``.msg`` also routes to Outlook."""
+        from io import BytesIO
+
+        stream = BytesIO(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 64)
+        stream.name = "mail.msg"  # type: ignore[attr-defined]
+
+        assert registry.detect_format(stream) == "outlook"
+
+    def test_eml_extension_still_routes_to_eml(self, tmp_path):
+        """Dropping ``.msg`` from the eml converter leaves ``.eml`` detection intact."""
+        eml_file = tmp_path / "mail.eml"
+        eml_file.write_bytes(b"From: a@example.com\r\nTo: b@example.com\r\nSubject: Hi\r\n\r\nBody\r\n")
+
+        assert registry.detect_format(str(eml_file)) == "eml"
+
     def test_options_class_can_be_instantiated(self):
         """Test that options classes returned by get_parser_options_class are usable."""
         options_class = registry.get_parser_options_class("pdf")

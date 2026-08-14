@@ -36,6 +36,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An Outlook `.msg` file now reaches the Outlook parser instead of the RFC-822 email
+  parser.** The `eml` converter claimed `.msg` in its extension list at a higher detection
+  priority than the `outlook` converter, and extension matching runs before content
+  sniffing — so any path or named stream ending in `.msg` routed to `EmlToAstConverter`.
+  Neither converter defines a content detector, so nothing corrected the choice
+  afterwards. The RFC-822 parser does not reject OLE/CFBF input: `message_from_binary_file`
+  accepts the binary happily and yields a header-less message whose body is the compound
+  file's bytes decoded as text, so `all2md mail.msg` produced mojibake rather than an
+  error, and `extract-msg` was never invoked. The same bytes *without* a filename already
+  detected correctly as `outlook` via magic bytes. `.msg` has been dropped from the `eml`
+  extension list; its magic-byte patterns are all text mail headers and cannot match a
+  compound file, so the eml parser loses no reachable input.
 - **Format detection no longer reads a sentence as a filename.** `registry.detect_format`
   ran `os.path.splitext` over *any* `str` it was given, so a string holding document
   content was extension-matched on its tail: `to_markdown("Reminder: check results.csv")`
