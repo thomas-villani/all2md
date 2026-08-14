@@ -3432,12 +3432,19 @@ class PdfToAstConverter(BaseParser):
         try:
             # Get the process_attachment result
             result = img_info.get("result", {})
-            caption = img_info.get("caption") or "Image"
+            caption = img_info.get("caption")
 
             # Convert result to Image node using helper
-            img_node = attachment_result_to_image_node(result, fallback_alt_text=caption)
+            img_node = attachment_result_to_image_node(result, fallback_alt_text="Image")
 
             if img_node:
+                # The detected caption is visible page content set beside the figure,
+                # not a substitute for it, so it rides on ``Image.caption`` rather
+                # than alt text (#338). Routing it through ``fallback_alt_text`` was
+                # a dead path: the placeholder alt text written at extraction time
+                # meant the fallback never fired, and the caption was discarded (#340).
+                if caption:
+                    img_node.caption = caption
                 # Add source location
                 img_node.source_location = SourceLocation(format="pdf", page=page_num + 1)
 
