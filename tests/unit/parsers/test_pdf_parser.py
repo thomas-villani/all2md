@@ -632,3 +632,91 @@ startxref
         # This should raise an error during conversion
         with pytest.raises(Exception):  # Could be MalformedFileError or TypeError
             converter.parse(stream)
+
+
+@pytest.mark.unit
+@pytest.mark.pdf
+@pytest.mark.image
+class TestDetectedCaptionsReachTheImageNode:
+    """The detected caption must ride on ``Image.caption``, not vanish into alt text.
+
+    The caption used to be passed as ``fallback_alt_text``, a dead path: extraction
+    writes a non-empty placeholder alt text, so the fallback never fired and the
+    caption was discarded in every attachment mode (#340). These tests drive a real
+    PDF through the whole route -- extract, detect, node -- rather than mocking it.
+    """
+
+    CAPTION = "Figure 1. Growth of the assay over twelve weeks."
+
+    def _pdf_with_image(self, tmp_path, caption_text=None, body_text=None):
+        """A one-page PDF holding one raster image, optionally with a caption below it."""
+        pymupdf = pytest.importorskip("pymupdf")
+        source = pymupdf.open()
+        source_page = source.new_page()
+        source_page.draw_rect(pymupdf.Rect(0, 0, 100, 100), fill=(0.5, 0.5, 0.5))
+        pixmap = source_page.get_pixmap(dpi=36)
+        source.close()
+
+        document = pymupdf.open()
+        page = document.new_page()
+        # keep_proportion=False so the placement rect equals the requested rect;
+        # fitted placement would leave the caption outside the detector's band.
+        page.insert_image(pymupdf.Rect(72.0, 120.0, 400.0, 240.0), pixmap=pixmap, keep_proportion=False)
+        if caption_text:
+            page.insert_text((72, 250.0), caption_text, fontsize=9)
+        if body_text:
+            page.insert_text((72, 320.0), body_text, fontsize=9)
+        path = tmp_path / "figure.pdf"
+        document.save(path)
+        document.close()
+        return path
+
+    def _images_in(self, path, **option_overrides):
+        from all2md.api import to_ast
+        from all2md.ast.transforms import NodeCollector
+
+        options = PdfOptions(attachment_mode="base64", **option_overrides)
+        ast_doc = to_ast(path, parser_options=options)
+        collector = NodeCollector(lambda node: isinstance(node, Image))
+        ast_doc.accept(collector)
+        return collector.collected
+
+    def test_the_caption_lands_on_image_caption_and_not_on_alt_text(self, tmp_path) -> None:
+        path = self._pdf_with_image(tmp_path, caption_text=self.CAPTION)
+        images = self._images_in(path)
+
+        assert len(images) == 1
+        assert images[0].caption == self.CAPTION
+        # Alt text substitutes for the image; the caption sits beside it. The
+        # placeholder stays, the caption must not leak into it.
+        assert self.CAPTION not in images[0].alt_text
+
+    def test_an_uncaptioned_image_carries_no_caption(self, tmp_path) -> None:
+        path = self._pdf_with_image(tmp_path)
+        images = self._images_in(path)
+
+        assert len(images) == 1
+        assert images[0].caption is None
+
+    def test_disabling_caption_detection_leaves_the_caption_off(self, tmp_path) -> None:
+        path = self._pdf_with_image(tmp_path, caption_text=self.CAPTION)
+        images = self._images_in(path, include_image_captions=False)
+
+        assert len(images) == 1
+        assert images[0].caption is None
+
+    def test_the_bound_caption_appears_once_and_body_prose_survives(self, tmp_path) -> None:
+        """Binding must not double the caption: its body copy is suppressed.
+
+        The caption is real page text, so without suppression it would render
+        twice -- once as an ordinary paragraph and once as the caption line under
+        the image. Ordinary prose on the same page must be untouched.
+        """
+        from all2md.api import to_markdown
+
+        body = "The assay was repeated in triplicate across all cohorts."
+        path = self._pdf_with_image(tmp_path, caption_text=self.CAPTION, body_text=body)
+        markdown = to_markdown(path, attachment_mode="base64")
+
+        assert markdown.count(self.CAPTION) == 1
+        assert body in markdown

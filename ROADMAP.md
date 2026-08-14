@@ -266,6 +266,51 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
   The round-trip scorer that surfaced these now also scores code/math/HTML block content,
   so a regression in any of them shows up in `all2md roundtrip <file> --via docx` (or
   `--via html`).
+- 🌱 **`docx-plus` integration** — *evaluated 2026-08-04, no code written yet* (full writeup
+  in gitignored `design/docx-plus-evaluation.md`, [[docx_plus_evaluation]]). Verdict: adopt
+  selectively, parser read-side first, behind an optional extra pinned
+  `docx-plus>=0.6,<0.7`. It composes with `python-docx` rather than replacing it and needs
+  only `python-docx>=1.0.0` + `lxml>=4.9` — both already required, so adoption adds no
+  transitive dependency weight. Measured against a probe DOCX plus the two real DOCX files
+  already tracked in the repo (v2/v3 white papers), not read off the README.
+  - **Tier 1 — take these.** Tracked changes: `w:ins`/`w:del` currently vanish silently
+    (neither accepted nor rejected, so any default is an improvement) behind a
+    `tracked_changes: accept|reject|mark` option — biggest win, smallest diff, proposed as
+    the first spike. Effective formatting: replaces the `run.bold or False` read in
+    `_get_run_formatting_key` (`src/all2md/parsers/docx.py:1219`), which affects every
+    corporate-template document where weight lives on styles rather than runs — **benchmark
+    before committing**, it is the one change here with a plausible corpus-gate regression
+    path. Fields: one integration fixes both dropped hyperlink URLs and the `Figure :`
+    caption bug.
+  - **Tier 2 — real, narrower.** Table merges close the colspan/rowspan round-trip
+    asymmetry the renderer already half-supports (`_layout_table_grid`). Bookmarks let
+    internal anchor links survive instead of flattening to plain text. Footnote/endnote
+    reads could delete ~150 lines of hand-rolled XML (`_process_notes` and friends) — pure
+    simplification, no behaviour change.
+  - **Tier 3 — renderer, more speculative.** Real footnotes on render (today's
+    `visit_footnote_reference` writes a literal `[1]`, so DOCX→MD→DOCX degrades genuine
+    footnotes into fake ones); `add_toc`/`mark_fields_dirty` for the existing generate-toc
+    transform; redlined DOCX output via `mark_insertion`/`mark_deletion` — a real product
+    feature, scope creep unless deliberately chosen rather than a bug fix.
+  - **What it will not fix, and is our own job regardless:** block-level rich-text SDTs
+    (`w:sdt`) are structural containers, not typed form fields, so `read_controls` correctly
+    has nothing to return for them. `_iter_block_items`
+    (`src/all2md/parsers/docx.py:1951`) matches only `tbl`/`p` and skips SDTs — and where
+    they appear on real documents they are not marginal: one white paper drops 95 of 1,645
+    paragraphs (a stale TOC gallery, arguably fine to lose), the other drops the author's
+    name, twice. The rule is precise — descend into `w:sdtContent`, skip anything with
+    `w:sdtPr/w:showingPlcHdr` set — and is a same-shaped fix regardless of whether
+    `docx-plus` is adopted.
+  - **Correction surfaced during evaluation:** `read_controls` throws `DuplicateTagError` on
+    real Word output, because Word writes empty/absent `w:tag` on most controls and the
+    library keys its result dict by tag. Filed upstream; does not change the Tier 1 call —
+    revisions, styles, and fields all worked cleanly on the same real file.
+  - **Risk:** pre-1.0 and moving fast (seven releases in ~2.5 months), so pin the version
+    range and keep the parser degrading to today's behaviour when the extra is absent. Every
+    Tier 1 change also shifts default parser output, so golden snapshots move — scope each
+    item's snapshot/integration updates separately rather than batching all three.
+  - **Next step:** spike Tier 1 item 1 (tracked changes) alone; its fidelity-score delta
+    tells us whether the rest of the tier earns the dependency.
 - 🚀 **Layout-aware PDF reconstruction** — *moved to **Theme 8**.* Correct reading order
   across columns, footnote/endnote linking, running header/footer stripping, caption↔figure
   association. Every one of those is a *geometry* problem, which is why it now sits with the
@@ -864,6 +909,9 @@ more than planned:
     form. The arXiv source↔PDF pairs are the instrument that would actually measure it.
 
 **Smaller open items**, none blocking:
+**the `docx-plus` Tier 1 spike** (Theme 2, tracked changes first — see the roadmap entry
+above and `design/docx-plus-evaluation.md` for the full measurement) is evaluated but
+unscheduled; a natural opportunistic slot whenever DOCX fidelity is the batch's focus;
 [#257](https://github.com/thomas-villani/all2md/issues/257) (stratify the raster lane's
 score — demoted from the numbered list 2026-08-13; two of its three parts already resolved,
 and what remains costs an ~80-minute re-baseline, so batch it with the next oracle change
