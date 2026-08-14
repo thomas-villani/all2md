@@ -634,6 +634,44 @@ startxref
             converter.parse(stream)
 
 
+_FIGURE_CAPTION = "Figure 1. Growth of the assay over twelve weeks."
+
+
+def _pdf_with_image(tmp_path, caption_text=None, body_text=None):
+    """A one-page PDF holding one raster image, optionally with a caption below it."""
+    pymupdf = pytest.importorskip("pymupdf")
+    source = pymupdf.open()
+    source_page = source.new_page()
+    source_page.draw_rect(pymupdf.Rect(0, 0, 100, 100), fill=(0.5, 0.5, 0.5))
+    pixmap = source_page.get_pixmap(dpi=36)
+    source.close()
+
+    document = pymupdf.open()
+    page = document.new_page()
+    # keep_proportion=False so the placement rect equals the requested rect;
+    # fitted placement would leave the caption outside the detector's band.
+    page.insert_image(pymupdf.Rect(72.0, 120.0, 400.0, 240.0), pixmap=pixmap, keep_proportion=False)
+    if caption_text:
+        page.insert_text((72, 250.0), caption_text, fontsize=9)
+    if body_text:
+        page.insert_text((72, 320.0), body_text, fontsize=9)
+    path = tmp_path / "figure.pdf"
+    document.save(path)
+    document.close()
+    return path
+
+
+def _images_in(path, attachment_mode="base64", **option_overrides):
+    from all2md.api import to_ast
+    from all2md.ast.transforms import NodeCollector
+
+    options = PdfOptions(attachment_mode=attachment_mode, **option_overrides)
+    ast_doc = to_ast(path, parser_options=options)
+    collector = NodeCollector(lambda node: isinstance(node, Image))
+    ast_doc.accept(collector)
+    return collector.collected
+
+
 @pytest.mark.unit
 @pytest.mark.pdf
 @pytest.mark.image
@@ -646,61 +684,26 @@ class TestDetectedCaptionsReachTheImageNode:
     PDF through the whole route -- extract, detect, node -- rather than mocking it.
     """
 
-    CAPTION = "Figure 1. Growth of the assay over twelve weeks."
-
-    def _pdf_with_image(self, tmp_path, caption_text=None, body_text=None):
-        """A one-page PDF holding one raster image, optionally with a caption below it."""
-        pymupdf = pytest.importorskip("pymupdf")
-        source = pymupdf.open()
-        source_page = source.new_page()
-        source_page.draw_rect(pymupdf.Rect(0, 0, 100, 100), fill=(0.5, 0.5, 0.5))
-        pixmap = source_page.get_pixmap(dpi=36)
-        source.close()
-
-        document = pymupdf.open()
-        page = document.new_page()
-        # keep_proportion=False so the placement rect equals the requested rect;
-        # fitted placement would leave the caption outside the detector's band.
-        page.insert_image(pymupdf.Rect(72.0, 120.0, 400.0, 240.0), pixmap=pixmap, keep_proportion=False)
-        if caption_text:
-            page.insert_text((72, 250.0), caption_text, fontsize=9)
-        if body_text:
-            page.insert_text((72, 320.0), body_text, fontsize=9)
-        path = tmp_path / "figure.pdf"
-        document.save(path)
-        document.close()
-        return path
-
-    def _images_in(self, path, **option_overrides):
-        from all2md.api import to_ast
-        from all2md.ast.transforms import NodeCollector
-
-        options = PdfOptions(attachment_mode="base64", **option_overrides)
-        ast_doc = to_ast(path, parser_options=options)
-        collector = NodeCollector(lambda node: isinstance(node, Image))
-        ast_doc.accept(collector)
-        return collector.collected
-
     def test_the_caption_lands_on_image_caption_and_not_on_alt_text(self, tmp_path) -> None:
-        path = self._pdf_with_image(tmp_path, caption_text=self.CAPTION)
-        images = self._images_in(path)
+        path = _pdf_with_image(tmp_path, caption_text=_FIGURE_CAPTION)
+        images = _images_in(path)
 
         assert len(images) == 1
-        assert images[0].caption == self.CAPTION
+        assert images[0].caption == _FIGURE_CAPTION
         # Alt text substitutes for the image; the caption sits beside it. The
         # placeholder stays, the caption must not leak into it.
-        assert self.CAPTION not in images[0].alt_text
+        assert _FIGURE_CAPTION not in images[0].alt_text
 
     def test_an_uncaptioned_image_carries_no_caption(self, tmp_path) -> None:
-        path = self._pdf_with_image(tmp_path)
-        images = self._images_in(path)
+        path = _pdf_with_image(tmp_path)
+        images = _images_in(path)
 
         assert len(images) == 1
         assert images[0].caption is None
 
     def test_disabling_caption_detection_leaves_the_caption_off(self, tmp_path) -> None:
-        path = self._pdf_with_image(tmp_path, caption_text=self.CAPTION)
-        images = self._images_in(path, include_image_captions=False)
+        path = _pdf_with_image(tmp_path, caption_text=_FIGURE_CAPTION)
+        images = _images_in(path, include_image_captions=False)
 
         assert len(images) == 1
         assert images[0].caption is None
@@ -715,8 +718,54 @@ class TestDetectedCaptionsReachTheImageNode:
         from all2md.api import to_markdown
 
         body = "The assay was repeated in triplicate across all cohorts."
-        path = self._pdf_with_image(tmp_path, caption_text=self.CAPTION, body_text=body)
+        path = _pdf_with_image(tmp_path, caption_text=_FIGURE_CAPTION, body_text=body)
         markdown = to_markdown(path, attachment_mode="base64")
 
-        assert markdown.count(self.CAPTION) == 1
+        assert markdown.count(_FIGURE_CAPTION) == 1
         assert body in markdown
+
+
+@pytest.mark.unit
+@pytest.mark.pdf
+@pytest.mark.image
+class TestDefaultModeEmitsCaptionedFigures:
+    """Default options must not silently drop every figure (#340).
+
+    ``attachment_mode="alt_text"`` used to return before extracting anything, so
+    a journal PDF's figures left no trace at all. The mode now runs a decode-free
+    geometry pass and emits the figures that carry a detected caption -- a
+    captioned figure with no URL is meaningful output. Uncaptioned images stay
+    suppressed: with no bytes and no caption, ``![alt]()`` is noise (#338).
+    """
+
+    def test_a_captioned_figure_survives_default_options(self, tmp_path) -> None:
+        path = _pdf_with_image(tmp_path, caption_text=_FIGURE_CAPTION)
+        images = _images_in(path, attachment_mode="alt_text")
+
+        assert len(images) == 1
+        assert images[0].caption == _FIGURE_CAPTION
+        assert images[0].url == ""
+
+    def test_an_uncaptioned_image_stays_suppressed(self, tmp_path) -> None:
+        path = _pdf_with_image(tmp_path)
+        images = _images_in(path, attachment_mode="alt_text")
+
+        assert images == []
+
+    def test_disabling_captions_suppresses_figures_entirely(self, tmp_path) -> None:
+        path = _pdf_with_image(tmp_path, caption_text=_FIGURE_CAPTION)
+        images = _images_in(path, attachment_mode="alt_text", include_image_captions=False)
+
+        assert images == []
+
+    def test_the_caption_reaches_the_markdown_output(self, tmp_path) -> None:
+        """End to end: default ``to_markdown`` now shows the figure and its caption, once."""
+        from all2md.api import to_markdown
+
+        path = _pdf_with_image(tmp_path, caption_text=_FIGURE_CAPTION)
+        markdown = to_markdown(path)
+
+        # Exactly once: the bound caption line, with its body copy suppressed.
+        assert markdown.count(_FIGURE_CAPTION) == 1
+        # The marker comment is what makes the italic caption line round-trippable.
+        assert "all2md:image-caption" in markdown
