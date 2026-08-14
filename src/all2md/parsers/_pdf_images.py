@@ -47,10 +47,22 @@ def _bbox_in_any_region(bbox: Any, regions: list[Any], coverage: float = 0.7) ->
 
 #: Openings that mark a line as a figure caption rather than body text. Used only when the
 #: layout model is unavailable, where there is nothing better to go on.
-_CAPTION_CUE = re.compile(
-    r"^(Figure|Fig\.?|Image|Picture|Photo|Illustration|Scheme|Chart|Graph|Table)\s*\.?\s*(\d+|[A-Z]\b)",
+_CAPTION_KEYWORD = re.compile(
+    r"^(Figure|Fig\.?|Image|Picture|Photo|Illustration|Scheme|Chart|Graph|Table)",
     re.IGNORECASE,
 )
+#: What may follow the keyword: a run of digits (optionally separated by punctuation or
+#: whitespace), or a single uppercase letter set off by real whitespace. Deliberately *not*
+#: case-insensitive -- under IGNORECASE, a bare ``[A-Z]`` also matches the trailing "s" of a
+#: plural sentence opener, so mandatory whitespace plus a case-sensitive letter class is what
+#: keeps "Figures in this study" and "Tables 1 and 2" from reading as captions.
+_CAPTION_LOCATOR = re.compile(r"(?:\s*\.?\s*\d|\s+[A-Z]\b)")
+
+
+def _matches_caption_cue(text: str) -> bool:
+    """Return True if ``text`` opens like "Figure 3" / "Fig. 2b" rather than ordinary prose."""
+    keyword_match = _CAPTION_KEYWORD.match(text)
+    return bool(keyword_match and _CAPTION_LOCATOR.match(text, keyword_match.end()))
 
 
 def _region_text(page: "pymupdf.Page", rect: Any) -> str:
@@ -153,7 +165,7 @@ def detect_image_caption(
         # it used to reach `text[0]` and raise IndexError, which the caller swallowed
         # as "skip this image", silently deleting 1 image in 70 on the PMC corpus.
         text = _region_text(page, search_rect)
-        if text and _CAPTION_CUE.match(text):
+        if text and _matches_caption_cue(text):
             return text
 
     return None
