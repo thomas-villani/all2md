@@ -645,6 +645,61 @@ class OrgParser(BaseParser):
 
         return Heading(level=level, content=content, metadata=heading_metadata)
 
+    @staticmethod
+    def _split_body_blocks(body_text: str) -> list[str]:
+        """Split body text into blocks, keeping each greater block in one piece.
+
+        Blank lines separate Org elements, but not inside a greater block: a
+        ``#+BEGIN_SRC``/``#+END_SRC`` pair runs to its own delimiter no matter how many
+        blank lines the code between them contains. Splitting on blank lines first cut
+        such a block into fragments -- the one holding ``#+BEGIN_SRC`` had no end, the
+        middle ones re-parsed as prose, and the last printed ``#+END_SRC`` verbatim as
+        body text. So the segmentation has to know where a block is open, the same way
+        the file-property filter above already does.
+
+        A greater block also starts and ends an element of its own, so a delimiter that
+        follows or precedes ordinary text without a blank line between them still marks
+        a boundary. The one exception is an affiliated keyword such as ``#+CAPTION:``,
+        which belongs to the block written underneath it and therefore stays attached.
+        """
+        blocks: list[str] = []
+        current: list[str] = []
+        open_kind: str | None = None
+
+        def flush() -> None:
+            if current:
+                blocks.append("\n".join(current))
+                current.clear()
+
+        for line in body_text.split("\n"):
+            stripped = line.strip()
+
+            if open_kind is not None:
+                current.append(line)
+                if re.match(rf"^#\+END_{re.escape(open_kind)}\b", stripped, re.IGNORECASE):
+                    open_kind = None
+                    flush()
+                continue
+
+            begin = re.match(r"^#\+BEGIN_(\w+)", stripped, re.IGNORECASE)
+            if begin:
+                # Affiliated keywords belong to the block below them; anything else is a
+                # separate element that the block must not swallow.
+                if not all(re.match(r"^#\+[\w-]+:", pending.strip()) for pending in current):
+                    flush()
+                open_kind = begin.group(1)
+                current.append(line)
+                continue
+
+            if not stripped:
+                flush()
+                continue
+
+            current.append(line)
+
+        flush()
+        return blocks
+
     def _process_body(self, body_text: str) -> list[Node]:
         """Process body text into AST nodes.
 
@@ -666,8 +721,8 @@ class OrgParser(BaseParser):
         """
         result: list[Node] = []
 
-        # Split into blocks (separated by blank lines)
-        blocks = re.split(r"\n\n+", body_text)
+        # Split into blocks (separated by blank lines), keeping greater blocks whole
+        blocks = self._split_body_blocks(body_text)
 
         # Track footnote definitions for later
         footnote_defs: list[FootnoteDefinition] = []

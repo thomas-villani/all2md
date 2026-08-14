@@ -1265,6 +1265,68 @@ class TestGreaterBlocks:
 
 
 @pytest.mark.unit
+class TestGreaterBlocksWithBlankLines:
+    """A blank line inside a greater block must not break the block apart.
+
+    The body was split on blank lines before any block was recognized, so the fragment
+    holding ``#+BEGIN_SRC`` had no end, the middle fragments re-parsed as prose, and the
+    fragment holding ``#+END_SRC`` printed that delimiter verbatim as body text.
+    """
+
+    def test_source_block_keeps_an_internal_blank_line(self) -> None:
+        """``#+BEGIN_SRC`` with a blank line in the code stayed one code block."""
+        doc = OrgParser().parse("* H\n#+BEGIN_SRC python\nx = 1\n\ny = 2\n#+END_SRC\n")
+
+        blocks = [node for node in doc.children if isinstance(node, CodeBlock)]
+        assert [type(node) for node in doc.children] == [Heading, CodeBlock]
+        assert blocks[0].language == "python"
+        assert blocks[0].content == "x = 1\n\ny = 2"
+
+    def test_source_block_keeps_several_internal_blank_lines(self) -> None:
+        """More than one blank line is still code, not a run of paragraphs."""
+        doc = OrgParser().parse("#+BEGIN_SRC python\na = 1\n\n\nb = 2\n\nc = 3\n#+END_SRC\n")
+
+        assert [type(node) for node in doc.children] == [CodeBlock]
+        assert doc.children[0].content == "a = 1\n\n\nb = 2\n\nc = 3"
+
+    def test_example_block_keeps_an_internal_blank_line(self) -> None:
+        """An example block is verbatim, so its blank lines survive too."""
+        doc = OrgParser().parse("#+BEGIN_EXAMPLE\nfirst\n\nsecond\n#+END_EXAMPLE\n")
+
+        assert [type(node) for node in doc.children] == [CodeBlock]
+        assert doc.children[0].content == "first\n\nsecond"
+
+    def test_quote_block_keeps_both_paragraphs_and_no_delimiter_text(self) -> None:
+        """A quote block's blank line separates paragraphs within the quote."""
+        doc = OrgParser().parse("#+BEGIN_QUOTE\nOne.\n\nTwo.\n#+END_QUOTE\n")
+
+        assert [type(node) for node in doc.children] == [BlockQuote]
+        quoted = doc.children[0].children
+        assert [type(node) for node in quoted] == [Paragraph, Paragraph]
+        assert [node.content[0].content for node in quoted] == ["One.", "Two."]
+
+    def test_code_containing_hash_plus_lines_is_not_mistaken_for_a_delimiter(self) -> None:
+        """Only a matching ``#+END_`` closes a block; other ``#+`` lines are code."""
+        doc = OrgParser().parse("#+BEGIN_SRC org\n#+TITLE: x\n\n#+OPTIONS: toc:nil\n#+END_SRC\n")
+
+        assert [type(node) for node in doc.children] == [CodeBlock]
+        assert doc.children[0].content == "#+TITLE: x\n\n#+OPTIONS: toc:nil"
+
+    def test_text_around_a_block_without_blank_lines_stays_separate(self) -> None:
+        """A greater block begins and ends an element of its own.
+
+        Text on the line after ``#+END_SRC`` used to be swallowed by the block and
+        dropped entirely, since the code extractor stops at the end delimiter.
+        """
+        doc = OrgParser().parse("Intro text\n#+BEGIN_SRC python\nz = 1\n#+END_SRC\nAfter text\n")
+
+        assert [type(node) for node in doc.children] == [Paragraph, CodeBlock, Paragraph]
+        assert doc.children[0].content[0].content == "Intro text"
+        assert doc.children[1].content == "z = 1"
+        assert doc.children[2].content[0].content == "After text"
+
+
+@pytest.mark.unit
 class TestEmptyListItems:
     """A bullet with no content is an item, not a line to discard."""
 
