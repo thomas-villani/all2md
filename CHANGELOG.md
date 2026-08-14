@@ -66,6 +66,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   flattened to a single level — the loop strips each line before matching it, so the
   indentation that marks a sub-item is gone before the marker is read — and that is
   unchanged by this fix.
+- **A single `;` in AsciiDoc prose no longer creates a description list.** The lexer's
+  description-list pattern was `^(.+?);(?:\s+(.*))?$`, which matches an enormous amount
+  of ordinary writing: `Alpha; beta gamma.` was lexed as the term `Alpha` with the
+  description `beta gamma.`, a line merely ending in `;` became a bare term with no
+  description, and a semicolon anywhere on a wrapped line broke the paragraph it belonged
+  to in two — the text before the wrap staying a paragraph and the rest becoming a
+  definition list. AsciiDoc has no such marker; its description lists are written `::`,
+  `:::`, `::::` or `;;`. The pattern now requires the doubled `;;`, which parses exactly
+  as `::` does, and the class docstring's `term::` or `term;` has been corrected. One
+  existing test asserted the single-semicolon behaviour and has been updated: it encoded
+  the defect rather than the language.
 - **Words no longer fuse across a formatting change in run-based formats.**
   `group_and_format_runs` — the shared helper that turns a paragraph's runs into inline
   nodes for PPTX (and available to any run-based parser) — joined each same-format group
