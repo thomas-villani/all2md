@@ -36,6 +36,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An email's attachment section is now built from AST nodes instead of Markdown spliced
+  into the message body.** `process_email_attachments()` returned a Markdown string
+  (`"\n\n## Attachments\n\n"` plus `![name](url)` lines) that was concatenated onto
+  `message["content"]`. A plain-text body — the common case — is emitted as `Text` nodes,
+  so the Markdown renderer escaped the whole thing: an email with one PNG attachment
+  rendered `\## Attachments` and `!\[pic.png\]`, a broken heading and a dead image
+  reference. The section is now a `Heading` plus a paragraph of `Image`/`Link` nodes, the
+  same shape every other parser produces via `attachment_result_to_image_node`, so it
+  survives into non-Markdown renderers too. Three golden snapshots that had recorded the
+  escaped output were updated. Affected the `.eml`, `.mbox`/Maildir and `.msg` paths; on
+  the latter two it was unconditional, since neither ever re-parsed the body as Markdown.
+
+- **MBOX and Outlook bodies converted from HTML or RTF are no longer flattened into escaped
+  plain text.** `parse_single_message()` reports `content_is_markdown=True` when it converts
+  an HTML or RTF body to Markdown, and the EML parser has honoured that flag; the MBOX and
+  Outlook parsers ignored it and split every body into `Paragraph(content=[Text(...)])`. The
+  renderer then escaped the Markdown source, so a heading arrived as `\## Heading` and a link
+  as `\[text\](url)`. RTF bodies are converted unconditionally — `convert_html_to_markdown`
+  gates only the HTML branch — so Outlook-originated mail reaching the mbox or PST path was
+  mangled under default options. All three parsers now share one `parse_email_body()` helper,
+  and the PST branch sets the flag when it converts an HTML body. Structure loss also
+  affected non-Markdown renderers, since headings and lists never became AST nodes at all.
 - **An Outlook `.msg` file now reaches the Outlook parser instead of the RFC-822 email
   parser.** The `eml` converter claimed `.msg` in its extension list at a higher detection
   priority than the `outlook` converter, and extension matching runs before content
