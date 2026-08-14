@@ -1887,7 +1887,11 @@ def _determine_output_format(args: argparse.Namespace, output_path: Optional[Pat
     if output_path:
         try:
             detected_target = registry.detect_format(output_path)
-            return detected_target if detected_target != "txt" else "markdown"
+            # "plaintext" is ``detect_format``'s no-match fallback, so it means the
+            # extension carried no target format -- fall back to markdown rather
+            # than rendering through the plaintext renderer. ``--output-format
+            # plaintext`` is handled above and still wins.
+            return detected_target if detected_target != "plaintext" else "markdown"
         except Exception:
             return "markdown"
 
@@ -2644,7 +2648,10 @@ def _detect_renderer_hint(target_format: str, output_path: Optional[Path]) -> st
 
     try:
         detected_target = registry.detect_format(output_path)
-        if detected_target and detected_target != "txt":
+        # "plaintext" is ``detect_format``'s no-match fallback: the output extension
+        # told us nothing, so leave the hint at "auto" and let the caller apply its
+        # markdown default instead of routing through the plaintext renderer.
+        if detected_target and detected_target != "plaintext":
             return detected_target
     except Exception:
         # Format detection is best-effort; fall through to the caller's

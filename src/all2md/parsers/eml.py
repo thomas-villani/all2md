@@ -25,6 +25,8 @@ from all2md.api import to_markdown
 from all2md.ast import (
     Document,
     Heading,
+    LineBreak,
+    Link,
     Node,
     Paragraph,
     Text,
@@ -40,6 +42,7 @@ from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.attachments import process_attachment
 from all2md.utils.metadata import DocumentMetadata
+from all2md.utils.parser_helpers import attachment_result_to_image_node
 
 
 def _parse_date_with_fallback(msg: EmailMessage | Message) -> datetime.datetime | None:
@@ -657,11 +660,60 @@ def split_chain(content: str, options: EmlOptions) -> list[dict[str, Any]]:
     return formatted_msgs
 
 
-def process_email_attachments(msg: Message, options: EmlOptions) -> tuple[str, dict[str, str]]:
-    """Process email attachments and return markdown representation.
+def _attachment_result_to_node(result: dict[str, Any], filename: str, is_image: bool) -> Node | None:
+    r"""Turn a ``process_attachment`` result into an inline AST node.
 
-    Extracts attachments from an email message and processes them according
-    to the specified attachment mode.
+    Images become :class:`Image` nodes; other attachments become :class:`Link`
+    nodes, except under ``alt_text_mode="plain_filename"`` where the result is a
+    bare filename with no link syntax and so becomes :class:`Text`. Returning
+    real nodes -- rather than the result's Markdown string -- keeps the email
+    parsers from splicing Markdown into a plain-text body, where the renderer
+    would escape it into ``!\[pic.png\]``.
+
+    Parameters
+    ----------
+    result : dict[str, Any]
+        Result dictionary from :func:`process_attachment`.
+    filename : str
+        Attachment filename, used as fallback link/alt text.
+    is_image : bool
+        Whether the attachment is an image.
+
+    Returns
+    -------
+    Node or None
+        Inline node for the attachment, or ``None`` if the result is empty.
+
+    """
+    markdown = result.get("markdown") or ""
+    if not markdown:
+        return None
+
+    if is_image:
+        return attachment_result_to_image_node(result, fallback_alt_text=filename)
+
+    # ``plain_filename`` mode emits the bare name with no link syntax; every
+    # other mode emits ``[text](...)``, so keep the link shape there.
+    if not markdown.startswith("["):
+        return Text(content=filename)
+
+    match = re.match(r"^\[([^]]*)]", markdown)
+    text = (match.group(1) if match else "") or filename
+    return Link(url=result.get("url") or "", content=[Text(content=text)], title=None)
+
+
+def build_attachment_nodes(msg: Message, options: EmlOptions) -> tuple[list[Node], dict[str, str]]:
+    r"""Process email attachments and return block-level AST nodes.
+
+    Extracts attachments from an email message and processes them according to
+    the configured attachment mode, emitting an optional section heading
+    followed by a paragraph of :class:`Image`/:class:`Link` nodes.
+
+    This replaces the older string-returning helper. The Markdown it produced
+    was concatenated onto the message body, which for a plain-text body (the
+    common case) was then emitted as :class:`Text` and escaped by the Markdown
+    renderer -- turning the attachment section into ``\## Attachments`` and
+    ``!\[pic.png\]``.
 
     Parameters
     ----------
@@ -672,14 +724,14 @@ def process_email_attachments(msg: Message, options: EmlOptions) -> tuple[str, d
 
     Returns
     -------
-    tuple[str, dict[str, str]]
-        Tuple of (markdown representation of attachments, footnotes dict)
+    tuple[list[Node], dict[str, str]]
+        Tuple of (block-level AST nodes for the attachment section, footnotes dict)
 
     """
     if options.attachment_mode == "skip":
-        return "", {}
+        return [], {}
 
-    attachments = []
+    attachments: list[Node] = []
     collected_footnotes: dict[str, str] = {}
     attachment_count = 0
 
@@ -727,16 +779,114 @@ def process_email_attachments(msg: Message, options: EmlOptions) -> tuple[str, d
             if result.get("footnote_label") and result.get("footnote_content"):
                 collected_footnotes[result["footnote_label"]] = result["footnote_content"]
 
-            if result.get("markdown"):
-                attachments.append(result["markdown"])
+            node = _attachment_result_to_node(result, filename, is_image)
+            if node is not None:
+                attachments.append(node)
 
-    if attachments:
-        if options.include_attach_section_heading:
-            # Format as heading (## Attachments by default)
-            return f"\n\n## {options.attach_section_title}\n\n" + "\n".join(attachments) + "\n", collected_footnotes
-        else:
-            return "\n\n" + "\n".join(attachments) + "\n", collected_footnotes
-    return "", collected_footnotes
+    if not attachments:
+        return [], collected_footnotes
+
+    nodes: list[Node] = []
+    if options.include_attach_section_heading:
+        nodes.append(Heading(level=2, content=[Text(content=options.attach_section_title)]))
+
+    # One paragraph holding every attachment, separated by soft breaks, which
+    # matches the single-newline join the string version used.
+    inline: list[Node] = []
+    for index, node in enumerate(attachments):
+        if index:
+            inline.append(LineBreak(soft=True))
+        inline.append(node)
+    nodes.append(Paragraph(content=inline))
+
+    return nodes, collected_footnotes
+
+
+def parse_markdown_body(content: str) -> list[Node]:
+    """Parse already-Markdown body content into rich AST nodes.
+
+    Used for email bodies that were converted from HTML or RTF, so their
+    formatting (headings, emphasis, lists, links) survives into the rendered
+    output instead of being flattened to escaped plain text.
+
+    Returns an empty list on any failure so the caller can fall back to the
+    plain-text path. Raw HTML in the Markdown is not passed through here; the
+    downstream Markdown renderer escapes HTMLInline/HTMLBlock by default.
+
+    Parameters
+    ----------
+    content : str
+        Markdown body content to parse.
+
+    Returns
+    -------
+    list[Node]
+        Parsed AST nodes, or an empty list if parsing failed.
+
+    """
+    try:
+        from all2md.api import to_ast
+
+        doc = to_ast(BytesIO(content.encode("utf-8")), source_format="markdown")
+        return list(doc.children)
+    except Exception:
+        # Malformed/unsupported markdown -- let the caller flatten to text.
+        return []
+
+
+def parse_email_body(content: str, *, is_markdown: bool = False) -> list[Node]:
+    r"""Parse an email body into AST nodes safely.
+
+    For bodies converted from HTML or RTF (``is_markdown=True``) the content is
+    already Markdown, so it is parsed back into rich AST nodes (headings,
+    emphasis, lists, links). For genuine plain-text bodies the content is
+    treated as plain text and split into paragraphs, which keeps incidental
+    Markdown characters from being interpreted.
+
+    Shared by the EML, MBOX and Outlook parsers so all three honour the
+    ``content_is_markdown`` flag that :func:`parse_single_message` sets. RTF
+    bodies are always converted to Markdown, so an Outlook-originated message
+    reaching the mbox or PST path would otherwise render as ``\## Heading``.
+
+    Either way no raw HTML is passed through: :func:`parse_markdown_body` relies
+    on the Markdown renderer's ``html_passthrough_mode`` (``"escape"`` by
+    default) to neutralize any HTMLInline/HTMLBlock nodes, and never uses
+    HTMLInline directly.
+
+    Parameters
+    ----------
+    content : str
+        Email body content (plain text, or Markdown when ``is_markdown``).
+    is_markdown : bool, default False
+        Whether ``content`` is Markdown that should be parsed for structure.
+
+    Returns
+    -------
+    list[Node]
+        List of AST nodes.
+
+    """
+    if is_markdown:
+        rich_nodes = parse_markdown_body(content)
+        if rich_nodes:
+            return rich_nodes
+        # Fall through to plain-text handling if parsing yielded nothing.
+
+    nodes: list[Node] = []
+
+    # Split content into paragraphs (by double newlines)
+    paragraphs = re.split(r"\n\n+", content.strip())
+
+    for para_text in paragraphs:
+        para_text = para_text.strip()
+        if not para_text:
+            continue
+
+        # Create paragraph with Text nodes
+        # This is safe and doesn't bypass sanitization like HTMLInline would
+        nodes.append(Paragraph(content=[Text(content=para_text)]))
+
+    return nodes if nodes else [Paragraph(content=[Text(content=content)])]
 
 
 def clean_message(raw: str, options: EmlOptions) -> str:
@@ -969,13 +1119,15 @@ class EmlToAstConverter(BaseParser):
             # Parse the primary message
             message = parse_single_message(eml_msg, self.options)
 
-            # Process attachments if needed
+            # Process attachments if needed. These become AST nodes carried
+            # alongside the body rather than Markdown appended to it -- appending
+            # left the section to be escaped as plain text on text/plain bodies.
             if self.options.attachment_mode != "skip":
-                attachment_content, attachment_footnotes = process_email_attachments(eml_msg, self.options)
+                attachment_nodes, attachment_footnotes = build_attachment_nodes(eml_msg, self.options)
                 # Merge footnotes from attachments
                 self._attachment_footnotes.update(attachment_footnotes)
-                if attachment_content:
-                    message["content"] += attachment_content
+                if attachment_nodes:
+                    message["attachment_nodes"] = attachment_nodes
 
             messages = []
 
@@ -1079,6 +1231,9 @@ class EmlToAstConverter(BaseParser):
                 content_nodes = self._parse_email_content(content, is_markdown=item.get("content_is_markdown", False))
                 children.extend(content_nodes)
 
+            # Attachments are real AST nodes, not Markdown spliced into the body.
+            children.extend(item.get("attachment_nodes") or [])
+
             # Add separator
             children.append(ThematicBreak())
 
@@ -1093,16 +1248,8 @@ class EmlToAstConverter(BaseParser):
     def _parse_email_content(self, content: str, *, is_markdown: bool = False) -> list[Node]:
         """Parse email body content into AST nodes safely.
 
-        For bodies converted from HTML or RTF (``is_markdown=True``) the content
-        is already Markdown, so it is parsed back into rich AST nodes (headings,
-        emphasis, lists, links). For genuine plain-text bodies the content is
-        treated as plain text and split into paragraphs, which keeps incidental
-        Markdown characters from being interpreted.
-
-        Either way no raw HTML is passed through: ``_parse_markdown_body`` relies
-        on the Markdown renderer's ``html_passthrough_mode`` (``"escape"`` by
-        default) to neutralize any HTMLInline/HTMLBlock nodes, and never uses
-        HTMLInline directly.
+        Thin wrapper over the module-level :func:`parse_email_body`, which the
+        MBOX and Outlook parsers share so the three email paths agree.
 
         Parameters
         ----------
@@ -1117,58 +1264,7 @@ class EmlToAstConverter(BaseParser):
             List of AST nodes.
 
         """
-        if is_markdown:
-            rich_nodes = self._parse_markdown_body(content)
-            if rich_nodes:
-                return rich_nodes
-            # Fall through to plain-text handling if parsing yielded nothing.
-
-        nodes: list[Node] = []
-
-        # Split content into paragraphs (by double newlines)
-        paragraphs = re.split(r"\n\n+", content.strip())
-
-        for para_text in paragraphs:
-            para_text = para_text.strip()
-            if not para_text:
-                continue
-
-            # Create paragraph with Text nodes
-            # This is safe and doesn't bypass sanitization like HTMLInline would
-            nodes.append(Paragraph(content=[Text(content=para_text)]))
-
-        return nodes if nodes else [Paragraph(content=[Text(content=content)])]
-
-    def _parse_markdown_body(self, content: str) -> list[Node]:
-        """Parse already-Markdown body content into rich AST nodes.
-
-        Used for email bodies that were converted from HTML or RTF, so their
-        formatting (headings, emphasis, lists, links) survives into the rendered
-        output instead of being flattened to escaped plain text.
-
-        Returns an empty list on any failure so the caller can fall back to the
-        plain-text path. Raw HTML in the Markdown is not passed through here; the
-        downstream Markdown renderer escapes HTMLInline/HTMLBlock by default.
-
-        Parameters
-        ----------
-        content : str
-            Markdown body content to parse.
-
-        Returns
-        -------
-        list[Node]
-            Parsed AST nodes, or an empty list if parsing failed.
-
-        """
-        try:
-            from all2md.api import to_ast
-
-            doc = to_ast(BytesIO(content.encode("utf-8")), source_format="markdown")
-            return list(doc.children)
-        except Exception:
-            # Malformed/unsupported markdown -- let the caller flatten to text.
-            return []
+        return parse_email_body(content, is_markdown=is_markdown)
 
     def _format_date(self, dt: datetime.datetime | None) -> str:
         """Format datetime according to EmlOptions configuration.
@@ -1286,7 +1382,7 @@ class EmlToAstConverter(BaseParser):
 # Converter metadata for registration
 CONVERTER_METADATA = ConverterMetadata(
     format_name="eml",
-    extensions=[".eml", ".msg"],
+    extensions=[".eml"],
     mime_types=["message/rfc822"],
     magic_bytes=[
         (b"Return-Path:", 0),

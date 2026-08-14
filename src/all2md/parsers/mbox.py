@@ -14,7 +14,6 @@ from __future__ import annotations
 import datetime
 import logging
 import mailbox
-import re
 from email.message import Message
 from pathlib import Path
 from typing import IO, Any, Optional, Union
@@ -25,10 +24,11 @@ from all2md.exceptions import MalformedFileError, ParsingError, ValidationError
 from all2md.options.mbox import MboxOptions
 from all2md.parsers.base import BaseParser
 from all2md.parsers.eml import (
+    build_attachment_nodes,
     clean_message,
     format_eml_date,
+    parse_email_body,
     parse_single_message,
-    process_email_attachments,
 )
 from all2md.progress import ProgressCallback
 from all2md.utils.metadata import DocumentMetadata
@@ -421,13 +421,15 @@ class MboxToAstConverter(BaseParser):
             if folder and self.options.preserve_folder_metadata:
                 msg_data["folder"] = folder
 
-            # Process attachments if needed
+            # Process attachments if needed. These become AST nodes carried
+            # alongside the body rather than Markdown appended to it -- appending
+            # left the section to be escaped as plain text by the renderer.
             if self.options.attachment_mode != "skip":
-                attachment_content, attachment_footnotes = process_email_attachments(msg, self.options)
+                attachment_nodes, attachment_footnotes = build_attachment_nodes(msg, self.options)
                 # Merge footnotes
                 self._attachment_footnotes.update(attachment_footnotes)
-                if attachment_content and "content" in msg_data:
-                    msg_data["content"] += attachment_content
+                if attachment_nodes:
+                    msg_data["attachment_nodes"] = attachment_nodes
 
             # Clean message content
             if "content" in msg_data:
@@ -531,16 +533,14 @@ class MboxToAstConverter(BaseParser):
             header_text = "\n".join(header_lines)
             children.append(Paragraph(content=[Text(content=header_text)]))
 
-        # Add content
+        # Add content. Bodies converted from HTML/RTF are already Markdown and
+        # get re-parsed into rich nodes; plain text stays plain (and escaped).
         content = msg.get("content", "")
         if content.strip():
-            # Split content into paragraphs
+            children.extend(parse_email_body(content, is_markdown=msg.get("content_is_markdown", False)))
 
-            paragraphs = re.split(r"\n\n+", content.strip())
-            for para_text in paragraphs:
-                para_text = para_text.strip()
-                if para_text:
-                    children.append(Paragraph(content=[Text(content=para_text)]))
+        # Attachments are real AST nodes, not Markdown spliced into the body.
+        children.extend(msg.get("attachment_nodes") or [])
 
         # Add separator
         children.append(ThematicBreak())

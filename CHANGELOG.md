@@ -89,6 +89,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   line. Material for MkDocs admonitions render through the same helper and now carry the
   indent on their `!!!` header too, so a nested admonition no longer splits its header off at
   column zero.
+- **Six table renderers no longer drop cells when a span collides.** `BaseRenderer._layout_table_grid`
+  resolves declared `colspan`/`rowspan` values — which real documents routinely overstate — onto a
+  grid, truncating a span rather than letting it overlap and widening the table rather than dropping
+  a cell that no longer fits. Only the DOCX and PPTX renderers were migrated onto it; the
+  reStructuredText, Org, LaTeX, ODT, ODP and PDF renderers each kept a copy-pasted fill loop that
+  took the table's *width* from that layout but then placed cells at their *declared* spans, ending
+  the row with `if col_idx >= num_cols: break`. Any cell pushed past the last column by an earlier
+  row's `rowspan` was discarded with no warning: a two-row table whose second row declares
+  `colspan=3` under a `rowspan=2` neighbour lost its final cell's content entirely in all six
+  formats. All six now consume the shared grid's placements and emit the *effective* spans, so a
+  collision costs a merge instead of content. Well-formed tables render byte-for-byte as before.
+- **An email's attachment section is now built from AST nodes instead of Markdown spliced
+  into the message body.** `process_email_attachments()` returned a Markdown string
+  (`"\n\n## Attachments\n\n"` plus `![name](url)` lines) that was concatenated onto
+  `message["content"]`. A plain-text body — the common case — is emitted as `Text` nodes,
+  so the Markdown renderer escaped the whole thing: an email with one PNG attachment
+  rendered `\## Attachments` and `!\[pic.png\]`, a broken heading and a dead image
+  reference. The section is now a `Heading` plus a paragraph of `Image`/`Link` nodes, the
+  same shape every other parser produces via `attachment_result_to_image_node`, so it
+  survives into non-Markdown renderers too. Three golden snapshots that had recorded the
+  escaped output were updated. Affected the `.eml`, `.mbox`/Maildir and `.msg` paths; on
+  the latter two it was unconditional, since neither ever re-parsed the body as Markdown.
+
+- **MBOX and Outlook bodies converted from HTML or RTF are no longer flattened into escaped
+  plain text.** `parse_single_message()` reports `content_is_markdown=True` when it converts
+  an HTML or RTF body to Markdown, and the EML parser has honoured that flag; the MBOX and
+  Outlook parsers ignored it and split every body into `Paragraph(content=[Text(...)])`. The
+  renderer then escaped the Markdown source, so a heading arrived as `\## Heading` and a link
+  as `\[text\](url)`. RTF bodies are converted unconditionally — `convert_html_to_markdown`
+  gates only the HTML branch — so Outlook-originated mail reaching the mbox or PST path was
+  mangled under default options. All three parsers now share one `parse_email_body()` helper,
+  and the PST branch sets the flag when it converts an HTML body. Structure loss also
+  affected non-Markdown renderers, since headings and lists never became AST nodes at all.
+- **An Outlook `.msg` file now reaches the Outlook parser instead of the RFC-822 email
+  parser.** The `eml` converter claimed `.msg` in its extension list at a higher detection
+  priority than the `outlook` converter, and extension matching runs before content
+  sniffing — so any path or named stream ending in `.msg` routed to `EmlToAstConverter`.
+  Neither converter defines a content detector, so nothing corrected the choice
+  afterwards. The RFC-822 parser does not reject OLE/CFBF input: `message_from_binary_file`
+  accepts the binary happily and yields a header-less message whose body is the compound
+  file's bytes decoded as text, so `all2md mail.msg` produced mojibake rather than an
+  error, and `extract-msg` was never invoked. The same bytes *without* a filename already
+  detected correctly as `outlook` via magic bytes. `.msg` has been dropped from the `eml`
+  extension list; its magic-byte patterns are all text mail headers and cannot match a
+  compound file, so the eml parser loses no reachable input.
+- **Format detection no longer reads a sentence as a filename.** `registry.detect_format`
+  ran `os.path.splitext` over *any* `str` it was given, so a string holding document
+  content was extension-matched on its tail: `to_markdown("Reminder: check results.csv")`
+  detected `csv` and returned the one-cell table `| Reminder: check results.csv |`, and
+  `to_markdown("Payload attached as invoice.pdf")` raised `FileNotFoundError` naming a path
+  the caller never passed — the failure class [#233](https://github.com/thomas-villani/all2md/issues/233)
+  fixed in the input loader, resurfacing one layer down because detection ran *before* the
+  loader and derived its own answer. Detection now applies the loader's own
+  `looks_like_path_attempt` rule, so the two agree: a `Path`, an openable `str`, and a
+  path-shaped `str` (short, single-line, no whitespace, no `://`, ending in an extension
+  all2md knows) all keep extension and MIME matching, and everything else is content. Path-ness
+  is deliberately *not* gated on the file existing, since `detect_format` is also called on
+  output paths that have not been written yet.
+  Such a string is now also handed to the content detectors, which never saw it before —
+  `content` stayed `None` for any `str` that was not an openable file. Inline string content
+  therefore detects identically to the same content passed as `bytes`: HTML, JSON, XML and
+  the rest are now recognised, and the structured-text detectors claim the same strings they
+  already claimed on the `bytes` path (`"- a\n- b"` is YAML there and is YAML here). Where no
+  detector matches, the fallback to `plaintext` is unchanged.
+- **Writing to `out.txt` no longer silently strips every piece of formatting.** When no
+  `target_format` was given, `convert()` inferred one from the output path — and
+  `registry.detect_format` answers `"plaintext"` for anything it does not recognise,
+  including a `.txt` extension and any unknown one. That answer is a *no-match* signal, but
+  it was used as a renderer choice, so `convert("in.md", "out.txt")` rendered through the
+  plaintext renderer: `# Title` became `Title`, `**bold**` became `bold`, and
+  `[a link](https://example.com)` lost its URL entirely. The code had a guard for exactly
+  this, comparing the inferred format against `"txt"` and substituting markdown, but
+  `detect_format` has returned `"plaintext"` — never `"txt"` — since it was rewritten, so
+  the guard had been dead the whole time and the documented "defaults to markdown"
+  behaviour never fired. All three sites (`convert()`, and the CLI's merge and
+  single-file conversion paths) now compare against `"plaintext"`. Only *inference* is
+  remapped: an explicit `target_format="plaintext"` or `--to plaintext` still selects the
+  plaintext renderer, and a recognised extension such as `.html` or `.docx` is still
+  honoured.
 - **PPTX run hyperlinks are no longer discarded.** `_process_paragraph_runs_to_inline` built
   a `Link` node for every hyperlinked run into a local `result` list, but both of the
   function's exit paths returned `inline_nodes` (the output of `group_and_format_runs`,
@@ -130,6 +209,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   encoded. Measured at 1 image in 70 across 20 PMC articles, in `save` and `base64` modes
   with `include_image_captions` left at its default of `True`.
   ([#338](https://github.com/thomas-villani/all2md/issues/338))
+- **A nonexistent `Path` input no longer raises a misleading "Unsupported input type."**
+  `LocalPathRetriever.can_handle()` returned `False` for a `Path` that does not exist, and no
+  other retriever accepts a `Path`, so the loader fell through to a generic "Unsupported input
+  type: WindowsPath" `ValidationError` instead of the accurate, path-naming error `load()`
+  already raised but could never reach. `can_handle()` now accepts any `Path` instance,
+  letting `load()`'s existence and file-vs-directory checks run and surface their message —
+  "Path does not exist: ..." — instead.
+- **An AsciiDoc hard line break inside a table cell no longer splits the row.**
+  `AsciiDocRenderer.visit_line_break` emitted `' +\n'` for every hard break regardless of
+  context, and a table row is written as one source line, so a cell with an embedded hard
+  break carried a literal newline into the middle of it. The project's own `AsciiDocParser`
+  reads rows line by line: re-parsing `'line1 +\nline2 |b'` produced a one-cell row
+  (`'line1 +'`) followed by a spurious second row (`'line2'`, `'b'`) instead of the original
+  two-cell row, and the `' +'` marker leaked into the first cell's text. The renderer now
+  tracks whether it is inside a table cell and, in that context, renders a hard break the
+  same way it already renders a soft one — as a single space — since AsciiDoc has no
+  in-cell line-break idiom this project's parser reads back as anything other than a new row.
+- **Text after a MediaWiki list or `:` block quote is no longer silently dropped.**
+  mwparserfromhell lumps everything up to the next markup construct into a single Text
+  node, so the paragraphs that follow `* item\n* item\nSome text.` lived inside the last
+  list item's Text node — the parser truncated that node to its first line for the item
+  and discarded the rest, along with the trailing paragraphs. The list/quote parsers now
+  return the unconsumed remainder so the caller can run it back through normal paragraph
+  processing; a list or quote whose Text node ends exactly at the last marker line still
+  emits no stray paragraphs.
+- **MediaWiki inline formatting no longer fuses with the words around it.**
+  mwparserfromhell splits a paragraph into one Text node per inline-markup boundary, so
+  `"This is '''bold''' text."` parsed to `Text('This is'), Strong([Text('bold')]),
+  Text('text.')` — every fragment fully stripped of its separating space — and rendered as
+  `This is**bold**text.`. Text fragments now collapse internal whitespace runs to a single
+  space instead of stripping them away, keeping the one space that separates a fragment
+  from a neighbouring `Strong`/`Emphasis`/`Link` node; only the true edges of a paragraph
+  or heading (trimmed once, when the fragment buffer is flushed) are stripped, so trailing
+  newlines and leading blank lines still produce clean paragraph/heading text with no stray
+  edge whitespace.
 
 ### Changed
 

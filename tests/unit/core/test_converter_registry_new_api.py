@@ -186,6 +186,63 @@ class TestRegistryNewAPI:
         f.write_bytes(content)
         assert registry.detect_format(str(f)) == "markdown"
 
+    @pytest.mark.parametrize(
+        "prose",
+        [
+            "Reminder: check results.csv",
+            "Payload attached as invoice.pdf",
+            "Please read the attached notes.docx",
+        ],
+    )
+    def test_inline_content_str_is_not_extension_matched(self, prose):
+        """Prose that merely mentions a filename is content, not that file's format.
+
+        ``detect_format`` used to treat *every* ``str`` as a filename and run
+        ``os.path.splitext`` over it, so "Reminder: check results.csv" detected as
+        ``csv`` and came back as a bogus one-cell table, and "Payload attached as
+        invoice.pdf" raised ``FileNotFoundError`` naming a path the caller never
+        passed. The input loader already rules these out (they contain whitespace,
+        see ``looks_like_path_attempt``); detection now applies the same rule.
+        """
+        assert registry.detect_format(prose) != prose.rsplit(".", 1)[-1]
+        assert registry.detect_format(prose) == "plaintext"
+
+    def test_inline_content_str_reaches_content_detection(self):
+        """Inline string content is offered to the content detectors.
+
+        Previously ``content`` stayed ``None`` for any ``str`` that was not an
+        openable file, so magic bytes and content detectors never saw it. A string
+        now detects exactly as the same bytes would.
+        """
+        html = "<html><body><h1>hi</h1></body></html>"
+        assert registry.detect_format(html) == "html"
+        assert registry.detect_format(html) == registry.detect_format(html.encode("utf-8"))
+
+        payload = '{"a": 1}'
+        assert registry.detect_format(payload) == registry.detect_format(payload.encode("utf-8"))
+
+    @pytest.mark.parametrize("value", ["notes.md", "docs/guide.rst", "out.txt"])
+    def test_path_shaped_str_still_extension_matched(self, value):
+        """A path-shaped ``str`` keeps extension matching even when it does not exist.
+
+        ``detect_format`` is also called on *output* paths, which by definition have
+        not been written yet, so path-ness must not be gated on file existence.
+        """
+        expected = {"notes.md": "markdown", "docs/guide.rst": "rst", "out.txt": "plaintext"}[value]
+        assert registry.detect_format(value) == expected
+
+    def test_existing_path_with_spaces_still_extension_matched(self, tmp_path):
+        """A real path containing whitespace is still detected from its extension.
+
+        ``looks_like_path_attempt`` says False for anything containing whitespace, so
+        existence has to be checked too or every "My Documents" path would be read as
+        prose.
+        """
+        source = tmp_path / "my report file.md"
+        source.write_text("plain body text", encoding="utf-8")
+
+        assert registry.detect_format(str(source)) == "markdown"
+
     def test_markdown_beats_sourcecode_for_md_extension(self):
         """Guard the latent markdown/sourcecode extension overlap.
 
@@ -195,6 +252,37 @@ class TestRegistryNewAPI:
         manifest regeneration can't silently reroute ``.md`` to sourcecode.
         """
         assert registry.detect_format("example.md") == "markdown"
+
+    def test_msg_extension_routes_to_outlook_not_eml(self, tmp_path):
+        """An Outlook ``.msg`` file must reach the Outlook parser, not the EML parser.
+
+        ``eml`` used to claim ``.msg`` in its extension list at a higher detection
+        priority than ``outlook``. Because extension matching runs before content
+        sniffing, every ``.msg`` path routed to the RFC-822 parser, which happily
+        fed OLE/CFBF bytes through ``message_from_binary_file`` and emitted mojibake
+        instead of raising.
+        """
+        ole_magic = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 64
+        msg_file = tmp_path / "mail.msg"
+        msg_file.write_bytes(ole_magic)
+
+        assert registry.detect_format(str(msg_file)) == "outlook"
+
+    def test_msg_named_stream_routes_to_outlook(self):
+        """A named binary stream ending in ``.msg`` also routes to Outlook."""
+        from io import BytesIO
+
+        stream = BytesIO(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 64)
+        stream.name = "mail.msg"  # type: ignore[attr-defined]
+
+        assert registry.detect_format(stream) == "outlook"
+
+    def test_eml_extension_still_routes_to_eml(self, tmp_path):
+        """Dropping ``.msg`` from the eml converter leaves ``.eml`` detection intact."""
+        eml_file = tmp_path / "mail.eml"
+        eml_file.write_bytes(b"From: a@example.com\r\nTo: b@example.com\r\nSubject: Hi\r\n\r\nBody\r\n")
+
+        assert registry.detect_format(str(eml_file)) == "eml"
 
     def test_options_class_can_be_instantiated(self):
         """Test that options classes returned by get_parser_options_class are usable."""
