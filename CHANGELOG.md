@@ -34,8 +34,84 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   assumed.
   ([#338](https://github.com/thomas-villani/all2md/issues/338))
 
+### Changed
+
+- **Removed an unreachable second block-processing pipeline from the PDF parser.**
+  `_process_text_region_to_ast` and the five helpers it alone called
+  (`_process_text_blocks_to_nodes`, `_process_blocks_line_text`,
+  `_process_blocks_line_monospace`, `_apply_column_detection` and
+  `_merge_columns_for_reading_order`) had no callers anywhere in the package or the test
+  suite. They were a near-duplicate of the live per-block path that had drifted away from
+  it — same responsibilities, different rotated-text, code-block and heading handling — so
+  reading them gave a misleading picture of what the parser actually does, and any fix
+  applied to one copy silently missed the other. No behaviour changes: nothing called them.
+
 ### Fixed
 
+- **A PDF's ruling-line table fallback no longer deletes the text of any region it
+  rejects.** Text that falls inside a detected table's bounding box is removed from the
+  page's ordinary text blocks *before* the table is validated, so that it is not emitted
+  twice. The `find_tables()` path knows this and hands the region's text back as a
+  paragraph from every one of its rejection branches. The ruling-line fallback —
+  `_extract_table_from_ruling_rect`, which reads a page's stroked lines directly — did
+  not: it returned bare `None` when extraction was switched off, when fewer than 2x2
+  ruling lines were found, and from each of its sparsity, uniformity and dot-leader/TOC
+  guards. Every one of those deleted the framed region's prose outright, and the
+  conversion still reported success. On a synthetic page holding a stroked frame with one
+  internal rule and a sentence inside it, `table_detection_mode="ruling"` produced *no
+  output at all* — the 2x2 grid was 75% empty, the sparsity guard rejected it, and the
+  sentence went with it. All five paths now return the region's text as a paragraph, the
+  same way the `find_tables()` path does. `table_fallback_extraction_mode="none"` is
+  included: it means "detect the region, don't build a table from it", and the region's
+  text has already been excluded by the time it is honoured — but it is not counted as a
+  table rejection, because nothing was rejected.
+- **A PDF list no longer nests a parent item underneath its own child.**
+  `_determine_list_level_from_x` assigned each newly seen indent the level
+  `len(x_levels)` — arrival order — and never compared the x-coordinates to each other.
+  The first list item of a run was therefore level 0 whatever its indent, and every new
+  indent after it was one level *deeper* whether it lay to the right or to the left. A
+  nested list that continues at the top of a column or page begins on a sub-bullet, which
+  is routine in two-column typesetting; the sub-bullet took level 0, the genuine top-level
+  bullet after it took level 1, and since the list builder reads a larger level as deeper,
+  the parent list ended up nested inside its own child. Levels are now assigned by
+  comparing x: within tolerance of an established indent is that indent's level, further
+  right than all of them opens a deeper one, further left than all of them opens a
+  shallower one, and an indent arriving between two known ones lands between their levels.
+  The numbers are no longer 0-based or contiguous — they are an ordering key, and
+  renumbering them would strand the levels the list builder has already recorded on its
+  stack. A list run that starts on a sub-bullet now emits that sub-list in its own right
+  rather than dropping it when the stack unwinds past its bottom. **Not** addressed: this
+  is still blind to columns, so the first item of a right-hand column reads as deeper than
+  anything in the left one.
+- **A PDF page whose text cannot be read no longer disappears without a trace.**
+  `_process_page_to_ast` wrapped its `page.get_text("dict", ...)` call in
+  `except (AttributeError, KeyError, Exception): return []` — no log line, no degraded
+  event, no progress event. A page that failed to extract was indistinguishable in the
+  output from a page that was genuinely blank, and the conversion still reported success;
+  worse, if every page tripped it, the document-level OCR safety net saw an empty document
+  and could put a perfectly good text PDF through OCR. The failure is now logged at
+  `WARNING` with the page number and the underlying exception, and recorded as a
+  `page_text_extraction_failed` degraded event at `error` severity so it reaches the
+  confidence report. The tolerance itself is unchanged and deliberate — one unreadable
+  page must not cost the other four hundred, and the parser is driven with mock pages that
+  cannot answer `get_text()` at all — so the page is still skipped rather than raising.
+  The in-place `dehyphenate_blocks()` call, which had drifted inside the same `try`, has
+  been hoisted out of it: it runs on blocks that were already read successfully, so a
+  failure there is a bug in all2md rather than an unreadable page, and it was being
+  laundered into the same silent empty page.
+- **A framed text box no longer becomes a one-cell PDF "table".** `_pdf_tables` states
+  that its caps "apply to both PyMuPDF's `find_tables()` output and our ruling-line
+  detector since both can fire on the same false-positive shapes", and the `find_tables()`
+  path enforces `MIN_TABLE_ROWS` x `MIN_TABLE_COLS` accordingly. The ruling-line detector
+  did not: it asked only for two horizontal and two vertical lines, which is a *single
+  cell*, so a stroked callout box that cleared the sparsity guard came out as one cell of
+  prose wrapped in pipes — the exact shape those constants exist to reject. It now applies
+  the same minimum to the grid the lines actually bound (`len(lines) - 1` per axis), and
+  demotes what it rejects to a paragraph like every other guard. The same function had also
+  re-hardcoded two shared thresholds as bare literals — `> 0.70` beside the imported
+  `MAX_TABLE_EMPTY_RATIO`, `>= 5` beside `MIN_FILLED_FOR_UNIFORMITY_CHECK` — which happened
+  to agree with them and would have drifted silently the first time either was retuned;
+  both now read the constant.
 - **Chunk character spans stay on the basis they claim under `--avoid-table-split` /
   `--avoid-code-split`.** Every chunk is stamped `char_basis="section_text"` — the span
   indexes the section's rendered Markdown — and that held only while a section was

@@ -56,7 +56,6 @@ from all2md.ast import (
 )
 from all2md.ast.transforms import InlineFormattingConsolidator, extract_nodes
 from all2md.constants import (
-    DEFAULT_OVERLAP_THRESHOLD_PX,
     DEPS_PDF,
     DEPS_PDF_LAYOUT,
     PDF_MIN_PYMUPDF_VERSION,
@@ -1982,13 +1981,35 @@ class PdfToAstConverter(BaseParser):
         # Detect tables on the page
         table_info, _, _ = self._detect_page_tables(page, page_num, total_pages)
 
-        # Extract all text blocks from the page
+        # Extract all text blocks from the page.
+        #
+        # A page whose text cannot be read at all is tolerated rather than fatal: one
+        # broken page should not cost the other 400, and the test suite drives this
+        # method with mock pages that cannot answer get_text() at all. But it is no
+        # longer silent. A page that vanished without a trace was indistinguishable in
+        # the output from a page that was genuinely blank, the conversion still reported
+        # success, and if every page tripped it the document-level OCR safety net saw an
+        # empty document and could re-run a perfectly good text PDF through OCR.
         try:
             all_blocks = page.get_text("dict", flags=pymupdf.TEXTFLAGS_TEXT, sort=False)["blocks"]
-            if self.options.merge_hyphenated_words:
-                dehyphenate_blocks(all_blocks)
-        except (AttributeError, KeyError, Exception):
+        except Exception as e:
+            logger.warning(
+                "Text extraction failed on page %d (%s); the page is dropped from the output.", page_num + 1, e
+            )
+            self._record_degraded(
+                "page_text_extraction_failed",
+                detail=f"page {page_num + 1}: {type(e).__name__}: {e}",
+                severity="error",
+            )
             return []
+
+        # Deliberately outside the try. dehyphenate_blocks() is defensive internally and
+        # operates on blocks we have already read successfully, so an exception from it
+        # is a bug in our own code, not an unreadable page -- and the catch above would
+        # have turned it into the same silent empty page. (It was moved inside the try in
+        # 0e2d5927, which predates this method's error handling meaning anything.)
+        if self.options.merge_hyphenated_words:
+            dehyphenate_blocks(all_blocks)
 
         # Run layout analysis if enabled (before any filtering so indices match).
         # Done before image extraction so that page-header / page-footer regions
@@ -2109,47 +2130,6 @@ class PdfToAstConverter(BaseParser):
 
         return nodes
 
-    def _apply_column_detection(self, blocks: list[dict]) -> list[dict]:
-        """Apply column detection to text blocks based on options.
-
-        Parameters
-        ----------
-        blocks : list[dict]
-            List of text blocks from PyMuPDF
-
-        Returns
-        -------
-        list[dict]
-            Processed blocks in reading order
-
-        """
-        if not self.options.detect_columns:
-            return blocks
-
-        # Check column_detection_mode option
-        if self.options.column_detection_mode in ("disabled", "force_single"):
-            # Force single column (no detection)
-            return blocks
-
-        # Apply column detection for force_multi or auto modes
-        if self.options.column_detection_mode == "force_multi":
-            columns: list[list[dict]] = detect_columns(
-                blocks,
-                self.options.column_gap_threshold,
-                use_clustering=self.options.use_column_clustering,
-                force_multi_column=True,
-            )
-        else:  # "auto" mode (default)
-            columns = detect_columns(
-                blocks,
-                self.options.column_gap_threshold,
-                use_clustering=self.options.use_column_clustering,
-                force_multi_column=False,
-            )
-
-        # Process blocks in proper reading order: top-to-bottom, left-to-right
-        return self._merge_columns_for_reading_order(columns)
-
     def _calculate_blocks_average_line_height(self, blocks: list[dict]) -> float | None:
         """Calculate average line height across multiple blocks."""
         line_heights = []
@@ -2165,173 +2145,6 @@ class PdfToAstConverter(BaseParser):
             logger.debug(f"Calculated average line height for page: {avg:.2f} points")
             return avg
         return None
-
-    def _process_blocks_line_monospace(self, spans: list, text: str, block: dict, state: _BlockProcessingState) -> bool:
-        """Handle monospace line in blocks processing. Returns True if handled."""
-        all_mono = all(s["flags"] & 8 for s in spans)
-        if not all_mono:
-            return False
-
-        state.in_code_block = True
-        span_size = spans[0]["size"]
-        delta = int((spans[0]["bbox"][0] - block["bbox"][0]) / (span_size * 0.5)) if span_size > 0 else 0
-        state.code_block_lines.append(" " * delta + text)
-        return True
-
-    def _process_blocks_line_text(
-        self,
-        spans: list,
-        links: list[dict],
-        page_num: int,
-        average_line_height: float | None,
-        state: _BlockProcessingState,
-    ) -> None:
-        """Process text line (heading or paragraph) in blocks processing."""
-        header_level = 0
-        if self._hdr_identifier:
-            line_style = compute_line_style(spans)
-            if line_style is not None:
-                header_level = self._hdr_identifier.classify_line_style(
-                    size=line_style.size,
-                    text=line_style.text,
-                    is_bold=line_style.is_bold,
-                    is_allcaps=line_style.is_allcaps,
-                )
-        inline_content = self._process_text_spans_to_inline(spans, links, page_num, average_line_height)
-
-        if not inline_content or not inline_has_text(inline_content):
-            return
-
-        if header_level > 0:
-            line_text = "".join(s.get("text", "") for s in spans).strip()
-            self._emit_heading(state, header_level, line_text, inline_content, page_num, _span_union_bbox(spans))
-        else:
-            # Paragraph emission orphans any buffered numbering prefix —
-            # flush it as its own heading so the marker isn't lost.
-            self._flush_pending_heading_prefix(state)
-            state.nodes.append(
-                AstParagraph(content=inline_content, source_location=SourceLocation(format="pdf", page=page_num + 1))
-            )
-
-    def _process_text_blocks_to_nodes(
-        self, blocks_to_process: list[dict], links: list[dict], page_num: int
-    ) -> list[Node]:
-        """Process text blocks into AST nodes.
-
-        Parameters
-        ----------
-        blocks_to_process : list[dict]
-            Text blocks to process
-        links : list[dict]
-            Links on the page
-        page_num : int
-            Page number for source tracking
-
-        Returns
-        -------
-        list[Node]
-            List of AST nodes
-
-        """
-        average_line_height = self._calculate_blocks_average_line_height(blocks_to_process)
-        state = _BlockProcessingState()
-
-        for block in blocks_to_process:
-            previous_y = 0.0
-
-            for line in block["lines"]:
-                # Handle rotated text — group consecutive same-direction lines
-                if line.get("dir", (0, 0))[1] != 0:
-                    if self.options.handle_rotated_text:
-                        self._accumulate_rotated_line(line, state, page_num)
-                    continue
-                # Horizontal line: flush any pending rotated run before continuing
-                self._flush_rotated_text(state, page_num)
-
-                spans = list(line["spans"])
-                if not spans:
-                    continue
-
-                this_y = line["bbox"][3]
-                same_line = abs(this_y - previous_y) <= DEFAULT_OVERLAP_THRESHOLD_PX and previous_y > 0
-                text = "".join([s["text"] for s in spans])
-
-                if not same_line:
-                    previous_y = this_y
-
-                # Handle monospace text (code blocks)
-                if self._process_blocks_line_monospace(spans, text, block, state):
-                    continue
-
-                # Finalize code block if we were in one
-                if state.in_code_block:
-                    self._finalize_code_block(state, page_num)
-
-                # Process text line (heading or paragraph)
-                self._process_blocks_line_text(spans, links, page_num, average_line_height, state)
-
-        # Finalize any remaining code block
-        if state.in_code_block:
-            self._finalize_code_block(state, page_num)
-
-        # Flush any trailing rotated-text run
-        self._flush_rotated_text(state, page_num)
-
-        # Drop any unmerged numbering prefix as a standalone heading rather
-        # than silently swallowing it.
-        self._flush_pending_heading_prefix(state)
-
-        return state.nodes
-
-    def _process_text_region_to_ast(self, page: "pymupdf.Page", clip: "pymupdf.Rect", page_num: int) -> list[Node]:
-        """Process a text region to AST nodes.
-
-        Parameters
-        ----------
-        page : pymupdf.Page
-            PDF page
-        clip : pymupdf.Rect
-            Clipping rectangle for text extraction
-        page_num : int
-            Page number for source tracking
-
-        Returns
-        -------
-        list of Node
-            List of AST nodes (paragraphs, headings, code blocks)
-
-        """
-        import pymupdf
-
-        # Extract URL type links on page
-        try:
-            links = [line for line in page.get_links() if line["kind"] == 2]
-        except (AttributeError, Exception):
-            links = []
-
-        # Extract text blocks
-        try:
-            blocks = page.get_text(
-                "dict",
-                clip=clip,
-                flags=pymupdf.TEXTFLAGS_TEXT,
-                sort=False,
-            )["blocks"]
-            if self.options.merge_hyphenated_words:
-                dehyphenate_blocks(blocks)
-        except (AttributeError, KeyError, Exception):
-            # If extraction fails (e.g., in tests), return empty
-            return []
-
-        # Filter out headers/footers if trim_headers_footers is enabled
-        if self.options.trim_headers_footers:
-            blocks = self._filter_headers_footers(blocks, page)
-
-        # Apply column detection
-        blocks_to_process = self._apply_column_detection(blocks)
-
-        # Process blocks to create AST nodes
-        return self._process_text_blocks_to_nodes(blocks_to_process, links, page_num)
 
     def _process_text_spans_to_inline(
         self, spans: list[dict], links: list[dict], page_num: int, average_line_height: float | None = None
@@ -3279,7 +3092,7 @@ class PdfToAstConverter(BaseParser):
         h_lines: list[tuple],
         v_lines: list[tuple],
         page_num: int,
-    ) -> AstTable | None:
+    ) -> Node | None:
         """Extract table content from a bounding box using ruling lines.
 
         Implements basic grid-based cell segmentation using detected horizontal
@@ -3300,28 +3113,33 @@ class PdfToAstConverter(BaseParser):
 
         Returns
         -------
-        AstTable or None
-            Table node if extraction successful
+        Node or None
+            A table when the ruling lines really bound one; a paragraph carrying the
+            region's text when the detection is rejected or extraction is switched
+            off; ``None`` only when the region holds no text at all.
 
         Notes
         -----
         This method uses grid-based cell segmentation. It may not work well
         for tables without clear ruling lines or with merged cells.
 
+        Every path out of here that is *not* a table returns the region's text as a
+        paragraph rather than ``None``. The region's text was removed from the ordinary
+        text blocks before this ran (see :meth:`_region_text_as_paragraph`), so this
+        method is the only remaining copy of it: ``None`` deletes it, it does not demote
+        it. The caller, :meth:`_process_table_item`, appends whatever comes back and
+        adds nothing of its own, so there is no risk of emitting the text twice.
+
         """
         if self.options.table_fallback_extraction_mode == "none":
-            return None
+            # "Detect only, don't extract". The region was still detected, so its text is
+            # already out of the text blocks -- hand it back as prose. Not recorded as a
+            # rejection: nothing was rejected, the caller configured extraction off.
+            return self._region_text_as_paragraph(page, table_rect, page_num)
 
         # Sort lines for grid creation
         h_lines_sorted = sorted(h_lines, key=lambda line: line[1])  # Sort by y-coordinate
         v_lines_sorted = sorted(v_lines, key=lambda line: line[0])  # Sort by x-coordinate
-
-        if len(h_lines_sorted) < 2 or len(v_lines_sorted) < 2:
-            # Need at least 2 horizontal and 2 vertical lines to form cells
-            return None
-
-        # Create grid cells from line intersections
-        rows: list[TableRow] = []
 
         # Extract y-coordinates for rows (between consecutive h_lines)
         row_y_coords = [(h_lines_sorted[i][1], h_lines_sorted[i + 1][1]) for i in range(len(h_lines_sorted) - 1)]
@@ -3332,6 +3150,23 @@ class PdfToAstConverter(BaseParser):
         n_rows = len(row_y_coords)
         n_cols = len(col_x_coords)
         n_cells = n_rows * n_cols
+
+        # The same degenerate-grid cap the find_tables() path applies, on the grid the
+        # ruling lines actually bound: n lines on an axis bound n-1 cells, so the old
+        # ">= 2 lines on each axis" test admitted a 1x1 "table" -- a framed text box that
+        # cleared the sparsity guard came out as a single cell of prose wrapped in pipes.
+        # Fewer than two lines on an axis bounds no cells at all and lands here too.
+        if n_rows < MIN_TABLE_ROWS or n_cols < MIN_TABLE_COLS:
+            logger.debug(
+                f"Rejecting ruling-line table on page {page_num + 1}: "
+                f"{n_rows}x{n_cols} is not a grid (needs at least "
+                f"{MIN_TABLE_ROWS}x{MIN_TABLE_COLS})"
+            )
+            self._record_table_rejection("degenerate_grid")
+            return self._region_text_as_paragraph(page, table_rect, page_num)
+
+        # Create grid cells from line intersections
+        rows: list[TableRow] = []
 
         import pymupdf
 
@@ -3360,29 +3195,29 @@ class PdfToAstConverter(BaseParser):
             rows.append(TableRow(cells=cells, is_header=is_header))
 
         if not rows:
-            return None
+            return self._region_text_as_paragraph(page, table_rect, page_num)
 
-        # Sparsity guard: real tables are not mostly empty. A "table" with
-        # >70% empty cells is almost always a misfire on a bordered region.
-        if n_cells > 0 and n_empty / n_cells > 0.70:
+        # Sparsity guard: real tables are not mostly empty. A "table" past
+        # MAX_TABLE_EMPTY_RATIO is almost always a misfire on a bordered region.
+        if n_cells > 0 and n_empty / n_cells > MAX_TABLE_EMPTY_RATIO:
             logger.debug(
                 f"Rejecting ruling-line table on page {page_num + 1}: "
                 f"{n_empty}/{n_cells} ({n_empty / n_cells:.0%}) cells empty"
             )
             self._record_table_rejection("mostly_empty")
-            return None
+            return self._region_text_as_paragraph(page, table_rect, page_num)
 
         # Uniformity guard: a "table" where every non-empty cell has the same
         # content is the prompt-callout pattern (decorative box with a
         # repeated title fragment scattered across cells).
         n_filled = n_cells - n_empty
-        if len(unique_texts) == 1 and n_filled >= 5:
+        if len(unique_texts) == 1 and n_filled >= MIN_FILLED_FOR_UNIFORMITY_CHECK:
             logger.debug(
                 f"Rejecting ruling-line table on page {page_num + 1}: "
                 f"all {n_filled} non-empty cells have identical content"
             )
             self._record_table_rejection("uniform_cells")
-            return None
+            return self._region_text_as_paragraph(page, table_rect, page_num)
 
         if n_filled and n_dot_leader / n_filled > MAX_DOT_LEADER_CELL_RATIO:
             logger.debug(
@@ -3391,7 +3226,7 @@ class PdfToAstConverter(BaseParser):
                 f"dot-leader noise (looks like TOC region)"
             )
             self._record_table_rejection("dot_leader_toc")
-            return None
+            return self._region_text_as_paragraph(page, table_rect, page_num)
 
         # Separate header and data rows
         header_row = rows[0] if rows else TableRow(cells=[])
@@ -3661,38 +3496,6 @@ class PdfToAstConverter(BaseParser):
 
         return filtered_blocks
 
-    def _merge_columns_for_reading_order(self, columns: list[list[dict]]) -> list[dict]:
-        """Merge multiple columns into proper reading order.
-
-        For multi-column layouts, the standard reading order is column-by-column:
-        read the entire left column top-to-bottom, then move to the right column
-        and read it top-to-bottom. This matches how PyMuPDF naturally orders blocks
-        and is the expected behavior for most multi-column documents.
-
-        Parameters
-        ----------
-        columns : list[list[dict]]
-            List of columns, where each column is a list of blocks
-
-        Returns
-        -------
-        list[dict]
-            Merged list of blocks in proper reading order
-
-        """
-        if len(columns) <= 1:
-            # Single column or empty, just return flattened
-            return [block for col in columns for block in col]
-
-        # Sort each column by y-coordinate (top to bottom)
-        # Then concatenate: all of column 0, then all of column 1, etc.
-        result = []
-        for column in columns:
-            sorted_column = sorted(column, key=lambda b: b.get("bbox", [0, 0, 0, 0])[1])
-            result.extend(sorted_column)
-
-        return result
-
     def _is_list_item_paragraph(self, paragraph: AstParagraph) -> bool:
         """Check if paragraph starts with a list marker.
 
@@ -3725,27 +3528,72 @@ class PdfToAstConverter(BaseParser):
         x_coord : float
             The x-coordinate of the list item
         x_levels : dict
-            Dictionary mapping level numbers to representative x-coordinates
+            Level number -> the x-coordinate anchoring it. Mutated in place as new
+            indents are seen; the caller clears it whenever a non-list node ends the run.
 
         Returns
         -------
         int
-            The nesting level (0-based)
+            The nesting level: an ordering key, not a count. A larger ``x`` always
+            yields a larger level, but the numbers are neither 0-based nor contiguous.
+            See the notes.
 
         Notes
         -----
-        X-coordinates within 5 points of each other are considered the same level.
+        X-coordinates within 5 points of an established indent are that indent's level.
+
+        Levels used to be handed out in *arrival* order (``len(x_levels)``), so the first
+        item seen was level 0 whatever its indent, and each new indent after it was one
+        level deeper whether it lay to the right or to the left. A nested list that
+        continues at the top of a column or page begins on a sub-bullet -- routine in
+        two-column typesetting -- so the sub-bullet took level 0 and the genuine
+        top-level bullet after it took level 1. The caller reads a larger level as
+        "deeper", so it nested the parent underneath its own child.
+
+        An indent shallower than everything seen so far consequently has to be able to
+        become a shallower *level* after the fact, and one arriving between two known
+        indents has to be able to land between their levels. Renumbering would strand
+        the level numbers the caller has already recorded on its list stack, so instead
+        the numbers are only ever compared, never counted: a shallower indent takes
+        ``min(...) - LEVEL_STRIDE``, a deeper one ``max(...) + LEVEL_STRIDE``, and one in
+        between takes the midpoint of its two neighbours' levels. The stride is what
+        leaves room for that midpoint; ten successive insertions into the same gap
+        exhaust it, at which point the indent joins the nearer of the two rather than
+        colliding with one of them.
+
+        Known limitation, deliberately out of scope: this is blind to columns. The first
+        item of a right-hand column sits at a larger ``x`` than anything in the left one,
+        so it still reads as deeper. Fixing that needs to know which column each item
+        came from, which this helper is not given.
 
         """
         LEVEL_THRESHOLD = 5.0
+        LEVEL_STRIDE = 1024
 
-        # Check if x_coord matches an existing level
-        for level, level_x in x_levels.items():
-            if abs(x_coord - level_x) < LEVEL_THRESHOLD:
-                return level
+        if not x_levels:
+            x_levels[0] = x_coord
+            return 0
 
-        # New level - assign it the next available level number
-        new_level = len(x_levels)
+        # Compare against the *nearest* indent rather than the first one within
+        # tolerance: with several levels established, "first match wins" is arrival order
+        # again, by way of the dict's insertion order.
+        nearest_level = min(x_levels, key=lambda level: abs(x_coord - x_levels[level]))
+        if abs(x_coord - x_levels[nearest_level]) < LEVEL_THRESHOLD:
+            return nearest_level
+
+        if x_coord > max(x_levels.values()):
+            new_level = max(x_levels) + LEVEL_STRIDE
+        elif x_coord < min(x_levels.values()):
+            new_level = min(x_levels) - LEVEL_STRIDE
+        else:
+            # Between two established indents. Level order tracks indent order, so the
+            # neighbouring levels can be picked out by number.
+            below = max(level for level, level_x in x_levels.items() if level_x < x_coord)
+            above = min(level for level, level_x in x_levels.items() if level_x > x_coord)
+            new_level = (below + above) // 2
+            if new_level in (below, above):
+                return nearest_level
+
         x_levels[new_level] = x_coord
         return new_level
 
@@ -4223,6 +4071,14 @@ class PdfToAstConverter(BaseParser):
                 parent_items = list_stack[-1][2]
                 if parent_items:
                     parent_items[-1].children.append(nested_list)
+            else:
+                # Nothing shallower left to nest under. Reachable since
+                # _determine_list_level_from_x learned to place a later, shallower indent
+                # *below* the level the stack was opened at: the sub-bullet-first case,
+                # where the run's own first item is a nested one. Its items have no parent
+                # in this document -- the parent came before them, or not at all -- so the
+                # list stands on its own. Dropping it here would delete them.
+                result.append(nested_list)
 
         # Check if we're at the same level and type
         if list_stack and list_stack[-1][1] == level:
