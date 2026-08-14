@@ -65,6 +65,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   included: it means "detect the region, don't build a table from it", and the region's
   text has already been excluded by the time it is honoured — but it is not counted as a
   table rejection, because nothing was rejected.
+- **A PDF page whose text cannot be read no longer disappears without a trace.**
+  `_process_page_to_ast` wrapped its `page.get_text("dict", ...)` call in
+  `except (AttributeError, KeyError, Exception): return []` — no log line, no degraded
+  event, no progress event. A page that failed to extract was indistinguishable in the
+  output from a page that was genuinely blank, and the conversion still reported success;
+  worse, if every page tripped it, the document-level OCR safety net saw an empty document
+  and could put a perfectly good text PDF through OCR. The failure is now logged at
+  `WARNING` with the page number and the underlying exception, and recorded as a
+  `page_text_extraction_failed` degraded event at `error` severity so it reaches the
+  confidence report. The tolerance itself is unchanged and deliberate — one unreadable
+  page must not cost the other four hundred, and the parser is driven with mock pages that
+  cannot answer `get_text()` at all — so the page is still skipped rather than raising.
+  The in-place `dehyphenate_blocks()` call, which had drifted inside the same `try`, has
+  been hoisted out of it: it runs on blocks that were already read successfully, so a
+  failure there is a bug in all2md rather than an unreadable page, and it was being
+  laundered into the same silent empty page.
 - **A framed text box no longer becomes a one-cell PDF "table".** `_pdf_tables` states
   that its caps "apply to both PyMuPDF's `find_tables()` output and our ruling-line
   detector since both can fire on the same false-positive shapes", and the `find_tables()`

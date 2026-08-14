@@ -1981,13 +1981,35 @@ class PdfToAstConverter(BaseParser):
         # Detect tables on the page
         table_info, _, _ = self._detect_page_tables(page, page_num, total_pages)
 
-        # Extract all text blocks from the page
+        # Extract all text blocks from the page.
+        #
+        # A page whose text cannot be read at all is tolerated rather than fatal: one
+        # broken page should not cost the other 400, and the test suite drives this
+        # method with mock pages that cannot answer get_text() at all. But it is no
+        # longer silent. A page that vanished without a trace was indistinguishable in
+        # the output from a page that was genuinely blank, the conversion still reported
+        # success, and if every page tripped it the document-level OCR safety net saw an
+        # empty document and could re-run a perfectly good text PDF through OCR.
         try:
             all_blocks = page.get_text("dict", flags=pymupdf.TEXTFLAGS_TEXT, sort=False)["blocks"]
-            if self.options.merge_hyphenated_words:
-                dehyphenate_blocks(all_blocks)
-        except (AttributeError, KeyError, Exception):
+        except Exception as e:
+            logger.warning(
+                "Text extraction failed on page %d (%s); the page is dropped from the output.", page_num + 1, e
+            )
+            self._record_degraded(
+                "page_text_extraction_failed",
+                detail=f"page {page_num + 1}: {type(e).__name__}: {e}",
+                severity="error",
+            )
             return []
+
+        # Deliberately outside the try. dehyphenate_blocks() is defensive internally and
+        # operates on blocks we have already read successfully, so an exception from it
+        # is a bug in our own code, not an unreadable page -- and the catch above would
+        # have turned it into the same silent empty page. (It was moved inside the try in
+        # 0e2d5927, which predates this method's error handling meaning anything.)
+        if self.options.merge_hyphenated_words:
+            dehyphenate_blocks(all_blocks)
 
         # Run layout analysis if enabled (before any filtering so indices match).
         # Done before image extraction so that page-header / page-footer regions
