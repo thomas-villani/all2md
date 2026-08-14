@@ -45,6 +45,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   it — same responsibilities, different rotated-text, code-block and heading handling — so
   reading them gave a misleading picture of what the parser actually does, and any fix
   applied to one copy silently missed the other. No behaviour changes: nothing called them.
+- **Removed `enrich_metadata_with_conversion_info`** (`utils/metadata.py`). A repo-wide
+  search found no reference to it outside its own definition — not imported, not exported,
+  not called from any parser, test, or script. ~85 unmaintained lines, including a
+  stream-position trap for file-like input. No behaviour changes: nothing called it.
 
 ### Fixed
 
