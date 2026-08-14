@@ -151,9 +151,16 @@ class AsciiDocLexer:
         self.heading_pattern = re.compile(r"^(={1,6})\s+(.+?)(?:\s+\1)?$")
         self.ul_pattern = re.compile(r"^(\*{1,5})\s+(.*)$")
         self.ol_pattern = re.compile(r"^(\.{1,5})\s+(.*)$")
-        # Description list: supports both :: and ; delimiters
+        # Description list: supports both :: and ;; delimiters.
+        #
+        # The marker is a doubled semicolon, never a single one. Matching a single ';'
+        # turned ordinary prose into a definition list: "Alpha; beta gamma." became the
+        # term "Alpha" with the description "beta gamma.", a line merely ending in ';'
+        # became a bare term, and a semicolon anywhere on a wrapped line split the
+        # paragraph it belonged to. Nothing in AsciiDoc spells a description list that
+        # way -- the markers are '::', ':::', '::::' and ';;'.
         self.desc_pattern_double_colon = re.compile(r"^(.+?)::(?:\s+(.*))?$")
-        self.desc_pattern_semicolon = re.compile(r"^(.+?);(?:\s+(.*))?$")
+        self.desc_pattern_semicolon = re.compile(r"^(.+?);;(?:\s+(.*))?$")
         self.checklist_pattern = re.compile(r"^(\*+)\s+\[([ x*])\]\s+(.*)$")
         self.attribute_pattern = re.compile(r"^:([^:!]+)(!)?:\s*(.*)$")
         self.block_attr_pattern = re.compile(r"^\[([^\]]+)\]$")
@@ -351,7 +358,7 @@ class AsciiDocParser(BaseParser):
       - Unordered (\* through \*****)
       - Ordered (. through .....)
       - Checklists (\* [x] or \* [ ])
-      - Description lists (term:: or term;)
+      - Description lists (term:: or term;;)
     - Code blocks (----) with language support via [source,lang]
     - Literal blocks (....) for preformatted text
     - Block quotes (____)

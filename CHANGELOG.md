@@ -74,6 +74,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `max_messages` on an eml parse, was dropped as "not for the formats in this conversion"
   and silently applied nothing. The split now uses the receiving instance's class when one
   is given.
+- **An Org greater block containing a blank line is no longer torn apart.** The Org
+  parser split a heading's body on blank lines and only *then* looked for
+  `#+BEGIN_`/`#+END_` delimiters, so a block whose contents contained a blank line — an
+  ordinary thing to write in source code, and the only way to write two paragraphs in a
+  `#+BEGIN_QUOTE` — was cut into fragments before anything could see it was one element.
+  The fragment holding `#+BEGIN_SRC` had no end delimiter, the fragments after it
+  re-parsed as prose (complete with Org inline markup applied to code), and the fragment
+  holding `#+END_SRC` printed that delimiter verbatim as body text: `#+BEGIN_SRC python`
+  / `x = 1` / blank / `y = 2` / `#+END_SRC` produced a `CodeBlock` of just `x = 1`
+  followed by a paragraph reading `y = 2 #+END_SRC`. Body segmentation is now aware of
+  open blocks, the same way the file-property filter above it already was: a blank line
+  inside a `#+BEGIN_x` region is content, and only a matching `#+END_x` closes it, so
+  code that itself contains `#+`-prefixed lines stays intact. Because a greater block is
+  an element in its own right, a delimiter now also bounds the elements around it when no
+  blank line separates them — which additionally recovers text written directly after
+  `#+END_SRC`, previously swallowed by the block and dropped. Affiliated keywords such as
+  `#+CAPTION:` still attach to the block beneath them.
+- **An Org list item's wrapped continuation line is no longer deleted.** `_parse_list`
+  kept only the lines that matched a bullet or number marker and had no branch for
+  anything else, so a line continuing an item's text onto the next line — how any
+  reasonably long item is written — simply vanished. `- item one continues` /
+  `  onto a wrapped line` / `- item two` produced a two-item list in which
+  `onto a wrapped line` appeared nowhere at all, with nothing to indicate text had been
+  dropped. A non-marker line now joins the preceding item's principal text separated by
+  a single space, which is the rule the AsciiDoc parser was given for the same defect in
+  [#343](https://github.com/thomas-villani/all2md/issues/343); a wrapped item and the
+  same item written on one line now parse to equal documents. Nested items are still
+  flattened to a single level — the loop strips each line before matching it, so the
+  indentation that marks a sub-item is gone before the marker is read — and that is
+  unchanged by this fix.
+- **A single `;` in AsciiDoc prose no longer creates a description list.** The lexer's
+  description-list pattern was `^(.+?);(?:\s+(.*))?$`, which matches an enormous amount
+  of ordinary writing: `Alpha; beta gamma.` was lexed as the term `Alpha` with the
+  description `beta gamma.`, a line merely ending in `;` became a bare term with no
+  description, and a semicolon anywhere on a wrapped line broke the paragraph it belonged
+  to in two — the text before the wrap staying a paragraph and the rest becoming a
+  definition list. AsciiDoc has no such marker; its description lists are written `::`,
+  `:::`, `::::` or `;;`. The pattern now requires the doubled `;;`, which parses exactly
+  as `::` does, and the class docstring's `term::` or `term;` has been corrected. One
+  existing test asserted the single-semicolon behaviour and has been updated: it encoded
+  the defect rather than the language.
 - **Words no longer fuse across a formatting change in run-based formats.**
   `group_and_format_runs` — the shared helper that turns a paragraph's runs into inline
   nodes for PPTX (and available to any run-based parser) — joined each same-format group
@@ -303,6 +344,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   or heading (trimmed once, when the fragment buffer is flushed) are stripped, so trailing
   newlines and leading blank lines still produce clean paragraph/heading text with no stray
   edge whitespace.
+- **The PDF image-caption fallback no longer treats a plural sentence opener as a figure
+  cue.** The fallback (used when the layout model has no `caption` region for an image)
+  matches a line against a "Figure 3" / "Fig. 2b"-style opener, but the pattern allowed zero
+  whitespace before its letter alternative and matched the whole thing case-insensitively —
+  so `[A-Z]` also matched the lowercase trailing "s" of a plural: "Figures in this study",
+  "Images were acquired using a confocal microscope" and "Tables 1 and 2" all satisfied the
+  cue as if the "s" were a figure-letter locator like "Fig B". The locator half of the match
+  (the digits or letter after the keyword) is now checked case-sensitively and, for a letter,
+  requires real whitespace before it, so a plural opener's trailing "s" can no longer stand in
+  for one. Genuine cues ("Figure 3:", "FIGURE 4", "Fig B", "Table 1.") are unaffected.
+- **`header_min_occurrences` now actually filters by occurrence.** The option is documented
+  as "minimum occurrences of a font size to consider it for headers" (its docstring's stale
+  "default 3" is also corrected to the real default, 5), but the statistic it was checked
+  against accumulated *characters*, not occurrences: `fontsizes[size] += len(text)` per span.
+  A font size needed fewer than 5 rendered characters — trivial for almost any span — to be
+  dropped, so the filter was a near no-op regardless of how many times that size actually
+  appeared. A separate line-occurrence count is now tracked and checked against
+  `header_min_occurrences` instead. Body-text detection ("which size covers most of the
+  page") still runs on the character-count statistic, unaffected by this change, since
+  characters and occurrences answer different questions and a paragraph condensed onto one
+  packed line should still out-rank a heading for body status. The single largest font size
+  on the page is exempt from the occurrence check: by convention it is the document's title,
+  which renders once by design and would otherwise never clear a repetition threshold now
+  that repetition is measured for real. Every other size — subordinate headings, and any
+  one-off oversized span the filter exists to catch — is filtered as documented. This is a
+  real behaviour change for header detection: a font size that previously qualified on
+  character count alone but occurs only a couple of times (and is not the page's largest)
+  will no longer be treated as a heading size.
 
 ### Changed
 
