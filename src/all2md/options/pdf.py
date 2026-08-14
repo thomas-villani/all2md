@@ -86,8 +86,9 @@ class PdfOptions(PaginatedParserOptions):
         Pages to sample for header font size analysis. If None, samples all pages.
     header_percentile_threshold : float, default 75
         Percentile threshold for header detection (e.g., 75 = top 25% of font sizes).
-    header_min_occurrences : int, default 3
-        Minimum occurrences of a font size to consider it for headers.
+    header_min_occurrences : int, default 5
+        Minimum number of lines rendered at a font size for that size to be considered
+        for headers.
     header_size_allowlist : list[float] | None, default None
         Specific font sizes to always treat as headers.
     header_size_denylist : list[float] | None, default None
@@ -264,7 +265,7 @@ class PdfOptions(PaginatedParserOptions):
     header_min_occurrences: int = field(
         default=DEFAULT_HEADER_MIN_OCCURRENCES,
         metadata={
-            "help": "Minimum occurrences of a font size to consider for headers",
+            "help": "Minimum number of lines at a font size to consider it for headers",
             "type": int,
             "importance": "advanced",
         },

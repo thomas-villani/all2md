@@ -97,25 +97,36 @@ class IdentifyHeaders:
         pages_to_use = self._determine_pages_to_sample(doc, pages)
 
         # Step 2: Collect font statistics from sampled pages
-        fontsizes, fontweight_sizes, allcaps_sizes = self._collect_font_statistics(doc, pages_to_use)
+        fontsizes, fontsize_occurrences, fontweight_sizes, allcaps_sizes = self._collect_font_statistics(
+            doc, pages_to_use
+        )
 
-        # Step 3: Apply filters (denylist, minimum occurrences)
-        fontsizes = self._apply_filters(fontsizes)
+        # Step 3: Denylist first, so a banned size can't determine body text either.
+        fontsizes, fontsize_occurrences = self._apply_denylist(fontsizes, fontsize_occurrences)
 
-        # Step 4: Determine body text size
+        # Step 4: Determine body text size. This runs on the character-count totals,
+        # not the occurrence counts, and *before* the occurrence filter -- body text is
+        # "whatever covers the most of the page", which characters answer robustly and
+        # occurrences do not (a paragraph condensed onto one packed line still holds
+        # most of the page's actual text).
         body_limit = self._determine_body_limit(fontsizes, body_limit)
 
-        # Step 5: Calculate header sizes based on font size analysis
+        # Step 5: Apply the minimum-occurrences filter to the header candidate pool.
+        fontsizes = self._apply_min_occurrences(fontsizes, fontsize_occurrences)
+
+        # Step 6: Calculate header sizes based on font size analysis
         sizes = self._calculate_header_sizes(fontsizes, body_limit)
 
-        # Step 6: Add style-based headers (bold, all-caps)
+        # Step 7: Add style-based headers (bold, all-caps)
         sizes = self._add_style_based_headers(sizes, fontweight_sizes, allcaps_sizes, body_limit, fontsizes)
 
-        # Step 7: Build the header level mapping
+        # Step 8: Build the header level mapping
         self._build_header_mapping(sizes)
 
-        # Step 8: Store debug information if enabled
-        self._store_debug_info(fontsizes, fontweight_sizes, allcaps_sizes, body_limit, sizes, pages_to_use)
+        # Step 9: Store debug information if enabled
+        self._store_debug_info(
+            fontsizes, fontsize_occurrences, fontweight_sizes, allcaps_sizes, body_limit, sizes, pages_to_use
+        )
 
     def _determine_pages_to_sample(
         self,
@@ -190,7 +201,7 @@ class IdentifyHeaders:
         self,
         doc: Any,
         pages_to_use: list[int],
-    ) -> tuple[dict[int, int], dict[int, int], dict[int, int]]:
+    ) -> tuple[dict[int, int], dict[int, int], dict[int, int], dict[int, int]]:
         """Collect font size statistics from specified pages.
 
         Parameters
@@ -202,14 +213,23 @@ class IdentifyHeaders:
 
         Returns
         -------
-        tuple[dict[int, int], dict[int, int], dict[int, int]]
-            Tuple of (fontsizes, fontweight_sizes, allcaps_sizes) dictionaries
-            mapping font sizes to character counts
+        tuple[dict[int, int], dict[int, int], dict[int, int], dict[int, int]]
+            Tuple of (fontsizes, fontsize_occurrences, fontweight_sizes, allcaps_sizes).
+            ``fontsizes`` maps a font size to its total character count, which is what
+            decides body text (the size covering the most of the page). ``fontsize_occurrences``
+            maps a font size to the number of *lines* rendered at that size -- a real
+            occurrence count, matching ``header_min_occurrences``' documented meaning; it
+            exists separately because character count and line count answer different
+            questions and a size that dominates one can be rare on the other (a two-line
+            title is long in characters but occurs twice). The style dicts are unfiltered
+            presence/magnitude trackers (see ``_add_style_based_headers``) and still map to
+            character counts, since nothing compares them against ``header_min_occurrences``.
 
         """
         import pymupdf
 
         fontsizes: dict[int, int] = {}
+        fontsize_occurrences: dict[int, int] = {}
         fontweight_sizes: dict[int, int] = {}
         allcaps_sizes: dict[int, int] = {}
 
@@ -217,24 +237,33 @@ class IdentifyHeaders:
             page = doc[pno]
             blocks = page.get_text("dict", flags=pymupdf.TEXTFLAGS_TEXT)["blocks"]
 
-            for span in self._iter_horizontal_spans(blocks):
-                fontsz = round(span["size"])
-                text = span["text"].strip()
-                text_len = len(text)
+            for line_spans in self._iter_horizontal_lines(blocks):
+                # One occurrence per line per size, even if the line's formatting
+                # changes mid-way and produces several same-size spans.
+                line_sizes: set[int] = set()
 
-                fontsizes[fontsz] = fontsizes.get(fontsz, 0) + text_len
+                for span in line_spans:
+                    fontsz = round(span["size"])
+                    text = span["text"].strip()
+                    text_len = len(text)
 
-                if self.options.header_use_font_weight and (span["flags"] & 16):
-                    fontweight_sizes[fontsz] = fontweight_sizes.get(fontsz, 0) + text_len
+                    fontsizes[fontsz] = fontsizes.get(fontsz, 0) + text_len
+                    line_sizes.add(fontsz)
 
-                if self.options.header_use_all_caps and text.isupper() and text.isalpha():
-                    allcaps_sizes[fontsz] = allcaps_sizes.get(fontsz, 0) + text_len
+                    if self.options.header_use_font_weight and (span["flags"] & 16):
+                        fontweight_sizes[fontsz] = fontweight_sizes.get(fontsz, 0) + text_len
 
-        return fontsizes, fontweight_sizes, allcaps_sizes
+                    if self.options.header_use_all_caps and text.isupper() and text.isalpha():
+                        allcaps_sizes[fontsz] = allcaps_sizes.get(fontsz, 0) + text_len
+
+                for fontsz in line_sizes:
+                    fontsize_occurrences[fontsz] = fontsize_occurrences.get(fontsz, 0) + 1
+
+        return fontsizes, fontsize_occurrences, fontweight_sizes, allcaps_sizes
 
     @staticmethod
-    def _iter_horizontal_spans(blocks: list) -> Any:
-        """Yield non-empty horizontal text spans from blocks.
+    def _iter_horizontal_lines(blocks: list) -> Any:
+        """Yield each horizontal line's non-empty spans, grouped by line.
 
         Parameters
         ----------
@@ -243,40 +272,85 @@ class IdentifyHeaders:
 
         Yields
         ------
-        dict
-            Text span dictionaries
+        list[dict]
+            The non-whitespace spans belonging to one horizontal (``dir == (1, 0)``)
+            text line. A line with no non-whitespace spans is skipped entirely.
 
         """
         for block in blocks:
             for line in block.get("lines", []):
                 if line.get("dir") != (1, 0):
                     continue
-                for span in line.get("spans", []):
-                    if not SPACES.issuperset(span.get("text", "")):
-                        yield span
+                spans = [span for span in line.get("spans", []) if not SPACES.issuperset(span.get("text", ""))]
+                if spans:
+                    yield spans
 
-    def _apply_filters(self, fontsizes: dict[int, int]) -> dict[int, int]:
-        """Apply denylist and minimum occurrence filters to font sizes.
+    def _apply_denylist(
+        self,
+        fontsizes: dict[int, int],
+        fontsize_occurrences: dict[int, int],
+    ) -> tuple[dict[int, int], dict[int, int]]:
+        """Drop denylisted sizes from both statistics before body text is determined.
 
         Parameters
         ----------
         fontsizes : dict[int, int]
             Font size to character count mapping
+        fontsize_occurrences : dict[int, int]
+            Font size to line-occurrence count mapping
 
         Returns
         -------
-        dict[int, int]
-            Filtered font size mapping
+        tuple[dict[int, int], dict[int, int]]
+            The same two mappings with denylisted sizes removed
 
         """
         if self.options.header_size_denylist:
             for size in self.options.header_size_denylist:
-                fontsizes.pop(round(size), None)
+                rounded = round(size)
+                fontsizes.pop(rounded, None)
+                fontsize_occurrences.pop(rounded, None)
 
-        if self.options.header_min_occurrences > 0:
-            fontsizes = {k: v for k, v in fontsizes.items() if v >= self.options.header_min_occurrences}
+        return fontsizes, fontsize_occurrences
 
-        return fontsizes
+    def _apply_min_occurrences(
+        self,
+        fontsizes: dict[int, int],
+        fontsize_occurrences: dict[int, int],
+    ) -> dict[int, int]:
+        """Drop header candidates whose font size doesn't recur often enough.
+
+        Parameters
+        ----------
+        fontsizes : dict[int, int]
+            Font size to character count mapping (already past body-limit detection)
+        fontsize_occurrences : dict[int, int]
+            Font size to line-occurrence count mapping, checked against
+            ``header_min_occurrences``
+
+        Returns
+        -------
+        dict[int, int]
+            ``fontsizes`` restricted to sizes that occur often enough to be considered
+            for headers
+
+        """
+        if self.options.header_min_occurrences <= 0 or not fontsizes:
+            return fontsizes
+
+        # The single largest size is exempt from the occurrence requirement. It is, by
+        # strong convention, the document's title -- which by definition renders once (or
+        # wraps onto a couple of lines) and would otherwise never clear a repetition
+        # threshold now that this counts real occurrences rather than characters. Every
+        # *other* size still has to earn its place: that is where the filter's stated
+        # purpose -- weeding out a one-off oversized span, not a document's own title --
+        # actually applies.
+        largest = max(fontsizes)
+        return {
+            k: v
+            for k, v in fontsizes.items()
+            if k == largest or fontsize_occurrences.get(k, 0) >= self.options.header_min_occurrences
+        }
 
     @staticmethod
     def _determine_body_limit(fontsizes: dict[int, int], body_limit: float | None) -> float:
@@ -474,6 +548,7 @@ class IdentifyHeaders:
     def _store_debug_info(
         self,
         fontsizes: dict[int, int],
+        fontsize_occurrences: dict[int, int],
         fontweight_sizes: dict[int, int],
         allcaps_sizes: dict[int, int],
         body_limit: float,
@@ -485,7 +560,10 @@ class IdentifyHeaders:
         Parameters
         ----------
         fontsizes : dict[int, int]
-            Font size distribution
+            Font size distribution, in characters (post min-occurrences filtering)
+        fontsize_occurrences : dict[int, int]
+            Font size distribution, in line occurrences (pre min-occurrences filtering;
+            this is what ``header_min_occurrences`` is actually checked against)
         fontweight_sizes : dict[int, int]
             Bold font size statistics
         allcaps_sizes : dict[int, int]
@@ -503,6 +581,7 @@ class IdentifyHeaders:
 
         self.debug_info = {
             "font_size_distribution": fontsizes.copy(),
+            "font_size_occurrences": fontsize_occurrences.copy(),
             "bold_font_sizes": dict(fontweight_sizes),
             "allcaps_font_sizes": dict(allcaps_sizes),
             "body_text_size": body_limit,
@@ -598,7 +677,9 @@ class IdentifyHeaders:
         dict or None
             Debug information dictionary if header_debug_output was enabled,
             None otherwise. The dictionary contains:
-            - font_size_distribution: Frequency of each font size
+            - font_size_distribution: Character count of each font size (post-filtering)
+            - font_size_occurrences: Line-occurrence count of each font size, which is
+              what min_occurrences is actually checked against
             - bold_font_sizes: Sizes where bold text was found
             - allcaps_font_sizes: Sizes where all-caps text was found
             - body_text_size: Detected body text font size
