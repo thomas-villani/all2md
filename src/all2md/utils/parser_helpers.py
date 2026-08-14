@@ -399,12 +399,12 @@ def group_and_format_runs(
     Whitespace handling: whitespace *inside* a group is preserved verbatim, and
     whitespace at the edge *between* two groups is collapsed to a single
     separating space so that words either side of a formatting change do not
-    fuse ("This is **bold** and after." rather than "This is**bold**and
-    after."). Whitespace at the true edges of the run sequence - before the
-    first group and after the last - is dropped, since that is the paragraph
-    boundary. A separating space is always emitted *outside* any formatting
-    wrapper, because a trailing space inside emphasis markers ("**bold **") is
-    not valid markdown.
+    fuse (``This is **bold** and after.`` rather than
+    ``This is**bold**and after.``). Whitespace at the true edges of the run
+    sequence - before the first group and after the last - is dropped, since
+    that is the paragraph boundary. A separating space is always emitted
+    *outside* any formatting wrapper, because a trailing space inside emphasis
+    markers (``**bold **``) is not valid markdown.
 
     """
     # Default format builders if not provided
