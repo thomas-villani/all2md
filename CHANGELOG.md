@@ -65,6 +65,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   included: it means "detect the region, don't build a table from it", and the region's
   text has already been excluded by the time it is honoured — but it is not counted as a
   table rejection, because nothing was rejected.
+- **A PDF list no longer nests a parent item underneath its own child.**
+  `_determine_list_level_from_x` assigned each newly seen indent the level
+  `len(x_levels)` — arrival order — and never compared the x-coordinates to each other.
+  The first list item of a run was therefore level 0 whatever its indent, and every new
+  indent after it was one level *deeper* whether it lay to the right or to the left. A
+  nested list that continues at the top of a column or page begins on a sub-bullet, which
+  is routine in two-column typesetting; the sub-bullet took level 0, the genuine top-level
+  bullet after it took level 1, and since the list builder reads a larger level as deeper,
+  the parent list ended up nested inside its own child. Levels are now assigned by
+  comparing x: within tolerance of an established indent is that indent's level, further
+  right than all of them opens a deeper one, further left than all of them opens a
+  shallower one, and an indent arriving between two known ones lands between their levels.
+  The numbers are no longer 0-based or contiguous — they are an ordering key, and
+  renumbering them would strand the levels the list builder has already recorded on its
+  stack. A list run that starts on a sub-bullet now emits that sub-list in its own right
+  rather than dropping it when the stack unwinds past its bottom. **Not** addressed: this
+  is still blind to columns, so the first item of a right-hand column reads as deeper than
+  anything in the left one.
 - **A PDF page whose text cannot be read no longer disappears without a trace.**
   `_process_page_to_ast` wrapped its `page.get_text("dict", ...)` call in
   `except (AttributeError, KeyError, Exception): return []` — no log line, no degraded

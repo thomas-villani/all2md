@@ -3528,27 +3528,72 @@ class PdfToAstConverter(BaseParser):
         x_coord : float
             The x-coordinate of the list item
         x_levels : dict
-            Dictionary mapping level numbers to representative x-coordinates
+            Level number -> the x-coordinate anchoring it. Mutated in place as new
+            indents are seen; the caller clears it whenever a non-list node ends the run.
 
         Returns
         -------
         int
-            The nesting level (0-based)
+            The nesting level: an ordering key, not a count. A larger ``x`` always
+            yields a larger level, but the numbers are neither 0-based nor contiguous.
+            See the notes.
 
         Notes
         -----
-        X-coordinates within 5 points of each other are considered the same level.
+        X-coordinates within 5 points of an established indent are that indent's level.
+
+        Levels used to be handed out in *arrival* order (``len(x_levels)``), so the first
+        item seen was level 0 whatever its indent, and each new indent after it was one
+        level deeper whether it lay to the right or to the left. A nested list that
+        continues at the top of a column or page begins on a sub-bullet -- routine in
+        two-column typesetting -- so the sub-bullet took level 0 and the genuine
+        top-level bullet after it took level 1. The caller reads a larger level as
+        "deeper", so it nested the parent underneath its own child.
+
+        An indent shallower than everything seen so far consequently has to be able to
+        become a shallower *level* after the fact, and one arriving between two known
+        indents has to be able to land between their levels. Renumbering would strand
+        the level numbers the caller has already recorded on its list stack, so instead
+        the numbers are only ever compared, never counted: a shallower indent takes
+        ``min(...) - LEVEL_STRIDE``, a deeper one ``max(...) + LEVEL_STRIDE``, and one in
+        between takes the midpoint of its two neighbours' levels. The stride is what
+        leaves room for that midpoint; ten successive insertions into the same gap
+        exhaust it, at which point the indent joins the nearer of the two rather than
+        colliding with one of them.
+
+        Known limitation, deliberately out of scope: this is blind to columns. The first
+        item of a right-hand column sits at a larger ``x`` than anything in the left one,
+        so it still reads as deeper. Fixing that needs to know which column each item
+        came from, which this helper is not given.
 
         """
         LEVEL_THRESHOLD = 5.0
+        LEVEL_STRIDE = 1024
 
-        # Check if x_coord matches an existing level
-        for level, level_x in x_levels.items():
-            if abs(x_coord - level_x) < LEVEL_THRESHOLD:
-                return level
+        if not x_levels:
+            x_levels[0] = x_coord
+            return 0
 
-        # New level - assign it the next available level number
-        new_level = len(x_levels)
+        # Compare against the *nearest* indent rather than the first one within
+        # tolerance: with several levels established, "first match wins" is arrival order
+        # again, by way of the dict's insertion order.
+        nearest_level = min(x_levels, key=lambda level: abs(x_coord - x_levels[level]))
+        if abs(x_coord - x_levels[nearest_level]) < LEVEL_THRESHOLD:
+            return nearest_level
+
+        if x_coord > max(x_levels.values()):
+            new_level = max(x_levels) + LEVEL_STRIDE
+        elif x_coord < min(x_levels.values()):
+            new_level = min(x_levels) - LEVEL_STRIDE
+        else:
+            # Between two established indents. Level order tracks indent order, so the
+            # neighbouring levels can be picked out by number.
+            below = max(level for level, level_x in x_levels.items() if level_x < x_coord)
+            above = min(level for level, level_x in x_levels.items() if level_x > x_coord)
+            new_level = (below + above) // 2
+            if new_level in (below, above):
+                return nearest_level
+
         x_levels[new_level] = x_coord
         return new_level
 
@@ -4026,6 +4071,14 @@ class PdfToAstConverter(BaseParser):
                 parent_items = list_stack[-1][2]
                 if parent_items:
                     parent_items[-1].children.append(nested_list)
+            else:
+                # Nothing shallower left to nest under. Reachable since
+                # _determine_list_level_from_x learned to place a later, shallower indent
+                # *below* the level the stack was opened at: the sub-bullet-first case,
+                # where the run's own first item is a nested one. Its items have no parent
+                # in this document -- the parent came before them, or not at all -- so the
+                # list stands on its own. Dropping it here would delete them.
+                result.append(nested_list)
 
         # Check if we're at the same level and type
         if list_stack and list_stack[-1][1] == level:
