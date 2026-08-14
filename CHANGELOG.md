@@ -383,6 +383,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   uses, so they see every node type uniformly. `_inject_heading_ids` also had to gain
   a hand-rolled `DefinitionList` case, since `replace_node_children()` deliberately refuses
   to rebuild that node's `(term, [descriptions])` tuple structure generically.
+- **HTML: bare text directly under `<body>` (or in a body-less fragment) is no longer
+  discarded.** The top-level walk only processed `Tag` children of `<body>`/root and skipped
+  every `NavigableString`, so `<body>Loose text. <p>Paragraph.</p>Trailing text.</body>` kept
+  only the `<p>`, and a pure fragment like `Just plain text with <b>bold</b> inside` parsed to
+  a `Document` containing just `Strong('bold')` with all the surrounding plain text deleted.
+  The rest of the parser already had a mechanism for this — `_process_block_container`
+  accumulates adjacent inline content and flushes it into a single `Paragraph` when a block
+  sibling is reached — so the top-level walk now delegates to it instead of duplicating a
+  narrower, buggy version of the same logic. Whitespace-only text between block elements
+  still produces no paragraph.
 
 ## [1.12.0] - 2026-08-12
 
