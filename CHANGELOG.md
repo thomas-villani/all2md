@@ -36,6 +36,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An unknown keyword argument passed beside an options object now warns instead of
+  raising `TypeError`.** `to_ast`, `from_ast`, `to_markdown`, `convert` and `roundtrip`
+  document a single rule for a keyword argument no options class has a field for: warn
+  and drop it. That rule only ever ran on the branch where the caller passed *no* options
+  object. Pass one — `to_ast(src, parser_options=MarkdownParserOptions(), bogus=1)` — and
+  the kwargs went straight to `create_updated`, which is `dataclasses.replace`, so the
+  same typo escaped as `MarkdownParserOptions.__init__() got an unexpected keyword
+  argument 'bogus'` instead. The same branch could not reach a field of a *nested* options
+  dataclass either: `network_timeout` lives on `options.network`, the no-options branch
+  has always folded it in, and the with-options branch raised on it even though it is a
+  perfectly valid option for that format. Both are now handled the same way on both
+  branches, with the existing warning categories and wording.
+  Related: the kwargs that `to_markdown`/`convert` pre-split were checked against the
+  *detected format's* options class rather than the class of the options instance that
+  actually receives them. Options classes inherit (`MboxOptions` is an `EmlOptions`) and
+  parsers accept any subclass of what they expect, so a caller could legitimately pass an
+  instance whose class is not the format's own — and a field of *that* class, such as
+  `max_messages` on an eml parse, was dropped as "not for the formats in this conversion"
+  and silently applied nothing. The split now uses the receiving instance's class when one
+  is given.
 - **Words no longer fuse across a formatting change in run-based formats.**
   `group_and_format_runs` — the shared helper that turns a paragraph's runs into inline
   nodes for PPTX (and available to any run-based parser) — joined each same-format group
