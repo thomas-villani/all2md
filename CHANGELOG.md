@@ -48,6 +48,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A PDF's ruling-line table fallback no longer deletes the text of any region it
+  rejects.** Text that falls inside a detected table's bounding box is removed from the
+  page's ordinary text blocks *before* the table is validated, so that it is not emitted
+  twice. The `find_tables()` path knows this and hands the region's text back as a
+  paragraph from every one of its rejection branches. The ruling-line fallback —
+  `_extract_table_from_ruling_rect`, which reads a page's stroked lines directly — did
+  not: it returned bare `None` when extraction was switched off, when fewer than 2x2
+  ruling lines were found, and from each of its sparsity, uniformity and dot-leader/TOC
+  guards. Every one of those deleted the framed region's prose outright, and the
+  conversion still reported success. On a synthetic page holding a stroked frame with one
+  internal rule and a sentence inside it, `table_detection_mode="ruling"` produced *no
+  output at all* — the 2x2 grid was 75% empty, the sparsity guard rejected it, and the
+  sentence went with it. All five paths now return the region's text as a paragraph, the
+  same way the `find_tables()` path does. `table_fallback_extraction_mode="none"` is
+  included: it means "detect the region, don't build a table from it", and the region's
+  text has already been excluded by the time it is honoured — but it is not counted as a
+  table rejection, because nothing was rejected.
 - **Words no longer fuse across a formatting change in run-based formats.**
   `group_and_format_runs` — the shared helper that turns a paragraph's runs into inline
   nodes for PPTX (and available to any run-based parser) — joined each same-format group

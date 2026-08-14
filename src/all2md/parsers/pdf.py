@@ -3070,7 +3070,7 @@ class PdfToAstConverter(BaseParser):
         h_lines: list[tuple],
         v_lines: list[tuple],
         page_num: int,
-    ) -> AstTable | None:
+    ) -> Node | None:
         """Extract table content from a bounding box using ruling lines.
 
         Implements basic grid-based cell segmentation using detected horizontal
@@ -3091,17 +3091,29 @@ class PdfToAstConverter(BaseParser):
 
         Returns
         -------
-        AstTable or None
-            Table node if extraction successful
+        Node or None
+            A table when the ruling lines really bound one; a paragraph carrying the
+            region's text when the detection is rejected or extraction is switched
+            off; ``None`` only when the region holds no text at all.
 
         Notes
         -----
         This method uses grid-based cell segmentation. It may not work well
         for tables without clear ruling lines or with merged cells.
 
+        Every path out of here that is *not* a table returns the region's text as a
+        paragraph rather than ``None``. The region's text was removed from the ordinary
+        text blocks before this ran (see :meth:`_region_text_as_paragraph`), so this
+        method is the only remaining copy of it: ``None`` deletes it, it does not demote
+        it. The caller, :meth:`_process_table_item`, appends whatever comes back and
+        adds nothing of its own, so there is no risk of emitting the text twice.
+
         """
         if self.options.table_fallback_extraction_mode == "none":
-            return None
+            # "Detect only, don't extract". The region was still detected, so its text is
+            # already out of the text blocks -- hand it back as prose. Not recorded as a
+            # rejection: nothing was rejected, the caller configured extraction off.
+            return self._region_text_as_paragraph(page, table_rect, page_num)
 
         # Sort lines for grid creation
         h_lines_sorted = sorted(h_lines, key=lambda line: line[1])  # Sort by y-coordinate
@@ -3109,7 +3121,7 @@ class PdfToAstConverter(BaseParser):
 
         if len(h_lines_sorted) < 2 or len(v_lines_sorted) < 2:
             # Need at least 2 horizontal and 2 vertical lines to form cells
-            return None
+            return self._region_text_as_paragraph(page, table_rect, page_num)
 
         # Create grid cells from line intersections
         rows: list[TableRow] = []
@@ -3151,7 +3163,7 @@ class PdfToAstConverter(BaseParser):
             rows.append(TableRow(cells=cells, is_header=is_header))
 
         if not rows:
-            return None
+            return self._region_text_as_paragraph(page, table_rect, page_num)
 
         # Sparsity guard: real tables are not mostly empty. A "table" with
         # >70% empty cells is almost always a misfire on a bordered region.
@@ -3161,7 +3173,7 @@ class PdfToAstConverter(BaseParser):
                 f"{n_empty}/{n_cells} ({n_empty / n_cells:.0%}) cells empty"
             )
             self._record_table_rejection("mostly_empty")
-            return None
+            return self._region_text_as_paragraph(page, table_rect, page_num)
 
         # Uniformity guard: a "table" where every non-empty cell has the same
         # content is the prompt-callout pattern (decorative box with a
@@ -3173,7 +3185,7 @@ class PdfToAstConverter(BaseParser):
                 f"all {n_filled} non-empty cells have identical content"
             )
             self._record_table_rejection("uniform_cells")
-            return None
+            return self._region_text_as_paragraph(page, table_rect, page_num)
 
         if n_filled and n_dot_leader / n_filled > MAX_DOT_LEADER_CELL_RATIO:
             logger.debug(
@@ -3182,7 +3194,7 @@ class PdfToAstConverter(BaseParser):
                 f"dot-leader noise (looks like TOC region)"
             )
             self._record_table_rejection("dot_leader_toc")
-            return None
+            return self._region_text_as_paragraph(page, table_rect, page_num)
 
         # Separate header and data rows
         header_row = rows[0] if rows else TableRow(cells=[])
