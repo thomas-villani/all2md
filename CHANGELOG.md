@@ -34,6 +34,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   assumed.
   ([#338](https://github.com/thomas-villani/all2md/issues/338))
 
+### Changed
+
+- **Removed an unreachable second block-processing pipeline from the PDF parser.**
+  `_process_text_region_to_ast` and the five helpers it alone called
+  (`_process_text_blocks_to_nodes`, `_process_blocks_line_text`,
+  `_process_blocks_line_monospace`, `_apply_column_detection` and
+  `_merge_columns_for_reading_order`) had no callers anywhere in the package or the test
+  suite. They were a near-duplicate of the live per-block path that had drifted away from
+  it — same responsibilities, different rotated-text, code-block and heading handling — so
+  reading them gave a misleading picture of what the parser actually does, and any fix
+  applied to one copy silently missed the other. No behaviour changes: nothing called them.
+
 ### Fixed
 
 - **Words no longer fuse across a formatting change in run-based formats.**

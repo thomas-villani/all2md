@@ -56,7 +56,6 @@ from all2md.ast import (
 )
 from all2md.ast.transforms import InlineFormattingConsolidator, extract_nodes
 from all2md.constants import (
-    DEFAULT_OVERLAP_THRESHOLD_PX,
     DEPS_PDF,
     DEPS_PDF_LAYOUT,
     PDF_MIN_PYMUPDF_VERSION,
@@ -2109,47 +2108,6 @@ class PdfToAstConverter(BaseParser):
 
         return nodes
 
-    def _apply_column_detection(self, blocks: list[dict]) -> list[dict]:
-        """Apply column detection to text blocks based on options.
-
-        Parameters
-        ----------
-        blocks : list[dict]
-            List of text blocks from PyMuPDF
-
-        Returns
-        -------
-        list[dict]
-            Processed blocks in reading order
-
-        """
-        if not self.options.detect_columns:
-            return blocks
-
-        # Check column_detection_mode option
-        if self.options.column_detection_mode in ("disabled", "force_single"):
-            # Force single column (no detection)
-            return blocks
-
-        # Apply column detection for force_multi or auto modes
-        if self.options.column_detection_mode == "force_multi":
-            columns: list[list[dict]] = detect_columns(
-                blocks,
-                self.options.column_gap_threshold,
-                use_clustering=self.options.use_column_clustering,
-                force_multi_column=True,
-            )
-        else:  # "auto" mode (default)
-            columns = detect_columns(
-                blocks,
-                self.options.column_gap_threshold,
-                use_clustering=self.options.use_column_clustering,
-                force_multi_column=False,
-            )
-
-        # Process blocks in proper reading order: top-to-bottom, left-to-right
-        return self._merge_columns_for_reading_order(columns)
-
     def _calculate_blocks_average_line_height(self, blocks: list[dict]) -> float | None:
         """Calculate average line height across multiple blocks."""
         line_heights = []
@@ -2165,173 +2123,6 @@ class PdfToAstConverter(BaseParser):
             logger.debug(f"Calculated average line height for page: {avg:.2f} points")
             return avg
         return None
-
-    def _process_blocks_line_monospace(self, spans: list, text: str, block: dict, state: _BlockProcessingState) -> bool:
-        """Handle monospace line in blocks processing. Returns True if handled."""
-        all_mono = all(s["flags"] & 8 for s in spans)
-        if not all_mono:
-            return False
-
-        state.in_code_block = True
-        span_size = spans[0]["size"]
-        delta = int((spans[0]["bbox"][0] - block["bbox"][0]) / (span_size * 0.5)) if span_size > 0 else 0
-        state.code_block_lines.append(" " * delta + text)
-        return True
-
-    def _process_blocks_line_text(
-        self,
-        spans: list,
-        links: list[dict],
-        page_num: int,
-        average_line_height: float | None,
-        state: _BlockProcessingState,
-    ) -> None:
-        """Process text line (heading or paragraph) in blocks processing."""
-        header_level = 0
-        if self._hdr_identifier:
-            line_style = compute_line_style(spans)
-            if line_style is not None:
-                header_level = self._hdr_identifier.classify_line_style(
-                    size=line_style.size,
-                    text=line_style.text,
-                    is_bold=line_style.is_bold,
-                    is_allcaps=line_style.is_allcaps,
-                )
-        inline_content = self._process_text_spans_to_inline(spans, links, page_num, average_line_height)
-
-        if not inline_content or not inline_has_text(inline_content):
-            return
-
-        if header_level > 0:
-            line_text = "".join(s.get("text", "") for s in spans).strip()
-            self._emit_heading(state, header_level, line_text, inline_content, page_num, _span_union_bbox(spans))
-        else:
-            # Paragraph emission orphans any buffered numbering prefix —
-            # flush it as its own heading so the marker isn't lost.
-            self._flush_pending_heading_prefix(state)
-            state.nodes.append(
-                AstParagraph(content=inline_content, source_location=SourceLocation(format="pdf", page=page_num + 1))
-            )
-
-    def _process_text_blocks_to_nodes(
-        self, blocks_to_process: list[dict], links: list[dict], page_num: int
-    ) -> list[Node]:
-        """Process text blocks into AST nodes.
-
-        Parameters
-        ----------
-        blocks_to_process : list[dict]
-            Text blocks to process
-        links : list[dict]
-            Links on the page
-        page_num : int
-            Page number for source tracking
-
-        Returns
-        -------
-        list[Node]
-            List of AST nodes
-
-        """
-        average_line_height = self._calculate_blocks_average_line_height(blocks_to_process)
-        state = _BlockProcessingState()
-
-        for block in blocks_to_process:
-            previous_y = 0.0
-
-            for line in block["lines"]:
-                # Handle rotated text — group consecutive same-direction lines
-                if line.get("dir", (0, 0))[1] != 0:
-                    if self.options.handle_rotated_text:
-                        self._accumulate_rotated_line(line, state, page_num)
-                    continue
-                # Horizontal line: flush any pending rotated run before continuing
-                self._flush_rotated_text(state, page_num)
-
-                spans = list(line["spans"])
-                if not spans:
-                    continue
-
-                this_y = line["bbox"][3]
-                same_line = abs(this_y - previous_y) <= DEFAULT_OVERLAP_THRESHOLD_PX and previous_y > 0
-                text = "".join([s["text"] for s in spans])
-
-                if not same_line:
-                    previous_y = this_y
-
-                # Handle monospace text (code blocks)
-                if self._process_blocks_line_monospace(spans, text, block, state):
-                    continue
-
-                # Finalize code block if we were in one
-                if state.in_code_block:
-                    self._finalize_code_block(state, page_num)
-
-                # Process text line (heading or paragraph)
-                self._process_blocks_line_text(spans, links, page_num, average_line_height, state)
-
-        # Finalize any remaining code block
-        if state.in_code_block:
-            self._finalize_code_block(state, page_num)
-
-        # Flush any trailing rotated-text run
-        self._flush_rotated_text(state, page_num)
-
-        # Drop any unmerged numbering prefix as a standalone heading rather
-        # than silently swallowing it.
-        self._flush_pending_heading_prefix(state)
-
-        return state.nodes
-
-    def _process_text_region_to_ast(self, page: "pymupdf.Page", clip: "pymupdf.Rect", page_num: int) -> list[Node]:
-        """Process a text region to AST nodes.
-
-        Parameters
-        ----------
-        page : pymupdf.Page
-            PDF page
-        clip : pymupdf.Rect
-            Clipping rectangle for text extraction
-        page_num : int
-            Page number for source tracking
-
-        Returns
-        -------
-        list of Node
-            List of AST nodes (paragraphs, headings, code blocks)
-
-        """
-        import pymupdf
-
-        # Extract URL type links on page
-        try:
-            links = [line for line in page.get_links() if line["kind"] == 2]
-        except (AttributeError, Exception):
-            links = []
-
-        # Extract text blocks
-        try:
-            blocks = page.get_text(
-                "dict",
-                clip=clip,
-                flags=pymupdf.TEXTFLAGS_TEXT,
-                sort=False,
-            )["blocks"]
-            if self.options.merge_hyphenated_words:
-                dehyphenate_blocks(blocks)
-        except (AttributeError, KeyError, Exception):
-            # If extraction fails (e.g., in tests), return empty
-            return []
-
-        # Filter out headers/footers if trim_headers_footers is enabled
-        if self.options.trim_headers_footers:
-            blocks = self._filter_headers_footers(blocks, page)
-
-        # Apply column detection
-        blocks_to_process = self._apply_column_detection(blocks)
-
-        # Process blocks to create AST nodes
-        return self._process_text_blocks_to_nodes(blocks_to_process, links, page_num)
 
     def _process_text_spans_to_inline(
         self, spans: list[dict], links: list[dict], page_num: int, average_line_height: float | None = None
@@ -3660,38 +3451,6 @@ class PdfToAstConverter(BaseParser):
             filtered_blocks.append(block)
 
         return filtered_blocks
-
-    def _merge_columns_for_reading_order(self, columns: list[list[dict]]) -> list[dict]:
-        """Merge multiple columns into proper reading order.
-
-        For multi-column layouts, the standard reading order is column-by-column:
-        read the entire left column top-to-bottom, then move to the right column
-        and read it top-to-bottom. This matches how PyMuPDF naturally orders blocks
-        and is the expected behavior for most multi-column documents.
-
-        Parameters
-        ----------
-        columns : list[list[dict]]
-            List of columns, where each column is a list of blocks
-
-        Returns
-        -------
-        list[dict]
-            Merged list of blocks in proper reading order
-
-        """
-        if len(columns) <= 1:
-            # Single column or empty, just return flattened
-            return [block for col in columns for block in col]
-
-        # Sort each column by y-coordinate (top to bottom)
-        # Then concatenate: all of column 0, then all of column 1, etc.
-        result = []
-        for column in columns:
-            sorted_column = sorted(column, key=lambda b: b.get("bbox", [0, 0, 0, 0])[1])
-            result.extend(sorted_column)
-
-        return result
 
     def _is_list_item_paragraph(self, paragraph: AstParagraph) -> bool:
         """Check if paragraph starts with a list marker.
