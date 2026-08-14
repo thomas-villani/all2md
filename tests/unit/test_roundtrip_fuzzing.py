@@ -225,7 +225,7 @@ class TestLosslessFormatsAreLossless:
     """The formats that claim exactness are the harness's control."""
 
     @pytest.mark.parametrize("fmt", LOSSLESS_FORMATS)
-    @settings(deadline=None, suppress_health_check=[HealthCheck.too_slow])
+    @settings(deadline=None, derandomize=not DISCOVERY, suppress_health_check=[HealthCheck.too_slow])
     @given(doc=documents())
     def test_round_trip_scores_exactly_100(self, fmt: str, doc: Document) -> None:
         """Property: a lossless format round trip loses nothing, ever.
@@ -578,7 +578,12 @@ class TestStructuralInvariants:
 class TestGeneratedTablesAndLists:
     """Aim the generator at the two node classes that break most often."""
 
-    @settings(deadline=None, max_examples=25, suppress_health_check=[HealthCheck.too_slow])
+    @settings(
+        deadline=None,
+        max_examples=25,
+        derandomize=not DISCOVERY,
+        suppress_health_check=[HealthCheck.too_slow],
+    )
     @given(documents_of(tables()))
     def test_table_documents_round_trip_through_html(self, doc: Document) -> None:
         """Property: HTML preserves every table's declared dimensions.
@@ -590,7 +595,12 @@ class TestGeneratedTablesAndLists:
         source_widths = _header_widths(doc)
         assert _header_widths(_round_trip(doc, "html")) == source_widths
 
-    @settings(deadline=None, max_examples=25, suppress_health_check=[HealthCheck.too_slow])
+    @settings(
+        deadline=None,
+        max_examples=25,
+        derandomize=not DISCOVERY,
+        suppress_health_check=[HealthCheck.too_slow],
+    )
     @given(documents_of(lists()))
     def test_list_documents_keep_their_item_count_in_html(self, doc: Document) -> None:
         """Property: HTML keeps every list item, including the empty ones.
@@ -713,7 +723,12 @@ class TestGeneratedFootnotes:
         """
         measure = FOOTNOTE_PROPERTIES[prop]
 
-        @settings(deadline=None, max_examples=25, suppress_health_check=[HealthCheck.too_slow])
+        @settings(
+            deadline=None,
+            max_examples=25,
+            derandomize=not DISCOVERY,
+            suppress_health_check=[HealthCheck.too_slow],
+        )
         @given(documents_with_footnotes())
         def property_holds(doc: Document) -> None:
             assert measure(_round_trip(doc, fmt)) == measure(doc)
@@ -808,7 +823,12 @@ class TestGeneratedDefinitionLists:
         """Property: a document's definition lists come back with the same shape."""
         measure = DEFINITION_PROPERTIES[prop]
 
-        @settings(deadline=None, max_examples=25, suppress_health_check=[HealthCheck.too_slow])
+        @settings(
+            deadline=None,
+            max_examples=25,
+            derandomize=not DISCOVERY,
+            suppress_health_check=[HealthCheck.too_slow],
+        )
         @given(documents_with_definition_lists())
         def property_holds(doc: Document) -> None:
             assert measure(_round_trip(doc, fmt)) == measure(doc)
