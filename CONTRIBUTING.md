@@ -619,6 +619,32 @@ For third-party plugins, see the detailed guide in `docs/source/plugins.rst`.
      - Test results
      - Documentation updates
 
+### Changelog Entries
+
+Do **not** edit `CHANGELOG.md` directly. Add a fragment instead:
+
+```
+changelog.d/<slug>.<category>.md
+```
+
+where `<category>` is one of `added`, `changed`, `deprecated`, `removed`, `fixed` or
+`security`, and `<slug>` is anything that keeps the filename distinct (the branch
+name, the PR or issue number, a couple of words). The file holds one or more complete
+Markdown bullets, written exactly as they should read in the changelog.
+
+Every branch used to append to the same place in `CHANGELOG.md`, which made it a
+guaranteed merge conflict whenever more than one pull request was in flight. A
+fragment is a new file, so two branches never touch the same lines.
+
+```bash
+# Validate your fragment (writes nothing)
+python scripts/compile_changelog.py --check
+```
+
+At release time a maintainer runs `python scripts/compile_changelog.py --version X.Y.Z`,
+which folds the fragments into a new released section and deletes them. See
+`changelog.d/README.md` for the full format and house style.
+
 ### Code Review
 
 - Address reviewer feedback promptly
