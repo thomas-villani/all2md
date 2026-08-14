@@ -22,7 +22,9 @@ Rendering each unit to Markdown (rather than flattening with ``extract_text``)
 preserves the blank-line/structure boundaries the paragraph/line/section
 chunkers depend on, and yields clean, RAG-friendly chunk text. Character spans
 are therefore into that rendered section text (``char_basis="section_text"``),
-not the original binary.
+not the original binary -- including when ``avoid_table_split`` /
+``avoid_code_split`` chunk a section one segment at a time; see
+:func:`_build_pieces` for the one case that cannot hold the basis and says so.
 """
 
 from __future__ import annotations
@@ -379,7 +381,7 @@ def _emit_unit(
     running index.
     """
     pieces = _build_pieces(chunker, unit_nodes, provenance_nodes, opts)
-    for chunk_in_unit, (text, tokens, char_start, char_end, prov_nodes) in enumerate(pieces, start=1):
+    for chunk_in_unit, (text, tokens, char_start, char_end, prov_nodes, char_basis) in enumerate(pieces, start=1):
         page, page_end, line_start, line_end = _node_provenance(prov_nodes)
         chunks.append(
             ProvenanceChunk(
@@ -400,7 +402,7 @@ def _emit_unit(
                 source_line_end=line_end,
                 char_start=char_start,
                 char_end=char_end,
-                char_basis="section_text",
+                char_basis=char_basis,
             )
         )
         running_index += 1
@@ -408,8 +410,8 @@ def _emit_unit(
 
 
 # A renderable chunk before id/provenance assignment:
-# (text, token_count, char_start, char_end, provenance_nodes).
-_Piece = tuple[str, int, int, int, list[Node]]
+# (text, token_count, char_start, char_end, provenance_nodes, char_basis).
+_Piece = tuple[str, int, int, int, list[Node], str]
 
 
 def _build_pieces(
@@ -418,29 +420,80 @@ def _build_pieces(
     provenance_nodes: list[Node],
     opts: _UnitOpts,
 ) -> list[_Piece]:
-    """Render and chunk a unit into pieces, keeping atomic nodes whole when asked."""
+    """Render and chunk a unit into pieces, keeping atomic nodes whole when asked.
+
+    Every piece carries a span *into the unit's own rendered Markdown* -- the string a
+    consumer gets by rendering the section, which is what ``char_basis="section_text"``
+    promises. The segmented path renders each segment separately, so its windows count
+    from 0 within that segment; each segment is located in the whole-unit rendering and
+    its windows are shifted by that offset. A segment that cannot be located (rendering
+    a fragment is not always a substring of rendering the whole -- footnote definitions,
+    for one, are collected at the end of whatever document they are rendered in) keeps
+    its segment-relative span and says so with ``char_basis="segment_text"``, rather
+    than reporting a section offset that is wrong.
+    """
     pieces: list[_Piece] = []
 
     if opts.atomic_types and any(isinstance(n, opts.atomic_types) for n in unit_nodes):
+        # One extra render of the whole unit, only on this path, to have the string the
+        # spans are documented to index into.
+        section_text = _render_markdown(unit_nodes, opts.elide_data_uris)
+        cursor = 0
         for seg_nodes, is_atomic in _segment_atomic(unit_nodes, opts.atomic_types):
             text = _render_markdown(seg_nodes, opts.elide_data_uris)
             if not text.strip():
                 continue
+            offset = _locate_segment(section_text, text, cursor)
+            basis = "section_text" if offset is not None else "segment_text"
+            base = offset if offset is not None else 0
+            if offset is not None:
+                cursor = offset + len(text)
             if is_atomic:
                 # Whole atomic node is one chunk; allowed to exceed max_tokens.
-                pieces.append((text, chunker.counter.count(text), 0, len(text), seg_nodes))
+                pieces.append((text, chunker.counter.count(text), base, base + len(text), seg_nodes, basis))
             else:
                 for window in chunker.chunk(text):
                     pieces.append(
-                        (window.content, window.tokens, window.position.start, window.position.end, seg_nodes)
+                        (
+                            window.content,
+                            window.tokens,
+                            base + window.position.start,
+                            base + window.position.end,
+                            seg_nodes,
+                            basis,
+                        )
                     )
         return pieces
 
     text = _render_markdown(unit_nodes, opts.elide_data_uris)
     if text.strip():
         for window in chunker.chunk(text):
-            pieces.append((window.content, window.tokens, window.position.start, window.position.end, provenance_nodes))
+            pieces.append(
+                (
+                    window.content,
+                    window.tokens,
+                    window.position.start,
+                    window.position.end,
+                    provenance_nodes,
+                    "section_text",
+                )
+            )
     return pieces
+
+
+def _locate_segment(section_text: str, segment_text: str, cursor: int) -> Optional[int]:
+    """Return where ``segment_text`` starts in ``section_text``, or None if it does not.
+
+    Searching forward from ``cursor`` (the end of the previous segment) keeps the
+    segments in document order when two of them render identically -- two tables with
+    the same cells, say -- which a plain search would collapse onto the first match.
+    Falls back to a search from the start so one unlocatable segment does not strand
+    every segment after it.
+    """
+    offset = section_text.find(segment_text, cursor)
+    if offset < 0:
+        offset = section_text.find(segment_text)
+    return offset if offset >= 0 else None
 
 
 def _segment_atomic(nodes: list[Node], atomic_types: tuple[type, ...]) -> list[tuple[list[Node], bool]]:
