@@ -452,6 +452,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   real behaviour change for header detection: a font size that previously qualified on
   character count alone but occurs only a couple of times (and is not the page's largest)
   will no longer be treated as a heading size.
+- **WebArchive subresource extraction no longer silently drops files on Windows.**
+  `_extract_subresources` had two defects, both masked by the method's blanket
+  `except Exception: logger.warning(...)`. A text subresource (a plist `<string>`, not
+  `<data>`) was written with `Path.write_text()` and no explicit encoding, so on Windows —
+  where the platform default is cp1252 — any non-Latin content raised `UnicodeEncodeError`
+  and the resource was dropped; it's now written as UTF-8. Separately, the filename was
+  taken as `Path(resource_url).name`, which keeps a URL's query string (`img.png?v=1`); `?`
+  is illegal in a Windows filename, so the write raised `OSError` and the resource was
+  dropped. The filename is now taken from the URL's path only (query string and fragment
+  stripped) and run through the existing attachment-filename sanitizer.
 
 ### Changed
 

@@ -25,6 +25,8 @@ from fixtures.generators.webarchive_fixtures import (
     create_webarchive_with_different_encoding,
     create_webarchive_with_image,
     create_webarchive_with_multiple_assets,
+    create_webarchive_with_non_latin_text_asset,
+    create_webarchive_with_query_string_asset,
     create_webarchive_with_subframes,
 )
 
@@ -189,6 +191,47 @@ class TestSubresourceExtraction:
             assert (Path(temp_dir) / "image1.png").exists()
             assert (Path(temp_dir) / "image2.png").exists()
             assert (Path(temp_dir) / "styles.css").exists()
+
+    def test_extract_subresource_strips_query_string_from_filename(self) -> None:
+        """Test that a URL query string is stripped from the extracted filename.
+
+        A subresource URL like ``img.png?v=1&cache=abc`` must not produce a
+        filename containing ``?``, which is illegal on Windows and would
+        otherwise cause the write to silently fail.
+        """
+        webarchive_bytes = create_webarchive_with_query_string_asset()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            options = WebArchiveOptions(extract_subresources=True, attachment_output_dir=temp_dir)
+            converter = WebArchiveToAstConverter(options)
+            _ = converter.parse(webarchive_bytes)
+
+            extracted_files = list(Path(temp_dir).glob("*"))
+            assert len(extracted_files) == 1
+            assert extracted_files[0].name == "img.png"
+            assert "?" not in extracted_files[0].name
+
+    def test_extract_subresource_writes_non_latin_text_as_utf8(self) -> None:
+        """Test that a text (non-bytes) subresource is written as UTF-8.
+
+        The resource data decodes from the plist as a native ``str`` rather
+        than ``bytes``, which exercises the ``write_text`` path. The content
+        uses non-Latin characters to guard against a platform default
+        encoding (e.g. cp1252 on Windows) causing a silent UnicodeEncodeError.
+        """
+        webarchive_bytes = create_webarchive_with_non_latin_text_asset()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            options = WebArchiveOptions(extract_subresources=True, attachment_output_dir=temp_dir)
+            converter = WebArchiveToAstConverter(options)
+            _ = converter.parse(webarchive_bytes)
+
+            extracted_files = list(Path(temp_dir).glob("*"))
+            assert len(extracted_files) == 1
+            assert extracted_files[0].name == "cjk_notes.txt"
+
+            content = extracted_files[0].read_text(encoding="utf-8")
+            assert content == "你好世界"
 
 
 @pytest.mark.unit
