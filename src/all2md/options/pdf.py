@@ -152,7 +152,11 @@ class PdfOptions(PaginatedParserOptions):
         real URL/path). In ``alt_text`` mode no markers are emitted because
         they would have no target.
     include_image_captions : bool, default True
-        Try to extract image captions.
+        Try to extract image captions. Under ``attachment_mode="alt_text"`` (the
+        default) this is also what makes figures appear at all: only figures
+        with a detected caption are emitted there, since a captioned figure
+        carrying no URL is meaningful output and an uncaptioned placeholder is
+        noise (#338). Disabling it under that mode suppresses figures entirely.
 
     include_page_numbers : bool, default False
         Include page numbers in output (automatically added to separator).
@@ -436,7 +440,7 @@ class PdfOptions(PaginatedParserOptions):
     include_image_captions: bool = field(
         default=DEFAULT_INCLUDE_IMAGE_CAPTIONS,
         metadata={
-            "help": "Try to extract image captions",
+            "help": "Try to extract image captions (under alt_text mode, only captioned figures are emitted)",
             "cli_name": "no-include-image-captions",  # default=True, use --no-*
             "importance": "core",
         },
