@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import datetime
 import logging
-import re
 import tempfile
 from email import policy
 from email.message import EmailMessage
@@ -30,11 +29,12 @@ from all2md.exceptions import DependencyError, MalformedFileError, ParsingError,
 from all2md.options.outlook import OutlookOptions
 from all2md.parsers.base import BaseParser
 from all2md.parsers.eml import (
+    build_attachment_nodes,
     clean_message,
     convert_eml_html_to_markdown,
     format_eml_date,
+    parse_email_body,
     parse_single_message,
-    process_email_attachments,
 )
 from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
@@ -344,13 +344,15 @@ class OutlookToAstConverter(BaseParser):
             # Parse using EML logic
             msg_data = parse_single_message(email_msg, self.options)
 
-            # Process attachments if needed
+            # Process attachments if needed. These become AST nodes carried
+            # alongside the body rather than Markdown appended to it -- appending
+            # left the section to be escaped as plain text by the renderer.
             if self.options.attachment_mode != "skip":
-                attachment_content, attachment_footnotes = process_email_attachments(email_msg, self.options)
+                attachment_nodes, attachment_footnotes = build_attachment_nodes(email_msg, self.options)
                 # Merge footnotes
                 self._attachment_footnotes.update(attachment_footnotes)
-                if attachment_content and "content" in msg_data:
-                    msg_data["content"] += attachment_content
+                if attachment_nodes:
+                    msg_data["attachment_nodes"] = attachment_nodes
 
             # Clean message content
             if "content" in msg_data:
@@ -571,6 +573,7 @@ class OutlookToAstConverter(BaseParser):
                 msg_data["date"] = None
 
             # Get content
+            msg_data["content_is_markdown"] = False
             try:
                 # Prefer plain text
                 plain_body = pst_msg.get_plain_text_body()
@@ -583,6 +586,9 @@ class OutlookToAstConverter(BaseParser):
                         # Convert HTML to markdown if option enabled
                         if self.options.convert_html_to_markdown:
                             msg_data["content"] = convert_eml_html_to_markdown(html_body, self.options)
+                            # Converted bodies are Markdown and must be re-parsed
+                            # into rich nodes rather than escaped as plain text.
+                            msg_data["content_is_markdown"] = True
                         else:
                             msg_data["content"] = html_body
                     else:
@@ -697,16 +703,14 @@ class OutlookToAstConverter(BaseParser):
             header_text = "\n".join(header_lines)
             children.append(Paragraph(content=[Text(content=header_text)]))
 
-        # Add content
+        # Add content. Bodies converted from HTML/RTF are already Markdown and
+        # get re-parsed into rich nodes; plain text stays plain (and escaped).
         content = msg.get("content", "")
         if content.strip():
-            # Split content into paragraphs
+            children.extend(parse_email_body(content, is_markdown=msg.get("content_is_markdown", False)))
 
-            paragraphs = re.split(r"\n\n+", content.strip())
-            for para_text in paragraphs:
-                para_text = para_text.strip()
-                if para_text:
-                    children.append(Paragraph(content=[Text(content=para_text)]))
+        # Attachments are real AST nodes, not Markdown spliced into the body.
+        children.extend(msg.get("attachment_nodes") or [])
 
         # Add separator
         children.append(ThematicBreak())

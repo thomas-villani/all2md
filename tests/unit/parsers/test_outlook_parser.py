@@ -220,3 +220,81 @@ class TestOutlookParser:
 
         assert metadata.custom["outlook_format"] == "msg"
         assert metadata.custom["message_count"] == 1
+
+
+@pytest.mark.unit
+class TestOutlookMessageNodes:
+    r"""``_add_message_nodes`` must honour ``content_is_markdown`` and attachment nodes.
+
+    The Outlook path flattened every body into ``Paragraph(content=[Text(...)])``
+    and appended the attachment section's Markdown to the body string, so the
+    renderer escaped both -- ``\## Heading`` for an RTF/HTML-converted body and
+    ``\## Attachments`` for the attachment section. The .eml parser already
+    honoured the body flag; this asserts the Outlook path now matches it.
+    """
+
+    def _render(self, children) -> str:
+        from all2md.ast import Document
+        from all2md.renderers.markdown import MarkdownRenderer
+
+        return MarkdownRenderer().render_to_string(Document(children=children))
+
+    def test_markdown_body_becomes_rich_nodes(self):
+        """A body flagged ``content_is_markdown`` is re-parsed into real headings/links."""
+        from all2md.parsers.outlook import OutlookToAstConverter
+
+        parser = OutlookToAstConverter(OutlookOptions(subject_as_h1=False, include_headers=False))
+        children = []
+        parser._add_message_nodes(
+            children,
+            {
+                "content": "## Heading\n\nSee [site](https://example.com).",
+                "content_is_markdown": True,
+            },
+            heading_level=1,
+        )
+        markdown = self._render(children)
+
+        assert "## Heading" in markdown
+        assert "[site](https://example.com)" in markdown
+        assert r"\#\#" not in markdown
+        assert r"\[site\]" not in markdown
+
+    def test_plain_body_is_still_treated_as_plain_text(self):
+        """Without the flag, Markdown-looking characters stay literal."""
+        from all2md.parsers.outlook import OutlookToAstConverter
+
+        parser = OutlookToAstConverter(OutlookOptions(subject_as_h1=False, include_headers=False))
+        children = []
+        parser._add_message_nodes(
+            children,
+            {"content": "## Not a heading", "content_is_markdown": False},
+            heading_level=1,
+        )
+
+        assert r"\## Not a heading" in self._render(children)
+
+    def test_attachment_nodes_are_emitted_after_the_body(self):
+        """Attachment AST nodes render as a real heading and image, not escaped text."""
+        from all2md.ast import Heading, Image, Paragraph, Text
+        from all2md.parsers.outlook import OutlookToAstConverter
+
+        parser = OutlookToAstConverter(OutlookOptions(subject_as_h1=False, include_headers=False))
+        children = []
+        parser._add_message_nodes(
+            children,
+            {
+                "content": "Body text.",
+                "attachment_nodes": [
+                    Heading(level=2, content=[Text(content="Attachments")]),
+                    Paragraph(content=[Image(url="https://example.com/pic.png", alt_text="pic.png")]),
+                ],
+            },
+            heading_level=1,
+        )
+        markdown = self._render(children)
+
+        assert "Body text." in markdown
+        assert "## Attachments" in markdown
+        assert "![pic.png](https://example.com/pic.png)" in markdown
+        assert r"\##" not in markdown

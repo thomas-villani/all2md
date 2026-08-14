@@ -449,3 +449,127 @@ class TestOptionsConfiguration:
         assert isinstance(doc, Document)
         # Should have minimal output: content + separator
         assert len(doc.children) >= 1
+
+
+def _plain_email_with_png_attachment() -> bytes:
+    """Build a text/plain email carrying a single PNG attachment."""
+    import base64
+    from email.message import EmailMessage
+
+    png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    )
+    msg = EmailMessage()
+    msg["From"] = "sender@example.com"
+    msg["To"] = "recipient@example.com"
+    msg["Subject"] = "Plain body with a picture"
+    msg.set_content("Hello there.\n\nSecond paragraph.\n")
+    msg.add_attachment(png, maintype="image", subtype="png", filename="pic.png")
+    return msg.as_bytes()
+
+
+# A minimal multipart/alternative message whose only body is RTF. RTF bodies are
+# always converted to Markdown regardless of ``convert_html_to_markdown``, so
+# this exercises the markdown-body path under default options.
+RTF_BODY_EMAIL = (
+    b"From: sender@example.com\r\n"
+    b"To: recipient@example.com\r\n"
+    b"Subject: RTF body\r\n"
+    b"MIME-Version: 1.0\r\n"
+    b'Content-Type: multipart/alternative; boundary="BOUND"\r\n'
+    b"\r\n"
+    b"--BOUND\r\n"
+    b"Content-Type: application/rtf\r\n"
+    b"Content-Transfer-Encoding: 7bit\r\n"
+    b"\r\n"
+    rb"{\rtf1\ansi\deff0{\fonttbl{\f0 Times;}}\b Bold heading\b0\par See the docs.\par}"
+    b"\r\n"
+    b"--BOUND--\r\n"
+)
+
+
+def _render_markdown(doc) -> str:
+    from all2md.renderers.markdown import MarkdownRenderer
+
+    return MarkdownRenderer().render_to_string(doc)
+
+
+@pytest.mark.unit
+@pytest.mark.eml
+class TestAttachmentSectionIsAst:
+    r"""The attachment section must be AST nodes, not Markdown spliced into the body.
+
+    ``process_email_attachments`` used to return a Markdown string that was
+    concatenated onto ``message["content"]``. For a plain-text body (the common
+    case) the content is emitted as ``Text``, so the Markdown renderer escaped
+    the whole section into ``\## Attachments`` and ``!\[pic.png\]`` -- a broken
+    heading and a dead image reference.
+    """
+
+    def test_plain_body_attachment_is_not_escaped(self) -> None:
+        """A plain-text body plus an attachment renders a real heading and image."""
+        from io import BytesIO
+
+        doc = EmlToAstConverter(EmlOptions(attachment_mode="base64")).parse(BytesIO(_plain_email_with_png_attachment()))
+        markdown = _render_markdown(doc)
+
+        assert r"\##" not in markdown
+        assert r"!\[" not in markdown
+        assert "## Attachments" in markdown
+        assert "![pic.png](data:image/png;base64," in markdown
+
+    def test_attachment_section_produces_heading_and_image_nodes(self) -> None:
+        """The section is a Heading node followed by a Paragraph holding an Image."""
+        from io import BytesIO
+
+        from all2md.ast import Image
+
+        doc = EmlToAstConverter(EmlOptions(attachment_mode="base64")).parse(BytesIO(_plain_email_with_png_attachment()))
+
+        headings = [n for n in doc.children if isinstance(n, Heading) and n.level == 2]
+        assert [t.content for h in headings for t in h.content if isinstance(t, Text)] == ["Attachments"]
+
+        images = [
+            inline
+            for node in doc.children
+            if isinstance(node, Paragraph)
+            for inline in node.content
+            if isinstance(inline, Image)
+        ]
+        assert len(images) == 1
+        assert images[0].alt_text == "pic.png"
+        assert images[0].url.startswith("data:image/png;base64,")
+
+    def test_body_text_still_reaches_the_document(self) -> None:
+        """Moving attachments out of the body must not drop the body itself."""
+        from io import BytesIO
+
+        doc = EmlToAstConverter(EmlOptions(attachment_mode="base64")).parse(BytesIO(_plain_email_with_png_attachment()))
+        markdown = _render_markdown(doc)
+
+        assert "Hello there." in markdown
+        assert "Second paragraph." in markdown
+
+    def test_skip_mode_emits_no_attachment_section(self) -> None:
+        """``attachment_mode="skip"`` still yields no attachment nodes."""
+        from io import BytesIO
+
+        doc = EmlToAstConverter(EmlOptions(attachment_mode="skip")).parse(BytesIO(_plain_email_with_png_attachment()))
+
+        assert "Attachments" not in _render_markdown(doc)
+
+
+@pytest.mark.unit
+@pytest.mark.eml
+class TestMarkdownBodyIsReparsed:
+    """An RTF-converted body must become rich AST, not escaped plain text."""
+
+    def test_rtf_body_renders_real_emphasis(self) -> None:
+        """Default options: an RTF body's bold run survives as emphasis."""
+        from io import BytesIO
+
+        doc = EmlToAstConverter(EmlOptions()).parse(BytesIO(RTF_BODY_EMAIL))
+        markdown = _render_markdown(doc)
+
+        assert "**Bold heading**" in markdown
+        assert r"\*\*" not in markdown

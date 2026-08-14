@@ -144,7 +144,7 @@ _MANIFEST_RECORDS: list[ConverterMetadata] = [
     ),
     ConverterMetadata(
         format_name="eml",
-        extensions=[".eml", ".msg"],
+        extensions=[".eml"],
         mime_types=["message/rfc822"],
         magic_bytes=[
             (b"Return-Path:", 0),
