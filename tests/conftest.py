@@ -67,23 +67,6 @@ def pytest_report_header() -> list[str]:
     return lines
 
 
-def _setup_test_imports():
-    """Setup imports needed for testing while maintaining lazy loading in production."""
-    # Make pymupdf available for PDF tests that need to mock it
-    try:
-        import pymupdf
-
-        import all2md.parsers.pdf
-
-        all2md.parsers.pdf.pymupdf = pymupdf
-    except ImportError:
-        # If pymupdf isn't available, that's ok - tests that need it will skip
-        pass
-
-    # Make Hyperlink available for DOCX tests (already handled in the module)
-    # No additional setup needed since we fixed the module-level approach
-
-
 def pytest_configure(config):
     """Configure pytest with custom markers."""
     config.addinivalue_line("markers", "unit: Unit tests - fast, isolated component tests")
@@ -91,9 +74,6 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "e2e: End-to-end tests - full pipeline tests")
     config.addinivalue_line("markers", "slow: Slow tests that may take several seconds")
     config.addinivalue_line("markers", "cli: Tests related to command-line interface")
-
-    # Make lazy imports available for testing
-    _setup_test_imports()
 
 
 @pytest.fixture
