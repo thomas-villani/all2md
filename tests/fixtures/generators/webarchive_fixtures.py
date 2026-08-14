@@ -248,6 +248,104 @@ body {
     return plistlib.dumps(archive_data, fmt=plistlib.FMT_BINARY)
 
 
+def create_webarchive_with_query_string_asset() -> bytes:
+    """Create WebArchive file with a subresource URL containing a query string.
+
+    The query string ("?v=1") is illegal in Windows filenames and must be
+    stripped from the extracted filename.
+
+    Returns
+    -------
+    bytes
+        WebArchive file content as bytes (binary plist).
+
+    """
+    html_content = """<!DOCTYPE html>
+<html>
+<head>
+    <title>WebArchive with Query String Asset</title>
+</head>
+<body>
+    <h1>WebArchive with Query String Asset</h1>
+    <img src="img.png?v=1" alt="Versioned image">
+</body>
+</html>"""
+
+    test_image_data = (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+        b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
+        b"\x00\x00\x05\x00\x01\r\n-\xdb\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+
+    archive_data = {
+        "WebMainResource": {
+            "WebResourceData": html_content.encode("utf-8"),
+            "WebResourceMIMEType": "text/html",
+            "WebResourceTextEncodingName": "UTF-8",
+            "WebResourceURL": "http://example.com/query_string.html",
+        },
+        "WebSubresources": [
+            {
+                "WebResourceData": test_image_data,
+                "WebResourceMIMEType": "image/png",
+                "WebResourceURL": "http://example.com/img.png?v=1&cache=abc",
+            }
+        ],
+    }
+
+    return plistlib.dumps(archive_data, fmt=plistlib.FMT_BINARY)
+
+
+def create_webarchive_with_non_latin_text_asset() -> bytes:
+    """Create WebArchive file with a text subresource stored as a plist string.
+
+    plistlib decodes plist ``<string>`` values into native Python ``str``
+    objects (not ``bytes``), which exercises the ``write_text`` branch of
+    subresource extraction. The content uses non-Latin (CJK) characters to
+    ensure the file is written as UTF-8 rather than a platform-default
+    encoding such as cp1252.
+
+    Returns
+    -------
+    bytes
+        WebArchive file content as bytes (binary plist).
+
+    """
+    html_content = """<!DOCTYPE html>
+<html>
+<head>
+    <title>WebArchive with Non-Latin Text Asset</title>
+</head>
+<body>
+    <h1>WebArchive with Non-Latin Text Asset</h1>
+    <link rel="stylesheet" href="cjk_notes.txt">
+</body>
+</html>"""
+
+    # A plain Python str (not bytes) so it decodes from the plist as <string>,
+    # exercising the write_text() branch in _extract_subresources.
+    non_latin_text = "你好世界"  # "Hello World" in Chinese
+
+    archive_data = {
+        "WebMainResource": {
+            "WebResourceData": html_content.encode("utf-8"),
+            "WebResourceMIMEType": "text/html",
+            "WebResourceTextEncodingName": "UTF-8",
+            "WebResourceURL": "http://example.com/non_latin.html",
+        },
+        "WebSubresources": [
+            {
+                "WebResourceData": non_latin_text,
+                "WebResourceMIMEType": "text/plain",
+                "WebResourceTextEncodingName": "UTF-8",
+                "WebResourceURL": "http://example.com/cjk_notes.txt",
+            }
+        ],
+    }
+
+    return plistlib.dumps(archive_data, fmt=plistlib.FMT_BINARY)
+
+
 def create_webarchive_with_complex_html() -> bytes:
     """Create WebArchive file with complex HTML structure for testing.
 

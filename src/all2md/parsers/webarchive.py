@@ -23,6 +23,7 @@ from all2md.options.webarchive import WebArchiveOptions
 from all2md.parsers.base import BaseParser
 from all2md.parsers.html import HtmlToAstConverter
 from all2md.progress import ProgressCallback
+from all2md.utils.attachments import sanitize_attachment_filename
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.inputs import validate_and_convert_input
 from all2md.utils.metadata import DocumentMetadata
@@ -214,10 +215,15 @@ class WebArchiveToAstConverter(BaseParser):
                 if not resource_data:
                     continue
 
-                # Extract filename from URL
+                # Extract filename from URL, stripping any query string/fragment
+                # (e.g. "img.png?v=1") and sanitizing characters illegal on Windows
+                filename = ""
                 if resource_url:
-                    filename = Path(resource_url).name
-                else:
+                    raw_name = Path(urlparse(resource_url).path).name
+                    if raw_name:
+                        filename = sanitize_attachment_filename(raw_name, preserve_case=True, allow_unicode=False)
+
+                if not filename:
                     # Generate filename from MIME type
                     ext = self._mime_to_extension(mime_type)
                     filename = f"resource_{id(resource)}{ext}"
@@ -227,7 +233,7 @@ class WebArchiveToAstConverter(BaseParser):
                 if isinstance(resource_data, bytes):
                     output_file.write_bytes(resource_data)
                 else:
-                    output_file.write_text(str(resource_data))
+                    output_file.write_text(str(resource_data), encoding="utf-8")
 
                 logger.debug(f"Extracted resource: {filename} ({mime_type})")
 
