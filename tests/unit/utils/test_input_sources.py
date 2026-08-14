@@ -397,10 +397,18 @@ class TestLocalPathRetriever:
         assert retriever.can_handle(request) is True
 
     def test_can_handle_nonexistent_file(self, tmp_path):
-        """Test can_handle returns False for non-existent file."""
+        """Test can_handle returns True for a non-existent Path.
+
+        A Path is unambiguously a filesystem path regardless of whether it
+        exists; no other retriever ever claims one. Returning False here used
+        to send a missing/typo'd Path past every retriever to the loader's
+        generic "Unsupported input type: WindowsPath" fallback instead of
+        load()'s accurate "Path does not exist" error -- can_handle is not
+        the place to reject a missing file, load() already does that.
+        """
         retriever = LocalPathRetriever()
         request = DocumentSourceRequest(raw_input=tmp_path / "nonexistent.txt")
-        assert retriever.can_handle(request) is False
+        assert retriever.can_handle(request) is True
 
     def test_can_handle_string_path(self, tmp_path):
         """Test can_handle works with string path."""
@@ -440,6 +448,27 @@ class TestLocalPathRetriever:
         # Directory exists but is not a file
         with pytest.raises(ValidationError):
             retriever.load(request)
+
+    def test_loader_reports_missing_path_not_unsupported_input_type(self, tmp_path):
+        """A missing Path must reach load()'s accurate error, not the loader fallback.
+
+        Before this fix, can_handle() returned False for a non-existent Path,
+        so no retriever claimed it and DocumentSourceLoader.load() fell through
+        to the generic "Unsupported input type: WindowsPath" ValidationError --
+        hiding a missing/typo'd file behind a message that doesn't name the
+        path at all. can_handle() now accepts any Path, so the request reaches
+        LocalPathRetriever.load(), whose error names the path.
+        """
+        missing = tmp_path / "definitely_missing_file.pdf"
+        loader = DocumentSourceLoader(retrievers=[LocalPathRetriever(), TextContentRetriever()])
+        request = DocumentSourceRequest(raw_input=missing)
+
+        with pytest.raises(ValidationError) as excinfo:
+            loader.load(request)
+
+        message = str(excinfo.value)
+        assert "Unsupported input type" not in message
+        assert str(missing) in message
 
 
 class TestDocumentSourceLoader:
@@ -528,3 +557,22 @@ class TestRemoteInputOptions:
         for policy in ["strict", "warn", "ignore"]:
             options = RemoteInputOptions(follow_robots_txt=policy)
             assert options.follow_robots_txt == policy
+
+
+def test_to_markdown_reports_missing_path_not_unsupported_input_type(tmp_path):
+    """to_markdown(Path(...)) for a missing file must name the path.
+
+    It must not say "Unsupported input type: WindowsPath" -- that message hid
+    the real, easy-to-fix problem (a missing or typo'd filename) behind one
+    that suggests the argument's *type* was the issue.
+    """
+    from all2md import to_markdown
+
+    missing = tmp_path / "definitely_missing_file.pdf"
+
+    with pytest.raises(ValidationError) as excinfo:
+        to_markdown(missing)
+
+    message = str(excinfo.value)
+    assert "Unsupported input type" not in message
+    assert str(missing) in message
