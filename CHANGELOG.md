@@ -275,6 +275,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (the digits or letter after the keyword) is now checked case-sensitively and, for a letter,
   requires real whitespace before it, so a plural opener's trailing "s" can no longer stand in
   for one. Genuine cues ("Figure 3:", "FIGURE 4", "Fig B", "Table 1.") are unaffected.
+- **`header_min_occurrences` now actually filters by occurrence.** The option is documented
+  as "minimum occurrences of a font size to consider it for headers" (its docstring's stale
+  "default 3" is also corrected to the real default, 5), but the statistic it was checked
+  against accumulated *characters*, not occurrences: `fontsizes[size] += len(text)` per span.
+  A font size needed fewer than 5 rendered characters — trivial for almost any span — to be
+  dropped, so the filter was a near no-op regardless of how many times that size actually
+  appeared. A separate line-occurrence count is now tracked and checked against
+  `header_min_occurrences` instead. Body-text detection ("which size covers most of the
+  page") still runs on the character-count statistic, unaffected by this change, since
+  characters and occurrences answer different questions and a paragraph condensed onto one
+  packed line should still out-rank a heading for body status. The single largest font size
+  on the page is exempt from the occurrence check: by convention it is the document's title,
+  which renders once by design and would otherwise never clear a repetition threshold now
+  that repetition is measured for real. Every other size — subordinate headings, and any
+  one-off oversized span the filter exists to catch — is filtered as documented. This is a
+  real behaviour change for header detection: a font size that previously qualified on
+  character count alone but occurs only a couple of times (and is not the page's largest)
+  will no longer be treated as a heading size.
 
 ### Changed
 
