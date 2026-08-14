@@ -393,6 +393,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sibling is reached — so the top-level walk now delegates to it instead of duplicating a
   narrower, buggy version of the same logic. Whitespace-only text between block elements
   still produces no paragraph.
+- **XLSX cell hyperlinks render as real links again, instead of escaped literal text.** The
+  parser built a markdown-syntax string (`[text](url)`) for a hyperlinked cell and handed it to
+  `build_table_ast()` as plain cell text, which wrapped it in a `Text` node — so every renderer
+  saw an ordinary string, not a link. The Markdown renderer escapes brackets in `Text` content,
+  so a hyperlinked cell rendered as `\[text\](http://x)` instead of a working link, and the HTML
+  renderer emitted the literal bracket syntax instead of an `<a>` tag. The parser now extracts
+  each cell's (text, hyperlink URL) pair and, for a hyperlinked cell, builds a real `Link` node
+  directly in the `TableCell` — the same thing the DOCX, PPTX and HTML parsers already do.
+  `build_table_ast()` (shared by CSV, ODS and XLSX) gained a second accepted cell shape for
+  this: a cell can still be a plain string, unchanged for every other caller, or a pre-built
+  `list[Node]` used as-is. ODS has no cell-hyperlink extraction at all yet, so it is unaffected
+  and left as-is.
 
 ## [1.12.0] - 2026-08-12
 

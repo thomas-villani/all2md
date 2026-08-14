@@ -1,7 +1,7 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """Tests for shared spreadsheet utility functions."""
 
-from all2md.ast import Table, TableCell
+from all2md.ast import Link, Table, TableCell, Text
 from all2md.utils.spreadsheet import (
     build_table_ast,
     create_table_cell,
@@ -80,6 +80,28 @@ class TestBuildTableAst:
         assert len(table.rows) == 2
         assert table.rows[0].cells[0].content[0].content == "Data1"
         assert table.rows[1].cells[0].content[0].content == "Data2"
+
+    def test_cell_accepts_prebuilt_node_list(self):
+        """A cell value may be a pre-built list[Node] (e.g. a hyperlink's Link node).
+
+        Regression test for the seam XLSX uses to emit real Link nodes for
+        hyperlinked cells instead of a markdown-syntax string. Plain-string
+        cells (used by CSV/ODS) must keep working exactly as before.
+        """
+        header = ["Name", "Site"]
+        rows = [["Example", [Link(url="https://example.com", content=[Text(content="Click here")])]]]
+        alignments = ["left", "left"]
+
+        table = build_table_ast(header, rows, alignments)
+
+        # Plain string cells still become a single Text node.
+        assert table.rows[0].cells[0].content == [Text(content="Example")]
+
+        # A cell given a pre-built node list is used as-is.
+        link_cell_content = table.rows[0].cells[1].content
+        assert len(link_cell_content) == 1
+        assert isinstance(link_cell_content[0], Link)
+        assert link_cell_content[0].url == "https://example.com"
 
 
 class TestCreateTableCell:
