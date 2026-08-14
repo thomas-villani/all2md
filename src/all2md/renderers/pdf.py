@@ -641,9 +641,11 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         if not all_rows:
             return
 
-        # Compute grid dimensions accounting for colspan/rowspan
-        num_rows = len(all_rows)
-        num_cols = self._compute_table_columns(all_rows)
+        # Resolve the grid once, centrally: a declared span that collides with
+        # ground an earlier rowspan claimed would otherwise push the rest of the
+        # row past the last column, silently dropping those cells.
+        grid = self._layout_table_grid(all_rows)
+        num_rows, num_cols = grid.num_rows, grid.num_cols
 
         if num_cols == 0:
             return
@@ -654,40 +656,19 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         ]
         span_commands: list[tuple[str, tuple[int, int], tuple[int, int]]] = []
 
-        # Track which grid cells are occupied
-        occupied = [[False] * num_cols for _ in range(num_rows)]
-
         # Fill the grid
-        for row_idx, ast_row in enumerate(all_rows):
-            col_idx = 0
-            for ast_cell in ast_row.cells:
-                # Skip occupied cells
-                while col_idx < num_cols and occupied[row_idx][col_idx]:
-                    col_idx += 1
+        for placement in grid.placements:
+            # Render cell content
+            text = self._process_inline_content(placement.cell.content)
+            data[placement.row][placement.col] = self._Paragraph(text, self._styles["Normal"])
 
-                if col_idx >= num_cols:
-                    break
-
-                # Render cell content
-                text = self._process_inline_content(ast_cell.content)
-                data[row_idx][col_idx] = self._Paragraph(text, self._styles["Normal"])
-
-                # Handle cell spanning
-                colspan = ast_cell.colspan
-                rowspan = ast_cell.rowspan
-
-                # Mark occupied cells
-                for r in range(row_idx, min(row_idx + rowspan, num_rows)):
-                    for c in range(col_idx, min(col_idx + colspan, num_cols)):
-                        occupied[r][c] = True
-
-                # Add SPAN command if needed
-                if colspan > 1 or rowspan > 1:
-                    end_row = min(row_idx + rowspan - 1, num_rows - 1)
-                    end_col = min(col_idx + colspan - 1, num_cols - 1)
-                    span_commands.append(("SPAN", (col_idx, row_idx), (end_col, end_row)))
-
-                col_idx += colspan
+            # Emit the *effective* spans - what the grid granted, which may be
+            # narrower than the cell asked for. ReportLab rejects overlapping
+            # SPAN commands outright.
+            if placement.colspan > 1 or placement.rowspan > 1:
+                end_row = placement.row + placement.rowspan - 1
+                end_col = placement.col + placement.colspan - 1
+                span_commands.append(("SPAN", (placement.col, placement.row), (end_col, end_row)))
 
         # Create table
         table = self._ReportLabTable(data)

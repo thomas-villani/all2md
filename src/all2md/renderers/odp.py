@@ -394,9 +394,11 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
         if not all_rows:
             return
 
-        # Compute grid dimensions accounting for colspan/rowspan
-        num_rows = len(all_rows)
-        num_cols = self._compute_table_columns(all_rows)
+        # Resolve the grid once, centrally: a declared span that collides with
+        # ground an earlier rowspan claimed would otherwise push the rest of the
+        # row past the last column, silently dropping those cells.
+        grid = self._layout_table_grid(all_rows)
+        num_rows, num_cols = grid.num_rows, grid.num_cols
 
         if num_cols == 0:
             return
@@ -408,50 +410,45 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
         for _ in range(num_cols):
             odf_table.addElement(TableColumn())
 
-        # Track which grid cells are occupied
-        occupied = [[False] * num_cols for _ in range(num_rows)]
+        anchors = grid.anchors()
+        occupied = grid.occupancy()
 
         # Render all rows
-        for row_idx, ast_row in enumerate(all_rows):
+        for row_idx in range(num_rows):
             table_row = TableRow()
             col_idx = 0
 
-            for ast_cell in ast_row.cells:
-                # Skip occupied cells, add CoveredTableCell
-                while col_idx < num_cols and occupied[row_idx][col_idx]:
+            while col_idx < num_cols:
+                placement = anchors.get((row_idx, col_idx))
+
+                if placement is None:
+                    if not occupied[row_idx][col_idx]:
+                        # A hole - no cell reaches here, and ODF has no element
+                        # for one. The row simply ends short.
+                        break
+                    # Covered by a span anchored on an earlier row.
                     table_row.addElement(CoveredTableCell())
                     col_idx += 1
-
-                if col_idx >= num_cols:
-                    break
+                    continue
 
                 # Create cell
                 table_cell = TableCell()
 
-                # Set colspan/rowspan attributes
-                if ast_cell.colspan > 1:
-                    table_cell.setAttribute("numbercolumnsspanned", str(ast_cell.colspan))
-                if ast_cell.rowspan > 1:
-                    table_cell.setAttribute("numberrowsspanned", str(ast_cell.rowspan))
+                # Set the *effective* spans - what the grid granted, which may be
+                # narrower than the cell asked for.
+                if placement.colspan > 1:
+                    table_cell.setAttribute("numbercolumnsspanned", str(placement.colspan))
+                if placement.rowspan > 1:
+                    table_cell.setAttribute("numberrowsspanned", str(placement.rowspan))
 
                 # Render cell content
-                cell_text = self._extract_text_from_nodes(ast_cell.content)
+                cell_text = self._extract_text_from_nodes(placement.cell.content)
                 para = P()
                 para.addText(cell_text)
                 table_cell.addElement(para)
                 table_row.addElement(table_cell)
 
-                # Mark occupied cells
-                for r in range(row_idx, min(row_idx + ast_cell.rowspan, num_rows)):
-                    for c in range(col_idx, min(col_idx + ast_cell.colspan, num_cols)):
-                        occupied[r][c] = True
-
-                col_idx += ast_cell.colspan
-
-            # Add remaining covered cells at end of row if needed
-            while col_idx < num_cols and occupied[row_idx][col_idx]:
-                table_row.addElement(CoveredTableCell())
-                col_idx += 1
+                col_idx += placement.colspan
 
             odf_table.addElement(table_row)
 
