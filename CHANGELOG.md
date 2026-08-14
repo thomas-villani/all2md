@@ -58,7 +58,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mangled under default options. All three parsers now share one `parse_email_body()` helper,
   and the PST branch sets the flag when it converts an HTML body. Structure loss also
   affected non-Markdown renderers, since headings and lists never became AST nodes at all.
-
+- **An Outlook `.msg` file now reaches the Outlook parser instead of the RFC-822 email
+  parser.** The `eml` converter claimed `.msg` in its extension list at a higher detection
+  priority than the `outlook` converter, and extension matching runs before content
+  sniffing — so any path or named stream ending in `.msg` routed to `EmlToAstConverter`.
+  Neither converter defines a content detector, so nothing corrected the choice
+  afterwards. The RFC-822 parser does not reject OLE/CFBF input: `message_from_binary_file`
+  accepts the binary happily and yields a header-less message whose body is the compound
+  file's bytes decoded as text, so `all2md mail.msg` produced mojibake rather than an
+  error, and `extract-msg` was never invoked. The same bytes *without* a filename already
+  detected correctly as `outlook` via magic bytes. `.msg` has been dropped from the `eml`
+  extension list; its magic-byte patterns are all text mail headers and cannot match a
+  compound file, so the eml parser loses no reachable input.
+- **Format detection no longer reads a sentence as a filename.** `registry.detect_format`
+  ran `os.path.splitext` over *any* `str` it was given, so a string holding document
+  content was extension-matched on its tail: `to_markdown("Reminder: check results.csv")`
+  detected `csv` and returned the one-cell table `| Reminder: check results.csv |`, and
+  `to_markdown("Payload attached as invoice.pdf")` raised `FileNotFoundError` naming a path
+  the caller never passed — the failure class [#233](https://github.com/thomas-villani/all2md/issues/233)
+  fixed in the input loader, resurfacing one layer down because detection ran *before* the
+  loader and derived its own answer. Detection now applies the loader's own
+  `looks_like_path_attempt` rule, so the two agree: a `Path`, an openable `str`, and a
+  path-shaped `str` (short, single-line, no whitespace, no `://`, ending in an extension
+  all2md knows) all keep extension and MIME matching, and everything else is content. Path-ness
+  is deliberately *not* gated on the file existing, since `detect_format` is also called on
+  output paths that have not been written yet.
+  Such a string is now also handed to the content detectors, which never saw it before —
+  `content` stayed `None` for any `str` that was not an openable file. Inline string content
+  therefore detects identically to the same content passed as `bytes`: HTML, JSON, XML and
+  the rest are now recognised, and the structured-text detectors claim the same strings they
+  already claimed on the `bytes` path (`"- a\n- b"` is YAML there and is YAML here). Where no
+  detector matches, the fallback to `plaintext` is unchanged.
+- **Writing to `out.txt` no longer silently strips every piece of formatting.** When no
+  `target_format` was given, `convert()` inferred one from the output path — and
+  `registry.detect_format` answers `"plaintext"` for anything it does not recognise,
+  including a `.txt` extension and any unknown one. That answer is a *no-match* signal, but
+  it was used as a renderer choice, so `convert("in.md", "out.txt")` rendered through the
+  plaintext renderer: `# Title` became `Title`, `**bold**` became `bold`, and
+  `[a link](https://example.com)` lost its URL entirely. The code had a guard for exactly
+  this, comparing the inferred format against `"txt"` and substituting markdown, but
+  `detect_format` has returned `"plaintext"` — never `"txt"` — since it was rewritten, so
+  the guard had been dead the whole time and the documented "defaults to markdown"
+  behaviour never fired. All three sites (`convert()`, and the CLI's merge and
+  single-file conversion paths) now compare against `"plaintext"`. Only *inference* is
+  remapped: an explicit `target_format="plaintext"` or `--to plaintext` still selects the
+  plaintext renderer, and a recognised extension such as `.html` or `.docx` is still
+  honoured.
 - **PPTX run hyperlinks are no longer discarded.** `_process_paragraph_runs_to_inline` built
   a `Link` node for every hyperlinked run into a local `result` list, but both of the
   function's exit paths returned `inline_nodes` (the output of `group_and_format_runs`,

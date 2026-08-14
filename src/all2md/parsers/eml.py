@@ -1382,7 +1382,7 @@ class EmlToAstConverter(BaseParser):
 # Converter metadata for registration
 CONVERTER_METADATA = ConverterMetadata(
     format_name="eml",
-    extensions=[".eml", ".msg"],
+    extensions=[".eml"],
     mime_types=["message/rfc822"],
     magic_bytes=[
         (b"Return-Path:", 0),
