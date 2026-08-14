@@ -1037,8 +1037,17 @@ class HtmlToAstConverter(BaseParser):
             List of block nodes (Paragraph, Heading, List, etc.)
 
         """
+        from bs4.element import Comment, NavigableString
+
         children: list[Node] = []
         inline_buffer: list[Node] = []
+        # A whitespace-only text child yields no node, but between two inline
+        # siblings it is still a separator -- HTML collapses it to one space, it
+        # does not delete it. Dropping it fused adjacent inline elements
+        # (``<img>``/newline/``<img>`` became two images with nothing between
+        # them). It only ever separates: at a block boundary or the end of the
+        # container it goes back to being ignorable formatting.
+        pending_space = False
 
         for child in node.children:
             if skip is not None and child is skip:
@@ -1049,6 +1058,7 @@ class HtmlToAstConverter(BaseParser):
                 if inline_buffer:
                     children.append(Paragraph(content=inline_buffer))
                     inline_buffer = []
+                pending_space = False
 
                 # Process block element
                 block_node = self._process_node_to_ast(child)
@@ -1061,10 +1071,20 @@ class HtmlToAstConverter(BaseParser):
                 # Inline element or text: add to buffer
                 inline_nodes = self._process_node_to_ast(child)
                 if inline_nodes:
+                    if pending_space:
+                        inline_buffer.append(Text(content=" "))
+                        pending_space = False
                     if isinstance(inline_nodes, list):
                         inline_buffer.extend(inline_nodes)
                     else:
                         inline_buffer.append(inline_nodes)
+                elif (
+                    inline_buffer
+                    and isinstance(child, NavigableString)
+                    and not isinstance(child, Comment)
+                    and not str(child).strip()
+                ):
+                    pending_space = True
 
         # Flush remaining inline content
         if inline_buffer:

@@ -345,6 +345,8 @@
           return a + b
   ```
   
+   def multiply(self, a, b): return a \* b 
+  
   Use the `Calculator` class for basic arithmetic.
   
   ## Important Information
