@@ -252,6 +252,7 @@ def assign_pages(blocks: Sequence[JatsBlock], pages: Sequence[PageText]) -> Page
             if page is None:
                 pending.append((order, block))
                 continue
+            flush(page)
             buckets[page].append(PlacedBlock(block, order, "phrase"))
             counts["phrase"] += 1
             continue
