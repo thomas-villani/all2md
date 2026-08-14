@@ -36,6 +36,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **An Org greater block containing a blank line is no longer torn apart.** The Org
+  parser split a heading's body on blank lines and only *then* looked for
+  `#+BEGIN_`/`#+END_` delimiters, so a block whose contents contained a blank line — an
+  ordinary thing to write in source code, and the only way to write two paragraphs in a
+  `#+BEGIN_QUOTE` — was cut into fragments before anything could see it was one element.
+  The fragment holding `#+BEGIN_SRC` had no end delimiter, the fragments after it
+  re-parsed as prose (complete with Org inline markup applied to code), and the fragment
+  holding `#+END_SRC` printed that delimiter verbatim as body text: `#+BEGIN_SRC python`
+  / `x = 1` / blank / `y = 2` / `#+END_SRC` produced a `CodeBlock` of just `x = 1`
+  followed by a paragraph reading `y = 2 #+END_SRC`. Body segmentation is now aware of
+  open blocks, the same way the file-property filter above it already was: a blank line
+  inside a `#+BEGIN_x` region is content, and only a matching `#+END_x` closes it, so
+  code that itself contains `#+`-prefixed lines stays intact. Because a greater block is
+  an element in its own right, a delimiter now also bounds the elements around it when no
+  blank line separates them — which additionally recovers text written directly after
+  `#+END_SRC`, previously swallowed by the block and dropped. Affiliated keywords such as
+  `#+CAPTION:` still attach to the block beneath them.
+- **An Org list item's wrapped continuation line is no longer deleted.** `_parse_list`
+  kept only the lines that matched a bullet or number marker and had no branch for
+  anything else, so a line continuing an item's text onto the next line — how any
+  reasonably long item is written — simply vanished. `- item one continues` /
+  `  onto a wrapped line` / `- item two` produced a two-item list in which
+  `onto a wrapped line` appeared nowhere at all, with nothing to indicate text had been
+  dropped. A non-marker line now joins the preceding item's principal text separated by
+  a single space, which is the rule the AsciiDoc parser was given for the same defect in
+  [#343](https://github.com/thomas-villani/all2md/issues/343); a wrapped item and the
+  same item written on one line now parse to equal documents. Nested items are still
+  flattened to a single level — the loop strips each line before matching it, so the
+  indentation that marks a sub-item is gone before the marker is read — and that is
+  unchanged by this fix.
+- **A single `;` in AsciiDoc prose no longer creates a description list.** The lexer's
+  description-list pattern was `^(.+?);(?:\s+(.*))?$`, which matches an enormous amount
+  of ordinary writing: `Alpha; beta gamma.` was lexed as the term `Alpha` with the
+  description `beta gamma.`, a line merely ending in `;` became a bare term with no
+  description, and a semicolon anywhere on a wrapped line broke the paragraph it belonged
+  to in two — the text before the wrap staying a paragraph and the rest becoming a
+  definition list. AsciiDoc has no such marker; its description lists are written `::`,
+  `:::`, `::::` or `;;`. The pattern now requires the doubled `;;`, which parses exactly
+  as `::` does, and the class docstring's `term::` or `term;` has been corrected. One
+  existing test asserted the single-semicolon behaviour and has been updated: it encoded
+  the defect rather than the language.
 - **Words no longer fuse across a formatting change in run-based formats.**
   `group_and_format_runs` — the shared helper that turns a paragraph's runs into inline
   nodes for PPTX (and available to any run-based parser) — joined each same-format group

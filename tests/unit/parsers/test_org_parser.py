@@ -1265,6 +1265,68 @@ class TestGreaterBlocks:
 
 
 @pytest.mark.unit
+class TestGreaterBlocksWithBlankLines:
+    """A blank line inside a greater block must not break the block apart.
+
+    The body was split on blank lines before any block was recognized, so the fragment
+    holding ``#+BEGIN_SRC`` had no end, the middle fragments re-parsed as prose, and the
+    fragment holding ``#+END_SRC`` printed that delimiter verbatim as body text.
+    """
+
+    def test_source_block_keeps_an_internal_blank_line(self) -> None:
+        """``#+BEGIN_SRC`` with a blank line in the code stayed one code block."""
+        doc = OrgParser().parse("* H\n#+BEGIN_SRC python\nx = 1\n\ny = 2\n#+END_SRC\n")
+
+        blocks = [node for node in doc.children if isinstance(node, CodeBlock)]
+        assert [type(node) for node in doc.children] == [Heading, CodeBlock]
+        assert blocks[0].language == "python"
+        assert blocks[0].content == "x = 1\n\ny = 2"
+
+    def test_source_block_keeps_several_internal_blank_lines(self) -> None:
+        """More than one blank line is still code, not a run of paragraphs."""
+        doc = OrgParser().parse("#+BEGIN_SRC python\na = 1\n\n\nb = 2\n\nc = 3\n#+END_SRC\n")
+
+        assert [type(node) for node in doc.children] == [CodeBlock]
+        assert doc.children[0].content == "a = 1\n\n\nb = 2\n\nc = 3"
+
+    def test_example_block_keeps_an_internal_blank_line(self) -> None:
+        """An example block is verbatim, so its blank lines survive too."""
+        doc = OrgParser().parse("#+BEGIN_EXAMPLE\nfirst\n\nsecond\n#+END_EXAMPLE\n")
+
+        assert [type(node) for node in doc.children] == [CodeBlock]
+        assert doc.children[0].content == "first\n\nsecond"
+
+    def test_quote_block_keeps_both_paragraphs_and_no_delimiter_text(self) -> None:
+        """A quote block's blank line separates paragraphs within the quote."""
+        doc = OrgParser().parse("#+BEGIN_QUOTE\nOne.\n\nTwo.\n#+END_QUOTE\n")
+
+        assert [type(node) for node in doc.children] == [BlockQuote]
+        quoted = doc.children[0].children
+        assert [type(node) for node in quoted] == [Paragraph, Paragraph]
+        assert [node.content[0].content for node in quoted] == ["One.", "Two."]
+
+    def test_code_containing_hash_plus_lines_is_not_mistaken_for_a_delimiter(self) -> None:
+        """Only a matching ``#+END_`` closes a block; other ``#+`` lines are code."""
+        doc = OrgParser().parse("#+BEGIN_SRC org\n#+TITLE: x\n\n#+OPTIONS: toc:nil\n#+END_SRC\n")
+
+        assert [type(node) for node in doc.children] == [CodeBlock]
+        assert doc.children[0].content == "#+TITLE: x\n\n#+OPTIONS: toc:nil"
+
+    def test_text_around_a_block_without_blank_lines_stays_separate(self) -> None:
+        """A greater block begins and ends an element of its own.
+
+        Text on the line after ``#+END_SRC`` used to be swallowed by the block and
+        dropped entirely, since the code extractor stops at the end delimiter.
+        """
+        doc = OrgParser().parse("Intro text\n#+BEGIN_SRC python\nz = 1\n#+END_SRC\nAfter text\n")
+
+        assert [type(node) for node in doc.children] == [Paragraph, CodeBlock, Paragraph]
+        assert doc.children[0].content[0].content == "Intro text"
+        assert doc.children[1].content == "z = 1"
+        assert doc.children[2].content[0].content == "After text"
+
+
+@pytest.mark.unit
 class TestEmptyListItems:
     """A bullet with no content is an item, not a line to discard."""
 
@@ -1297,3 +1359,67 @@ class TestEmptyListItems:
         items = doc.children[0].items
         assert items[0].children == []
         assert [type(child) for child in items[1].children] == [Paragraph]
+
+
+@pytest.mark.unit
+class TestListItemRunOnLines:
+    """An item's text wrapping onto the next line must join it, not disappear.
+
+    The loop kept only lines matching a marker and had no other branch, so a wrapped
+    continuation line was silently deleted. The AsciiDoc parser joins run-on lines the
+    same way (#343).
+    """
+
+    @pytest.mark.parametrize(
+        ("wrapped", "flat"),
+        [
+            (
+                "- item one continues\n  onto a wrapped line\n- item two\n",
+                "- item one continues onto a wrapped line\n- item two\n",
+            ),
+            (
+                "1. first\n   wrapped on\n2. second\n",
+                "1. first wrapped on\n2. second\n",
+            ),
+            (
+                "- only item\n  line two\n  line three\n",
+                "- only item line two line three\n",
+            ),
+        ],
+        ids=["unordered", "ordered", "several-lines"],
+    )
+    def test_a_wrapped_item_parses_the_same_as_the_unwrapped_one(self, wrapped: str, flat: str) -> None:
+        """Parity, not a hand-written node list, so the two paths cannot drift."""
+        parser = OrgParser()
+
+        assert parser.parse(wrapped) == parser.parse(flat)
+
+    def test_the_continuation_text_is_present_at_all(self) -> None:
+        """The reported symptom: the wrapped line appeared nowhere in the document."""
+        parser = OrgParser()
+
+        doc = parser.parse("- item one continues\n  onto a wrapped line\n- item two\n")
+
+        lists = [node for node in doc.children if isinstance(node, List)]
+        assert len(lists) == 1
+        assert len(lists[0].items) == 2
+        assert lists[0].items[0].children[0].content[0].content == "item one continues onto a wrapped line"
+
+    def test_a_continuation_line_does_not_leak_into_the_next_item(self) -> None:
+        """Joining stops at the next marker."""
+        parser = OrgParser()
+
+        doc = parser.parse("- one\n  more of one\n- two\n  more of two\n")
+
+        items = doc.children[0].items
+        assert [item.children[0].content[0].content for item in items] == ["one more of one", "two more of two"]
+
+    def test_a_continuation_line_after_an_empty_item_becomes_that_item_s_text(self) -> None:
+        """An empty bullet with a following line is an item whose text wrapped."""
+        parser = OrgParser()
+
+        doc = parser.parse("- a\n-\n  text below the bare marker\n- b\n")
+
+        items = doc.children[0].items
+        assert len(items) == 3
+        assert items[1].children[0].content[0].content == "text below the bare marker"

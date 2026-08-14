@@ -282,12 +282,18 @@ class TestAsciiDocTableHeaderExplicit:
 
 
 class TestAsciiDocSemicolonDescriptionLists:
-    """Tests for semicolon description list syntax."""
+    """Tests for semicolon description list syntax.
+
+    AsciiDoc's description-list markers are ``::``, ``:::``, ``::::`` and ``;;`` -- never
+    a single ``;``. This class asserted the single-semicolon form, which was the lexer's
+    behaviour and not the language's: it turned any prose containing a semicolon into a
+    definition list.
+    """
 
     def test_semicolon_description_list(self) -> None:
-        """Test term; description syntax."""
-        asciidoc = """CPU; Central Processing Unit
-RAM; Random Access Memory"""
+        """Test term;; description syntax."""
+        asciidoc = """CPU;; Central Processing Unit
+RAM;; Random Access Memory"""
         parser = AsciiDocParser()
         doc = parser.parse(asciidoc)
 
@@ -301,6 +307,39 @@ RAM; Random Access Memory"""
         assert term1.content[0].content == "CPU"
         assert len(descs1) == 1
         assert isinstance(descs1[0], DefinitionDescription)
+
+    def test_prose_with_a_mid_sentence_semicolon_stays_one_paragraph(self) -> None:
+        """``Alpha; beta gamma.`` is a sentence, and used to become a definition list."""
+        parser = AsciiDocParser()
+
+        doc = parser.parse("Alpha; beta gamma.")
+
+        assert [type(node) for node in doc.children] == [Paragraph]
+        assert doc.children[0].content[0].content == "Alpha; beta gamma."
+
+    def test_a_line_ending_in_a_semicolon_stays_prose(self) -> None:
+        """The description group is optional, so such a line became a bare term."""
+        parser = AsciiDocParser()
+
+        doc = parser.parse("A sentence ending in a semicolon;")
+
+        assert [type(node) for node in doc.children] == [Paragraph]
+        assert doc.children[0].content[0].content == "A sentence ending in a semicolon;"
+
+    def test_a_semicolon_on_a_wrapped_line_does_not_split_the_paragraph(self) -> None:
+        """The line was lexed on its own, so the paragraph broke in two mid-sentence."""
+        parser = AsciiDocParser()
+
+        doc = parser.parse("Some prose that wraps\nand continues; with more text here.")
+
+        assert [type(node) for node in doc.children] == [Paragraph]
+        assert doc.children[0].content[0].content == "Some prose that wraps and continues; with more text here."
+
+    def test_the_doubled_marker_behaves_like_the_double_colon_one(self) -> None:
+        """``;;`` and ``::`` are the same construct, so they must parse the same."""
+        parser = AsciiDocParser()
+
+        assert parser.parse("Term;; Definition") == parser.parse("Term:: Definition")
 
     def test_double_colon_still_works(self) -> None:
         """Test that traditional :: syntax still works."""
