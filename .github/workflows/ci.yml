@@ -15,6 +15,27 @@ on:
 permissions:
   contents: write  # Required for `gh release create` in the release job
 
+# Cancel a pull request's superseded runs, and nothing else. A pull request starts
+# fourteen runners here (the five-way test matrix plus nine single jobs), so pushing
+# three times to a branch under review used to leave twenty-eight obsolete runners
+# competing for the queue with the fourteen anybody will actually read.
+#
+# The group is keyed on `github.ref`, which for a `pull_request` event is
+# `refs/pull/<n>/merge` -- a namespace no push can ever enter. A push to `main` or
+# `release/**` is `refs/heads/...` and a tag is `refs/tags/v...`, so those runs are
+# alone in their own groups and have nothing to be cancelled by even if the flag were
+# on. It is not: `cancel-in-progress` is evaluated on the incoming run, and only a
+# `pull_request` event sets it true.
+#
+# Both exclusions are load-bearing rather than tidy defaults. The push-to-main run is
+# the only CI that ever executes on a squash or rebase SHA -- cancel it and the commit
+# that ships has never been tested. The tag run is what `release.yml` watches via
+# `workflow_run` to gate the PyPI publish on CI success; cancelling one does not fail
+# the release, it silently never publishes it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   lint-and-typecheck:
     name: Lint & Type Check
