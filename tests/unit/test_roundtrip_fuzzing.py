@@ -851,10 +851,10 @@ def _figure_child_blocks(doc: Document) -> int:
 
 #: Formats the figure gate covers: the ones whose *parser* reconstructs the
 #: Figure container (#338). Every renderer emits the content -- most degrade the
-#: container to its children plus a caption line -- but only the ast and
-#: markdown parsers read it back today; the HTML parser does so only under the
-#: non-default ``figures_parsing="figure"``, and this harness runs defaults.
-FIGURE_FORMATS = ("ast", "markdown")
+#: container to its children plus a caption line -- but only the ast, markdown,
+#: and html parsers read it back today (html since ``figures_parsing`` defaulted
+#: to ``"figure"``, which is what this harness runs).
+FIGURE_FORMATS = ("ast", "markdown", "html")
 
 #: Known figure round-trip gaps, same ratchet as the other allowlists here.
 KNOWN_FIGURE_GAPS: dict[tuple[str, str], str] = {}
