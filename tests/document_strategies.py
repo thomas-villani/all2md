@@ -340,7 +340,12 @@ def figures() -> st.SearchStrategy[Figure]:
         Figure,
         children=st.lists(children, min_size=0, max_size=2),
         caption=st.one_of(st.none(), safe_words(max_words=3)),
-    )
+        # A figure with neither children nor a caption carries no information,
+        # and the HTML parser drops `<figure></figure>` on purpose (documented
+        # in _process_figure_to_ast). Excluded here so a deliberate drop is not
+        # misread as a round-trip gap; the vector-figure shape (caption, no
+        # children) stays in.
+    ).filter(lambda figure: bool(figure.children) or figure.caption is not None)
 
 
 # --------------------------------------------------------------------------- #
