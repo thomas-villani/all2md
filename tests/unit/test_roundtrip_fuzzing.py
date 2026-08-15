@@ -79,6 +79,7 @@ from document_strategies import (
     documents_of,
     documents_with_definition_lists,
     documents_with_footnotes,
+    figures,
     lists,
     tables,
 )
@@ -91,6 +92,7 @@ from all2md.ast.nodes import (
     DefinitionList,
     DefinitionTerm,
     Document,
+    Figure,
     FootnoteDefinition,
     FootnoteReference,
     Heading,
@@ -830,6 +832,73 @@ class TestGeneratedDefinitionLists:
             suppress_health_check=[HealthCheck.too_slow],
         )
         @given(documents_with_definition_lists())
+        def property_holds(doc: Document) -> None:
+            assert measure(_round_trip(doc, fmt)) == measure(doc)
+
+        property_holds()
+
+
+def _figure_shape(doc: Document) -> tuple[int, list[str | None]]:
+    """Return ``(figure count, captions in order)`` in *doc*."""
+    figure_nodes = _collect(doc, Figure)
+    return (len(figure_nodes), [node.caption for node in figure_nodes])
+
+
+def _figure_child_blocks(doc: Document) -> int:
+    """Return the total number of direct child blocks across every figure."""
+    return sum(len(node.children) for node in _collect(doc, Figure))
+
+
+#: Formats the figure gate covers: the ones whose *parser* reconstructs the
+#: Figure container (#338). Every renderer emits the content -- most degrade the
+#: container to its children plus a caption line -- but only the ast and
+#: markdown parsers read it back today; the HTML parser does so only under the
+#: non-default ``figures_parsing="figure"``, and this harness runs defaults.
+FIGURE_FORMATS = ("ast", "markdown")
+
+#: Known figure round-trip gaps, same ratchet as the other allowlists here.
+KNOWN_FIGURE_GAPS: dict[tuple[str, str], str] = {}
+
+FIGURE_PROPERTIES = {
+    "shape": _figure_shape,
+    "child_blocks": _figure_child_blocks,
+}
+
+
+def _figure_params() -> list:
+    """Build one parametrization per (format, property), xfailing known gaps."""
+    params = []
+    for fmt in FIGURE_FORMATS:
+        for name in FIGURE_PROPERTIES:
+            reason = KNOWN_FIGURE_GAPS.get((fmt, name))
+            marks = [pytest.mark.xfail(strict=True, reason=reason)] if reason else []
+            params.append(pytest.param(fmt, name, id=f"{fmt}-{name}", marks=marks))
+    return params
+
+
+@pytest.mark.unit
+@pytest.mark.generative
+@pytest.mark.fuzzing
+class TestGeneratedFigures:
+    """Figure containers survive a round trip, or the gap is written down and attributed."""
+
+    @pytest.mark.parametrize(("fmt", "prop"), _figure_params())
+    def test_figures_survive(self, fmt: str, prop: str) -> None:
+        """Property: a document's figures come back with the same shape.
+
+        Empty-children figures are generated on purpose: a vector-drawn PDF
+        figure has a caption and no extractable content, and "a figure was
+        here" must survive the trip rather than collapse to nothing (#338).
+        """
+        measure = FIGURE_PROPERTIES[prop]
+
+        @settings(
+            deadline=None,
+            max_examples=25,
+            derandomize=not DISCOVERY,
+            suppress_health_check=[HealthCheck.too_slow],
+        )
+        @given(documents_of(figures()))
         def property_holds(doc: Document) -> None:
             assert measure(_round_trip(doc, fmt)) == measure(doc)
 

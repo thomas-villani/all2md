@@ -114,6 +114,7 @@ Block nodes represent block-level elements:
        Table,         # Tables
        TableRow,      # Table rows
        TableCell,     # Table cells
+       Figure,        # Caption-bearing block container for figures (#338)
        ThematicBreak, # Horizontal rules
        HTMLBlock,     # Raw HTML blocks
        MathBlock,     # Display math blocks

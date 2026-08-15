@@ -519,9 +519,10 @@ class HtmlOptions(BaseParserOptions, AttachmentOptionsMixin):
         default=DEFAULT_HTML_FIGURES_PARSING,
         metadata={
             "help": (
-                "How to parse <figure> elements: blockquote, paragraph, image_with_caption, caption_only, html, skip"
+                "How to parse <figure> elements: figure (Figure AST node), blockquote, paragraph, "
+                "image_with_caption, caption_only, html, skip"
             ),
-            "choices": ["blockquote", "paragraph", "image_with_caption", "caption_only", "html", "skip"],
+            "choices": ["figure", "blockquote", "paragraph", "image_with_caption", "caption_only", "html", "skip"],
             "importance": "advanced",
         },
     )

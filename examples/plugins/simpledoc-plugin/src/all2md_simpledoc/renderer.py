@@ -21,6 +21,7 @@ from all2md.ast.nodes import (
     DefinitionTerm,
     Document,
     Emphasis,
+    Figure,
     FootnoteDefinition,
     FootnoteReference,
     Heading,
@@ -510,6 +511,27 @@ class SimpleDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # Some nodes (cells, rows, etc.) are only rendered as part of their parent
         # We still need this method to satisfy NodeVisitor, but it does nothing
         pass
+
+    def visit_figure(self, node: Figure) -> None:
+        """Render a Figure node.
+
+        SimpleDoc doesn't have native figure syntax, so we render the
+        figure's block children as-is and keep the caption as a labelled
+        text line.
+
+        Parameters
+        ----------
+        node : Figure
+            Figure to render
+
+        """
+        # Pattern 2: Provide simplified representation
+        # Render the child blocks normally, then emit the caption on its
+        # own line so the information isn't lost
+        for child in node.children:
+            child.accept(self)
+        if node.caption:
+            self._output.append(f"Caption: {node.caption}\n")
 
     def visit_thematic_break(self, node: ThematicBreak) -> None:
         """Render a ThematicBreak node.

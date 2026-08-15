@@ -29,6 +29,7 @@ from all2md.ast.nodes import (
     DefinitionTerm,
     Document,
     Emphasis,
+    Figure,
     FootnoteDefinition,
     FootnoteReference,
     Heading,
@@ -510,6 +511,45 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         self._output = saved_output
         self._output.append("\n".join(quoted_lines))
+
+    def visit_figure(self, node: Figure) -> None:
+        """Render a Figure node.
+
+        Org attaches a caption to the block below it with ``#+CAPTION:``, the
+        same idiom this renderer uses for a table caption. That fits when the
+        first child is a table or an image paragraph; any other shape renders
+        its children normally with the caption following as an italic line,
+        emitted even with no children, since for a vector-drawn PDF figure the
+        caption is the only record the figure existed.
+
+        Parameters
+        ----------
+        node : Figure
+            Figure to render
+
+        """
+        first = node.children[0] if node.children else None
+        # A table with its own caption writes its own #+CAPTION line.
+        caption_attaches = (isinstance(first, Table) and not first.caption) or (
+            isinstance(first, Paragraph) and len(first.content) == 1 and isinstance(first.content[0], Image)
+        )
+        if node.caption and caption_attaches:
+            self._output.append(f"#+CAPTION: {node.caption}\n")
+            for i, child in enumerate(node.children):
+                child.accept(self)
+                if i < len(node.children) - 1:
+                    self._output.append("\n\n")
+            return
+
+        for i, child in enumerate(node.children):
+            child.accept(self)
+            if i < len(node.children) - 1:
+                self._output.append("\n\n")
+
+        if node.caption:
+            if node.children:
+                self._output.append("\n\n")
+            self._output.append(f"/{node.caption}/")
 
     def visit_list(self, node: List) -> None:
         """Render a List node.

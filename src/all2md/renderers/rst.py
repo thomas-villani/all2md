@@ -30,6 +30,7 @@ from all2md.ast.nodes import (
     DefinitionTerm,
     Document,
     Emphasis,
+    Figure,
     FootnoteDefinition,
     FootnoteReference,
     Heading,
@@ -317,6 +318,46 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         self._output = saved_output
         self._output.append("\n".join(quoted_lines))
+
+    def visit_figure(self, node: Figure) -> None:
+        """Render a Figure node.
+
+        A figure that is exactly one paragraph holding one image maps onto the
+        ``.. figure::`` directive -- the same spelling ``visit_image`` uses for
+        a captioned image -- with the figure caption as the directive body. Any
+        other shape renders its children normally with the caption following as
+        an emphasised paragraph, emitted even with no children, since for a
+        vector-drawn PDF figure the caption is the only record the figure
+        existed.
+
+        Parameters
+        ----------
+        node : Figure
+            Figure to render
+
+        """
+        if node.caption and len(node.children) == 1:
+            child = node.children[0]
+            if isinstance(child, Paragraph) and len(child.content) == 1 and isinstance(child.content[0], Image):
+                image = child.content[0]
+                self._output.append(f".. figure:: {image.url}\n")
+                if image.alt_text:
+                    self._output.append(f"   :alt: {image.alt_text}\n")
+                self._output.append(f"\n   {node.caption}\n")
+                # The image's own caption, if distinct, survives as the legend.
+                if image.caption and image.caption != node.caption:
+                    self._output.append(f"\n   {image.caption}\n")
+                return
+
+        for i, child in enumerate(node.children):
+            child.accept(self)
+            if i < len(node.children) - 1:
+                self._output.append("\n\n")
+
+        if node.caption:
+            if node.children:
+                self._output.append("\n\n")
+            self._output.append(f"*{escape_rst(node.caption)}*")
 
     def visit_list(self, node: List) -> None:
         """Render a List node.

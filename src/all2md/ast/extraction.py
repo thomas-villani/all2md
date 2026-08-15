@@ -38,6 +38,7 @@ from typing import Iterator, Literal, Optional
 
 from all2md.ast.nodes import (
     Document,
+    Figure,
     Image,
     Node,
     Paragraph,
@@ -141,9 +142,26 @@ def collect_tables(doc: Document) -> list[Table]:
     return [node for node in _walk(doc.children) if isinstance(node, Table)]
 
 
-def collect_figures(doc: Document) -> list[Image]:
-    """Return every :class:`Image` in the document, in document order."""
-    return [node for node in _walk(doc.children) if isinstance(node, Image)]
+def collect_figures(doc: Document) -> list[Figure | Image]:
+    """Return every figure in the document, in document order.
+
+    A figure is a :class:`Figure` container, or a bare :class:`Image` outside
+    one. Images inside a Figure are that figure's panels, not figures of their
+    own, so the walk does not descend into Figure children (#338).
+    """
+    out: list[Figure | Image] = []
+
+    def walk(nodes: list[Node]) -> None:
+        for node in nodes:
+            if isinstance(node, Figure):
+                out.append(node)
+                continue
+            if isinstance(node, Image):
+                out.append(node)
+            walk(get_node_children(node))
+
+    walk(doc.children)
+    return out
 
 
 def _resolve_indexed(count: int, spec: str, what: str) -> list[int]:
@@ -182,9 +200,16 @@ def _section_nodes(doc: Document, spec: str) -> list[Node]:
     return _join_groups(groups)
 
 
-def _figure_groups(figures: list[Image], indices: list[int]) -> list[list[Node]]:
-    """Wrap selected inline images in paragraphs so they render at block level."""
-    return [[Paragraph(content=[figures[i]])] for i in indices]
+def _figure_groups(figures: list[Figure | Image], indices: list[int]) -> list[list[Node]]:
+    """Wrap selected bare images in paragraphs so they render at block level.
+
+    A :class:`Figure` is already a block and passes through unwrapped.
+    """
+    groups: list[list[Node]] = []
+    for i in indices:
+        figure = figures[i]
+        groups.append([figure] if isinstance(figure, Figure) else [Paragraph(content=[figure])])
+    return groups
 
 
 def _truncate_words(nodes: list[Node], limit: int) -> list[Node]:

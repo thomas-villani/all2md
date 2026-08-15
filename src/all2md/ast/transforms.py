@@ -44,6 +44,7 @@ from all2md.ast.nodes import (
     DefinitionTerm,
     Document,
     Emphasis,
+    Figure,
     FootnoteDefinition,
     FootnoteReference,
     Heading,
@@ -248,6 +249,10 @@ class NodeTransformer(NodeVisitor):
 
     def visit_block_quote(self, node: BlockQuote) -> BlockQuote:
         """Transform a BlockQuote node."""
+        return self._generic_transform(node)  # type: ignore[return-value]
+
+    def visit_figure(self, node: Figure) -> Figure:
+        """Transform a Figure node."""
         return self._generic_transform(node)  # type: ignore[return-value]
 
     def visit_list(self, node: List) -> List:
@@ -500,6 +505,11 @@ class NodeCollector(NodeVisitor):
 
     def visit_block_quote(self, node: BlockQuote) -> None:
         """Visit a BlockQuote node."""
+        self._collect_if_match(node)
+        self._visit_children(node.children)
+
+    def visit_figure(self, node: Figure) -> None:
+        """Visit a Figure node."""
         self._collect_if_match(node)
         self._visit_children(node.children)
 

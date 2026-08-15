@@ -36,6 +36,7 @@ from all2md.ast.nodes import (
     DefinitionList,
     DefinitionTerm,
     Emphasis,
+    Figure,
     FootnoteDefinition,
     FootnoteReference,
     Heading,
@@ -753,6 +754,28 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
         # Decrease blockquote depth
         self._blockquote_depth -= 1
+
+    def visit_figure(self, node: Figure) -> None:
+        """Render a Figure node.
+
+        Renders the figure's child blocks in order, then the caption (if any)
+        as a centered italic paragraph, matching the image-caption idiom.
+
+        Parameters
+        ----------
+        node : Figure
+            Figure to render
+
+        """
+        # Render children
+        for child in node.children:
+            child.accept(self)
+
+        # Add caption if present
+        if node.caption and self.document:
+            caption_para = self.document.add_paragraph(node.caption)
+            caption_para.alignment = self._WD_ALIGN_PARAGRAPH.CENTER
+            caption_para.runs[0].italic = True
 
     def visit_list(self, node: List) -> None:
         """Render a List node.

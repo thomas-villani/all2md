@@ -32,6 +32,7 @@ from all2md.ast.nodes import (
     DefinitionList,
     DefinitionTerm,
     Emphasis,
+    Figure,
     FootnoteDefinition,
     FootnoteReference,
     Heading,
@@ -457,6 +458,32 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
 
         # Decrease blockquote depth
         self._blockquote_depth -= 1
+
+    def visit_figure(self, node: Figure) -> None:
+        """Render a Figure node.
+
+        Renders the figure's child blocks in order, then the caption (if any)
+        as an italic paragraph, matching the image-caption idiom.
+
+        Parameters
+        ----------
+        node : Figure
+            Figure to render
+
+        """
+        from odf.text import P, Span
+
+        # Render children
+        for child in node.children:
+            child.accept(self)
+
+        # Add caption if present
+        if node.caption and self.document:
+            caption_para = P()
+            span = Span(stylename="Italic")
+            span.addText(node.caption)
+            caption_para.addElement(span)
+            self.document.text.addElement(caption_para)
 
     def visit_list(self, node: List) -> None:
         """Render a List node.

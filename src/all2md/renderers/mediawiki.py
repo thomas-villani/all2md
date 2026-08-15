@@ -25,6 +25,7 @@ from all2md.ast.nodes import (
     DefinitionTerm,
     Document,
     Emphasis,
+    Figure,
     FootnoteDefinition,
     FootnoteReference,
     Heading,
@@ -201,6 +202,31 @@ class MediaWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         self._output = saved_output
         self._output.append("\n".join(quoted_lines))
+
+    def visit_figure(self, node: Figure) -> None:
+        """Render a Figure node.
+
+        MediaWiki has no standalone figure block outside of image markup, so
+        the children render normally and the caption follows as an italic
+        line, emitted even with no children, since for a vector-drawn PDF
+        figure the caption is the only record the figure existed.
+
+        Parameters
+        ----------
+        node : Figure
+            Figure to render
+
+        """
+        for i, child in enumerate(node.children):
+            child.accept(self)
+            if i < len(node.children) - 1:
+                self._output.append("\n\n")
+
+        if node.caption:
+            if node.children:
+                self._output.append("\n\n")
+            caption = escape_mediawiki(node.caption)
+            self._output.append(f"''{caption}''")
 
     def visit_list(self, node: List) -> None:
         """Render a List node.

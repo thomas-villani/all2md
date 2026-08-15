@@ -33,6 +33,7 @@ from all2md.ast.nodes import (
     DefinitionTerm,
     Document,
     Emphasis,
+    Figure,
     FootnoteDefinition,
     FootnoteReference,
     Heading,
@@ -60,7 +61,13 @@ from all2md.ast.nodes import (
     Underline,
 )
 from all2md.ast.visitors import NodeVisitor
-from all2md.constants import MARKDOWN_IMAGE_CAPTION_MARKER, MARKDOWN_TABLE_CAPTION_MARKER
+from all2md.constants import (
+    MARKDOWN_FIGURE_CAPTION_MARKER,
+    MARKDOWN_FIGURE_END_MARKER,
+    MARKDOWN_FIGURE_MARKER,
+    MARKDOWN_IMAGE_CAPTION_MARKER,
+    MARKDOWN_TABLE_CAPTION_MARKER,
+)
 from all2md.options.markdown import MarkdownRendererOptions
 from all2md.renderers.base import BaseRenderer, InlineContentMixin
 from all2md.utils.flavors import (
@@ -1572,6 +1579,48 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # Emit block references if using after_block placement
         if self.options.link_style == "reference" and self.options.reference_link_placement == "after_block":
             self._emit_block_references()
+
+    def visit_figure(self, node: Figure) -> None:
+        """Render a Figure node.
+
+        Markdown has no figure syntax, so the container is spelled with the
+        same marker-comment device as table and image captions (#237, #338),
+        extended to an extent: an opening marker, the child blocks rendered
+        normally, and a closing marker. A captioned figure closes with the
+        italic caption line followed by the caption marker; an uncaptioned one
+        with the end marker alone. Under ``comment_mode="ignore"`` no markers
+        are written and the figure degrades to its children plus a visible
+        caption line, which does not round-trip.
+
+        Parameters
+        ----------
+        node : Figure
+            Figure to render
+
+        """
+        emit_markers = self.options.comment_mode != "ignore"
+        parts: list[str] = []
+        if emit_markers:
+            parts.append(f"<!-- {MARKDOWN_FIGURE_MARKER} -->")
+        # Children are rendered into a swapped-in buffer rather than through
+        # _render_children_to_string, which suspends list-indent state on the
+        # assumption that the caller re-applies it -- here nothing does.
+        saved_output = self._output
+        try:
+            for child in node.children:
+                self._output = []
+                child.accept(self)
+                rendered = "".join(self._output)
+                if rendered.strip():
+                    parts.append(rendered)
+        finally:
+            self._output = saved_output
+        if node.caption:
+            parts.append(f"*{self._escape_caption(node.caption)}*")
+        if emit_markers:
+            closer = MARKDOWN_FIGURE_CAPTION_MARKER if node.caption else MARKDOWN_FIGURE_END_MARKER
+            parts.append(f"<!-- {closer} -->")
+        self._output.append("\n\n".join(parts))
 
     def visit_html_block(self, node: HTMLBlock) -> None:
         """Render an HTMLBlock node.

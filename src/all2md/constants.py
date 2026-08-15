@@ -159,7 +159,7 @@ TemplateMode = Literal["inject", "replace", "jinja"]
 InjectionMode = Literal["append", "prepend", "replace"]
 
 # HTML parser types
-FiguresParsing = Literal["blockquote", "paragraph", "image_with_caption", "caption_only", "html", "skip"]
+FiguresParsing = Literal["figure", "blockquote", "paragraph", "image_with_caption", "caption_only", "html", "skip"]
 DetailsParsing = Literal["blockquote", "paragraph", "html", "skip"]
 BrHandling = Literal["newline", "space"]
 HtmlParser = Literal["html.parser", "html5lib", "lxml"]
@@ -407,6 +407,16 @@ MARKDOWN_TABLE_CAPTION_MARKER = "all2md:table-caption"
 # marker follows the caption paragraph rather than preceding the content. The
 # triple is therefore image-paragraph, caption-paragraph, marker.
 MARKDOWN_IMAGE_CAPTION_MARKER = "all2md:image-caption"
+
+# The Figure container (#338) spans several blocks, so unlike the two caption
+# markers above it needs an extent, not just a caption line: an opening marker,
+# the child blocks rendered normally, and a closing marker. A captioned figure
+# closes with the italic caption paragraph followed by the caption marker (which,
+# as above, carries no text so that editing the visible line edits the caption);
+# an uncaptioned one closes with the end marker alone.
+MARKDOWN_FIGURE_MARKER = "all2md:figure"
+MARKDOWN_FIGURE_CAPTION_MARKER = "all2md:figure-caption"
+MARKDOWN_FIGURE_END_MARKER = "all2md:figure-end"
 
 # Boilerplate text removal patterns (used by RemoveBoilerplateTextTransform)
 DEFAULT_BOILERPLATE_PATTERNS = [
