@@ -664,6 +664,57 @@ def test_a_single_article_reports_no_binding_control_rather_than_a_flattering_ze
     assert report.control_binding_rate == pytest.approx(0.0)
 
 
+def test_a_figure_container_counts_once_with_its_caption() -> None:
+    """A three-panel `Figure` is one emitted figure, matching JATS ``<fig>`` granularity.
+
+    The container's caption is the entry's caption, and the panels' alt texts fold into
+    ``alt_text`` so the misfiled control keeps seeing a caption that landed there.
+    """
+    from all2md.ast.nodes import Document, Figure, Image, Paragraph
+
+    doc = Document(
+        children=[
+            Figure(
+                children=[
+                    Paragraph(content=[Image(url="p1.png", alt_text="panel A")]),
+                    Paragraph(content=[Image(url="p2.png", alt_text="panel B")]),
+                ],
+                caption="Figure 1. Two panels.",
+            )
+        ]
+    )
+
+    assert convert.collect_figures(doc) == (
+        convert.EmittedFigure(alt_text="panel A panel B", caption="Figure 1. Two panels."),
+    )
+
+
+def test_a_bare_captioned_image_reads_exactly_as_it_did_before_the_container() -> None:
+    """Parity: widening the oracle to `Figure` must not move the numbers on the old shape."""
+    from all2md.ast.nodes import Document, Image, Paragraph
+
+    doc = Document(children=[Paragraph(content=[Image(url="x.png", alt_text="alt", caption="Cap")])])
+
+    assert convert.collect_figures(doc) == (convert.EmittedFigure(alt_text="alt", caption="Cap"),)
+
+
+def test_an_empty_figure_is_an_emitted_figure_and_a_captionless_one_cannot_bind() -> None:
+    """The vector-drawn shape (caption, no raster) is observable; no caption means no bind.
+
+    The second half is the judge failing on purpose: an emitted container with an empty
+    caption must not satisfy the binding oracle.
+    """
+    from all2md.ast.nodes import Document, Figure
+
+    doc = Document(children=[Figure(children=[], caption="Figure 2. Vector only."), Figure(children=[])])
+    vector, captionless = convert.collect_figures(doc)
+
+    assert vector == convert.EmittedFigure(alt_text="", caption="Figure 2. Vector only.")
+    assert captionless.caption == ""
+    report = article.measure_binding([("A", [_CAPTION], [(captionless.alt_text, captionless.caption)], _CAPTION)])
+    assert report.bound == 0
+
+
 def test_the_lane_extracts_images_so_a_figure_defect_is_observable() -> None:
     """Under the default `alt_text` mode the parser emits none, making the oracle vacuous.
 

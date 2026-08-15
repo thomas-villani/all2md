@@ -21,7 +21,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from all2md.ast import Document, Heading, Image, Paragraph, Table
+from all2md.ast import Document, Figure, Heading, Image, Paragraph, Table
 from all2md.options import PdfOptions
 from all2md.parsers.pdf import PdfToAstConverter
 
@@ -672,24 +672,40 @@ def _images_in(path, attachment_mode="base64", **option_overrides):
     return collector.collected
 
 
+def _figures_in(path, attachment_mode="base64", **option_overrides):
+    from all2md.api import to_ast
+    from all2md.ast.extraction import collect_figures
+
+    options = PdfOptions(attachment_mode=attachment_mode, **option_overrides)
+    return collect_figures(to_ast(path, parser_options=options))
+
+
 @pytest.mark.unit
 @pytest.mark.pdf
 @pytest.mark.image
-class TestDetectedCaptionsReachTheImageNode:
-    """The detected caption must ride on ``Image.caption``, not vanish into alt text.
+class TestDetectedCaptionsReachTheFigureNode:
+    """The detected caption must ride on the ``Figure`` container, not vanish into alt text.
 
     The caption used to be passed as ``fallback_alt_text``, a dead path: extraction
     writes a non-empty placeholder alt text, so the fallback never fired and the
-    caption was discarded in every attachment mode (#340). These tests drive a real
-    PDF through the whole route -- extract, detect, node -- rather than mocking it.
+    caption was discarded in every attachment mode (#340). It then rode on
+    ``Image.caption`` until the parser gained the container (#338): a captioned
+    image is now emitted inside a ``Figure``, caption on the container, so the
+    caption renders once. These tests drive a real PDF through the whole route --
+    extract, detect, node -- rather than mocking it.
     """
 
-    def test_the_caption_lands_on_image_caption_and_not_on_alt_text(self, tmp_path) -> None:
+    def test_the_caption_lands_on_the_figure_and_not_on_alt_text(self, tmp_path) -> None:
         path = _pdf_with_image(tmp_path, caption_text=_FIGURE_CAPTION)
-        images = _images_in(path)
+        figures = _figures_in(path)
 
+        assert len(figures) == 1
+        assert isinstance(figures[0], Figure)
+        assert figures[0].caption == _FIGURE_CAPTION
+        images = _images_in(path)
         assert len(images) == 1
-        assert images[0].caption == _FIGURE_CAPTION
+        # The container holds the caption; a copy on the image would render twice.
+        assert images[0].caption is None
         # Alt text substitutes for the image; the caption sits beside it. The
         # placeholder stays, the caption must not leak into it.
         assert _FIGURE_CAPTION not in images[0].alt_text
@@ -740,10 +756,13 @@ class TestDefaultModeEmitsCaptionedFigures:
 
     def test_a_captioned_figure_survives_default_options(self, tmp_path) -> None:
         path = _pdf_with_image(tmp_path, caption_text=_FIGURE_CAPTION)
-        images = _images_in(path, attachment_mode="alt_text")
+        figures = _figures_in(path, attachment_mode="alt_text")
 
+        assert len(figures) == 1
+        assert isinstance(figures[0], Figure)
+        assert figures[0].caption == _FIGURE_CAPTION
+        images = _images_in(path, attachment_mode="alt_text")
         assert len(images) == 1
-        assert images[0].caption == _FIGURE_CAPTION
         assert images[0].url == ""
 
     def test_an_uncaptioned_image_stays_suppressed(self, tmp_path) -> None:
@@ -767,5 +786,6 @@ class TestDefaultModeEmitsCaptionedFigures:
 
         # Exactly once: the bound caption line, with its body copy suppressed.
         assert markdown.count(_FIGURE_CAPTION) == 1
-        # The marker comment is what makes the italic caption line round-trippable.
-        assert "all2md:image-caption" in markdown
+        # The figure extent markers are what make the container round-trippable.
+        assert "all2md:figure" in markdown
+        assert "all2md:figure-caption" in markdown

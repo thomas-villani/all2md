@@ -46,6 +46,9 @@ from all2md.ast import (
     Text,
 )
 from all2md.ast import (
+    Figure as AstFigure,
+)
+from all2md.ast import (
     Paragraph as AstParagraph,
 )
 from all2md.ast import (
@@ -69,7 +72,7 @@ from all2md.exceptions import DependencyError, MalformedFileError, PasswordProte
 # Import from private submodules
 from all2md.parsers._pdf_columns import detect_columns
 from all2md.parsers._pdf_headers import IdentifyHeaders, compute_line_style
-from all2md.parsers._pdf_images import extract_page_images
+from all2md.parsers._pdf_images import detect_image_caption, extract_page_images
 from all2md.parsers._pdf_layout import (
     PageLayoutPredictions,
     annotate_blocks_with_layout,
@@ -1893,7 +1896,7 @@ class PdfToAstConverter(BaseParser):
         table_info: list[dict],
         page: "pymupdf.Page",
         page_num: int,
-        page_images: list[Any],
+        figure_plan: list[dict],
     ) -> list[Node]:
         """Process columns with tables inserted at correct positions.
 
@@ -1907,8 +1910,8 @@ class PdfToAstConverter(BaseParser):
             PDF page
         page_num : int
             Page number
-        page_images : list
-            Extracted images for the page
+        figure_plan : list of dict
+            The page's planned figure emissions from :meth:`_plan_page_figures`
 
         Returns
         -------
@@ -1939,14 +1942,116 @@ class PdfToAstConverter(BaseParser):
         nodes = self._merge_adjacent_paragraphs(nodes)
         nodes = self._convert_paragraphs_to_lists(nodes)
 
-        # Add images if placement markers enabled
-        if page_images and self.options.image_placement_markers:
-            for img in page_images:
-                img_node = self._create_image_node(img, page_num)
-                if img_node:
-                    nodes.append(img_node)
+        # Emit the page's figures: a captioned group becomes a Figure container
+        # (caption on the container, so it renders once), an uncaptioned image
+        # stays the bare paragraph it always was, and a vector-drawn figure --
+        # images empty -- is a caption-only container (#338).
+        if figure_plan:
+            source = SourceLocation(format="pdf", page=page_num + 1)
+            for item in figure_plan:
+                panels: list[Node] = [
+                    node for info in item["images"] if (node := self._create_image_node(info, page_num))
+                ]
+                if item["caption"] is None:
+                    nodes.extend(panels)
+                elif panels or not item["images"]:
+                    nodes.append(AstFigure(children=panels, caption=item["caption"], source_location=source))
 
         return nodes
+
+    def _plan_page_figures(
+        self,
+        page: "pymupdf.Page",
+        page_images: list[dict],
+        layout: PageLayoutPredictions | None,
+        table_info: list[dict],
+    ) -> list[dict]:
+        """Group the page's images into figures and mine picture regions for vector ones.
+
+        Returns plan items ``{"images": [...], "caption": ...}`` in top-of-page order:
+
+        - caption and images: a ``Figure`` whose images are panels. Images sharing a
+          layout ``picture`` region or an identical detected caption fold into one
+          figure -- a three-panel figure is one figure, not three (#338).
+        - images and no caption: bare image paragraphs, exactly as before.
+        - caption and no images: a vector-drawn figure. A ``picture`` region holding
+          no extracted raster has no pixels to emit, and the caption is the only
+          record the figure exists.
+
+        The ``picture`` region also rescues captions the per-image search cannot
+        reach: panels bind individually against their own bbox, and the bottom
+        panel's neighbour is the top panel, not the caption -- the region's extent
+        is what actually ends just above the caption.
+        """
+        import pymupdf
+
+        caption_regions = layout.get_predictions_by_label("caption") if layout else None
+        picture_rects = (
+            [pymupdf.Rect(pred.bbox) for pred in layout.get_predictions_by_label("picture")] if layout else []
+        )
+
+        def region_index(bbox: Any) -> int | None:
+            center = pymupdf.Point((bbox.x0 + bbox.x1) / 2, (bbox.y0 + bbox.y1) / 2)
+            for idx, rect in enumerate(picture_rects):
+                if rect.contains(center):
+                    return idx
+            return None
+
+        by_region: dict[int, list[dict]] = {}
+        loose: list[dict] = []
+        for info in page_images:
+            idx = region_index(info["bbox"])
+            if idx is None:
+                loose.append(info)
+            else:
+                by_region.setdefault(idx, []).append(info)
+
+        plan: list[tuple[float, dict]] = []
+        used_captions: set[str] = set()
+
+        for idx, members in sorted(by_region.items()):
+            captions = {member["caption"] for member in members if member.get("caption")}
+            if len(captions) > 1:
+                # Two captioned figures under one region means the region is wrong,
+                # not the captions; regroup those members by caption instead.
+                loose.extend(members)
+                continue
+            caption = next(iter(captions), None)
+            if caption is None:
+                caption = detect_image_caption(page, picture_rects[idx], caption_regions)
+            if caption is None:
+                loose.extend(members)
+                continue
+            used_captions.add(caption)
+            members = sorted(members, key=lambda member: (member["bbox"].y0, member["bbox"].x0))
+            plan.append((min(member["bbox"].y0 for member in members), {"images": members, "caption": caption}))
+
+        by_caption: dict[str, list[dict]] = {}
+        for info in loose:
+            if info.get("caption"):
+                by_caption.setdefault(info["caption"], []).append(info)
+            else:
+                plan.append((info["bbox"].y0, {"images": [info], "caption": None}))
+        for caption, members in by_caption.items():
+            used_captions.add(caption)
+            members = sorted(members, key=lambda member: (member["bbox"].y0, member["bbox"].x0))
+            plan.append((min(member["bbox"].y0 for member in members), {"images": members, "caption": caption}))
+
+        for idx, rect in enumerate(picture_rects):
+            if idx in by_region:
+                continue
+            # A chart the model saw as a picture *and* the table detector claimed
+            # stays a table -- the same 0.3 overlap convention the table supplement
+            # uses above.
+            if any(abs(rect & table["bbox"]) > 0.3 * max(abs(rect), abs(table["bbox"])) for table in table_info):
+                continue
+            caption = detect_image_caption(page, rect, caption_regions)
+            if not caption or caption in used_captions:
+                continue
+            used_captions.add(caption)
+            plan.append((rect.y0, {"images": [], "caption": caption}))
+
+        return [item for _y, item in sorted(plan, key=lambda entry: entry[0])]
 
     def _process_page_to_ast(
         self,
@@ -2087,12 +2192,20 @@ class PdfToAstConverter(BaseParser):
                     )
                     logger.debug("Layout analysis detected additional table at %s on page %d", pred_rect, page_num + 1)
 
+        # Group the page's images into figures and mine rasterless picture regions
+        # for vector-drawn ones (#338). Skipped when OCR replaced the page: the
+        # figures would not be emitted, and dropping their caption blocks from
+        # OCR-recovered text would lose the only copy of the caption.
+        figure_plan: list[dict] = []
+        if not ocr_applied and self.options.image_placement_markers:
+            figure_plan = self._plan_page_figures(page, page_images, layout, table_info)
+
         # A caption bound to a figure renders beside that figure, so the body copy of
         # the same text must not also survive as a paragraph -- every caption would
         # appear twice. Matching is textual rather than geometric: the whole block,
         # whitespace-normalized, must sit inside a caption actually bound on this
         # page, so nothing that is not literally the caption can be dropped.
-        bound_captions = [" ".join(img["caption"].split()) for img in page_images if img.get("caption")]
+        bound_captions = [" ".join(item["caption"].split()) for item in figure_plan if item["caption"]]
 
         # Filter out blocks inside table regions
         text_blocks = []
@@ -2133,10 +2246,9 @@ class PdfToAstConverter(BaseParser):
         # Assign tables to columns
         self._assign_tables_to_columns(table_info, columns)
 
-        # Process columns and tables (suppress image placeholders when OCR replaced page content)
-        nodes = self._process_columns_and_tables(
-            columns, table_info, page, page_num, page_images=[] if ocr_applied else page_images
-        )
+        # Process columns and tables (the figure plan is already empty when OCR
+        # replaced page content or placement markers are off)
+        nodes = self._process_columns_and_tables(columns, table_info, page, page_num, figure_plan=figure_plan)
 
         return nodes
 
@@ -3476,19 +3588,16 @@ class PdfToAstConverter(BaseParser):
         try:
             # Get the process_attachment result
             result = img_info.get("result", {})
-            caption = img_info.get("caption")
 
             # Convert result to Image node using helper
             img_node = attachment_result_to_image_node(result, fallback_alt_text="Image")
 
             if img_node:
                 # The detected caption is visible page content set beside the figure,
-                # not a substitute for it, so it rides on ``Image.caption`` rather
-                # than alt text (#338). Routing it through ``fallback_alt_text`` was
-                # a dead path: the placeholder alt text written at extraction time
-                # meant the fallback never fired, and the caption was discarded (#340).
-                if caption:
-                    img_node.caption = caption
+                # not a substitute for it -- and a captioned image is always emitted
+                # inside a Figure container now, so the caption rides on
+                # ``Figure.caption`` rather than here (#338). Setting it on the
+                # image too would render the caption twice.
                 # Add source location
                 img_node.source_location = SourceLocation(format="pdf", page=page_num + 1)
 
