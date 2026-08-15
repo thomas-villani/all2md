@@ -215,3 +215,274 @@ class TestLayoutRegionExtraction:
             "text_grid_splits_words"
         ], "the specific guard reports; the vaguer layout_region_not_tabular must not pile on"
         assert converter._tables_rejected == 1, "one region, one rejection, one hit to confidence"
+
+
+class _PositionedPage(_FakePage):
+    """A page whose words carry real geometry, for the word-gutter pass."""
+
+    def __init__(self, words: list[tuple], by_strategy: dict[str, list[_FakeTable]] | None = None) -> None:
+        super().__init__(" ".join(word[4] for word in words), by_strategy)
+        self._words = words
+
+    def get_text(self, kind: str, **kwargs):
+        assert kind == "words"
+        return list(self._words)
+
+
+def _word(x0: float, y: float, text: str, width: float = 8.0) -> tuple:
+    return (x0, y, x0 + width * max(1, len(text)) / 2, y + 10.0, text, 0, 0, 0)
+
+
+def _booktabs_words() -> list[tuple]:
+    """Three lines, three columns, 40pt gutters -- a borderless journal table's geometry."""
+    columns = (10.0, 100.0, 180.0)
+    rows = (
+        ("Variables", "AUC", "Sensitivity"),
+        ("Magnesium", "0.774", "0.71"),
+        ("Vitamin", "0.901", "0.88"),
+    )
+    return [_word(columns[i], 10.0 + 20.0 * r, text) for r, row in enumerate(rows) for i, text in enumerate(row)]
+
+
+def _prose_words() -> list[tuple]:
+    """Justified prose: word gaps land at different x on every line, so no shared band is clear."""
+    words = []
+    for line_index in range(6):
+        x = 10.0
+        for word_index in range(12):
+            text = f"w{line_index}{word_index}"
+            entry = _word(x, 10.0 + 15.0 * line_index, text, width=6.0)
+            words.append(entry)
+            x = entry[2] + 2.0 + (line_index * 7 + word_index * 3) % 3
+    return words
+
+
+class TestWordGutterGrid:
+    """The pure geometry: columns from gutters, whole words by construction."""
+
+    def test_a_borderless_table_yields_its_grid(self):
+        from all2md.parsers._pdf_tables import word_gutter_grid
+
+        grid = word_gutter_grid(_booktabs_words())
+
+        assert grid == [
+            ["Variables", "AUC", "Sensitivity"],
+            ["Magnesium", "0.774", "0.71"],
+            ["Vitamin", "0.901", "0.88"],
+        ]
+
+    def test_prose_has_no_gutters(self):
+        """Justified text aligns its outer edges but scatters its inner gaps."""
+        from all2md.parsers._pdf_tables import word_gutter_grid
+
+        assert word_gutter_grid(_prose_words()) is None
+
+    def test_too_few_lines_cannot_corroborate_a_gutter(self):
+        """With two lines, the space between any two words 'spans' the region."""
+        from all2md.parsers._pdf_tables import word_gutter_grid
+
+        two_lines = [entry for entry in _booktabs_words() if entry[1] < 45.0]
+        assert word_gutter_grid(two_lines) is None
+
+    def test_a_spanning_header_does_not_destroy_the_gutter(self):
+        """One line in ten may cross a boundary: titles and footnotes span; columns survive.
+
+        The spanning word itself lands whole in the column holding its center -- cut
+        words are impossible here, which is the entire point of the pass.
+        """
+        from all2md.parsers._pdf_tables import word_gutter_grid
+
+        columns = (10.0, 100.0, 180.0)
+        words = [_word(10.0, 0.0, "SpanningTitleAcrossEverything", width=15.0)]
+        for line in range(9):
+            for column in columns:
+                words.append(_word(column, 20.0 + 20.0 * line, f"c{line}", width=6.0))
+
+        grid = word_gutter_grid(words)
+
+        assert grid is not None
+        assert len(grid) == 10
+        assert all(len(row) == 3 for row in grid)
+        assert (
+            grid[0].count("SpanningTitleAcrossEverything") == 1
+        ), "the spanning word stays whole in exactly one cell -- the column holding its center"
+
+    def test_multiword_cells_join_in_reading_order(self):
+        """Real multi-word cells put their word gaps at different x per line, unlike a gutter."""
+        from all2md.parsers._pdf_tables import word_gutter_grid
+
+        words = []
+        for line in range(3):
+            y = 10.0 + 20.0 * line
+            first = _word(10.0, y, "left")
+            words.extend(
+                [
+                    first,
+                    _word(first[2] + 2.0 + 3.0 * line, y, "part"),
+                    _word(120.0, y, "mid"),
+                    _word(200.0, y, "right"),
+                ]
+            )
+
+        grid = word_gutter_grid(words)
+
+        assert grid == [["left part", "mid", "right"]] * 3
+
+    def test_a_single_gutter_is_columns_not_a_table(self):
+        """One clear band is what any two-column layout has.
+
+        A bibliography split at the page's own column gutter was the dominant junk shape
+        on the PMC corpus. Two aligned internal boundaries is where the evidence starts.
+        """
+        from all2md.parsers._pdf_tables import word_gutter_grid
+
+        words = []
+        for line in range(6):
+            y = 10.0 + 15.0 * line
+            words.extend([_word(10.0, y, f"leftref{line}"), _word(200.0, y, f"rightref{line}")])
+
+        assert word_gutter_grid(words) is None
+
+
+class TestWordGutterRegionExtraction:
+    """The third pass in _extract_table_from_layout_region, behind the find_tables strategies."""
+
+    def test_a_table_both_strategies_miss_is_recovered_from_word_boxes(self, converter):
+        """The #386 headline: 56 of 63 missing corpus tables died after this point."""
+        page = _PositionedPage(_booktabs_words())
+        node = converter._extract_table_from_layout_region(page, _rect(0, 0, 300, 100), page_num=0)
+
+        assert isinstance(node, AstTable)
+        assert [cell.content[0].content for cell in node.header.cells] == ["Variables", "AUC", "Sensitivity"]
+        assert len(node.rows) == 2
+        assert converter._tables_rejected == 0, "recovering a table is not a rejection"
+
+    def test_word_gutters_run_only_after_the_established_strategies(self, converter):
+        """Additive by design: every grid the strategies already accept keeps its exact path."""
+        page = _PositionedPage(_booktabs_words(), {"lines_strict": [_FakeTable(BORDERLESS_TABLE, (0, 0, 100, 50))]})
+        node = converter._extract_table_from_layout_region(page, _rect(0, 0, 300, 100), page_num=0)
+
+        assert isinstance(node, AstTable)
+        assert [cell.content[0].content for cell in node.header.cells] == BORDERLESS_TABLE[0]
+
+    def test_prose_still_falls_through_to_a_paragraph(self, converter):
+        page = _PositionedPage(_prose_words())
+        node = converter._extract_table_from_layout_region(page, _rect(0, 0, 300, 100), page_num=0)
+
+        assert isinstance(node, AstParagraph)
+        assert _rejection_reasons(converter) == ["layout_region_not_tabular"]
+
+    def test_a_gutter_grid_killed_by_a_guard_is_counted_once(self, converter):
+        """Same accounting rule as the other strategies: the specific reason, recorded once."""
+        words = []
+        for line in range(3):
+            y = 10.0 + 20.0 * line
+            words.extend([_word(10.0, y, "na"), _word(120.0, y, "na"), _word(200.0, y, "na")])
+        page = _PositionedPage(words)
+        node = converter._extract_table_from_layout_region(page, _rect(0, 0, 300, 100), page_num=0)
+
+        assert isinstance(node, AstParagraph)
+        assert _rejection_reasons(converter) == ["uniform_cells"]
+        assert converter._tables_rejected == 1
+
+
+class TestContinuationLineMerging:
+    """A wrapped cell folds into its logical row instead of splitting into fake rows."""
+
+    def test_a_line_with_an_empty_anchor_cell_merges_up(self):
+        from all2md.parsers._pdf_tables import word_gutter_grid
+
+        columns = (10.0, 100.0, 180.0)
+        words = []
+        for line in range(4):
+            y = 10.0 + 20.0 * line
+            words.extend(_word(column, y, f"r{line}") for column in columns)
+        # a wrap line under row 1: only the middle column continues
+        words.append(_word(100.0, 35.0, "wrapped"))
+
+        grid = word_gutter_grid(words)
+
+        assert grid is not None
+        assert len(grid) == 4, "the wrap line is a continuation, not a row"
+        assert grid[1][1] == "r1\nwrapped", "fragments join with a newline for hyphenation repair"
+
+    def test_a_dense_numeric_table_keeps_its_per_line_rows(self):
+        from all2md.parsers._pdf_tables import word_gutter_grid
+
+        grid = word_gutter_grid(_booktabs_words())
+
+        assert grid is not None and len(grid) == 3
+
+
+class TestNumberedBibliography:
+    def test_a_numbered_reference_grid_is_condemned(self):
+        from all2md.parsers._pdf_tables import looks_like_numbered_bibliography
+
+        citation = "Smith AB Jones CD Telehealth for global emergencies implications for disease study"
+        grid = [[f"{n}.", citation] for n in range(41, 50)]
+
+        assert looks_like_numbered_bibliography(grid)
+
+    def test_a_real_table_with_a_sequential_number_column_is_not(self):
+        """Sequential numbering alone describes plenty of real tables; the cells decide."""
+        from all2md.parsers._pdf_tables import looks_like_numbered_bibliography
+
+        grid = [[f"{n}", "TP53", "0.901", "significant"] for n in range(1, 12)]
+
+        assert not looks_like_numbered_bibliography(grid)
+
+    def test_prose_cells_without_numbering_are_not(self):
+        from all2md.parsers._pdf_tables import looks_like_numbered_bibliography
+
+        long_cell = "a description column can hold a full sentence of explanatory text per row easily"
+        grid = [["ACE2", long_cell, "yes"] for _ in range(8)]
+
+        assert not looks_like_numbered_bibliography(grid)
+
+    def test_the_region_extractor_demotes_a_bibliography_to_prose(self, converter):
+        """The worst false positive is a gridded bibliography.
+
+        Row-major cells interleave the page's columns and scramble every citation --
+        measured, one gridded bibliography cost an article 15 of its 21 citation titles.
+
+        Geometry: two page columns, each a numbered citation whose intra-citation word
+        gaps are narrow and jittered per line (real justified text), so the only shared
+        gutters are the number-text gaps and the page column separator.
+        """
+        words = []
+        for line in range(9):
+            y = 10.0 + 15.0 * line
+            for half, number in ((10.0, 41 + line), (300.0, 50 + line)):
+                words.append(_word(half, y, f"{number}.", width=8.0))
+                x = half + 30.0
+                for index in range(10):
+                    entry = _word(x, y, f"w{line}{index}", width=8.0)
+                    words.append(entry)
+                    x = entry[2] + 2.0 + (line * 5 + index * 3) % 2
+        page = _PositionedPage(words)
+
+        node = converter._extract_table_from_layout_region(page, _rect(0, 0, 600, 200), page_num=0)
+
+        assert not isinstance(node, AstTable)
+        assert _rejection_reasons(converter) == ["numbered_bibliography"]
+
+
+class TestRotatedRegions:
+    def test_a_rotated_table_is_not_gridded_in_page_coordinates(self):
+        """Perpendicular text groups into fake lines and the grid scrambles reading order.
+
+        Measured: a rotated 28x4 truth table came back 8x12 with its containment
+        destroyed. The rotation-aware prose path reads those regions fine; this
+        detector must decline them.
+        """
+        from all2md.parsers._pdf_tables import word_gutter_grid
+
+        words = []
+        for column in range(4):
+            x = 10.0 + 30.0 * column
+            for row in range(8):
+                y = 10.0 + 40.0 * row
+                # tall narrow boxes: a rotated word's bbox
+                words.append((x, y, x + 8.0, y + 34.0, f"word{column}{row}", 0, 0, 0))
+
+        assert word_gutter_grid(words) is None
