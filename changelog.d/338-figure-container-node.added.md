@@ -12,9 +12,9 @@
   extent-based variant of the #237 marker device (`<!-- all2md:figure -->` …
   `<!-- all2md:figure-caption -->`/`<!-- all2md:figure-end -->`). The HTML
   parser gains an opt-in `figures_parsing="figure"` mode that reads
-  `<figure>` back as the container; the default stays `blockquote`, and the
-  PDF parser does not emit `Figure` yet — flipping those defaults is the
-  follow-up, deliberately separate change. `NodeVisitor.visit_figure` is
+  `<figure>` back as the container (made the default in a separate change,
+  noted below); the PDF parser does not emit `Figure` yet — that follow-up is
+  its own deliberate change. `NodeVisitor.visit_figure` is
   concrete rather than abstract (the `visit_mark` precedent), so third-party
   visitors degrade to the figure's children instead of crashing; the
   `figure:`/`image:` extraction selector now returns a multi-panel figure as

@@ -21,7 +21,7 @@ The two are independent: fixing the figure alone still lost every table in the p
 import pytest
 
 from all2md import to_ast
-from all2md.ast.nodes import BlockQuote, Image, Paragraph, Table, get_node_children
+from all2md.ast.nodes import BlockQuote, Figure, Image, Paragraph, Table, get_node_children
 from all2md.options.html import HtmlOptions
 
 TABLE = (
@@ -73,10 +73,10 @@ class TestTableInFigure:
         assert _census(html) == (1, 3, 6)
 
     def test_caption_survives_alongside_the_table(self):
+        """Under the default ``figures_parsing="figure"``, the caption rides on the container."""
         html = f"<figure>{TABLE}<figcaption>Table 1: results</figcaption></figure>"
         doc = to_ast(html.encode(), source_format="html")
-        text = " ".join(n.content for n in _walk(doc) if hasattr(n, "content") and isinstance(n.content, str))
-        assert "Table 1: results" in text
+        assert [f.caption for f in _walk(doc) if isinstance(f, Figure)] == ["Table 1: results"]
 
     def test_non_image_non_table_content_survives(self):
         """A figure is a container: a <pre> listing must survive it too."""
@@ -86,7 +86,7 @@ class TestTableInFigure:
         )
         text = " ".join(n.content for n in _walk(doc) if hasattr(n, "content") and isinstance(n.content, str))
         assert "print(1)" in text
-        assert "Listing 1" in text
+        assert [f.caption for f in _walk(doc) if isinstance(f, Figure)] == ["Listing 1"]
 
     def test_image_in_figure_still_works(self):
         """The case the old code did handle must not regress."""
@@ -102,9 +102,8 @@ class TestTableInFigure:
         """A recursive figcaption search would let the outer figure steal the inner caption."""
         html = "<figure><figure><img src='x.png'><figcaption>Inner</figcaption></figure><figcaption>Outer</figcaption></figure>"
         doc = to_ast(html.encode(), source_format="html")
-        text = " ".join(n.content for n in _walk(doc) if hasattr(n, "content") and isinstance(n.content, str))
-        assert "Inner" in text
-        assert "Outer" in text
+        captions = {f.caption for f in _walk(doc) if isinstance(f, Figure)}
+        assert captions == {"Inner", "Outer"}
 
 
 @pytest.mark.unit

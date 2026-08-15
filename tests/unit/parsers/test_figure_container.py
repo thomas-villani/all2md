@@ -186,9 +186,18 @@ class TestHtml:
         )
         assert _figures(parsed) == []
 
-    def test_default_mode_is_unchanged(self) -> None:
-        """Flipping the default is a separate, deliberate change."""
+    def test_default_mode_reads_the_container_back(self) -> None:
+        """``figures_parsing`` defaults to ``"figure"`` since the flip that followed #338."""
         parsed = to_ast(b"<figure><p>x</p><figcaption>Cap</figcaption></figure>", source_format="html")
+        assert _figures(parsed)[0].caption == "Cap"
+
+    def test_blockquote_mode_still_available(self) -> None:
+        """The pre-flip behaviour stays one option away."""
+        parsed = to_ast(
+            b"<figure><p>x</p><figcaption>Cap</figcaption></figure>",
+            source_format="html",
+            parser_options=HtmlOptions(figures_parsing="blockquote"),
+        )
         assert _figures(parsed) == []
         assert isinstance(parsed.children[0], BlockQuote)
 
