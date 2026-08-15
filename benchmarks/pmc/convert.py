@@ -65,18 +65,19 @@ class DegradedFact:
 
 @dataclass(frozen=True, slots=True)
 class EmittedFigure:
-    """One `Image` node the parser emitted, and whatever caption it carries.
+    """One figure the parser emitted, and whatever caption it carries.
 
-    ``caption`` is read through `getattr` because `all2md.ast.nodes.Image` has no caption
-    field yet -- that is the defect this instrument exists to measure (#338). Reading it
-    defensively means the oracle ships before the field and reports the honest zero, rather
-    than the two having to land together and the baseline being unobservable.
+    A figure is a `Figure` container or a bare `Image` node outside one -- the same
+    definition the ``figure:`` extraction selector uses. A container counts once, not
+    once per panel image inside it, because the ground truth side counts JATS
+    ``<fig>`` elements and a three-panel figure is one ``<fig>``.
 
     Attributes
     ----------
     alt_text : str
-        The node's alt text. Today the PDF parser writes a detected caption here, which
-        conflates an accessibility description with visible page content; recorded so the
+        The node's alt text; for a `Figure`, its panel images' alt texts joined. The
+        PDF parser once wrote a detected caption here, which conflates an
+        accessibility description with visible page content; recorded so the
         instrument can see a caption that was found but misfiled.
     caption : str
         The node's caption, once it has one. Empty until then.
@@ -274,11 +275,17 @@ def convert_article(pdf_path: Path, expected_pages: int, *, options: PdfOptions 
 
 
 def collect_figures(document: Any) -> tuple[EmittedFigure, ...]:
-    """Return every `Image` node in a converted document, in document order.
+    """Return every emitted figure -- `Figure` containers and bare `Image` nodes.
 
-    Uses `NodeCollector` rather than recursing ``.children``: images live inside paragraphs
-    and other inline containers, and a ``.children`` walk misses whole node types on this
-    AST -- it finds 170 of 5,233 nodes on a real article.
+    Delegates the walk to :func:`all2md.ast.extraction.collect_figures`, which
+    appends a `Figure` without descending into it (its child images are panels,
+    not figures of their own) and reaches bare images through inline content via
+    ``get_node_children`` -- a raw ``.children`` walk misses whole node types on
+    this AST, finding 170 of 5,233 nodes on a real article.
+
+    A container's entry takes its caption from ``Figure.caption`` and folds its
+    panel images' alt texts into ``alt_text``, so the misfiled control still sees
+    a caption that landed in alt text even after the parser wraps the image.
 
     Parameters
     ----------
@@ -291,16 +298,28 @@ def collect_figures(document: Any) -> tuple[EmittedFigure, ...]:
         Emitted figures in document order.
 
     """
-    from all2md.ast.nodes import Image
+    from all2md.ast.extraction import collect_figures as collect_figure_nodes
+    from all2md.ast.nodes import Figure, Image
     from all2md.ast.transforms import NodeCollector
 
-    collector = NodeCollector(lambda node: isinstance(node, Image))
-    document.accept(collector)
-    images = [node for node in collector.collected if isinstance(node, Image)]
-    return tuple(
-        EmittedFigure(
-            alt_text=image.alt_text if isinstance(image.alt_text, str) else "",
-            caption=caption if isinstance(caption := getattr(image, "caption", ""), str) else "",
-        )
-        for image in images
-    )
+    emitted = []
+    for node in collect_figure_nodes(document):
+        if isinstance(node, Figure):
+            panels = NodeCollector(lambda candidate: isinstance(candidate, Image))
+            for child in node.children:
+                child.accept(panels)
+            alt_text = " ".join(
+                panel.alt_text
+                for panel in panels.collected
+                if isinstance(panel, Image) and isinstance(panel.alt_text, str) and panel.alt_text
+            )
+            caption = node.caption if isinstance(node.caption, str) else ""
+            emitted.append(EmittedFigure(alt_text=alt_text, caption=caption))
+        else:
+            emitted.append(
+                EmittedFigure(
+                    alt_text=node.alt_text if isinstance(node.alt_text, str) else "",
+                    caption=caption if isinstance(caption := getattr(node, "caption", ""), str) else "",
+                )
+            )
+    return tuple(emitted)
