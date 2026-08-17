@@ -111,6 +111,9 @@ archive = [
     { name = "py7zr" },
     { name = "rarfile" },
 ]
+benchmarks = [
+    { name = "defusedxml" },
+]
 chm = [
     { name = "pychm" },
 ]
@@ -307,6 +310,7 @@ requires-dist = [
     { name = "chardet", marker = "extra == 'wiki'", specifier = ">=5.2.0" },
     { name = "chardet", marker = "extra == 'xlsx'", specifier = ">=5.2.0" },
     { name = "defusedxml", marker = "extra == 'all'", specifier = ">=0.7.1" },
+    { name = "defusedxml", marker = "extra == 'benchmarks'", specifier = ">=0.7.1" },
     { name = "defusedxml", marker = "extra == 'enex'", specifier = ">=0.7.1" },
     { name = "defusedxml", marker = "extra == 'fb2'", specifier = ">=0.7.1" },
     { name = "defusedxml", marker = "extra == 'pptx'", specifier = ">=0.7.1" },
@@ -408,7 +412,7 @@ requires-dist = [
     { name = "watchdog", marker = "extra == 'all'", specifier = ">=4.0.0" },
     { name = "watchdog", marker = "extra == 'cli-extras'", specifier = ">=4.0.0" },
 ]
-provides-extras = ["odf", "pdf", "pdf-layout", "docx", "fb2", "enex", "pptx", "rtf", "html", "http", "html-readability", "sanitizer", "latex", "search", "chunk", "chm", "dev", "epub", "cli-extras", "xlsx", "markdown", "pdf-render", "docx-render", "mcp", "templates", "rst", "org", "archive", "ocr", "ocr-easyocr", "outlook", "textile", "openapi", "all", "wiki", "langdetect", "window"]
+provides-extras = ["odf", "pdf", "pdf-layout", "docx", "fb2", "enex", "pptx", "rtf", "html", "http", "html-readability", "sanitizer", "latex", "search", "chunk", "chm", "benchmarks", "dev", "epub", "cli-extras", "xlsx", "markdown", "pdf-render", "docx-render", "mcp", "templates", "rst", "org", "archive", "ocr", "ocr-easyocr", "outlook", "textile", "openapi", "all", "wiki", "langdetect", "window"]
 
 [[package]]
 name = "annotated-doc"

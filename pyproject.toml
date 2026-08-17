@@ -146,6 +146,14 @@ chunk = [
 chm = [
     "pychm>=0.8.6"
 ]
+# What the external benchmark lanes import beyond the library itself. The scheduled
+# workflows sync a deliberately lean environment (--extra pdf_layout --extra ocr), so a
+# dependency a benchmark module imports at top level must be named here rather than
+# borrowed from a format extra that happens to carry it -- the PMC lane's scheduled run
+# crashed at import exactly that way when its JATS parsing moved to defusedxml.
+benchmarks = [
+    "defusedxml>=0.7.1",
+]
 dev = [
     "all2md[all]",
     "mypy>=2.1.0",
