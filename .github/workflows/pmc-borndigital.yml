@@ -71,8 +71,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes tesseract-ocr tesseract-ocr-eng
 
+      # `benchmarks` carries what the lane's own modules import beyond the library --
+      # without it the run dies at `import defusedxml` before scoring anything.
       - name: Install all2md from the lockfile
-        run: uv sync --frozen --extra pdf_layout --extra ocr
+        run: uv sync --frozen --extra pdf_layout --extra ocr --extra benchmarks
 
       - name: Score the corpus
         run: |
@@ -85,7 +87,7 @@ jobs:
           if [ -n "${LIMIT}" ]; then
             ARGS+=(--limit "${LIMIT}")
           fi
-          uv run --frozen --extra pdf_layout --extra ocr python -m benchmarks.pmc score "${ARGS[@]}" \
+          uv run --frozen --extra pdf_layout --extra ocr --extra benchmarks python -m benchmarks.pmc score "${ARGS[@]}" \
             | tee "${RUNNER_TEMP}/pmc-summary.txt"
         env:
           LIMIT: ${{ inputs.limit }}
