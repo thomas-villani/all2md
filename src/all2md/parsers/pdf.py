@@ -102,8 +102,10 @@ from all2md.parsers._pdf_tables import (
     TABLE_REGION_STRATEGIES,
     detect_tables_by_ruling_lines,
     is_dot_leader_cell,
+    looks_like_numbered_bibliography,
     page_has_table_signals,
     split_word_ratio,
+    word_gutter_grid,
 )
 from all2md.parsers._pdf_text import (
     classify_line_rotation,
@@ -3440,6 +3442,21 @@ class PdfToAstConverter(BaseParser):
             if isinstance(table, AstTable):
                 return table
 
+        # Third pass: build the grid from the page's own word boxes (#386). The two
+        # find_tables() strategies above delegate both geometry and cell text to
+        # PyMuPDF, and on borderless journal tables its text mode invents column
+        # boundaries through words and reassembles cells with lost spaces -- so the
+        # split-word guard kills the grid, correctly, and the table is lost. Word
+        # boxes cannot be cut by construction (boundaries sit at gutter midpoints and
+        # every word lands whole in the column holding its center), so this pass needs
+        # no word-integrity guard; the gutters themselves are the evidence, and the
+        # shape guards below still apply. Runs last so every grid the established
+        # strategies already accept keeps its exact path.
+        gutter_found, table = self._extract_table_from_word_gutters(page, table_rect, page_num)
+        if isinstance(table, AstTable):
+            return table
+        found_grid = found_grid or gutter_found
+
         # No table here -- the layout model was wrong. Keep the text, drop the pipes.
         paragraph = self._region_text_as_paragraph(page, table_rect, page_num)
         if paragraph is not None and not found_grid:
@@ -3449,6 +3466,100 @@ class PdfToAstConverter(BaseParser):
             # second bite out of the confidence score.
             self._record_table_rejection("layout_region_not_tabular")
         return paragraph
+
+    def _extract_table_from_word_gutters(
+        self, page: "pymupdf.Page", table_rect: "pymupdf.Rect", page_num: int
+    ) -> tuple[bool, AstTable | None]:
+        """Recover a borderless table from word-box gutters inside a layout region.
+
+        Parameters
+        ----------
+        page : pymupdf.Page
+            PDF page containing the region.
+        table_rect : pymupdf.Rect
+            Bounding box predicted by the layout model.
+        page_num : int
+            Page number for source tracking.
+
+        Returns
+        -------
+        tuple of (bool, AstTable or None)
+            Whether anything tabular was found (a grid that a guard then rejected
+            still counts, so the caller does not also record the vaguer
+            ``layout_region_not_tabular`` on top of the guard's reason), and the
+            table when one survives the guards.
+
+        """
+        import pymupdf
+
+        try:
+            words = [word for word in page.get_text("words") if pymupdf.Rect(word[:4]).intersects(table_rect)]
+        except Exception:
+            return False, None
+        grid = word_gutter_grid(words)
+        if grid is None:
+            return False, None
+
+        n_rows = len(grid)
+        n_cols = max((len(row) for row in grid), default=0)
+        if n_rows < MIN_TABLE_ROWS or n_cols < MIN_TABLE_COLS:
+            self._record_table_rejection("degenerate_grid")
+            return True, None
+        if n_rows > MAX_TABLE_ROWS or n_cols > MAX_TABLE_COLS:
+            self._record_table_rejection("oversized_grid")
+            return True, None
+
+        n_cells = n_rows * n_cols
+        n_empty = 0
+        n_dot_leader = 0
+        unique_texts: set[str] = set()
+        for row in grid:
+            for cell_text in row:
+                if cell_text:
+                    unique_texts.add(cell_text)
+                    if is_dot_leader_cell(cell_text):
+                        n_dot_leader += 1
+                else:
+                    n_empty += 1
+
+        if n_empty / n_cells > MAX_TABLE_EMPTY_RATIO:
+            logger.debug(
+                f"Rejecting word-gutter table on page {page_num + 1}: "
+                f"{n_empty}/{n_cells} ({n_empty / n_cells:.0%}) cells empty"
+            )
+            self._record_table_rejection("mostly_empty")
+            return True, None
+        n_filled = n_cells - n_empty
+        if len(unique_texts) == 1 and n_filled >= MIN_FILLED_FOR_UNIFORMITY_CHECK:
+            self._record_table_rejection("uniform_cells")
+            return True, None
+        if n_filled and n_dot_leader / n_filled > MAX_DOT_LEADER_CELL_RATIO:
+            self._record_table_rejection("dot_leader_toc")
+            return True, None
+        # A numbered reference list is the worst grid to emit: row-major cell order
+        # interleaves the page's two columns, scrambling every citation -- measured on
+        # the PMC corpus, one gridded bibliography cost 15 of an article's 21 citation
+        # titles their recall. Demoted to prose it reads exactly as it did before.
+        if looks_like_numbered_bibliography(grid):
+            self._record_table_rejection("numbered_bibliography")
+            return True, None
+
+        def cell_node(cell_text: str) -> TableCell:
+            # Merged continuation lines join with a newline so hyphenation repair can
+            # run across the wrap, the same as the paragraph path does.
+            if self.options.merge_hyphenated_words:
+                cell_text = dehyphenate_text(cell_text)
+            return TableCell(content=[Text(content=" ".join(cell_text.split()))])
+
+        rows = [
+            TableRow(cells=[cell_node(cell_text) for cell_text in row], is_header=index == 0)
+            for index, row in enumerate(grid)
+        ]
+        return True, AstTable(
+            header=rows[0],
+            rows=rows[1:],
+            source_location=SourceLocation(format="pdf", page=page_num + 1),
+        )
 
     def _region_text_as_paragraph(
         self, page: "pymupdf.Page", region: "pymupdf.Rect", page_num: int

@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "MAX_DOT_LEADER_CELL_RATIO",
+    "MAX_GUTTER_INTRUSION_SHARE",
     "MAX_TABLE_COLS",
     "MIN_TABLE_COLS",
     "MIN_TABLE_ROWS",
@@ -25,12 +26,19 @@ __all__ = [
     "MAX_TABLE_ROWS",
     "MAX_SPLIT_WORD_RATIO",
     "MIN_FILLED_FOR_UNIFORMITY_CHECK",
+    "MIN_GUTTER_LINES",
+    "MIN_GUTTER_WIDTH_PT",
+    "MAX_ROTATED_WORD_SHARE",
+    "MIN_WORD_GUTTER_COLS",
     "TABLE_REGION_STRATEGIES",
     "TABLE_SIGNAL_RULING_THRESHOLD",
     "detect_tables_by_ruling_lines",
+    "group_words_into_lines",
     "is_dot_leader_cell",
+    "looks_like_numbered_bibliography",
     "page_has_table_signals",
     "split_word_ratio",
+    "word_gutter_grid",
 ]
 
 # Hard caps and guards applied to detected tables. Real prose tables rarely
@@ -104,6 +112,37 @@ _DOT_LEADER_TAIL = re.compile(r"\n\s*[.…](?:\s*[.…]){2,}\s*$")
 # Letters only. Digits are never "split words" -- a column boundary falling inside a number
 # yields two numbers, both plausible, and counting those would flag real numeric tables.
 _WORD_TOKEN = re.compile(r"[^\W\d_]+", re.UNICODE)
+
+# Word-gutter grid recovery (the third region strategy; see #386). The first two
+# strategies delegate the grid to find_tables(), whose text mode both invents column
+# boundaries through words and reassembles cell text with lost spaces -- on the PMC
+# born-digital corpus that combination cost 56 of the 63 missing tables, every one
+# killed by the split-word guard telling the truth about a damaged grid. Building the
+# grid from the page's own word boxes makes both damage classes impossible: a column
+# boundary can only fall in a gutter no word crosses, and cell text is the words
+# themselves.
+#
+# A gutter must be corroborated by enough printed lines to mean anything: with fewer
+# than MIN_GUTTER_LINES lines, the space between any two words "spans" the region.
+MIN_GUTTER_LINES = 3
+# Share of a region's lines that may intrude into an x-band before it stops counting
+# as a gutter. Nonzero because spanning headers and footnote lines legitimately cross
+# column boundaries -- measured on the PMC corpus, requiring 90% clearance recovered
+# the truth column count almost exactly (35 of 37 guard-killed tables, counts matching
+# JATS: 4->4, 5->5, 9->9) while one intruding line per ten still blocks prose.
+MAX_GUTTER_INTRUSION_SHARE = 0.1
+# Narrower bands than this are ordinary word spacing, not column separation.
+MIN_GUTTER_WIDTH_PT = 4.0
+# A gutter grid needs at least this many columns. One gutter is what ANY two-column
+# layout has -- a reference list, a chart legend beside its axis, a title page -- so a
+# single band is not evidence of a table, it is evidence of columns. Measured on the
+# PMC corpus: 8 of the 13 genuinely non-tabular regions this pass would otherwise emit
+# were two-column (bibliographies split at the page's own column gutter), against 1 of
+# the 34 real tables it recovers.
+MIN_WORD_GUTTER_COLS = 3
+# Share of a region's multi-character words that may stand taller than wide before the
+# region reads as rotated and the gutter pass declines it.
+MAX_ROTATED_WORD_SHARE = 0.5
 
 
 def split_word_ratio(page: "pymupdf.Page", table_data: list[list[str | None]]) -> float:
@@ -435,3 +474,201 @@ def detect_tables_by_ruling_lines(
         filtered_lines.append((th, tv))
 
     return filtered_rects, filtered_lines
+
+
+def group_words_into_lines(words: list[tuple]) -> list[list[tuple]]:
+    """Group word boxes into printed lines by vertical overlap.
+
+    Two words share a line when their boxes overlap vertically by more than half the
+    shorter box's height. Superscripts and subscripts overlap their base line well past
+    that bar; consecutive printed lines do not.
+
+    Parameters
+    ----------
+    words : list of tuple
+        Word entries as returned by ``page.get_text("words")``:
+        ``(x0, y0, x1, y1, text, ...)``.
+
+    Returns
+    -------
+    list of list of tuple
+        Lines in reading order, each line's words sorted by ``x0``.
+
+    """
+    lines: list[dict] = []
+    for word in sorted(words, key=lambda entry: (entry[3], entry[0])):
+        x0, y0, x1, y1 = word[:4]
+        for line in lines:
+            overlap = min(y1, line["y1"]) - max(y0, line["y0"])
+            if overlap > 0.5 * min(y1 - y0, line["y1"] - line["y0"]):
+                line["words"].append(word)
+                line["y0"] = min(y0, line["y0"])
+                line["y1"] = max(y1, line["y1"])
+                break
+        else:
+            lines.append({"y0": y0, "y1": y1, "words": [word]})
+    lines.sort(key=lambda line: line["y0"])
+    return [sorted(line["words"], key=lambda entry: entry[0]) for line in lines]
+
+
+def word_gutter_grid(words: list[tuple]) -> list[list[str]] | None:
+    """Recover a table grid from word boxes alone: columns from gutters, one row per line.
+
+    A gutter is a vertical band of x that at most :data:`MAX_GUTTER_INTRUSION_SHARE` of
+    the region's printed lines intrude into, at least :data:`MIN_GUTTER_WIDTH_PT` wide.
+    Column boundaries sit at gutter midpoints, so a word box can never be cut: every word
+    lands whole in the column holding its center, and cell text is those words joined in
+    x order. Running prose has no such bands -- justified text aligns its outer edges but
+    scatters its inner gaps -- so a region yielding fewer than two columns is not a table
+    to this detector.
+
+    Parameters
+    ----------
+    words : list of tuple
+        Word entries as returned by ``page.get_text("words")`` clipped to the region.
+
+    Returns
+    -------
+    list of list of str or None
+        Cell text per row, or ``None`` when no gutter-corroborated grid exists here.
+
+    """
+    # Rotated regions are not this detector's to grid. A landscape table read in page
+    # coordinates groups perpendicular text into fake lines, and the grid that falls out
+    # scrambles the reading order rather than merely mis-shaping it -- measured, a 28x4
+    # truth table came back 8x12 with its containment destroyed, where the rotation-aware
+    # prose path reads it fine. A multi-character word taller than it is wide is almost
+    # surely rotated; single characters are excluded because an upright "I" is too.
+    sized = [word for word in words if len(str(word[4])) >= 3]
+    if sized:
+        rotated = sum(1 for word in sized if (word[3] - word[1]) > (word[2] - word[0]))
+        if rotated > MAX_ROTATED_WORD_SHARE * len(sized):
+            return None
+
+    lines = group_words_into_lines(words)
+    if len(lines) < MIN_GUTTER_LINES:
+        return None
+
+    # Sweep the x axis: between consecutive interval endpoints the set of intruding
+    # lines is constant, so intrusion counts only change at word-box edges.
+    intervals = []  # (x0, x1, line_index) -- per line, the union is what matters
+    for index, line in enumerate(lines):
+        for word in line:
+            intervals.append((word[0], word[2], index))
+    edges = sorted({x for x0, x1, _ in intervals for x in (x0, x1)})
+    if len(edges) < 2:
+        return None
+
+    max_intruding = MAX_GUTTER_INTRUSION_SHARE * len(lines)
+    gutters: list[tuple[float, float]] = []  # merged maximal clear bands
+    band_start: float | None = None
+    for left, right in zip(edges, edges[1:], strict=False):
+        mid = (left + right) / 2
+        intruding = len({index for x0, x1, index in intervals if x0 < mid < x1})
+        if intruding <= max_intruding:
+            if band_start is None:
+                band_start = left
+        else:
+            if band_start is not None and left - band_start >= MIN_GUTTER_WIDTH_PT:
+                gutters.append((band_start, left))
+            band_start = None
+    # A trailing clear band ends at the region's edge: that is the right margin, not a
+    # column separator, and the leading band is the left margin for the same reason --
+    # margins separate the table from the page, not cell from cell. Bands starting at
+    # edges[0] are excluded by construction only when a word starts there, so drop any
+    # band touching the outer edges explicitly.
+    boundaries = [(start + end) / 2 for start, end in gutters if start > edges[0] and end < edges[-1]]
+    if len(boundaries) < MIN_WORD_GUTTER_COLS - 1:
+        return None
+
+    line_rows: list[list[str]] = []
+    for line in lines:
+        cells: list[list[str]] = [[] for _ in range(len(boundaries) + 1)]
+        for word in line:
+            center = (word[0] + word[2]) / 2
+            column = sum(1 for boundary in boundaries if boundary < center)
+            cells[column].append(str(word[4]))
+        line_rows.append([" ".join(parts) for parts in cells])
+    return _merge_continuation_lines(line_rows)
+
+
+def _merge_continuation_lines(line_rows: list[list[str]]) -> list[list[str]]:
+    """Fold wrapped cell lines into their logical row.
+
+    One printed line is not one table row: a cell holding more than a line of text wraps,
+    and emitting each printed line as a row splits every wrapped cell -- including through
+    hyphenated words, which the whole-word guarantee is supposed to make impossible. The
+    anchor is the leftmost column filled on at least 60% of lines: a line with the anchor
+    cell empty is a continuation of the row above it, because a new logical row announces
+    itself in the column that names rows. Leftmost-qualifying rather than most-filled on
+    purpose -- a heavily wrapped description column is *more* filled than the key column
+    beside it, and choosing it would read every real row as a continuation of the first.
+    Fully-dense numeric tables have every anchor cell filled, so nothing merges and the
+    per-line rows stand.
+
+    Cell fragments join with a newline rather than a space so the caller can run its
+    hyphenation repair across the join, exactly as the paragraph path does.
+    """
+    column_count = max(len(row) for row in line_rows)
+    fill = [sum(1 for row in line_rows if column < len(row) and row[column]) for column in range(column_count)]
+    anchor = next(
+        (column for column in range(column_count) if fill[column] >= 0.6 * len(line_rows)),
+        max(range(column_count), key=lambda column: (fill[column], -column)),
+    )
+
+    merged: list[list[str]] = []
+    for row in line_rows:
+        is_continuation = merged and not (anchor < len(row) and row[anchor])
+        if not is_continuation:
+            merged.append(list(row))
+            continue
+        target = merged[-1]
+        for column, fragment in enumerate(row):
+            if not fragment:
+                continue
+            target[column] = f"{target[column]}\n{fragment}" if target[column] else fragment
+    return merged
+
+
+# The integer forms a bibliography numbers its entries with: ``42.``, ``42``, ``[42]``.
+_BIB_INTEGER = re.compile(r"^\[?(\d{1,3})[.\]]?$")
+# A run of consecutive integers needs this many members before it reads as numbering
+# rather than coincidence.
+MIN_BIB_SEQUENTIAL_CELLS = 5
+# Bibliographies are sentences chopped into cells; tables are values placed in them.
+# Measured on the PMC corpus over the grids the sequential-integer test flags: the four
+# reference-page grids had a 90th-percentile filled-cell length of 10-15 words, the three
+# real tables with a sequential "No." column 1-8. The bar sits in the gap.
+MIN_BIB_CELL_WORDS_P90 = 9
+
+
+def looks_like_numbered_bibliography(grid: list[list[str]]) -> bool:
+    """Decide whether this grid is a numbered reference list rather than a table.
+
+    A bibliography that reaches a grid detector is the worst false positive available:
+    row-major cell order interleaves the page's columns, so every citation is scrambled
+    rather than merely re-wrapped. Two signals must agree before a grid is condemned:
+    a column that counts (five-plus consecutive integers -- ``42.``, ``43.``, ``44.``),
+    and prose-length cells beside it. Either alone describes plenty of real tables; a
+    numbered column of sentences is how a reference list is typeset.
+    """
+    word_counts = sorted(len(cell.split()) for row in grid for cell in row if cell.strip())
+    if not word_counts:
+        return False
+    if word_counts[int(0.9 * len(word_counts))] < MIN_BIB_CELL_WORDS_P90:
+        return False
+
+    column_count = max(len(row) for row in grid)
+    for column in range(column_count):
+        values: list[int | None] = []
+        for row in grid:
+            if column < len(row) and row[column].strip():
+                match = _BIB_INTEGER.match(row[column].strip())
+                values.append(int(match.group(1)) if match else None)
+        integers = [value for value in values if value is not None]
+        if len(integers) < MIN_BIB_SEQUENTIAL_CELLS or len(integers) < 0.8 * len(values):
+            continue
+        consecutive = sum(1 for a, b in zip(integers, integers[1:], strict=False) if b == a + 1)
+        if consecutive >= 0.8 * (len(integers) - 1):
+            return True
+    return False
