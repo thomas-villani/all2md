@@ -141,8 +141,14 @@ MIN_GUTTER_WIDTH_PT = 4.0
 # the 34 real tables it recovers.
 MIN_WORD_GUTTER_COLS = 3
 # Share of a region's multi-character words that may stand taller than wide before the
-# region reads as rotated and the gutter pass declines it.
+# region reads as rotated and the gutter pass switches to the transposed frame.
 MAX_ROTATED_WORD_SHARE = 0.5
+# How much taller than wide a word's box must be to count as *unambiguously* rotated.
+# Declining a region is safe on weak evidence -- the prose path picks it up -- but
+# transposing it is a positive claim, and near-square boxes cut both ways: measured on
+# the PMC corpus, genuinely rotated table regions hold words at median aspect 2.5-2.7,
+# while a mixed-orientation region that must NOT be transposed sits at median 1.05.
+MIN_ROTATED_WORD_ASPECT = 1.2
 
 
 def split_word_ratio(page: "pymupdf.Page", table_data: list[list[str | None]]) -> float:
@@ -533,18 +539,103 @@ def word_gutter_grid(words: list[tuple]) -> list[list[str]] | None:
         Cell text per row, or ``None`` when no gutter-corroborated grid exists here.
 
     """
-    # Rotated regions are not this detector's to grid. A landscape table read in page
-    # coordinates groups perpendicular text into fake lines, and the grid that falls out
+    # A rotated region must not be gridded in page coordinates. A landscape table read
+    # this way groups perpendicular text into fake lines, and the grid that falls out
     # scrambles the reading order rather than merely mis-shaping it -- measured, a 28x4
-    # truth table came back 8x12 with its containment destroyed, where the rotation-aware
-    # prose path reads it fine. A multi-character word taller than it is wide is almost
-    # surely rotated; single characters are excluded because an upright "I" is too.
+    # truth table came back 8x12 with its containment destroyed. Unambiguously rotated
+    # regions go to the transposed pass, which runs this same sweep in the table's own
+    # frame; a region whose tall boxes are only marginally tall is *declined* instead,
+    # exactly as before -- transposing upright text manufactures perfect "gutters" out
+    # of its line spacing, so the dispatch needs stronger evidence than the decline.
+    # Multi-character words only: an upright "I" is taller than wide too.
     sized = [word for word in words if len(str(word[4])) >= 3]
     if sized:
-        rotated = sum(1 for word in sized if (word[3] - word[1]) > (word[2] - word[0]))
-        if rotated > MAX_ROTATED_WORD_SHARE * len(sized):
+        tall = sum(1 for word in sized if (word[3] - word[1]) > (word[2] - word[0]))
+        if tall > MAX_ROTATED_WORD_SHARE * len(sized):
+            strongly_rotated = sum(
+                1 for word in sized if (word[3] - word[1]) > MIN_ROTATED_WORD_ASPECT * (word[2] - word[0])
+            )
+            if strongly_rotated > MAX_ROTATED_WORD_SHARE * len(sized):
+                return _transposed_gutter_grid(words)
             return None
 
+    return _gutter_grid_core(words)
+
+
+def _stream_order_mirrors(words: list[tuple]) -> tuple[bool, bool]:
+    """Decide whether either transposed axis runs against reading order.
+
+    Transposing a box swaps its axes, but a swap is a reflection, not a rotation: one
+    axis of the transposed frame always runs backwards for one of the two rotation
+    directions, and which one depends on whether the text was rotated clockwise or
+    counter-clockwise -- which the boxes alone cannot say. PyMuPDF can: each word tuple
+    carries its ``(block, line, word)`` position in the document stream, and the stream
+    holds the text in the order it reads. Words later in their line sitting at smaller
+    ``x`` means the reading axis is mirrored; later lines sitting at smaller ``y`` means
+    the stacking axis is. Majority vote over every adjacent pair, so one out-of-band
+    word (a superscript, a stray footnote marker) cannot flip an axis.
+
+    Parameters
+    ----------
+    words : list of tuple
+        Word entries **already transposed**, retaining their trailing
+        ``(block, line, word)`` stream coordinates.
+
+    Returns
+    -------
+    tuple of (bool, bool)
+        Whether to mirror the reading (x) axis and the stacking (y) axis. Tuples
+        without stream coordinates, or streams with no adjacent pairs to compare,
+        vote for no mirror -- the unmirrored frame is then as good as any.
+
+    """
+    by_line: dict[tuple, list[tuple]] = {}
+    for word in words:
+        if len(word) < 8:
+            return False, False
+        by_line.setdefault((word[5], word[6]), []).append(word)
+
+    read_pairs = read_reversed = 0
+    for group in by_line.values():
+        group.sort(key=lambda word: word[7])
+        for left, right in zip(group, group[1:], strict=False):
+            read_pairs += 1
+            if right[0] + right[2] < left[0] + left[2]:
+                read_reversed += 1
+
+    ordered_lines = sorted(by_line.items(), key=lambda item: item[0])
+    centers = [sum((word[1] + word[3]) / 2 for word in group) / len(group) for _, group in ordered_lines]
+    stack_pairs = stack_reversed = 0
+    for above, below in zip(centers, centers[1:], strict=False):
+        stack_pairs += 1
+        if below < above:
+            stack_reversed += 1
+
+    return (2 * read_reversed > read_pairs, 2 * stack_reversed > stack_pairs)
+
+
+def _transposed_gutter_grid(words: list[tuple]) -> list[list[str]] | None:
+    """Run the gutter sweep in a rotated region's own frame.
+
+    Swapping each box's axes turns the region's vertical printed lines into horizontal
+    ones, so the ordinary sweep applies unchanged -- gutters, guards and all. The swap
+    leaves one axis running backwards depending on the rotation's direction, so both
+    axes are checked against PyMuPDF's stream order and mirrored where they disagree;
+    without that, one rotation direction would come back with its columns (or rows) in
+    reverse and every cell in the wrong place, which is worse than the prose fallback
+    this pass replaces.
+    """
+    transposed = [(word[1], word[0], word[3], word[2], word[4], *word[5:]) for word in words]
+    mirror_x, mirror_y = _stream_order_mirrors(transposed)
+    if mirror_x:
+        transposed = [(-w[2], w[1], -w[0], w[3], w[4], *w[5:]) for w in transposed]
+    if mirror_y:
+        transposed = [(w[0], -w[3], w[2], -w[1], w[4], *w[5:]) for w in transposed]
+    return _gutter_grid_core(transposed)
+
+
+def _gutter_grid_core(words: list[tuple]) -> list[list[str]] | None:
+    """Run the gutter sweep proper, over words whose frame is already reading-oriented."""
     lines = group_words_into_lines(words)
     if len(lines) < MIN_GUTTER_LINES:
         return None

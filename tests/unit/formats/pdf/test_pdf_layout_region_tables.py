@@ -467,13 +467,75 @@ class TestNumberedBibliography:
         assert _rejection_reasons(converter) == ["numbered_bibliography"]
 
 
-class TestRotatedRegions:
-    def test_a_rotated_table_is_not_gridded_in_page_coordinates(self):
-        """Perpendicular text groups into fake lines and the grid scrambles reading order.
+def _rotated_words(clockwise: bool) -> list[tuple]:
+    """The booktabs table's words, laid out as a landscape table on a portrait page.
 
-        Measured: a rotated 28x4 truth table came back 8x12 with its containment
-        destroyed. The rotation-aware prose path reads those regions fine; this
-        detector must decline them.
+    Rotating the 3x3 upright table maps each printed line to a vertical run of tall
+    boxes. Clockwise text reads top-to-bottom and stacks its lines right-to-left;
+    counter-clockwise reads bottom-to-top and stacks left-to-right. Stream coordinates
+    ``(block, line, word)`` follow reading order in both, exactly as PyMuPDF's do.
+    """
+    rows = (
+        ("Variables", "AUC", "Sensitivity"),
+        ("Magnesium", "0.774", "0.71"),
+        ("Vitamin", "0.901", "0.88"),
+    )
+    words = []
+    for line_index, row in enumerate(rows):
+        # Lines stack along x: later lines further left when clockwise.
+        x = (100.0 - 20.0 * line_index) if clockwise else (10.0 + 20.0 * line_index)
+        position = 10.0
+        for word_index, text in enumerate(row):
+            height = 4.0 * len(text)
+            if clockwise:
+                box = (x, position, x + 10.0, position + height)
+            else:
+                box = (x, 300.0 - position - height, x + 10.0, 300.0 - position)
+            words.append((*box, text, 0, line_index, word_index))
+            position += height + 24.0
+        # Words within a line advance +y when clockwise, -y when counter-clockwise.
+    return words
+
+
+class TestRotatedRegions:
+    def test_a_clockwise_rotated_table_is_recovered_in_its_own_frame(self):
+        """The transposed sweep grids a landscape table the page frame would scramble.
+
+        Measured before the transposed pass existed: a rotated 28x4 truth table came
+        back 8x12 with its containment destroyed. Now the same sweep runs against the
+        transposed boxes, so the grid comes out in the table's own reading order.
+        """
+        from all2md.parsers._pdf_tables import word_gutter_grid
+
+        grid = word_gutter_grid(_rotated_words(clockwise=True))
+        assert grid is not None
+        assert grid[0] == ["Variables", "AUC", "Sensitivity"]
+        assert grid[1][0] == "Magnesium"
+        assert grid[2][2] == "0.88"
+
+    def test_both_rotation_directions_yield_the_same_grid(self):
+        """Transposing is a reflection, so one direction needs a mirrored axis.
+
+        Which axis depends on clockwise versus counter-clockwise -- undecidable from
+        the boxes alone, decided here by the words' stream order. Getting it wrong
+        does not merely mis-shape the grid: it reverses the rows or the columns, and
+        every cell lands in the wrong place.
+        """
+        from all2md.parsers._pdf_tables import word_gutter_grid
+
+        clockwise = word_gutter_grid(_rotated_words(clockwise=True))
+        counter = word_gutter_grid(_rotated_words(clockwise=False))
+        assert clockwise is not None
+        assert clockwise == counter
+
+    def test_marginally_tall_boxes_are_declined_not_transposed(self):
+        """Near-square boxes are weak evidence, and weak evidence declines.
+
+        Transposing on weak evidence is worse than declining: upright text's line
+        spacing becomes perfect fake "gutters" in the transposed frame. Measured on
+        the PMC corpus: real rotated table words sit at median aspect 2.5-2.7, a
+        mixed-orientation region that must not be transposed at 1.05. This region
+        stays with the prose path, exactly as before the transposed pass existed.
         """
         from all2md.parsers._pdf_tables import word_gutter_grid
 
@@ -482,7 +544,7 @@ class TestRotatedRegions:
             x = 10.0 + 30.0 * column
             for row in range(8):
                 y = 10.0 + 40.0 * row
-                # tall narrow boxes: a rotated word's bbox
-                words.append((x, y, x + 8.0, y + 34.0, f"word{column}{row}", 0, 0, 0))
+                # taller than wide, but only just: ambiguous orientation
+                words.append((x, y, x + 30.0, y + 34.0, f"word{column}{row}", 0, 0, 0))
 
         assert word_gutter_grid(words) is None
