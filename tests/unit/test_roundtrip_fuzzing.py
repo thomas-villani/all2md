@@ -767,15 +767,17 @@ DEFINITION_FORMATS = ("ast", "markdown", "html", "rst", "org", "asciidoc")
 #: right and three do not.
 KNOWN_DEFINITION_GAPS: dict[tuple[str, str], str] = {
     ("asciidoc", "shape"): (
-        "The AsciiDoc parser drops every description and splits one list into one list per "
-        "term. `t::\\ndesc` comes back as a DefinitionTerm with no DefinitionDescription, the "
-        "description text becoming a sibling paragraph, and an N-term list comes back as N "
-        "single-term lists. The text survives; the binding between term and description does "
-        "not. See #351."
+        "AsciiDoc attaches one description to each `term::`, so a term's several "
+        "descriptions flatten into it -- as continuation lines since #351's fix bound "
+        "descriptions to their terms at all, so the words survive; the description count "
+        "cannot. The same inherent expressibility gap as reST and Org."
     ),
     ("asciidoc", "description_paragraphs"): (
-        "Follows from the same defect as ('asciidoc', 'shape'): with no DefinitionDescription "
-        "surviving the trip there is nothing left to count paragraphs inside. See #351."
+        "A description's paragraph boundary degrades to a continuation line, so two "
+        "paragraphs come back as one -- words intact since the renderer stopped fusing "
+        "them ('only'+'extra' -> 'onlyextra'). Asciidoctor proper spells the boundary "
+        "with a `+` continuation line, which this parser does not read yet; teaching it "
+        "`+` would close this."
     ),
     ("rst", "shape"): (
         "The reStructuredText renderer emits a term's several descriptions as consecutive "

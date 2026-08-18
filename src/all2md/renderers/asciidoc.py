@@ -1009,11 +1009,22 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             term_content = self._render_inline_content(term.content)
             self._output.append(f"{term_content}::")
 
-            # Render descriptions
+            # Render descriptions. Each block renders separately and the pieces
+            # join as continuation lines under the term -- they used to be
+            # concatenated with nothing between them, fusing the last word of one
+            # paragraph to the first word of the next ('only' + 'extra' ->
+            # 'onlyextra'): destroyed word boundaries, the same class #352 fixed
+            # for reST and Org. The paragraph boundary degrades to a line wrap
+            # (documented in the fuzzing gate); the words survive.
             for desc in descriptions:
-                self._output.append("\n")
                 for child in desc.content:
+                    self._output.append("\n")
+                    saved_output = self._output
+                    self._output = []
                     child.accept(self)
+                    block_text = "".join(self._output)
+                    self._output = saved_output
+                    self._output.append(block_text)
 
     def visit_definition_term(self, node: DefinitionTerm) -> None:
         """Render a DefinitionTerm node (handled by visit_definition_list).

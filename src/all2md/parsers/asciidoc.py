@@ -1705,13 +1705,28 @@ class AsciiDocParser(BaseParser):
                 desc_content = self._parse_inline(description_text)
                 desc_nodes.append(Paragraph(content=desc_content))
 
-            # Check for continuation lines (indented text or explicit blocks)
-            # Continue while we have text lines that are indented or continuation markers
+            # Check for continuation lines. Two spellings bind text to the term:
+            # lines directly below it with no blank between (any indent -- the
+            # standard AsciiDoc description placement, and what this project's
+            # own renderer emits: `t0::` newline `d0`), and indented lines after
+            # a blank. Demanding indent on the adjacent lines too dropped every
+            # description written the standard way -- the term parsed empty and
+            # its text reappeared as a sibling paragraph outside the list, with
+            # the list splitting at every term for the same reason (#351).
+            # Adjacent lines accumulate into ONE wrapped paragraph, because
+            # consecutive lines are one paragraph in AsciiDoc.
+            adjacent = True
+            adjacent_lines: list[str] = []
+
             while self._current_token().type in (TokenType.TEXT_LINE, TokenType.BLANK_LINE):
                 next_token = self._current_token()
 
                 # If it's a blank line, check if the next non-blank is still part of description
                 if next_token.type == TokenType.BLANK_LINE:
+                    if adjacent_lines:
+                        desc_nodes.append(Paragraph(content=self._parse_inline(" ".join(adjacent_lines))))
+                        adjacent_lines = []
+                    adjacent = False
                     # Peek ahead to see if there's more indented content
                     saved_index = self.current_token_index
                     self._advance()  # Skip blank line
@@ -1726,15 +1741,22 @@ class AsciiDocParser(BaseParser):
                         self.current_token_index = saved_index
                         break
 
-                # Check if this line is indented (continuation)
                 if next_token.type == TokenType.TEXT_LINE and next_token.indent > 0:
+                    if adjacent_lines:
+                        desc_nodes.append(Paragraph(content=self._parse_inline(" ".join(adjacent_lines))))
+                        adjacent_lines = []
                     self._advance()
                     # Add continuation line to description
                     line_content = self._parse_inline(next_token.content)
                     desc_nodes.append(Paragraph(content=line_content))
+                elif next_token.type == TokenType.TEXT_LINE and adjacent:
+                    self._advance()
+                    adjacent_lines.append(next_token.content)
                 else:
-                    # Not indented, end of description
+                    # Unindented and past a blank line: the list has ended.
                     break
+            if adjacent_lines:
+                desc_nodes.append(Paragraph(content=self._parse_inline(" ".join(adjacent_lines))))
 
             # Create description from collected nodes
             if desc_nodes:
