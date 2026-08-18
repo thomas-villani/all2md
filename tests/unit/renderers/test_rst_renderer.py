@@ -26,6 +26,8 @@ from all2md.ast import (
     DefinitionTerm,
     Document,
     Emphasis,
+    FootnoteDefinition,
+    FootnoteReference,
     Heading,
     Image,
     LineBreak,
@@ -1508,3 +1510,100 @@ class TestEdgeCases:
         assert "``code``" in rst
         assert "* Item" in rst
         assert "----" in rst
+
+
+@pytest.mark.unit
+class TestFootnotes:
+    """Tests for footnote rendering.
+
+    A bare alphanumeric label (``[a1]_``) is reST *citation* syntax, so
+    non-numeric identifiers must render as named auto-numbered footnotes
+    (``[#a1]_``) to stay footnotes on re-parse (#347).
+    """
+
+    def test_non_numeric_identifier_uses_named_form(self) -> None:
+        """A non-numeric identifier renders as `[#name]_` / `.. [#name]`."""
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="Body "), FootnoteReference(identifier="a1")]),
+                FootnoteDefinition(identifier="a1", content=[Paragraph(content=[Text(content="Note.")])]),
+            ]
+        )
+        rst = RestructuredTextRenderer().render_to_string(doc)
+
+        assert "[#a1]_" in rst
+        assert ".. [#a1] Note." in rst
+        assert "[a1]_" not in rst.replace("[#a1]_", "")
+
+    def test_numeric_identifier_stays_numbered(self) -> None:
+        """A purely numeric identifier keeps the manually numbered form."""
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="Body "), FootnoteReference(identifier="42")]),
+                FootnoteDefinition(identifier="42", content=[Paragraph(content=[Text(content="Note.")])]),
+            ]
+        )
+        rst = RestructuredTextRenderer().render_to_string(doc)
+
+        assert "[42]_" in rst
+        assert ".. [42] Note." in rst
+        assert "#42" not in rst
+
+    def test_multi_paragraph_definition_keeps_blank_line(self) -> None:
+        """Definition blocks separate with a blank line at the body column, not continuation lines."""
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="Body "), FootnoteReference(identifier="a1")]),
+                FootnoteDefinition(
+                    identifier="a1",
+                    content=[
+                        Paragraph(content=[Text(content="First paragraph.")]),
+                        Paragraph(content=[Text(content="Second paragraph.")]),
+                    ],
+                ),
+            ]
+        )
+        rst = RestructuredTextRenderer().render_to_string(doc)
+
+        assert ".. [#a1] First paragraph.\n\n   Second paragraph." in rst
+
+    def test_reference_glued_to_word_gets_escaped_boundary(self) -> None:
+        """A marker directly after a word needs `\\ ` -- docutils only starts inline markup after a boundary."""
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="word"), FootnoteReference(identifier="a1")]),
+                FootnoteDefinition(identifier="a1", content=[Paragraph(content=[Text(content="Note.")])]),
+            ]
+        )
+        rst = RestructuredTextRenderer().render_to_string(doc)
+
+        assert "word\\ [#a1]_" in rst
+
+    def test_reference_after_space_needs_no_escape(self) -> None:
+        """No escaped whitespace is inserted where a boundary already exists."""
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="word "), FootnoteReference(identifier="a1")]),
+                FootnoteDefinition(identifier="a1", content=[Paragraph(content=[Text(content="Note.")])]),
+            ]
+        )
+        rst = RestructuredTextRenderer().render_to_string(doc)
+
+        assert "word [#a1]_" in rst
+        assert "\\ " not in rst
+
+    def test_hard_break_in_definition_falls_back_to_raw(self) -> None:
+        """Hard breaks inside a footnote body use raw newlines -- `| ` on the marker line becomes a line_block."""
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="Body "), FootnoteReference(identifier="a1")]),
+                FootnoteDefinition(
+                    identifier="a1",
+                    content=[Paragraph(content=[Text(content="one"), LineBreak(soft=False), Text(content="two")])],
+                ),
+            ]
+        )
+        rst = RestructuredTextRenderer().render_to_string(doc)
+
+        assert "| " not in rst
+        assert ".. [#a1] one\n   two" in rst
