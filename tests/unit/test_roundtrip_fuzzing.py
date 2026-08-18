@@ -777,23 +777,26 @@ KNOWN_DEFINITION_GAPS: dict[tuple[str, str], str] = {
         "Follows from the same defect as ('asciidoc', 'shape'): with no DefinitionDescription "
         "surviving the trip there is nothing left to count paragraphs inside. See #351."
     ),
+    # ("rst", "description_paragraphs") is gone: the word-fusing concatenation (#352) is
+    # fixed -- blocks now render as same-indent paragraphs separated by blank lines, and
+    # the parser reads the paragraph count back exactly.
     ("rst", "shape"): (
-        "The reStructuredText renderer emits a term's several descriptions as consecutive "
-        "indented lines with nothing between them, so they parse back as one description. "
-        "See #352."
-    ),
-    ("rst", "description_paragraphs"): (
-        "The reStructuredText renderer concatenates a description's paragraphs with no "
-        "separator at all -- two paragraphs 'alpha' and 'beta' render as 'alphabeta', which "
-        "fuses a word boundary rather than merely losing a break. See #352."
+        "reST's own syntax holds ONE definition per term (docutils: (term, classifier*, "
+        "definition)), so a term's several descriptions flatten into that one definition -- "
+        "as separate paragraphs since #352's fix, so the words survive; the description "
+        "count cannot. An inherent expressibility gap, not a renderer defect."
     ),
     ("org", "shape"): (
-        "Same defect as ('rst', 'shape') in the Org renderer: a term's several descriptions "
-        "are emitted as continuation lines and parse back as one. See #352."
+        "Org has one `::` definition per item, so a term's several descriptions flatten "
+        "into it -- as continuation lines since #352's fix, words intact, count lost. "
+        "Inherent to the syntax, like ('rst', 'shape')."
     ),
     ("org", "description_paragraphs"): (
-        "Same defect as ('rst', 'description_paragraphs') in the Org renderer: a description's "
-        "paragraphs are concatenated with no separator, fusing the words either side. See #352."
+        "A description's paragraph boundary degrades to a continuation line, so two "
+        "paragraphs come back as one -- with their words intact since #352's fix (they "
+        "used to fuse: 'alpha'+'beta' -> 'alphabeta'). Org proper spells the boundary as "
+        "a blank line plus indent, which the org parser's block splitter cannot see "
+        "across yet; parser-side continuation support would close this."
     ),
 }
 
