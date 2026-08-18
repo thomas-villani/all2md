@@ -930,6 +930,33 @@ class TestDokuWikiFootnotes:
         # Should be skipped when use_html_for_unsupported is False
         assert "<!--" not in output
 
+    def test_multi_paragraph_definition_keeps_its_word_boundary(self) -> None:
+        """A definition's paragraphs must not fuse into one token (#347).
+
+        They were rendered through the inline path with nothing between the
+        blocks, so 'first para' + 'second para' came out 'first parasecond
+        para' -- a destroyed word boundary, the same corruption class #352
+        fixed for reST and Org definition lists. The paragraph boundary itself
+        is still lost (DokuWiki's inline footnotes have nowhere to carry it;
+        the fuzzing gate documents that), but the words survive.
+        """
+        doc = Document(
+            children=[
+                FootnoteDefinition(
+                    identifier="a1",
+                    content=[
+                        Paragraph(content=[Text(content="first para")]),
+                        Paragraph(content=[Text(content="second para")]),
+                    ],
+                )
+            ]
+        )
+        output = DokuWikiRenderer().render_to_string(doc)
+
+        assert "parasecond" not in output
+        assert "first para" in output
+        assert "second para" in output
+
 
 @pytest.mark.unit
 class TestDokuWikiHTML:

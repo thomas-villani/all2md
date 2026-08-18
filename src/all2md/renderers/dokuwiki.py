@@ -641,7 +641,19 @@ class DokuWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # DokuWiki doesn't support separate footnote definitions
         # Skip or render as HTML comment if use_html_for_unsupported
         if self.options.use_html_for_unsupported:
-            content = self._render_inline_content(node.content)
+            # The definition holds BLOCKS. Feeding them through the inline path
+            # joined the blocks with nothing at all, fusing the last word of one
+            # paragraph to the first word of the next ('first para' + 'second
+            # para' -> 'first parasecond para') -- destroyed word boundaries,
+            # not lost formatting (#347). Each block renders separately and the
+            # pieces join with a space; the paragraph boundary is still lost
+            # (documented in the fuzzing gate), the words are not.
+            parts = []
+            for child in node.content:
+                inline = getattr(child, "content", None)
+                if isinstance(inline, list):
+                    parts.append(self._render_inline_content(inline))
+            content = " ".join(part for part in parts if part)
             self._output.append(f"<!-- Footnote {node.identifier}: {content} -->")
 
     def visit_definition_list(self, node: DefinitionList) -> None:
