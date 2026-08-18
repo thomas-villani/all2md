@@ -225,6 +225,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._next_ref_id = 1
         self._block_link_references = {}
         self._in_single_line = False
+        self._strikethrough_depth = 0
 
         document.accept(self)
 
@@ -1223,22 +1224,29 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         Returns
         -------
         list[list[str]]
-            Rendered cell strings
+            Rendered cell strings on the resolved grid: one string per logical
+            column in every row, spans padded with empty cells.
 
         """
-        rendered_rows: list[list[str]] = []
+        # Cells are placed on the resolved grid, not written one pipe cell per AST
+        # cell. A pipe table cannot express a span, and GFM only recognises a table
+        # at all when the header row's cell count matches the delimiter row's -- so
+        # a colspan header written span-blind makes the whole table reparse as
+        # prose (#385). Padding the span with empty cells keeps every row at the
+        # logical width: the merge is lost (inherent), the table is not. The same
+        # placement keeps rows after a rowspan in their own columns instead of
+        # sliding left into the spanned one.
+        grid = self._layout_table_grid(rows)
+        matrix: list[list[str]] = [["" for _ in range(grid.num_cols)] for _ in range(grid.num_rows)]
         # A cell occupies one line of a pipe row: a newline inside one truncates
         # the row and everything after it stops being part of the table.
         with self._single_line():
-            for row in rows:
-                cells: list[str] = []
-                for cell in row.cells:
-                    content = self._flatten_to_single_line(self._render_inline_content(cell.content))
-                    if self.options.table_pipe_escape:
-                        content = content.replace("|", "\\|")
-                    cells.append(content)
-                rendered_rows.append(cells)
-        return rendered_rows
+            for placement in grid.placements:
+                content = self._flatten_to_single_line(self._render_inline_content(placement.cell.content))
+                if self.options.table_pipe_escape:
+                    content = content.replace("|", "\\|")
+                matrix[placement.row][placement.col] = content
+        return matrix
 
     def _calculate_column_widths(self, rendered_rows: list[list[str]], num_cols: int) -> list[int]:
         """Calculate column widths for padded tables.
@@ -1715,8 +1723,12 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         content = self._render_inline_content(node.content)
+        lead, core, trail = self._split_boundary_breaks(content)
+        if not core.strip():
+            self._output.append(content)
+            return
         symbol = self.options.emphasis_symbol
-        self._output.append(f"{symbol}{content}{symbol}")
+        self._output.append(f"{lead}{symbol}{core}{symbol}{trail}")
 
     def visit_strong(self, node: Strong) -> None:
         """Render a Strong node.
@@ -1728,7 +1740,11 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         content = self._render_inline_content(node.content)
-        self._output.append(f"**{content}**")
+        lead, core, trail = self._split_boundary_breaks(content)
+        if not core.strip():
+            self._output.append(content)
+            return
+        self._output.append(f"{lead}**{core}**{trail}")
 
     def visit_code(self, node: Code) -> None:
         """Render a Code node.
@@ -1813,8 +1829,59 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             self._output.append(" " if node.soft else "<br>")
         elif node.soft:
             self._output.append("\n")
-        else:
+        elif self._current_line_has_visible_text():
             self._output.append("  \n")
+        else:
+            # A trailing-space break is invisible: on a line with no visible text
+            # (this break follows another break) it leaves a whitespace-only line,
+            # and a whitespace-only line is a paragraph boundary in every
+            # conformant parser -- two consecutive hard breaks silently split the
+            # paragraph in half (#384). The backslash spelling of a hard break
+            # puts a visible character on the line, so the paragraph holds.
+            self._output.append("\\\n")
+
+    def _current_line_has_visible_text(self) -> bool:
+        """Whether the output line currently being built holds any non-whitespace."""
+        for fragment in reversed(self._output):
+            for char in reversed(fragment):
+                if char == "\n":
+                    return False
+                if not char.isspace():
+                    return True
+        return False
+
+    @staticmethod
+    def _split_boundary_breaks(content: str) -> tuple[str, str, str]:
+        """Split rendered inline content into leading breaks, core, trailing breaks.
+
+        A line break at the edge of an emphasis/strong/strikethrough span puts a
+        delimiter run alone at a line start, where it stops being inline syntax:
+        ``***`` on its own line is a thematic break, ``~~~~`` opens a tilde code
+        fence (#391), and a closing run right after a newline is not
+        right-flanking, so it does not close at all. The break is hoisted outside
+        the delimiters instead -- a span over a line break marks nothing visible,
+        so nothing is lost, and the delimiters stay glued to the text they mark.
+        """
+        spellings = ("  \n", "\\\n", "<br>", "\n")
+        lead = ""
+        stripped = True
+        while stripped:
+            stripped = False
+            for spelling in spellings:
+                if content.startswith(spelling):
+                    lead += spelling
+                    content = content[len(spelling) :]
+                    stripped = True
+        trail = ""
+        stripped = True
+        while stripped:
+            stripped = False
+            for spelling in spellings:
+                if content.endswith(spelling):
+                    trail = spelling + trail
+                    content = content[: -len(spelling)]
+                    stripped = True
+        return lead, content, trail
 
     def visit_strikethrough(self, node: Strikethrough) -> None:
         """Render a Strikethrough node.
@@ -1825,9 +1892,28 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Strikethrough to render
 
         """
-        content = self._render_inline_content(node.content)
+        self._strikethrough_depth += 1
+        try:
+            content = self._render_inline_content(node.content)
+        finally:
+            self._strikethrough_depth -= 1
+
+        # GFM strikethrough does not nest, and writing inner ``~~`` delimiters
+        # against outer ones forms a four-tilde run -- which at a line start is a
+        # tilde code FENCE, and an unclosed fence swallows the rest of the
+        # document (#391). A strike inside a strike is already struck, so the
+        # inner content goes out bare; and a strike over nothing visible emits no
+        # delimiters at all, because ``~~~~`` over empty content is the same
+        # fence with nothing to protect. Breaks at the span's boundary are
+        # hoisted outside the delimiters for the same reason -- see
+        # _split_boundary_breaks.
+        lead, core, trail = self._split_boundary_breaks(content)
+        if self._strikethrough_depth or not core.strip():
+            self._output.append(content)
+            return
+
         if self._flavor.supports_strikethrough():
-            self._output.append(f"~~{content}~~")
+            self._output.append(f"{lead}~~{core}~~{trail}")
             return
 
         # Smart fallback: an unset "html" default becomes "force" so a flavor
@@ -1842,7 +1928,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         elif mode == "html":
             self._output.append(f"<del>{content}</del>")
         else:  # "force" (also the resolved default)
-            self._output.append(f"~~{content}~~")
+            self._output.append(f"{lead}~~{core}~~{trail}")
 
     def visit_mark(self, node: Mark) -> None:
         """Render a Mark (highlight) node.
