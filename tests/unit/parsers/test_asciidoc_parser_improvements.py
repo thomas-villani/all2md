@@ -474,6 +474,59 @@ NewTerm:: New def"""
         assert "onlyextra" not in text
 
 
+class TestAsciiDocNamedInlineFootnotes:
+    """The named inline form ``footnote:id[text]`` must parse, not leak as prose (#346).
+
+    It is valid Asciidoctor and it is what this project's own renderer emits, but
+    the parser matched only ``footnote:[text]`` and ``footnoteref:[id,text]`` -- the
+    identifier between ``footnote:`` and ``[`` defeated both, so the raw markup
+    passed through as literal text.
+    """
+
+    def test_named_inline_footnote_becomes_a_reference_and_definition(self) -> None:
+        from all2md.ast import FootnoteDefinition, FootnoteReference
+
+        parser = AsciiDocParser()
+        doc = parser.parse("body footnote:a1[note one]\n")
+
+        paragraph = doc.children[0]
+        refs = [n for n in paragraph.content if isinstance(n, FootnoteReference)]
+        assert len(refs) == 1
+        assert refs[0].identifier == "a1"
+        assert "footnote:a1" not in "".join(getattr(n, "content", "") for n in paragraph.content if isinstance(n, Text))
+
+        defs = [n for n in doc.children if isinstance(n, FootnoteDefinition)]
+        assert len(defs) == 1
+        assert defs[0].identifier == "a1"
+        text = "".join(getattr(c, "content", "") for p in defs[0].content for c in p.content)
+        assert "note one" in text
+
+    def test_a_repeat_reference_with_empty_brackets_does_not_redefine(self) -> None:
+        from all2md.ast import FootnoteDefinition, FootnoteReference
+
+        parser = AsciiDocParser()
+        doc = parser.parse("one footnote:a1[the note] and footnote:a1[] again\n")
+
+        paragraph = doc.children[0]
+        refs = [n for n in paragraph.content if isinstance(n, FootnoteReference)]
+        assert [r.identifier for r in refs] == ["a1", "a1"]
+
+        defs = [n for n in doc.children if isinstance(n, FootnoteDefinition)]
+        assert len(defs) == 1
+        text = "".join(getattr(c, "content", "") for p in defs[0].content for c in p.content)
+        assert "the note" in text
+
+    def test_the_unnamed_form_still_parses(self) -> None:
+        from all2md.ast import FootnoteDefinition, FootnoteReference
+
+        parser = AsciiDocParser()
+        doc = parser.parse("body footnote:[anonymous note]\n")
+
+        paragraph = doc.children[0]
+        assert any(isinstance(n, FootnoteReference) for n in paragraph.content)
+        assert any(isinstance(n, FootnoteDefinition) for n in doc.children)
+
+
 class TestAsciiDocAdmonitions:
     """Tests for admonition block support."""
 

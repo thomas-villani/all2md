@@ -651,12 +651,11 @@ FOOTNOTE_FORMATS = ("ast", "markdown", "html", "rst", "org", "asciidoc", "dokuwi
 #: here: "asciidoc loses every footnote" reads like a renderer that drops them,
 #: and the renderer is in fact correct.
 KNOWN_FOOTNOTE_GAPS: dict[tuple[str, str], str] = {
-    ("asciidoc", "markers"): (
-        "The AsciiDoc parser does not recognise the named inline form. The renderer emits "
-        "`footnote:a1[text]`, which is valid Asciidoctor, but the parser's patterns match only "
-        "`footnote:[text]` and `footnoteref:[id,text]` -- so its own output comes back as literal "
-        "text and the raw markup leaks into the prose."
-    ),
+    # ("asciidoc", "markers") is gone: the parser reads the named inline form
+    # `footnote:a1[text]` (#346), degrades a hard break inside the macro's brackets to a
+    # space instead of an unparseable embedded newline, and synthesizes an empty
+    # definition for an id referenced but never defined -- the spelling the renderer
+    # itself emits when a definition's content flattens to nothing.
     ("asciidoc", "definition_paragraphs"): (
         "The AsciiDoc renderer flattens a multi-paragraph definition into one inline argument: "
         "two paragraphs render as `footnote:a1[note one note two]`. Lost at render time, before "

@@ -99,7 +99,7 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._list_ordered_stack: list[bool] = []  # Track ordered/unordered at each level
         self._footnote_collector: FootnoteCollector = FootnoteCollector()
         self._footnotes_emitted: set[str] = set()  # Track which footnotes have been emitted inline
-        self._in_table_cell: bool = False
+        self._in_inline_only: bool = False
 
     def render_to_string(self, document: Document) -> str:
         """Render a document AST to AsciiDoc string.
@@ -121,7 +121,7 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._list_ordered_stack = []
         self._footnote_collector = FootnoteCollector()
         self._footnotes_emitted = set()
-        self._in_table_cell = False
+        self._in_inline_only = False
 
         document.accept(self)
 
@@ -433,8 +433,20 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         This is an inherent limitation of AsciiDoc's footnote syntax.
 
         """
-        result_parts = []
+        result_parts: list[str] = []
 
+        # Everything rendered here lands between a macro's brackets, which hold
+        # exactly one line -- so hard breaks must degrade to spaces here just as
+        # they do in table cells.
+        was_in_inline_only = self._in_inline_only
+        self._in_inline_only = True
+        try:
+            return self._flatten_blocks_to_inline_parts(nodes, result_parts)
+        finally:
+            self._in_inline_only = was_in_inline_only
+
+    def _flatten_blocks_to_inline_parts(self, nodes: list[Node], result_parts: list[str]) -> str:
+        """Flatten each node in *nodes* into ``result_parts`` and join them."""
         for node in nodes:
             if isinstance(node, Paragraph):
                 # Extract inline content from paragraph
@@ -582,8 +594,8 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             # splits on '|' within a single source line, so any node that would
             # normally emit a literal '\n' (a hard LineBreak's ' +\n') has to fall
             # back to something line-safe while we're inside a cell.
-            was_in_table_cell = self._in_table_cell
-            self._in_table_cell = True
+            was_in_inline_only = self._in_inline_only
+            self._in_inline_only = True
             try:
                 for index, cell in enumerate(cells):
                     content = self._render_inline_content(cell.content)
@@ -591,7 +603,7 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                     separator = "" if index == 0 else " "
                     self._output.append(f"{separator}{delimiter}{content}")
             finally:
-                self._in_table_cell = was_in_table_cell
+                self._in_inline_only = was_in_inline_only
             self._output.append("\n")
 
         # Render header
@@ -870,12 +882,15 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Line break to render
 
         """
-        if node.soft or self._in_table_cell:
-            # Soft breaks render as space in AsciiDoc. Inside a table cell the
-            # hard-break marker ' +\n' would embed a newline in a psv row and
-            # the project's own parser reads it back as a row split (the ' +'
-            # marker leaking into the first cell's text) rather than a break,
-            # so fall back to the same space used for soft breaks.
+        if node.soft or self._in_inline_only:
+            # Soft breaks render as space in AsciiDoc. In an inline-only context
+            # the hard-break marker ' +\n' embeds a newline where none can be: in
+            # a psv table cell the project's own parser reads it back as a row
+            # split (the ' +' marker leaking into the first cell's text), and
+            # inside a footnote macro's brackets the newline leaves
+            # `footnote:id[...` unclosed on its line, so the whole footnote leaks
+            # into the prose as literal text (#346). Fall back to the same space
+            # used for soft breaks.
             self._output.append(" ")
         else:
             # Hard break with explicit line break
