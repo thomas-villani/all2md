@@ -220,13 +220,22 @@ class TestLayoutRegionExtraction:
 class _PositionedPage(_FakePage):
     """A page whose words carry real geometry, for the word-gutter pass."""
 
-    def __init__(self, words: list[tuple], by_strategy: dict[str, list[_FakeTable]] | None = None) -> None:
+    def __init__(
+        self,
+        words: list[tuple],
+        by_strategy: dict[str, list[_FakeTable]] | None = None,
+        drawings: list[dict] | None = None,
+    ) -> None:
         super().__init__(" ".join(word[4] for word in words), by_strategy)
         self._words = words
+        self._drawings = drawings or []
 
     def get_text(self, kind: str, **kwargs):
         assert kind == "words"
         return list(self._words)
+
+    def get_drawings(self):
+        return list(self._drawings)
 
 
 def _word(x0: float, y: float, text: str, width: float = 8.0) -> tuple:
@@ -328,20 +337,27 @@ class TestWordGutterGrid:
 
         assert grid == [["left part", "mid", "right"]] * 3
 
-    def test_a_single_gutter_is_columns_not_a_table(self):
-        """One clear band is what any two-column layout has.
+    def test_a_single_gutter_yields_a_two_column_grid(self):
+        """One clear band is weak evidence, but the geometry no longer refuses it.
 
-        A bibliography split at the page's own column gutter was the dominant junk shape
-        on the PMC corpus. Two aligned internal boundaries is where the evidence starts.
+        Two-column admission moved from the sweep to the guards: measured on the PMC
+        corpus (#389), the two-column population was 4 real tables against 8 junk
+        regions, and every junk region is caught downstream -- 7 numbered reference
+        lists by the bibliography guard, 1 chart by the drawing-density gate. Refusing
+        the geometry outright cost the 4 real tables to save nothing the guards were
+        not already saving.
         """
         from all2md.parsers._pdf_tables import word_gutter_grid
 
+        rows = (("Male", "226"), ("Mean", "41"), ("Median", "38"), ("Deaths", "7"), ("Cured", "219"), ("Open", "0"))
         words = []
-        for line in range(6):
+        for line, (label, value) in enumerate(rows):
             y = 10.0 + 15.0 * line
-            words.extend([_word(10.0, y, f"leftref{line}"), _word(200.0, y, f"rightref{line}")])
+            words.extend([_word(10.0, y, label), _word(200.0, y, value)])
 
-        assert word_gutter_grid(words) is None
+        grid = word_gutter_grid(words)
+
+        assert grid == [list(row) for row in rows]
 
 
 class TestWordGutterRegionExtraction:
@@ -423,6 +439,19 @@ class TestNumberedBibliography:
 
         assert looks_like_numbered_bibliography(grid)
 
+    def test_a_paren_numbered_reference_grid_is_condemned(self):
+        """``42)`` numbers its entries as surely as ``42.`` does.
+
+        Measured: the one reference list the guard missed on the PMC corpus
+        numbered its entries with exactly this paren form.
+        """
+        from all2md.parsers._pdf_tables import looks_like_numbered_bibliography
+
+        citation = "Ng F Pushing back the retirement age by department of statistics labour force report"
+        grid = [[f"{n})", citation] for n in range(2, 11)]
+
+        assert looks_like_numbered_bibliography(grid)
+
     def test_a_real_table_with_a_sequential_number_column_is_not(self):
         """Sequential numbering alone describes plenty of real tables; the cells decide."""
         from all2md.parsers._pdf_tables import looks_like_numbered_bibliography
@@ -462,6 +491,84 @@ class TestNumberedBibliography:
         page = _PositionedPage(words)
 
         node = converter._extract_table_from_layout_region(page, _rect(0, 0, 600, 200), page_num=0)
+
+        assert not isinstance(node, AstTable)
+        assert _rejection_reasons(converter) == ["numbered_bibliography"]
+
+
+def _two_column_words() -> list[tuple]:
+    """A label/value table: six lines, one 100pt gutter, varied cell text."""
+    rows = (
+        ("Male", "226"),
+        ("Mean", "41"),
+        ("Median", "38"),
+        ("Deaths", "7"),
+        ("Cured", "219"),
+        ("Open", "0"),
+    )
+    words = []
+    for line, (label, value) in enumerate(rows):
+        y = 10.0 + 15.0 * line
+        words.extend([_word(10.0, y, label), _word(200.0, y, value)])
+    return words
+
+
+def _dense_drawings(count: int = 100) -> list[dict]:
+    """Vector paths inside the region, the way a chart's plot lines sit under its labels."""
+    return [{"rect": (20.0 + i, 20.0, 22.0 + i, 80.0), "items": []} for i in range(count)]
+
+
+class TestTwoColumnAdmission:
+    """One gutter admits a grid only when the region cannot be a chart or a reference list.
+
+    Measured on the PMC corpus (#389): the two-column population is 4 real tables,
+    7 numbered reference lists, and 1 chart whose axis ticks and legend gridded.
+    The reference lists fall to the bibliography guard; the chart is the shape this
+    drawing-density gate exists for -- its region held 541 vector paths where the
+    real two-column tables held 0-4 (their own ruling lines).
+    """
+
+    def test_a_two_column_table_is_recovered(self, converter):
+        page = _PositionedPage(_two_column_words())
+        node = converter._extract_table_from_layout_region(page, _rect(0, 0, 300, 120), page_num=0)
+
+        assert isinstance(node, AstTable)
+        assert [cell.content[0].content for cell in node.header.cells] == ["Male", "226"]
+        assert len(node.rows) == 5
+        assert converter._tables_rejected == 0
+
+    def test_a_two_column_grid_over_dense_drawings_is_demoted(self, converter):
+        page = _PositionedPage(_two_column_words(), drawings=_dense_drawings())
+        node = converter._extract_table_from_layout_region(page, _rect(0, 0, 300, 120), page_num=0)
+
+        assert not isinstance(node, AstTable)
+        assert _rejection_reasons(converter) == ["two_column_chart_region"]
+
+    def test_dense_drawings_do_not_touch_wider_grids(self, converter):
+        """The gate is scoped to the single-gutter tier.
+
+        Two aligned internal boundaries do not happen to a chart's stray labels,
+        so no established multi-column path changes behavior.
+        """
+        page = _PositionedPage(_booktabs_words(), drawings=_dense_drawings())
+        node = converter._extract_table_from_layout_region(page, _rect(0, 0, 300, 100), page_num=0)
+
+        assert isinstance(node, AstTable)
+
+    def test_a_two_column_paren_numbered_reference_list_is_demoted(self, converter):
+        """The junk shape the old column threshold existed for, on its worst spelling."""
+        words = []
+        for line in range(9):
+            y = 10.0 + 15.0 * line
+            words.append(_word(10.0, y, f"{2 + line})", width=8.0))
+            x = 60.0
+            for index in range(10):
+                entry = _word(x, y, f"w{line}{index}", width=8.0)
+                words.append(entry)
+                x = entry[2] + 2.0 + (line * 5 + index * 3) % 2
+        page = _PositionedPage(words)
+
+        node = converter._extract_table_from_layout_region(page, _rect(0, 0, 400, 200), page_num=0)
 
         assert not isinstance(node, AstTable)
         assert _rejection_reasons(converter) == ["numbered_bibliography"]

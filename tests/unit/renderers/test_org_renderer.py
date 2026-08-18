@@ -658,6 +658,84 @@ class TestDefinitionLists:
         assert "Term 2" in org
         assert "Description 2" in org
 
+    def test_multi_paragraph_description_keeps_its_word_boundary(self) -> None:
+        """Two paragraphs must not fuse into one token (#352).
+
+        They were joined with nothing at all, so 'alpha' and 'beta' rendered as
+        'alphabeta' -- a destroyed word boundary. Org continues an item on an
+        indented line, which keeps the words apart and reads back into the item.
+        """
+        import io
+
+        from all2md import to_ast
+        from all2md.ast import DefinitionDescription, DefinitionList, DefinitionTerm
+        from all2md.ast.utils import extract_text
+
+        doc = Document(
+            children=[
+                DefinitionList(
+                    items=[
+                        (
+                            DefinitionTerm(content=[Text(content="t0")]),
+                            [
+                                DefinitionDescription(
+                                    content=[
+                                        Paragraph(content=[Text(content="alpha")]),
+                                        Paragraph(content=[Text(content="beta")]),
+                                    ]
+                                )
+                            ],
+                        )
+                    ]
+                )
+            ]
+        )
+        org = OrgRenderer().render_to_string(doc)
+        assert "alphabeta" not in org
+
+        back = to_ast(io.BytesIO(org.encode()), source_format="org")
+        (definition_list,) = [n for n in back.children if isinstance(n, DefinitionList)]
+        text = extract_text(definition_list)
+        assert "alpha" in text and "beta" in text
+        assert "alphabeta" not in text
+
+    def test_several_descriptions_survive_the_round_trip_with_their_words(self) -> None:
+        """The second description used to be silently DELETED on reparse.
+
+        The org parser skipped every line that did not start a new `- term ::`
+        item, so `- t0 :: first` followed by an indented `second` came back as
+        just 'first'. Continuation lines now append to the open description.
+        """
+        import io
+
+        from all2md import to_ast
+        from all2md.ast import DefinitionDescription, DefinitionList, DefinitionTerm
+        from all2md.ast.utils import extract_text
+
+        doc = Document(
+            children=[
+                DefinitionList(
+                    items=[
+                        (
+                            DefinitionTerm(content=[Text(content="t0")]),
+                            [
+                                DefinitionDescription(content=[Paragraph(content=[Text(content="first")])]),
+                                DefinitionDescription(content=[Paragraph(content=[Text(content="second")])]),
+                            ],
+                        )
+                    ]
+                )
+            ]
+        )
+        org = OrgRenderer().render_to_string(doc)
+        assert "firstsecond" not in org
+
+        back = to_ast(io.BytesIO(org.encode()), source_format="org")
+        (definition_list,) = [n for n in back.children if isinstance(n, DefinitionList)]
+        text = extract_text(definition_list)
+        assert "first" in text and "second" in text
+        assert "firstsecond" not in text
+
 
 @pytest.mark.unit
 class TestSubscriptSuperscript:

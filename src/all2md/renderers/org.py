@@ -324,9 +324,7 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         entry_type = entry.get("type")
 
         if entry_type == "state_change":
-            self._output.append(
-                f"- State \"{entry['new_state']}\" " f"from \"{entry['old_state']}\" " f"[{entry['timestamp']}]\n"
-            )
+            self._output.append(f'- State "{entry["new_state"]}" from "{entry["old_state"]}" [{entry["timestamp"]}]\n')
         elif entry_type == "clock":
             if entry.get("end"):
                 clock_line = f"CLOCK: [{entry['start']}]--[{entry['end']}]"
@@ -923,19 +921,26 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             term_content = self._render_inline_content(term.content)
             self._output.append(f"- {term_content} :: ")
 
-            # Render descriptions
-            for j, desc in enumerate(descriptions):
-                if j > 0:
-                    self._output.append("\n  ")
-                saved_output = self._output
-                self._output = []
-
+            # Render descriptions. Each block renders separately and the pieces join
+            # as indented continuation lines -- they used to be concatenated with
+            # nothing at all, fusing the last word of one paragraph to the first word
+            # of the next ('alpha' + 'beta' -> 'alphabeta'): destroyed word
+            # boundaries, not lost formatting (#352). Org proper spells a paragraph
+            # boundary inside an item as a blank line plus indent, but the parser's
+            # block splitter cannot see across blank lines yet, so the boundary
+            # deliberately degrades to a continuation line: the paragraph count is
+            # lost (documented in the fuzzing gate), the words are not.
+            block_texts = []
+            for desc in descriptions:
                 for child in desc.content:
+                    saved_output = self._output
+                    self._output = []
                     child.accept(self)
+                    block_texts.append("".join(self._output))
+                    self._output = saved_output
 
-                desc_content = "".join(self._output)
-                self._output = saved_output
-                self._output.append(desc_content)
+            desc_content = "\n".join(block_texts).replace("\n", "\n  ")
+            self._output.append(desc_content)
 
             if i < len(node.items) - 1:
                 self._output.append("\n")

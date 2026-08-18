@@ -402,6 +402,84 @@ class TestDefinitionLists:
         assert "Definition 1" in rst
         assert "Definition 2" in rst
 
+    def test_multi_paragraph_description_keeps_its_word_boundary(self) -> None:
+        """Two paragraphs must not fuse into one token (#352).
+
+        The paragraphs were joined with nothing at all between them, so 'alpha'
+        and 'beta' came back as 'alphabeta' -- a destroyed word boundary, not
+        merely a lost break. reST spells a multi-paragraph definition as
+        same-indent paragraphs separated by a blank line, which our parser reads
+        back as one description holding two paragraphs.
+        """
+        import io
+
+        from all2md import to_ast
+        from all2md.ast import DefinitionList as AstDefinitionList
+
+        doc = Document(
+            children=[
+                DefinitionList(
+                    items=[
+                        (
+                            DefinitionTerm(content=[Text(content="t0")]),
+                            [
+                                DefinitionDescription(
+                                    content=[
+                                        Paragraph(content=[Text(content="alpha")]),
+                                        Paragraph(content=[Text(content="beta")]),
+                                    ]
+                                )
+                            ],
+                        )
+                    ]
+                )
+            ]
+        )
+        rst = RestructuredTextRenderer().render_to_string(doc)
+        assert "alphabeta" not in rst
+
+        back = to_ast(io.BytesIO(rst.encode()), source_format="rst")
+        (definition_list,) = [n for n in back.children if isinstance(n, AstDefinitionList)]
+        ((_, descriptions),) = definition_list.items
+        assert len(descriptions) == 1
+        assert [type(c).__name__ for c in descriptions[0].content] == ["Paragraph", "Paragraph"]
+
+    def test_several_descriptions_keep_their_word_boundaries(self) -> None:
+        """Two descriptions merge into reST's one definition, never into fused words.
+
+        Docutils gives each term exactly one definition body, so the description
+        count is inherently lost -- the words must not be.
+        """
+        import io
+
+        from all2md import to_ast
+        from all2md.ast import DefinitionList as AstDefinitionList
+        from all2md.ast.utils import extract_text
+
+        doc = Document(
+            children=[
+                DefinitionList(
+                    items=[
+                        (
+                            DefinitionTerm(content=[Text(content="t0")]),
+                            [
+                                DefinitionDescription(content=[Paragraph(content=[Text(content="first")])]),
+                                DefinitionDescription(content=[Paragraph(content=[Text(content="second")])]),
+                            ],
+                        )
+                    ]
+                )
+            ]
+        )
+        rst = RestructuredTextRenderer().render_to_string(doc)
+        assert "firstsecond" not in rst
+
+        back = to_ast(io.BytesIO(rst.encode()), source_format="rst")
+        (definition_list,) = [n for n in back.children if isinstance(n, AstDefinitionList)]
+        text = extract_text(definition_list)
+        assert "first" in text and "second" in text
+        assert "firstsecond" not in text
+
 
 @pytest.mark.unit
 class TestBlockQuote:
