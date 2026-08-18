@@ -748,7 +748,11 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         content = self._render_inline_content(node.content)
-        self._output.append(f"_{content}_")
+        lead, core, trail = self._split_boundary_breaks(content)
+        if not core.strip():
+            self._output.append(content)
+            return
+        self._output.append(f"{lead}_{core}_{trail}")
 
     def visit_strong(self, node: Strong) -> None:
         """Render a Strong node.
@@ -760,7 +764,45 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         content = self._render_inline_content(node.content)
-        self._output.append(f"*{content}*")
+        lead, core, trail = self._split_boundary_breaks(content)
+        if not core.strip():
+            self._output.append(content)
+            return
+        self._output.append(f"{lead}*{core}*{trail}")
+
+    @staticmethod
+    def _split_boundary_breaks(content: str) -> tuple[str, str, str]:
+        """Split rendered inline content into leading breaks, core, trailing breaks.
+
+        A hard break at the edge of a bold or italic span puts a delimiter run
+        alone at a line start, where it stops being inline syntax: AsciiDoc reads
+        ``* `` at a line start as a level-1 list marker and ``** `` as a level-2
+        one -- the first silently turns emphasis into a list item, the second
+        crashes the parser outright, since no level-1 item is open to nest under
+        (#353). Breaks are hoisted outside the delimiters instead: a span over a
+        line break marks nothing visible, so nothing is lost, and a span left
+        with no visible core emits no delimiters at all.
+        """
+        spellings = (" +\n", "\n")
+        lead = ""
+        stripped = True
+        while stripped:
+            stripped = False
+            for spelling in spellings:
+                if content.startswith(spelling):
+                    lead += spelling
+                    content = content[len(spelling) :]
+                    stripped = True
+        trail = ""
+        stripped = True
+        while stripped:
+            stripped = False
+            for spelling in spellings:
+                if content.endswith(spelling):
+                    trail = spelling + trail
+                    content = content[: -len(spelling)]
+                    stripped = True
+        return lead, content, trail
 
     def visit_code(self, node: Code) -> None:
         """Render a Code node.
@@ -1005,8 +1047,14 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         content = self._render_inline_content(node.content)
-        # AsciiDoc uses [line-through] for strikethrough
-        self._output.append(f"[line-through]#{content}#")
+        # AsciiDoc uses [line-through] for strikethrough. Boundary breaks hoist
+        # outside the span for the same reason as bold/italic (#353): a `#` or
+        # `[line-through]#` stranded on its own line is not inline syntax.
+        lead, core, trail = self._split_boundary_breaks(content)
+        if not core.strip():
+            self._output.append(content)
+            return
+        self._output.append(f"{lead}[line-through]#{core}#{trail}")
 
     def visit_footnote_reference(self, node: FootnoteReference) -> None:
         """Render a FootnoteReference node.

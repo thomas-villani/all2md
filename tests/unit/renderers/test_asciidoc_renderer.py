@@ -641,6 +641,89 @@ class TestLineBreak:
 
 
 @pytest.mark.unit
+class TestInvisibleInlineSpans:
+    """Spans over nothing visible must not strand their delimiters at line starts (#353).
+
+    A hard break inside a bold span puts the delimiters on their own lines, where
+    AsciiDoc reads ``* `` as a level-1 list marker and ``** `` as a level-2 one --
+    the first silently turns emphasis into a list, the second CRASHES the parser
+    (no level-1 item is open for the level-2 marker to nest under).
+    """
+
+    def _reparse(self, text: str):
+        import io
+
+        from all2md import to_ast
+
+        return to_ast(io.BytesIO(text.encode()), source_format="asciidoc")
+
+    def test_nested_bold_over_a_break_does_not_crash_the_parser(self):
+        from all2md.ast import LineBreak
+
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="before"),
+                        LineBreak(),
+                        Strong(content=[Strong(content=[LineBreak()])]),
+                        Text(content="after"),
+                    ]
+                )
+            ]
+        )
+        result = AsciiDocRenderer().render_to_string(doc)
+        assert not any(line.startswith(("* ", "** ")) for line in result.split("\n"))
+
+        back = self._reparse(result)
+        assert [type(n).__name__ for n in back.children] == ["Paragraph"]
+
+    def test_bold_over_a_break_does_not_become_a_list_item(self):
+        from all2md.ast import LineBreak, List
+
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="before"),
+                        LineBreak(),
+                        Strong(content=[LineBreak()]),
+                        Text(content="after"),
+                    ]
+                )
+            ]
+        )
+        result = AsciiDocRenderer().render_to_string(doc)
+        assert not any(line.startswith("* ") for line in result.split("\n"))
+
+        back = self._reparse(result)
+        assert not any(isinstance(n, List) for n in back.children)
+        assert [type(n).__name__ for n in back.children] == ["Paragraph"]
+
+    def test_trailing_break_inside_nested_spans_is_hoisted_out(self):
+        from all2md.ast import LineBreak
+
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Strong(content=[Emphasis(content=[Text(content="lead"), LineBreak()])]),
+                        Text(content="after"),
+                    ]
+                )
+            ]
+        )
+        result = AsciiDocRenderer().render_to_string(doc)
+
+        back = self._reparse(result)
+        assert [type(n).__name__ for n in back.children] == ["Paragraph"]
+        from all2md.ast.utils import extract_text
+
+        text = extract_text(back.children[0])
+        assert "lead" in text and "after" in text
+
+
+@pytest.mark.unit
 class TestSubscriptSuperscript:
     """Tests for subscript and superscript rendering."""
 
