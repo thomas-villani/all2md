@@ -1184,7 +1184,7 @@ class OrgParser(BaseParser):
 
         """
         lines = block.split("\n")
-        items: list[tuple[DefinitionTerm, list[DefinitionDescription]]] = []
+        entries: list[tuple[str, list[str]]] = []  # (term text, definition lines)
 
         for line in lines:
             line_stripped = line.strip()
@@ -1194,17 +1194,23 @@ class OrgParser(BaseParser):
             # Match definition list item: - term :: definition
             match = re.match(r"^-\s+(.+?)\s+::\s+(.+)$", line_stripped)
             if match:
-                term_text = match.group(1)
-                definition_text = match.group(2)
+                entries.append((match.group(1), [match.group(2)]))
+            elif entries:
+                # A line that does not open a new item continues the previous item's
+                # definition -- an indented wrap, which is how Org (and this module's
+                # own renderer) spells a definition longer than one line. These lines
+                # used to be skipped outright, silently DELETING every line of a
+                # definition after its first (#352). Within one block there are no
+                # blank lines, so a continuation is the same paragraph by Org's rules
+                # and joins with a space.
+                entries[-1][1].append(line_stripped)
 
-                # Parse term and definition content
-                term_content = self._parse_inline(term_text)
-                term = DefinitionTerm(content=term_content)
-
-                def_content = self._parse_inline(definition_text)
-                definition = DefinitionDescription(content=[Paragraph(content=def_content)])
-
-                items.append((term, [definition]))
+        items: list[tuple[DefinitionTerm, list[DefinitionDescription]]] = []
+        for term_text, definition_lines in entries:
+            term = DefinitionTerm(content=self._parse_inline(term_text))
+            def_content = self._parse_inline(" ".join(definition_lines))
+            definition = DefinitionDescription(content=[Paragraph(content=def_content)])
+            items.append((term, [definition]))
 
         if not items:
             return None
