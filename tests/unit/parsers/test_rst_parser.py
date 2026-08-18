@@ -28,6 +28,7 @@ from all2md.ast import (
     FootnoteReference,
     Heading,
     HTMLBlock,
+    LineBreak,
     Link,
     List,
     MathBlock,
@@ -567,6 +568,46 @@ This has a footnote [1]_.
 
         assert len(refs) >= 1
         assert len(defs) >= 1
+
+
+@pytest.mark.unit
+class TestLineBlocks:
+    """Tests for line block (`| ` verse lines) parsing.
+
+    Line blocks used to fall through the unknown-node branch and be dropped
+    entirely -- silent text loss for any document using them.
+    """
+
+    def test_line_block_text_survives(self) -> None:
+        """A line block parses as a paragraph with hard breaks between lines."""
+        rst = "Intro.\n\n| line one\n| line two\n\nOutro.\n"
+        doc = RestructuredTextParser().parse(rst)
+
+        paragraphs = [n for n in doc.children if isinstance(n, Paragraph)]
+        assert len(paragraphs) == 3
+        verse = paragraphs[1]
+        texts = [n.content for n in verse.content if isinstance(n, Text)]
+        assert texts == ["line one", "line two"]
+        assert sum(1 for n in verse.content if isinstance(n, LineBreak)) == 1
+
+    def test_line_block_keeps_inline_markup(self) -> None:
+        """Inline markup inside a line block line survives."""
+        rst = "| plain *emphasized* end\n"
+        doc = RestructuredTextParser().parse(rst)
+
+        verse = doc.children[0]
+        assert isinstance(verse, Paragraph)
+        assert any(isinstance(n, Emphasis) for n in verse.content)
+
+    def test_nested_line_block_flattens(self) -> None:
+        """Indented (nested) lines flatten into the same paragraph."""
+        rst = "| outer line\n|   indented line\n| back out\n"
+        doc = RestructuredTextParser().parse(rst)
+
+        verse = doc.children[0]
+        assert isinstance(verse, Paragraph)
+        texts = [n.content for n in verse.content if isinstance(n, Text)]
+        assert texts == ["outer line", "indented line", "back out"]
 
 
 @pytest.mark.unit
