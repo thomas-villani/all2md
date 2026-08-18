@@ -838,6 +838,31 @@ class TestDefinitionList:
         # Term should have Strong node
         assert any(isinstance(node, Strong) for node in term.content)
 
+    def test_a_continuation_line_joins_its_definition(self) -> None:
+        """An indented line under an item continues that item's definition (#352).
+
+        Lines that did not start a new ``- term ::`` item were silently skipped,
+        so a wrapped definition lost every line after its first -- deletion, not
+        degradation.
+        """
+        org = """
+- term1 :: starts here
+  and continues here
+- term2 :: short
+"""
+        parser = OrgParser()
+        doc = parser.parse(org)
+
+        def_lists = [node for node in doc.children if isinstance(node, DefinitionList)]
+        assert len(def_lists) == 1
+        assert len(def_lists[0].items) == 2
+
+        from all2md.ast.utils import extract_text
+
+        _, definitions = def_lists[0].items[0]
+        text = extract_text(definitions[0])
+        assert "starts here and continues here" in text
+
 
 @pytest.mark.unit
 class TestLineBreak:

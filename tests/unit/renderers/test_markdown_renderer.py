@@ -1127,6 +1127,97 @@ class TestTables:
         assert "| C1 | C2 |" in result
 
 
+def _reparse(markdown: str):
+    """Feed the renderer's own output back through the markdown parser."""
+    import io
+
+    from all2md import to_ast
+
+    return to_ast(io.BytesIO(markdown.encode()), source_format="markdown")
+
+
+@pytest.mark.unit
+class TestSpannedTables:
+    """A spanned table must degrade to a despanned VALID table, never a non-table (#385).
+
+    Pipe tables cannot express spans, so losing the merge is inherent -- but GFM
+    only recognises a table when the header row's cell count matches the delimiter
+    row's, so a renderer that writes one pipe cell per AST cell while sizing the
+    delimiter to the logical width emits output its own parser reads as prose.
+    """
+
+    def test_colspan_header_reparses_as_table(self):
+        header = TableRow(
+            cells=[
+                TableCell(content=[Text(content="a")], colspan=2),
+                TableCell(content=[Text(content="b")]),
+            ],
+            is_header=True,
+        )
+        row = TableRow(
+            cells=[
+                TableCell(content=[Text(content="1")]),
+                TableCell(content=[Text(content="2")]),
+                TableCell(content=[Text(content="3")]),
+            ]
+        )
+        doc = Document(children=[Table(header=header, rows=[row])])
+        result = MarkdownRenderer().render_to_string(doc)
+
+        back = _reparse(result)
+        assert len(back.children) == 1
+        table = back.children[0]
+        assert isinstance(table, Table)
+        assert len(table.header.cells) == 3
+        texts = ["".join(t.content for t in cell.content) for cell in table.header.cells]
+        assert texts == ["a", "", "b"]
+        assert len(table.rows[0].cells) == 3
+
+    def test_body_colspan_pads_to_logical_width(self):
+        header = TableRow(
+            cells=[TableCell(content=[Text(content=h)]) for h in ("h1", "h2", "h3")],
+            is_header=True,
+        )
+        row = TableRow(
+            cells=[
+                TableCell(content=[Text(content="wide")], colspan=2),
+                TableCell(content=[Text(content="x")]),
+            ]
+        )
+        doc = Document(children=[Table(header=header, rows=[row])])
+        result = MarkdownRenderer().render_to_string(doc)
+
+        back = _reparse(result)
+        table = back.children[0]
+        assert isinstance(table, Table)
+        texts = ["".join(t.content for t in cell.content) for cell in table.rows[0].cells]
+        assert texts == ["wide", "", "x"]
+
+    def test_rowspan_keeps_later_rows_in_their_columns(self):
+        header = TableRow(
+            cells=[TableCell(content=[Text(content=h)]) for h in ("A", "B")],
+            is_header=True,
+        )
+        rows = [
+            TableRow(
+                cells=[
+                    TableCell(content=[Text(content="left")], rowspan=2),
+                    TableCell(content=[Text(content="r1")]),
+                ]
+            ),
+            TableRow(cells=[TableCell(content=[Text(content="r2")])]),
+        ]
+        doc = Document(children=[Table(header=header, rows=rows)])
+        result = MarkdownRenderer().render_to_string(doc)
+
+        back = _reparse(result)
+        table = back.children[0]
+        assert isinstance(table, Table)
+        # The second row's only cell sits under B: the rowspan owns column A.
+        texts = ["".join(t.content for t in cell.content) for cell in table.rows[1].cells]
+        assert texts == ["", "r2"]
+
+
 @pytest.mark.unit
 class TestThematicBreak:
     """Tests for thematic break rendering."""
@@ -1207,6 +1298,140 @@ class TestLineBreaks:
         renderer = MarkdownRenderer()
         result = renderer.render_to_string(doc)
         assert "First line  \nSecond line" in result
+
+    def test_consecutive_hard_breaks_stay_one_paragraph(self):
+        """Two hard breaks in a row must not manufacture a blank line (#384).
+
+        A trailing-space break after another break puts only whitespace on the
+        middle line, and a whitespace-only line is a paragraph boundary in every
+        conformant parser -- the renderer's own included.
+        """
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="alpha"),
+                        LineBreak(),
+                        LineBreak(),
+                        Text(content="beta"),
+                    ]
+                )
+            ]
+        )
+        result = MarkdownRenderer().render_to_string(doc)
+        assert not any(line.strip() == "" for line in result.strip().split("\n"))
+
+        back = _reparse(result)
+        assert [type(n).__name__ for n in back.children] == ["Paragraph"]
+        breaks = [n for n in back.children[0].content if isinstance(n, LineBreak)]
+        assert len(breaks) == 2
+        assert all(not b.soft for b in breaks)
+
+    def test_hard_break_after_soft_break_keeps_paragraph_whole(self):
+        """A hard break whose line holds no visible text needs the backslash form."""
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="alpha"),
+                        LineBreak(soft=True),
+                        LineBreak(),
+                        Text(content="beta"),
+                    ]
+                )
+            ]
+        )
+        result = MarkdownRenderer().render_to_string(doc)
+        assert not any(line.strip() == "" for line in result.strip().split("\n"))
+        back = _reparse(result)
+        assert [type(n).__name__ for n in back.children] == ["Paragraph"]
+
+
+@pytest.mark.unit
+class TestStrikethroughDelimiterRuns:
+    """Strikethrough must never emit a ``~~~~`` run that opens a tilde fence (#391).
+
+    GFM strikethrough does not nest, so inner ``~~`` delimiters written directly
+    against outer ones produce four tildes -- and four tildes at a line start open
+    a code fence, which (unclosed) swallows the rest of the document.
+    """
+
+    def test_nested_strikethrough_reparses_as_paragraph(self):
+        doc = Document(
+            children=[Paragraph(content=[Strikethrough(content=[Strikethrough(content=[Text(content="x")])])])]
+        )
+        result = MarkdownRenderer().render_to_string(doc)
+        assert "~~~~" not in result
+
+        back = _reparse(result)
+        assert [type(n).__name__ for n in back.children] == ["Paragraph"]
+        struck = back.children[0].content[0]
+        assert isinstance(struck, Strikethrough)
+        assert "".join(t.content for t in struck.content) == "x"
+
+    def test_strikethrough_over_nothing_visible_emits_no_delimiters(self):
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="before"),
+                        Strikethrough(content=[LineBreak()]),
+                        Text(content="after"),
+                    ]
+                )
+            ]
+        )
+        result = MarkdownRenderer().render_to_string(doc)
+        assert "~~" not in result
+        back = _reparse(result)
+        assert [type(n).__name__ for n in back.children] == ["Paragraph"]
+
+    def test_emphasis_over_breaks_does_not_manufacture_a_thematic_break(self):
+        """A break-only nested span must not put ``***`` alone at a line start.
+
+        ``Emphasis(Strong(LineBreak))`` rendered ```***\\``` / ``***`` -- and a
+        line holding only ``***`` is a thematic break, splitting the paragraph.
+        """
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Text(content="before"),
+                        LineBreak(),
+                        Emphasis(content=[Strong(content=[LineBreak()])]),
+                        LineBreak(),
+                        Text(content="after"),
+                    ]
+                )
+            ]
+        )
+        result = MarkdownRenderer().render_to_string(doc)
+        assert "***" not in result
+        back = _reparse(result)
+        assert [type(n).__name__ for n in back.children] == ["Paragraph"]
+
+    def test_trailing_break_inside_nested_spans_is_hoisted_out(self):
+        """A trailing break inside nested spans must not strand the closing runs.
+
+        A hard break as a span's last child rendered ``***0`` then ``***`` -- the
+        closing runs alone at a line start read back as a thematic break.
+        """
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Strong(content=[Emphasis(content=[Text(content="0"), LineBreak()])]),
+                        LineBreak(),
+                        Text(content="after"),
+                    ]
+                )
+            ]
+        )
+        result = MarkdownRenderer().render_to_string(doc)
+        back = _reparse(result)
+        assert [type(n).__name__ for n in back.children] == ["Paragraph"]
+        text = "".join(getattr(n, "content", "") for n in back.children[0].content if isinstance(n, Text))
+        assert "after" in text
 
 
 @pytest.mark.unit
