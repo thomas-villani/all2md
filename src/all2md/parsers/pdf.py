@@ -96,6 +96,7 @@ from all2md.parsers._pdf_tables import (
     MAX_TABLE_COLS,
     MAX_TABLE_EMPTY_RATIO,
     MAX_TABLE_ROWS,
+    MAX_TWO_COLUMN_REGION_DRAWINGS,
     MIN_FILLED_FOR_UNIFORMITY_CHECK,
     MIN_TABLE_COLS,
     MIN_TABLE_ROWS,
@@ -3543,6 +3544,17 @@ class PdfToAstConverter(BaseParser):
         if looks_like_numbered_bibliography(grid):
             self._record_table_rejection("numbered_bibliography")
             return True, None
+        # A two-column grid rides on a single gutter -- the weakest geometry the sweep
+        # accepts, and the one shape it shares with a chart, whose axis ticks and
+        # legend labels grid perfectly across the plot area. What separates them is
+        # under the text: a chart's words float over its plot's vector paths, while a
+        # borderless table has at most its own ruling lines -- measured on the PMC
+        # corpus (#389), 541 intersecting paths against 0-4. get_drawings() is costly,
+        # so this runs last and only at the two-column tier; wider grids carry two
+        # aligned boundaries, which stray chart labels do not produce.
+        if n_cols == 2 and self._region_drawing_count(page, table_rect) > MAX_TWO_COLUMN_REGION_DRAWINGS:
+            self._record_table_rejection("two_column_chart_region")
+            return True, None
 
         def cell_node(cell_text: str) -> TableCell:
             # Merged continuation lines join with a newline so hyphenation repair can
@@ -3560,6 +3572,34 @@ class PdfToAstConverter(BaseParser):
             rows=rows[1:],
             source_location=SourceLocation(format="pdf", page=page_num + 1),
         )
+
+    @staticmethod
+    def _region_drawing_count(page: "pymupdf.Page", region: "pymupdf.Rect") -> int:
+        """Count the vector drawing paths intersecting *region*.
+
+        Returns ``0`` on any error, so an unreadable page falls back to the other
+        guards rather than dropping a table nothing has shown to be bad -- the same
+        fail-open posture as :func:`split_word_ratio`.
+
+        Parameters
+        ----------
+        page : pymupdf.Page
+            Page holding the region.
+        region : pymupdf.Rect
+            Region whose drawing density is being measured.
+
+        Returns
+        -------
+        int
+            Number of drawing paths whose bounding box intersects the region.
+
+        """
+        import pymupdf
+
+        try:
+            return sum(1 for drawing in page.get_drawings() if pymupdf.Rect(drawing["rect"]).intersects(region))
+        except Exception:
+            return 0
 
     def _region_text_as_paragraph(
         self, page: "pymupdf.Page", region: "pymupdf.Rect", page_num: int

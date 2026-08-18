@@ -389,6 +389,143 @@ NewTerm:: New def"""
         # Should have two separate terms
         assert len(deflist.items) == 2
 
+    def test_a_description_on_the_next_line_binds_to_its_term(self) -> None:
+        """``t0::`` with the description on the following unindented line (#351).
+
+        The standard AsciiDoc spelling -- and this project's own renderer's
+        output -- puts the description on the line below the term with no
+        indent. It parsed to a term with NO description, the text reappearing
+        as a sibling paragraph outside the list.
+        """
+        asciidoc = "t0::\nd0\nt1::\nd1\n"
+        parser = AsciiDocParser()
+        doc = parser.parse(asciidoc)
+
+        deflists = [node for node in doc.children if isinstance(node, DefinitionList)]
+        assert len(deflists) == 1, "an N-term list must not split into N lists"
+        assert len(deflists[0].items) == 2
+
+        for expected_term, expected_desc, (term, descs) in [
+            ("t0", "d0", deflists[0].items[0]),
+            ("t1", "d1", deflists[0].items[1]),
+        ]:
+            assert term.content[0].content == expected_term
+            assert len(descs) == 1, f"{expected_term}'s description was dropped"
+            paragraph = descs[0].content[0]
+            assert paragraph.content[0].content == expected_desc
+
+    def test_adjacent_unindented_lines_wrap_into_one_description_paragraph(self) -> None:
+        """Consecutive lines are one paragraph in AsciiDoc, wrapped or not."""
+        asciidoc = "t0::\nfirst line\nsecond line\n\nafter\n"
+        parser = AsciiDocParser()
+        doc = parser.parse(asciidoc)
+
+        deflist = doc.children[0]
+        assert isinstance(deflist, DefinitionList)
+        _, descs = deflist.items[0]
+        assert len(descs) == 1
+        assert len(descs[0].content) == 1, "wrapped lines are one paragraph, not one each"
+        text = "".join(getattr(c, "content", "") for c in descs[0].content[0].content)
+        assert "first line second line" in text
+
+        paragraphs = [node for node in doc.children if isinstance(node, Paragraph)]
+        assert any(
+            "after" in "".join(getattr(c, "content", "") for c in p.content) for p in paragraphs
+        ), "the paragraph after the blank line stays outside the list"
+
+    def test_a_multi_paragraph_description_round_trips_with_its_words(self) -> None:
+        """The renderer fused a description's paragraphs into one token (#352's class).
+
+        'only' + 'extra' rendered as 'onlyextra'. They now join as continuation
+        lines: the paragraph boundary degrades to a wrap, the words survive.
+        """
+        import io
+
+        from all2md import from_ast, to_ast
+        from all2md.ast import DefinitionDescription, DefinitionTerm, Document
+        from all2md.ast.utils import extract_text
+
+        doc = Document(
+            children=[
+                DefinitionList(
+                    items=[
+                        (
+                            DefinitionTerm(content=[Text(content="t0")]),
+                            [
+                                DefinitionDescription(
+                                    content=[
+                                        Paragraph(content=[Text(content="only")]),
+                                        Paragraph(content=[Text(content="extra")]),
+                                    ]
+                                )
+                            ],
+                        )
+                    ]
+                )
+            ]
+        )
+        out = from_ast(doc, "asciidoc")
+        assert "onlyextra" not in out
+
+        back = to_ast(io.BytesIO(out.encode()), source_format="asciidoc")
+        (deflist,) = [n for n in back.children if isinstance(n, DefinitionList)]
+        text = extract_text(deflist)
+        assert "only" in text and "extra" in text
+        assert "onlyextra" not in text
+
+
+class TestAsciiDocNamedInlineFootnotes:
+    """The named inline form ``footnote:id[text]`` must parse, not leak as prose (#346).
+
+    It is valid Asciidoctor and it is what this project's own renderer emits, but
+    the parser matched only ``footnote:[text]`` and ``footnoteref:[id,text]`` -- the
+    identifier between ``footnote:`` and ``[`` defeated both, so the raw markup
+    passed through as literal text.
+    """
+
+    def test_named_inline_footnote_becomes_a_reference_and_definition(self) -> None:
+        from all2md.ast import FootnoteDefinition, FootnoteReference
+
+        parser = AsciiDocParser()
+        doc = parser.parse("body footnote:a1[note one]\n")
+
+        paragraph = doc.children[0]
+        refs = [n for n in paragraph.content if isinstance(n, FootnoteReference)]
+        assert len(refs) == 1
+        assert refs[0].identifier == "a1"
+        assert "footnote:a1" not in "".join(getattr(n, "content", "") for n in paragraph.content if isinstance(n, Text))
+
+        defs = [n for n in doc.children if isinstance(n, FootnoteDefinition)]
+        assert len(defs) == 1
+        assert defs[0].identifier == "a1"
+        text = "".join(getattr(c, "content", "") for p in defs[0].content for c in p.content)
+        assert "note one" in text
+
+    def test_a_repeat_reference_with_empty_brackets_does_not_redefine(self) -> None:
+        from all2md.ast import FootnoteDefinition, FootnoteReference
+
+        parser = AsciiDocParser()
+        doc = parser.parse("one footnote:a1[the note] and footnote:a1[] again\n")
+
+        paragraph = doc.children[0]
+        refs = [n for n in paragraph.content if isinstance(n, FootnoteReference)]
+        assert [r.identifier for r in refs] == ["a1", "a1"]
+
+        defs = [n for n in doc.children if isinstance(n, FootnoteDefinition)]
+        assert len(defs) == 1
+        text = "".join(getattr(c, "content", "") for p in defs[0].content for c in p.content)
+        assert "the note" in text
+
+    def test_the_unnamed_form_still_parses(self) -> None:
+        from all2md.ast import FootnoteDefinition, FootnoteReference
+
+        parser = AsciiDocParser()
+        doc = parser.parse("body footnote:[anonymous note]\n")
+
+        paragraph = doc.children[0]
+        assert any(isinstance(n, FootnoteReference) for n in paragraph.content)
+        assert any(isinstance(n, FootnoteDefinition) for n in doc.children)
+
 
 class TestAsciiDocAdmonitions:
     """Tests for admonition block support."""

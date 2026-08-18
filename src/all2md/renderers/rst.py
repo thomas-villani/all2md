@@ -763,20 +763,27 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             term_content = self._render_inline_content(term.content)
             self._output.append(term_content + "\n")
 
-            # Render descriptions
+            # Every block of every description, rendered separately so blocks can be
+            # joined with a blank line at the same indent -- the reST spelling of "the
+            # definition continues". They used to be concatenated with nothing at all,
+            # which fused the last word of one paragraph to the first word of the next
+            # ('alpha' + 'beta' -> 'alphabeta'): destroyed word boundaries, not lost
+            # formatting (#352). Several descriptions flatten into the one definition
+            # reST gives each term (its syntax has no second one); their paragraphs
+            # stay separate, so the merge loses the description count and nothing else.
+            block_texts = []
             for desc in descriptions:
-                saved_output = self._output
-                self._output = []
-
                 for child in desc.content:
+                    saved_output = self._output
+                    self._output = []
                     child.accept(self)
+                    block_texts.append("".join(self._output))
+                    self._output = saved_output
 
-                desc_content = "".join(self._output)
-                self._output = saved_output
-
-                # Indent description
-                lines = desc_content.split("\n")
-                for line in lines:
+            for j, block_text in enumerate(block_texts):
+                if j > 0:
+                    self._output.append("\n")
+                for line in block_text.split("\n"):
                     if line.strip():
                         self._output.append(f"   {line}\n")
 

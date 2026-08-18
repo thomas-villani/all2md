@@ -29,6 +29,7 @@ __all__ = [
     "MIN_GUTTER_LINES",
     "MIN_GUTTER_WIDTH_PT",
     "MAX_ROTATED_WORD_SHARE",
+    "MAX_TWO_COLUMN_REGION_DRAWINGS",
     "MIN_WORD_GUTTER_COLS",
     "TABLE_REGION_STRATEGIES",
     "TABLE_SIGNAL_RULING_THRESHOLD",
@@ -134,12 +135,23 @@ MAX_GUTTER_INTRUSION_SHARE = 0.1
 # Narrower bands than this are ordinary word spacing, not column separation.
 MIN_GUTTER_WIDTH_PT = 4.0
 # A gutter grid needs at least this many columns. One gutter is what ANY two-column
-# layout has -- a reference list, a chart legend beside its axis, a title page -- so a
-# single band is not evidence of a table, it is evidence of columns. Measured on the
-# PMC corpus: 8 of the 13 genuinely non-tabular regions this pass would otherwise emit
-# were two-column (bibliographies split at the page's own column gutter), against 1 of
-# the 34 real tables it recovers.
-MIN_WORD_GUTTER_COLS = 3
+# layout has -- a reference list, a chart legend beside its axis -- so a single band is
+# the weakest geometry this pass accepts, and two-column admission leans on the
+# downstream guards rather than the sweep. Measured on the PMC corpus (#389), the
+# whole two-column population is 12 regions: 4 real tables, 7 numbered reference
+# lists (6 already condemned by looks_like_numbered_bibliography, the 7th once its
+# ``42)`` spelling counted), and 1 chart whose axis ticks and legend gridded --
+# the shape MAX_TWO_COLUMN_REGION_DRAWINGS exists for. Refusing the single gutter
+# outright, as this pass first shipped, cost the 4 real tables to save nothing the
+# guards were not already saving. Three-plus columns need no such corroboration:
+# two aligned internal boundaries do not happen to prose.
+MIN_WORD_GUTTER_COLS = 2
+# A two-column grid whose region holds more vector drawing paths than this is a chart,
+# not a table: plot lines sit under a chart's tick labels and legend, while a
+# borderless table has at most its own ruling lines. Measured on the PMC corpus, the
+# one chart region in the two-column population held 541 intersecting paths; the four
+# real two-column tables held 0-4.
+MAX_TWO_COLUMN_REGION_DRAWINGS = 25
 # Share of a region's multi-character words that may stand taller than wide before the
 # region reads as rotated and the gutter pass switches to the transposed frame.
 MAX_ROTATED_WORD_SHARE = 0.5
@@ -721,8 +733,10 @@ def _merge_continuation_lines(line_rows: list[list[str]]) -> list[list[str]]:
     return merged
 
 
-# The integer forms a bibliography numbers its entries with: ``42.``, ``42``, ``[42]``.
-_BIB_INTEGER = re.compile(r"^\[?(\d{1,3})[.\]]?$")
+# The integer forms a bibliography numbers its entries with: ``42.``, ``42``, ``[42]``,
+# ``42)`` -- the paren form measured on the PMC corpus as the one spelling the guard
+# missed.
+_BIB_INTEGER = re.compile(r"^\[?(\d{1,3})[.)\]]?$")
 # A run of consecutive integers needs this many members before it reads as numbering
 # rather than coincidence.
 MIN_BIB_SEQUENTIAL_CELLS = 5
