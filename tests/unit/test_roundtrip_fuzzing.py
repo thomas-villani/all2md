@@ -685,7 +685,11 @@ KNOWN_FOOTNOTE_GAPS: dict[tuple[str, str], str] = {
     # paragraph (#384), and nested/empty strikethrough opening a tilde fence that ate the
     # definition (#391). With both fixed, the canonical two-paragraph markdown footnote
     # round-trips whole.
-    ("org", "definition_paragraphs"): "Multi-paragraph definitions collapse toward a single paragraph. #347",
+    # ("org", "definition_paragraphs") is gone: Org continues a footnote definition
+    # across a single blank line and ends it at two, so the renderer now separates a
+    # definition's paragraphs with a blank line (and follows a definition with two
+    # before ordinary content), and the parser's block splitter counts the blank
+    # lines between blocks instead of discarding them.
     ("dokuwiki", "definition_paragraphs"): "Multi-paragraph definitions collapse toward a single paragraph. #347",
 }
 

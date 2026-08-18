@@ -682,6 +682,49 @@ This has a footnote [fn:test].
         assert refs[0].identifier == "test"
         assert defs[0].identifier == "test"
 
+    def test_single_blank_line_continues_definition(self) -> None:
+        """One blank line inside a definition separates its paragraphs, not the definition from the document."""
+        org = "Body [fn:a1] end.\n\n[fn:a1] First paragraph.\n\nSecond paragraph.\n"
+        doc = OrgParser().parse(org)
+
+        defs = [n for n in doc.children if isinstance(n, FootnoteDefinition)]
+        assert len(defs) == 1
+        paragraphs = [c for c in defs[0].content if isinstance(c, Paragraph)]
+        assert len(paragraphs) == 2
+        # The continuation belongs to the footnote, not the document.
+        top_paragraphs = [n for n in doc.children if isinstance(n, Paragraph)]
+        assert len(top_paragraphs) == 1
+
+    def test_two_blank_lines_end_definition(self) -> None:
+        """Two consecutive blank lines end the definition; what follows is document content."""
+        org = "Body [fn:a1] end.\n\n[fn:a1] Only paragraph.\n\n\nDocument continues.\n"
+        doc = OrgParser().parse(org)
+
+        defs = [n for n in doc.children if isinstance(n, FootnoteDefinition)]
+        assert len(defs) == 1
+        assert len([c for c in defs[0].content if isinstance(c, Paragraph)]) == 1
+        top_paragraphs = [n for n in doc.children if isinstance(n, Paragraph)]
+        assert len(top_paragraphs) == 2
+
+    def test_next_definition_ends_definition(self) -> None:
+        """A following `[fn:]` block starts a new definition even across a single blank line."""
+        org = "Body [fn:a1][fn:b2] end.\n\n[fn:a1] First note.\n\n[fn:b2] Second note.\n"
+        doc = OrgParser().parse(org)
+
+        defs = [n for n in doc.children if isinstance(n, FootnoteDefinition)]
+        assert sorted(d.identifier for d in defs) == ["a1", "b2"]
+        assert all(len([c for c in d.content if isinstance(c, Paragraph)]) == 1 for d in defs)
+
+    def test_structural_block_ends_definition(self) -> None:
+        """A list after one blank line ends the definition instead of joining it."""
+        org = "Body [fn:a1] end.\n\n[fn:a1] Only paragraph.\n\n- item one\n- item two\n"
+        doc = OrgParser().parse(org)
+
+        defs = [n for n in doc.children if isinstance(n, FootnoteDefinition)]
+        assert len(defs) == 1
+        assert len([c for c in defs[0].content if isinstance(c, Paragraph)]) == 1
+        assert any(isinstance(n, List) for n in doc.children)
+
 
 @pytest.mark.unit
 class TestMath:
