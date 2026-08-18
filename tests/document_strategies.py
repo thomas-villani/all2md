@@ -325,17 +325,23 @@ def figures() -> st.SearchStrategy[Figure]:
 
     Children are constrained to shapes that survive a bare round trip, for the
     same reason definition descriptions hold plain text: a defect reachable
-    without the container -- doubled hard breaks splitting a paragraph, a
-    spanned table rendering a delimiter row markdown cannot read back -- would
-    be misattributed to figures by this gate's allowlist. Tables stay in the
-    mix deliberately (a Figure-wrapped table is the LaTeXML/arXiv shape this
-    container exists for), just without spans.
+    without the container would be misattributed to figures by this gate's
+    allowlist. Two former constraints are deliberately gone: tables carry spans
+    again (#385 -- the markdown renderer now despans to a valid table) and
+    paragraphs carry hard breaks again, consecutive ones included (#384 -- the
+    renderer now spells a break on a blank line with a backslash). A paragraph
+    of *only* breaks is still excluded: with no text to anchor them, formats
+    legitimately disagree on whether anything was there at all.
     """
-    plain_paragraphs = st.builds(
+    break_paragraphs = st.builds(
         Paragraph,
-        content=safe_words().map(lambda words: [Text(content=words)]),
+        content=st.lists(
+            st.one_of(text_nodes(), st.just(LineBreak())),
+            min_size=1,
+            max_size=4,
+        ).filter(lambda content: any(isinstance(node, Text) for node in content)),
     )
-    children = st.one_of(plain_paragraphs, code_blocks(), tables(allow_span=False), st.just(ThematicBreak()))
+    children = st.one_of(break_paragraphs, code_blocks(), tables(), st.just(ThematicBreak()))
     return st.builds(
         Figure,
         children=st.lists(children, min_size=0, max_size=2),

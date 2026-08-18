@@ -681,11 +681,11 @@ KNOWN_FOOTNOTE_GAPS: dict[tuple[str, str], str] = {
         "A multi-paragraph definition renders as indented continuation lines under `.. [a1]`, which "
         "reads back as one paragraph rather than two. #347"
     ),
-    ("markdown", "definition_paragraphs"): (
-        "Multi-paragraph footnote definitions do not survive intact -- the same collapse the "
-        "roundtrip benchmark corpus found. Counts move in both directions, so this is not a pure "
-        "loss: one shape came back with more paragraphs than it started with. #347"
-    ),
+    # ("markdown", "definition_paragraphs") is gone: what looked like #347's collapse was
+    # three defects wearing one reason -- consecutive hard breaks splitting the definition's
+    # paragraph (#384), and nested/empty strikethrough opening a tilde fence that ate the
+    # definition (#391). With both fixed, the canonical two-paragraph markdown footnote
+    # round-trips whole.
     ("org", "definition_paragraphs"): "Multi-paragraph definitions collapse toward a single paragraph. #347",
     ("dokuwiki", "definition_paragraphs"): "Multi-paragraph definitions collapse toward a single paragraph. #347",
 }
