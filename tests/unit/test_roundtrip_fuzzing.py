@@ -651,12 +651,11 @@ FOOTNOTE_FORMATS = ("ast", "markdown", "html", "rst", "org", "asciidoc", "dokuwi
 #: here: "asciidoc loses every footnote" reads like a renderer that drops them,
 #: and the renderer is in fact correct.
 KNOWN_FOOTNOTE_GAPS: dict[tuple[str, str], str] = {
-    ("asciidoc", "markers"): (
-        "The AsciiDoc parser does not recognise the named inline form. The renderer emits "
-        "`footnote:a1[text]`, which is valid Asciidoctor, but the parser's patterns match only "
-        "`footnote:[text]` and `footnoteref:[id,text]` -- so its own output comes back as literal "
-        "text and the raw markup leaks into the prose."
-    ),
+    # ("asciidoc", "markers") is gone: the parser reads the named inline form
+    # `footnote:a1[text]` (#346), degrades a hard break inside the macro's brackets to a
+    # space instead of an unparseable embedded newline, and synthesizes an empty
+    # definition for an id referenced but never defined -- the spelling the renderer
+    # itself emits when a definition's content flattens to nothing.
     ("asciidoc", "definition_paragraphs"): (
         "The AsciiDoc renderer flattens a multi-paragraph definition into one inline argument: "
         "two paragraphs render as `footnote:a1[note one note two]`. Lost at render time, before "
@@ -767,15 +766,17 @@ DEFINITION_FORMATS = ("ast", "markdown", "html", "rst", "org", "asciidoc")
 #: right and three do not.
 KNOWN_DEFINITION_GAPS: dict[tuple[str, str], str] = {
     ("asciidoc", "shape"): (
-        "The AsciiDoc parser drops every description and splits one list into one list per "
-        "term. `t::\\ndesc` comes back as a DefinitionTerm with no DefinitionDescription, the "
-        "description text becoming a sibling paragraph, and an N-term list comes back as N "
-        "single-term lists. The text survives; the binding between term and description does "
-        "not. See #351."
+        "AsciiDoc attaches one description to each `term::`, so a term's several "
+        "descriptions flatten into it -- as continuation lines since #351's fix bound "
+        "descriptions to their terms at all, so the words survive; the description count "
+        "cannot. The same inherent expressibility gap as reST and Org."
     ),
     ("asciidoc", "description_paragraphs"): (
-        "Follows from the same defect as ('asciidoc', 'shape'): with no DefinitionDescription "
-        "surviving the trip there is nothing left to count paragraphs inside. See #351."
+        "A description's paragraph boundary degrades to a continuation line, so two "
+        "paragraphs come back as one -- words intact since the renderer stopped fusing "
+        "them ('only'+'extra' -> 'onlyextra'). Asciidoctor proper spells the boundary "
+        "with a `+` continuation line, which this parser does not read yet; teaching it "
+        "`+` would close this."
     ),
     # ("rst", "description_paragraphs") is gone: the word-fusing concatenation (#352) is
     # fixed -- blocks now render as same-indent paragraphs separated by blank lines, and

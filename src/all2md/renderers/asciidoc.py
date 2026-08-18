@@ -99,7 +99,7 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._list_ordered_stack: list[bool] = []  # Track ordered/unordered at each level
         self._footnote_collector: FootnoteCollector = FootnoteCollector()
         self._footnotes_emitted: set[str] = set()  # Track which footnotes have been emitted inline
-        self._in_table_cell: bool = False
+        self._in_inline_only: bool = False
 
     def render_to_string(self, document: Document) -> str:
         """Render a document AST to AsciiDoc string.
@@ -121,7 +121,7 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._list_ordered_stack = []
         self._footnote_collector = FootnoteCollector()
         self._footnotes_emitted = set()
-        self._in_table_cell = False
+        self._in_inline_only = False
 
         document.accept(self)
 
@@ -433,8 +433,20 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         This is an inherent limitation of AsciiDoc's footnote syntax.
 
         """
-        result_parts = []
+        result_parts: list[str] = []
 
+        # Everything rendered here lands between a macro's brackets, which hold
+        # exactly one line -- so hard breaks must degrade to spaces here just as
+        # they do in table cells.
+        was_in_inline_only = self._in_inline_only
+        self._in_inline_only = True
+        try:
+            return self._flatten_blocks_to_inline_parts(nodes, result_parts)
+        finally:
+            self._in_inline_only = was_in_inline_only
+
+    def _flatten_blocks_to_inline_parts(self, nodes: list[Node], result_parts: list[str]) -> str:
+        """Flatten each node in *nodes* into ``result_parts`` and join them."""
         for node in nodes:
             if isinstance(node, Paragraph):
                 # Extract inline content from paragraph
@@ -582,8 +594,8 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             # splits on '|' within a single source line, so any node that would
             # normally emit a literal '\n' (a hard LineBreak's ' +\n') has to fall
             # back to something line-safe while we're inside a cell.
-            was_in_table_cell = self._in_table_cell
-            self._in_table_cell = True
+            was_in_inline_only = self._in_inline_only
+            self._in_inline_only = True
             try:
                 for index, cell in enumerate(cells):
                     content = self._render_inline_content(cell.content)
@@ -591,7 +603,7 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                     separator = "" if index == 0 else " "
                     self._output.append(f"{separator}{delimiter}{content}")
             finally:
-                self._in_table_cell = was_in_table_cell
+                self._in_inline_only = was_in_inline_only
             self._output.append("\n")
 
         # Render header
@@ -748,7 +760,11 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         content = self._render_inline_content(node.content)
-        self._output.append(f"_{content}_")
+        lead, core, trail = self._split_boundary_breaks(content)
+        if not core.strip():
+            self._output.append(content)
+            return
+        self._output.append(f"{lead}_{core}_{trail}")
 
     def visit_strong(self, node: Strong) -> None:
         """Render a Strong node.
@@ -760,7 +776,45 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         content = self._render_inline_content(node.content)
-        self._output.append(f"*{content}*")
+        lead, core, trail = self._split_boundary_breaks(content)
+        if not core.strip():
+            self._output.append(content)
+            return
+        self._output.append(f"{lead}*{core}*{trail}")
+
+    @staticmethod
+    def _split_boundary_breaks(content: str) -> tuple[str, str, str]:
+        """Split rendered inline content into leading breaks, core, trailing breaks.
+
+        A hard break at the edge of a bold or italic span puts a delimiter run
+        alone at a line start, where it stops being inline syntax: AsciiDoc reads
+        ``* `` at a line start as a level-1 list marker and ``** `` as a level-2
+        one -- the first silently turns emphasis into a list item, the second
+        crashes the parser outright, since no level-1 item is open to nest under
+        (#353). Breaks are hoisted outside the delimiters instead: a span over a
+        line break marks nothing visible, so nothing is lost, and a span left
+        with no visible core emits no delimiters at all.
+        """
+        spellings = (" +\n", "\n")
+        lead = ""
+        stripped = True
+        while stripped:
+            stripped = False
+            for spelling in spellings:
+                if content.startswith(spelling):
+                    lead += spelling
+                    content = content[len(spelling) :]
+                    stripped = True
+        trail = ""
+        stripped = True
+        while stripped:
+            stripped = False
+            for spelling in spellings:
+                if content.endswith(spelling):
+                    trail = spelling + trail
+                    content = content[: -len(spelling)]
+                    stripped = True
+        return lead, content, trail
 
     def visit_code(self, node: Code) -> None:
         """Render a Code node.
@@ -828,12 +882,15 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             Line break to render
 
         """
-        if node.soft or self._in_table_cell:
-            # Soft breaks render as space in AsciiDoc. Inside a table cell the
-            # hard-break marker ' +\n' would embed a newline in a psv row and
-            # the project's own parser reads it back as a row split (the ' +'
-            # marker leaking into the first cell's text) rather than a break,
-            # so fall back to the same space used for soft breaks.
+        if node.soft or self._in_inline_only:
+            # Soft breaks render as space in AsciiDoc. In an inline-only context
+            # the hard-break marker ' +\n' embeds a newline where none can be: in
+            # a psv table cell the project's own parser reads it back as a row
+            # split (the ' +' marker leaking into the first cell's text), and
+            # inside a footnote macro's brackets the newline leaves
+            # `footnote:id[...` unclosed on its line, so the whole footnote leaks
+            # into the prose as literal text (#346). Fall back to the same space
+            # used for soft breaks.
             self._output.append(" ")
         else:
             # Hard break with explicit line break
@@ -967,11 +1024,22 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             term_content = self._render_inline_content(term.content)
             self._output.append(f"{term_content}::")
 
-            # Render descriptions
+            # Render descriptions. Each block renders separately and the pieces
+            # join as continuation lines under the term -- they used to be
+            # concatenated with nothing between them, fusing the last word of one
+            # paragraph to the first word of the next ('only' + 'extra' ->
+            # 'onlyextra'): destroyed word boundaries, the same class #352 fixed
+            # for reST and Org. The paragraph boundary degrades to a line wrap
+            # (documented in the fuzzing gate); the words survive.
             for desc in descriptions:
-                self._output.append("\n")
                 for child in desc.content:
+                    self._output.append("\n")
+                    saved_output = self._output
+                    self._output = []
                     child.accept(self)
+                    block_text = "".join(self._output)
+                    self._output = saved_output
+                    self._output.append(block_text)
 
     def visit_definition_term(self, node: DefinitionTerm) -> None:
         """Render a DefinitionTerm node (handled by visit_definition_list).
@@ -1005,8 +1073,14 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         content = self._render_inline_content(node.content)
-        # AsciiDoc uses [line-through] for strikethrough
-        self._output.append(f"[line-through]#{content}#")
+        # AsciiDoc uses [line-through] for strikethrough. Boundary breaks hoist
+        # outside the span for the same reason as bold/italic (#353): a `#` or
+        # `[line-through]#` stranded on its own line is not inline syntax.
+        lead, core, trail = self._split_boundary_breaks(content)
+        if not core.strip():
+            self._output.append(content)
+            return
+        self._output.append(f"{lead}[line-through]#{core}#{trail}")
 
     def visit_footnote_reference(self, node: FootnoteReference) -> None:
         """Render a FootnoteReference node.
