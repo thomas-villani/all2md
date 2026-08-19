@@ -1,0 +1,5 @@
+# The baseline converters, pinned to the versions the committed results were
+# recorded against. Install into a venv that does NOT contain this repository
+# (see README.md -- the separation is the point).
+pymupdf4llm==1.28.2
+docling==2.120.3
