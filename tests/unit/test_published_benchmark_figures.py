@@ -68,7 +68,20 @@ def _pmc_figures(pmc: dict[str, Any]) -> list[tuple[str, str]]:
         ("recall of attainable", f"     - **{_percent(recall['attainable_recall'])}**\n"),
         ("recall control", f"     - {_percent(recall['control_recall'])}\n"),
         ("supported share", f"     - **{_percent(precision['precision'])}**\n"),
+        (
+            # Rendered with its label because a bare percentage cell collides with other
+            # rows at coarse precision.
+            "resequenced share",
+            f"   * - Resequenced\n     - {_percent(precision['resequenced'] / precision['emitted'])}\n",
+        ),
         ("novel share", f"     - **{_percent(precision['novel_share'])}**\n"),
+        (
+            # This row moved 0.5% -> 2.0% when the caption-blind oracle was corrected
+            # (#406/#410); it was not in the inventory then, which is exactly how a stale
+            # figure would have survived. Gated now.
+            "duplication share",
+            f"   * - Duplication\n     - {_percent(precision['duplication'])}\n",
+        ),
         (
             "emitted n-grams",
             f"Over {precision['emitted']:,} emitted n-grams, {precision['novel']:,} are novel.",
