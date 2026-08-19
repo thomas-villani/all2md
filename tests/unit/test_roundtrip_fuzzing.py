@@ -671,14 +671,19 @@ KNOWN_FOOTNOTE_GAPS: dict[tuple[str, str], str] = {
         "html",
         "definition_paragraphs",
     ): "Follows from the markers gap: there is no definition left to count paragraphs in.",
-    ("rst", "markers"): (
-        "The reST renderer emits `body[a1]_` and `.. [a1] text`. With an alphanumeric label that is "
-        "reST *citation* syntax, not footnote syntax (which wants `[#name]_` or a number), so the "
-        "identifiers the generator draws do not survive as footnotes."
-    ),
+    # ("rst", "markers") is gone: the renderer now spells non-numeric identifiers
+    # as named auto-numbered footnotes (`[#a1]_` / `.. [#a1]`) instead of citation
+    # syntax, escapes the whitespace boundary a marker glued to a word needs
+    # (`0\ [0]_`), and the parser prefers docutils `names` (the label as written)
+    # over `ids` (normalized anchors like 'footnote-1') on both definitions and
+    # resolved references.
     ("rst", "definition_paragraphs"): (
-        "A multi-paragraph definition renders as indented continuation lines under `.. [a1]`, which "
-        "reads back as one paragraph rather than two. #347"
+        "Multi-paragraph text bodies now survive (blocks separate with blank lines at the "
+        "marker's body column, and hard breaks fall back to raw newlines so `| ` line-block "
+        "syntax cannot eat the body). What remains is images: reST has no inline image markup, "
+        "so a paragraph holding an Image renders as an `.. image::` directive and stops being "
+        "a paragraph. A general trait of the reST renderer, not footnote-specific; faithful "
+        "spelling would need substitution machinery (`|name|` + `.. |name| image::`)."
     ),
     # ("markdown", "definition_paragraphs") is gone: what looked like #347's collapse was
     # three defects wearing one reason -- consecutive hard breaks splitting the definition's

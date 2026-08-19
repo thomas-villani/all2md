@@ -684,7 +684,17 @@ class RestructuredTextParser(BaseParser):
         from docutils import nodes as docutils_nodes
 
         if isinstance(node, docutils_nodes.Text):
-            return Text(content=str(node))
+            text = str(node)
+            if "\x00" in text:
+                # Docutils keeps backslash escapes in the doctree as internal
+                # null markers (`0\ [0]_` -> '0\x00 [0]_'); unescape resolves
+                # them, removing escaped whitespace entirely per reST semantics.
+                from docutils.utils import unescape
+
+                text = unescape(text)
+                if not text:
+                    return None
+            return Text(content=text)
         elif isinstance(node, docutils_nodes.emphasis):
             content = self._process_inline_nodes(node.children)
             return Emphasis(content=content)
@@ -744,18 +754,19 @@ class RestructuredTextParser(BaseParser):
             Footnote definition AST node
 
         """
-        # Extract footnote identifier
+        # Extract footnote identifier. The label the author wrote lives in
+        # `names`; `ids` holds docutils' normalized anchor, which mangles it
+        # (`.. [42]` gets id 'footnote-1', `.. [#42x]` gets id 'x' because id
+        # normalization strips leading digits). Preferring ids lost the label.
         identifier = None
         if hasattr(node, "get"):
-            # Try to get footnote IDs
-            ids = node.get("ids", [])
-            if ids:
-                identifier = ids[0]
-            # Also check names attribute
+            names = node.get("names", [])
+            if names:
+                identifier = names[0]
             if not identifier:
-                names = node.get("names", [])
-                if names:
-                    identifier = names[0]
+                ids = node.get("ids", [])
+                if ids:
+                    identifier = ids[0]
 
         if not identifier:
             # Fallback to auto-numbering
@@ -791,9 +802,20 @@ class RestructuredTextParser(BaseParser):
             Footnote reference AST node
 
         """
-        # Extract identifier from refid or refname
-        identifier = node.get("refid") or node.get("refname") or "footnote"
-        return FootnoteReference(identifier=identifier)
+        # `refname` is the label as written; after docutils' reference
+        # resolution it is replaced by `refid`, the target's normalized anchor
+        # ('footnote-1' for `.. [42]`). Follow the refid back to the footnote
+        # node and take its name, so the reference carries the same identifier
+        # its definition does.
+        identifier = node.get("refname")
+        if not identifier:
+            refid = node.get("refid")
+            if refid:
+                document = getattr(node, "document", None)
+                target = document.ids.get(refid) if document is not None else None
+                names = target.get("names", []) if target is not None else []
+                identifier = names[0] if names else refid
+        return FootnoteReference(identifier=identifier or "footnote")
 
     def _process_math_block(self, node: Any) -> MathBlock:
         """Process a math block (displayed equation).
