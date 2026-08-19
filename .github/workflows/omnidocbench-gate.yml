@@ -52,7 +52,11 @@ jobs:
           sudo apt-get install --yes tesseract-ocr tesseract-ocr-eng tesseract-ocr-chi-sim
 
       - name: Install all2md from the lockfile
-        run: uv sync --frozen --extra pdf_layout --extra ocr
+        # --extra benchmarks carries what the benchmark modules import at top level
+        # (defusedxml); this lane inherits it through benchmarks.corpus.download, and
+        # syncing without it crashed the run at import (the exact failure the extra's
+        # pyproject comment predicted, in the sibling workflow that wasn't updated).
+        run: uv sync --frozen --extra pdf_layout --extra ocr --extra benchmarks
 
       - name: Run fidelity gate
         if: ${{ !inputs.record_baseline }}
