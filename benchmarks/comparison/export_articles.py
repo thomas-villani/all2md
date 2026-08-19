@@ -25,18 +25,19 @@ snapshot = corpus.load_corpus(
     REPO / "benchmarks" / "pmc" / ".cache",
     manifest_path=REPO / "benchmarks" / "pmc" / "manifest-holdout.json",
 )
+rows = [
+    {
+        "article_id": article.article_id,
+        "pdf_path": str(article.pdf_path),
+        "xml_path": str(article.xml_path),
+    }
+    for article in snapshot.articles
+]
 payload = {
     "manifest_sha256": snapshot.manifest_sha256,
     "complete": snapshot.complete,
-    "articles": [
-        {
-            "article_id": article.article_id,
-            "pdf_path": str(article.pdf_path),
-            "xml_path": str(article.xml_path),
-        }
-        for article in snapshot.articles
-    ],
+    "articles": rows,
 }
 out = HERE / "articles.json"
 out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-print(f"wrote {out} with {len(payload['articles'])} articles; complete={snapshot.complete}")
+print(f"wrote {out} with {len(rows)} articles; complete={snapshot.complete}")
