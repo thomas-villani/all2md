@@ -19,8 +19,19 @@ from .oracles import GroundTruthPage, PageProjection, project_annotation, projec
 if TYPE_CHECKING:
     from all2md.options.pdf import PdfOptions
 
-SCHEMA_VERSION = 2
-ORACLE_SCHEMA_VERSION = 5
+#: 3 adds ``strata``: per-data-source aggregates of every scored dimension. Under 2 the
+#: payload averaged newspapers, handwritten notes, slides, textbooks and papers into one
+#: number per dimension, which could not drive work because it could not say *where* a
+#: score was earned or lost (#257). The strata are evidence, not identity: the gate does
+#: not compare them, and ``emit_baseline`` does not copy them.
+SCHEMA_VERSION = 3
+#: 6 projects caption *attributes* (``Figure.caption``, ``Table.caption``,
+#: ``Image.caption``) into the AST-side text stream as synthesized paragraphs. Under 5
+#: the projection read children only, so a caption the parser correctly bound to its
+#: figure vanished from measurement while an unbound one counted -- recall fell as
+#: binding improved (#406). The annotation side always counted captions as text blocks,
+#: so this removes an asymmetry rather than adding a credit.
+ORACLE_SCHEMA_VERSION = 6
 
 
 class DegradedConversionError(RuntimeError):
@@ -342,6 +353,26 @@ def normalize_results(
         if dimension is not None:
             dimensions[name] = dimension
 
+    # Per-stratum aggregates of the same dimensions. Evidence, not identity: the gate does
+    # not compare these and `emit_baseline` does not copy them, so a stratum shifting does
+    # not invalidate a baseline -- but a reader can finally see whether a mean moved on
+    # newspapers or on handwritten notes (#257). `sample_scores` and `direction` are not
+    # repeated per stratum; both live on the corresponding top-level dimension.
+    strata: dict[str, dict[str, Any]] = {}
+    for stratum in sorted({page.stratum for page in ground_truth.values()}):
+        member_ids = {page_id for page_id, page in ground_truth.items() if page.stratum == stratum}
+        members = [result for result in evaluations if result.page_id in member_ids]
+        stratum_dimensions: dict[str, dict[str, Any]] = {}
+        for name in sorted(metric_names):
+            dimension = _dimension(members, name)
+            if dimension is not None:
+                stratum_dimensions[name] = {
+                    "value": dimension["value"],
+                    "eligible_items": dimension["eligible_items"],
+                    "variance": dimension["variance"],
+                }
+        strata[stratum] = {"pages": len(members), "dimensions": stratum_dimensions}
+
     failures = {
         result.page_id: f"{result.error_type}: {result.error}"
         for result in evaluations
@@ -401,6 +432,7 @@ def normalize_results(
             "unique_ids": len({result.page_id for result in evaluations}),
         },
         "dimensions": dimensions,
+        "strata": strata,
         "conversion_failures": failures,
         "unsupported_dimensions": unsupported,
         "unscored_annotation_categories": dict(sorted(unscored.items())),

@@ -65,8 +65,15 @@ from benchmarks.pmc.pages import ASSIGNMENTS, assign_pages, index_pages
 #: default ``alt_text`` attachment mode, which returns before extraction runs, so it emitted
 #: no figures at all and no figure defect was observable -- and the ~100% caption text recall
 #: it did report was being read as though it said something about figures, which it does not.
-SCHEMA_VERSION = 5
-ORACLE_SCHEMA_VERSION = 1
+#: 6 records the caption-aware oracle (shared ``project_ast``, oracle schema 2). Under 5 a
+#: caption the parser bound to its figure left the projected text stream for a string
+#: attribute the oracle never read, so recall *fell* as figure binding improved -- 101 of
+#: the 103 "lost" captions on the held-out corpus were in the output the whole time (#406).
+#: No payload key changes shape; the measurement underneath every recall figure does.
+SCHEMA_VERSION = 6
+#: 2 = the shared projection reads caption attributes (see schema 6 above and
+#: ``benchmarks.omnidocbench.oracles._semantic_blocks``).
+ORACLE_SCHEMA_VERSION = 2
 
 #: Fixed seed: a control that scrambles differently every run cannot be compared across
 #: runs, and a resolution change would be indistinguishable from a parser change.

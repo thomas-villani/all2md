@@ -97,6 +97,11 @@ class GroundTruthPage:
     projection: PageProjection
     unscored_categories: Mapping[str, int]
     explicitly_ignored: int
+    #: The corpus stratum this page was drawn from (``page_info.page_attribute.data_source``).
+    #: The corpus spans nine sources with very different characteristics -- newspapers,
+    #: handwritten notes, slides, textbooks, papers -- and a single mean over all of them is
+    #: not actionable (#257). Recorded here so the payload can report per-stratum aggregates.
+    stratum: str
 
 
 class _TableHTMLParser(HTMLParser):
@@ -179,12 +184,43 @@ def _node_text(node: Node) -> str:
     return content if isinstance(content, str) else ""
 
 
+def _caption_paragraph(caption: str) -> Paragraph:
+    return Paragraph(content=[Text(content=caption)])
+
+
+def _attached_captions(block: Node) -> Iterable[Paragraph]:
+    """Yield the caption attributes carried by ``block`` or anything inside it.
+
+    ``Table.caption`` and an inline ``Image.caption`` live on the yielded block's own
+    subtree, which ``_semantic_blocks`` never descends -- it yields the block whole.
+    """
+    for candidate in _all_nodes(block):
+        caption = getattr(candidate, "caption", None)
+        if isinstance(caption, str) and caption.strip():
+            yield _caption_paragraph(caption)
+
+
 def _semantic_blocks(node: Node) -> Iterable[Node]:
+    # A caption is document text the AST carries as a string *attribute* --
+    # ``Figure.caption``, ``Table.caption``, ``Image.caption`` -- not as a child node, so a
+    # child walk alone is blind to it. That blindness inverted an incentive (#406): the
+    # better the parser *bound* captions to their figures, the more caption text left the
+    # Paragraph stream for an attribute this projection never read, and measured recall
+    # fell for doing the right thing. 101 of the 103 "lost" captions on the held-out
+    # corpus were sitting in the output the whole time. Captions are projected as
+    # synthesized paragraphs because that is exactly how the annotation side reads them:
+    # ``project_annotation`` collapses figure_caption/table_caption to ``text_block``.
     if isinstance(node, (Heading, Paragraph, CodeBlock, Table, MathBlock)):
         yield node
+        yield from _attached_captions(node)
         return
     for child in get_node_children(node):
         yield from _semantic_blocks(child)
+    caption = getattr(node, "caption", None)
+    if isinstance(caption, str) and caption.strip():
+        # Containers (Figure) carry their caption after their content, matching where a
+        # figure caption prints and where the markdown renderer emits it.
+        yield _caption_paragraph(caption)
 
 
 def _all_nodes(node: Node) -> Iterable[Node]:
@@ -264,6 +300,21 @@ def _annotation_page_id(record: Mapping[str, Any]) -> str:
         raise ValueError("annotation record has no page_info.image_path")
     filename = image_path.replace("\\", "/").rsplit("/", 1)[-1]
     return filename.rsplit(".", 1)[0]
+
+
+def _annotation_stratum(record: Mapping[str, Any], page_id: str) -> str:
+    """Read the page's data source, failing rather than pooling unattributed pages.
+
+    ``page_attribute`` is already required and validated by the corpus loader; this reads
+    the one key stratification needs. Fail-closed on purpose: a page silently binned as
+    "unknown" would make the per-stratum figures quietly stop covering the corpus.
+    """
+    page_info = record.get("page_info")
+    attributes = page_info.get("page_attribute") if isinstance(page_info, Mapping) else None
+    source = attributes.get("data_source") if isinstance(attributes, Mapping) else None
+    if not isinstance(source, str) or not source:
+        raise ValueError(f"annotation page {page_id!r} has no page_attribute.data_source")
+    return source
 
 
 def _annotation_inline_formulas(
@@ -386,6 +437,7 @@ def project_annotation(record: Mapping[str, Any]) -> GroundTruthPage:
         ),
         unscored_categories=dict(sorted(unscored.items())),
         explicitly_ignored=explicitly_ignored,
+        stratum=_annotation_stratum(record, page_id),
     )
 
 
