@@ -487,6 +487,8 @@ all2md's conversion quality is measured, not asserted — against three independ
 
 Current figures, their controls, and — just as important — what each lane structurally *cannot* see are documented in [Conversion Fidelity](https://all2md.readthedocs.io/en/latest/benchmarks.html).
 
+**How does it compare to other converters?** A fourth lane ([`benchmarks/comparison/`](benchmarks/comparison/)) scores pymupdf4llm and Docling with the same instruments, on a held-out 110-article corpus the development work has never tuned against, with every tool's output re-parsed through one normalization path. The 2026-08 reading: all2md has by far the lowest invented-text rate (0.84%, vs 5.5% for pymupdf4llm — whose defaults now auto-OCR born-digital pages — and 2.9% for Docling) and is the fastest of the three, while pymupdf4llm leads raw text survival and Docling leads table cell preservation. Full results, ground rules, and the caveats that bound them are in that lane's [README](benchmarks/comparison/README.md) and dated `results-*.json` snapshots.
+
 ## Frequently asked questions
 
 **How is all2md different from Pandoc?**
@@ -520,7 +522,7 @@ Use parallel processing: `all2md ./docs -r --output-dir ./output -p 8`, or `--wa
 
 Contributions are welcome — bug reports, feature requests, documentation improvements, and code. Ways to help: report bugs, improve docs, add support for new formats via the plugin system, create new AST transforms, or fix bugs in existing converters.
 
-For contributors evaluating parser changes, all2md ships benchmark harnesses: [`benchmarks/pmc/`](benchmarks/pmc/) (born-digital PDF fidelity against publisher JATS ground truth), [`benchmarks/omnidocbench/`](benchmarks/omnidocbench/) (scanned pages against human annotation), [`benchmarks/roundtrip/`](benchmarks/roundtrip/) (`Markdown → AST → Markdown` fidelity, the CI gate), and [`benchmarks/corpus/`](benchmarks/corpus/) (conversion timing across public corpora). See [Conversion Fidelity](https://all2md.readthedocs.io/en/latest/benchmarks.html) and the [Performance Tuning docs](https://all2md.readthedocs.io/en/latest/performance.html) for details.
+For contributors evaluating parser changes, all2md ships benchmark harnesses: [`benchmarks/pmc/`](benchmarks/pmc/) (born-digital PDF fidelity against publisher JATS ground truth), [`benchmarks/omnidocbench/`](benchmarks/omnidocbench/) (scanned pages against human annotation), [`benchmarks/roundtrip/`](benchmarks/roundtrip/) (`Markdown → AST → Markdown` fidelity, the CI gate), [`benchmarks/corpus/`](benchmarks/corpus/) (conversion timing across public corpora), and [`benchmarks/comparison/`](benchmarks/comparison/) (third-party converters scored with the same instruments on a held-out corpus). See [Conversion Fidelity](https://all2md.readthedocs.io/en/latest/benchmarks.html) and the [Performance Tuning docs](https://all2md.readthedocs.io/en/latest/performance.html) for details.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
 

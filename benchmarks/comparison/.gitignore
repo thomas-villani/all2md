@@ -1,0 +1,7 @@
+# Everything a run produces stays local; only dated results-*.json snapshots
+# and the scripts themselves are committed.
+articles.json
+comparison.json
+lost_blocks.json
+out/
+*.log
