@@ -74,10 +74,14 @@ def _pmc_figures(pmc: dict[str, Any]) -> list[tuple[str, str]]:
             f"Over {precision['emitted']:,} emitted n-grams, {precision['novel']:,} are novel.",
         ),
         (
+            # Phrased for a surplus rather than a deficit: since the word-gutter and
+            # two-column admissions the lane emits tables on more pages than the ground
+            # truth expects, and "on 120 of 94 pages that should carry one" stopped
+            # parsing as English.
             "tables",
             f"**{corpus['tables_emitted']} emitted against {corpus['tables_expected']}\n"
-            f"expected**, on {corpus['pages_with_emitted_table']} of "
-            f"{corpus['pages_with_expected_table']} pages that should carry one.",
+            f"expected**, with tables emitted on {corpus['pages_with_emitted_table']} pages\n"
+            f"against the {corpus['pages_with_expected_table']} that carry one in the ground truth.",
         ),
     ]
     for label, kind in (("text blocks", "text_block"), ("titles", "title"), ("tables", "table")):

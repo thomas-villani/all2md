@@ -57,6 +57,12 @@ pinned by a committed manifest of per-file SHA-256 digests, revalidated on every
 The figures below are :file:`benchmarks/pmc/reference.json`, recorded on Linux with
 dependencies resolved from the lockfile. It covers **66 articles and 706 pages**.
 
+A second manifest, :file:`benchmarks/pmc/manifest-holdout.json`, pins a 110-article
+**held-out** corpus drawn from bucket regions the committed manifest never touched.
+Development tunes against the 66; the held-out set exists to be scored and never tuned
+against, so the figures here can be checked for overfitting. Its first validation run
+landed within a point of the development corpus on every text instrument.
+
 Did the text survive?
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -68,19 +74,19 @@ Did the text survive?
      - Value
      -
    * - Raw recall
-     - 60.2%
+     - 59.8%
      - of 8,905 ground-truth blocks
    * - Attainable ceiling
      - 62.4%
      - what the PDF's own text layer reproduces
    * - **Recall of what is attainable**
-     - **95.3%**
+     - **94.7%**
      - the number worth reading
    * - Control: the *wrong* article
      - 0.4%
      - wants to be ~0%
 
-Raw recall is 60.2%, and that figure is close to meaningless on its own. A large share of
+Raw recall is 59.8%, and that figure is close to meaningless on its own. A large share of
 any JATS article cannot be recovered by *any* parser, because the markup records words in an
 order the page never prints — author affiliation blocks, structured metadata, citation
 fields. Charging a PDF parser for failing to reproduce text the PDF does not contain
@@ -102,16 +108,20 @@ By block kind:
      - Share of attainable
    * - Text blocks
      - 3,160 of 6,356
-     - 3,115
-     - **97.6%**
+     - 3,102
+     - **97.2%**
    * - Titles
      - 2,291 of 2,426
-     - 2,151
-     - **92.8%**
+     - 2,146
+     - **92.5%**
    * - Tables
      - 110 of 123
-     - 93
-     - **83.6%**
+     - 77
+     - **69.1%**
+
+Table blocks are the outlier, and deliberately so — their text now routes through
+structured table extraction rather than flowing out as prose. What that buys and what it
+costs is the subject of the Tables section below.
 
 Did the output invent anything?
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -135,10 +145,10 @@ Unsupported output is therefore split in two:
      - Share
      - Meaning
    * - Supported
-     - **93.9%**
+     - **92.9%**
      - the n-gram appears in the document's text layer
    * - Resequenced
-     - 5.2%
+     - 6.1%
      - every word is in the document, in a new adjacency
    * - **Novel**
      - **1.0%**
@@ -150,8 +160,8 @@ Unsupported output is therefore split in two:
      - 0.7%
      - wants to be ~0%
 
-Over 443,281 emitted n-grams, 4,287 are novel. Reporting the raw unsupported figure instead
-would have made the result roughly six times worse than the parser deserves.
+Over 445,252 emitted n-grams, 4,447 are novel. Reporting the raw unsupported figure instead
+would have made the result roughly seven times worse than the parser deserves.
 
 Duplication is counted apart from both, because it is invisible to either. Text emitted
 twice is an unchanged *set* and a doubled *multiset* — no set-based score can see it at all.
@@ -159,15 +169,25 @@ twice is an unchanged *set* and a doubled *multiset* — no set-based score can 
 Tables
 ~~~~~~
 
-Tables are the weakest area and the artifact says so plainly: **92 emitted against 121
-expected**, on 69 of 94 pages that should carry one.
+The bottleneck has moved. An earlier recording under-emitted — 92 tables against 121
+expected, with detection refusing to commit on the borderless *booktabs*-style tables
+journals actually print — and after word-gutter grids and two-column regions were admitted
+behind measured guards, the artifact reads **164 emitted against 121
+expected**, with tables emitted on 120 pages
+against the 94 that carry one in the ground truth.
 
-The bottleneck is detection rather than extraction. On the pages that miss, the table's text
-is usually present in the output as ordinary prose — the content survived, the *structure*
-did not. Missed tables skew narrow and sparse compared with matched ones, which is
-consistent with a detector that needs enough ruling lines or column evidence to commit.
-Some are not recoverable as tables at all: a share of JATS ``<table-wrap>`` elements hold
-what is really a list.
+The surplus is mostly an accounting gap rather than invention: a table that continues
+across pages is one JATS ``<table-wrap>`` but several printed tables, and the expected
+count does not yet credit continuations. The remaining deficit is a handful of table
+classes with no shared mechanism.
+
+The cost sits one section up: table blocks are the one kind whose attainable-recall figure
+*fell* across those recordings, from 83.6% to 69.1%. When a table was missed, its text
+flowed out as ordinary prose and survived nearly verbatim; committed as a table, the same
+region's text passes through cell extraction, which does not yet preserve every word of
+every cell. The trade is accepted with eyes open — a table recovered *as a table* is what
+downstream consumers need — but it is a trade, and the artifact says so rather than
+netting the two effects into one flattering number.
 
 Scanned pages
 -------------
