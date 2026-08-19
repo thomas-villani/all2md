@@ -671,21 +671,30 @@ KNOWN_FOOTNOTE_GAPS: dict[tuple[str, str], str] = {
         "html",
         "definition_paragraphs",
     ): "Follows from the markers gap: there is no definition left to count paragraphs in.",
-    ("rst", "markers"): (
-        "The reST renderer emits `body[a1]_` and `.. [a1] text`. With an alphanumeric label that is "
-        "reST *citation* syntax, not footnote syntax (which wants `[#name]_` or a number), so the "
-        "identifiers the generator draws do not survive as footnotes."
-    ),
+    # ("rst", "markers") is gone: the renderer now spells non-numeric identifiers
+    # as named auto-numbered footnotes (`[#a1]_` / `.. [#a1]`) instead of citation
+    # syntax, escapes the whitespace boundary a marker glued to a word needs
+    # (`0\ [0]_`), and the parser prefers docutils `names` (the label as written)
+    # over `ids` (normalized anchors like 'footnote-1') on both definitions and
+    # resolved references.
     ("rst", "definition_paragraphs"): (
-        "A multi-paragraph definition renders as indented continuation lines under `.. [a1]`, which "
-        "reads back as one paragraph rather than two. #347"
+        "Multi-paragraph text bodies now survive (blocks separate with blank lines at the "
+        "marker's body column, and hard breaks fall back to raw newlines so `| ` line-block "
+        "syntax cannot eat the body). What remains is images: reST has no inline image markup, "
+        "so a paragraph holding an Image renders as an `.. image::` directive and stops being "
+        "a paragraph. A general trait of the reST renderer, not footnote-specific; faithful "
+        "spelling would need substitution machinery (`|name|` + `.. |name| image::`)."
     ),
     # ("markdown", "definition_paragraphs") is gone: what looked like #347's collapse was
     # three defects wearing one reason -- consecutive hard breaks splitting the definition's
     # paragraph (#384), and nested/empty strikethrough opening a tilde fence that ate the
     # definition (#391). With both fixed, the canonical two-paragraph markdown footnote
     # round-trips whole.
-    ("org", "definition_paragraphs"): "Multi-paragraph definitions collapse toward a single paragraph. #347",
+    # ("org", "definition_paragraphs") is gone: Org continues a footnote definition
+    # across a single blank line and ends it at two, so the renderer now separates a
+    # definition's paragraphs with a blank line (and follows a definition with two
+    # before ordinary content), and the parser's block splitter counts the blank
+    # lines between blocks instead of discarding them.
     ("dokuwiki", "definition_paragraphs"): "Multi-paragraph definitions collapse toward a single paragraph. #347",
 }
 

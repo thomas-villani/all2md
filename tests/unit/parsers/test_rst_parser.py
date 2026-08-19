@@ -569,6 +569,84 @@ This has a footnote [1]_.
         assert len(refs) >= 1
         assert len(defs) >= 1
 
+    @staticmethod
+    def _refs_and_defs(doc: Document) -> tuple[list[FootnoteReference], list[FootnoteDefinition]]:
+        refs: list[FootnoteReference] = []
+        defs: list[FootnoteDefinition] = []
+
+        def walk(node) -> None:
+            if isinstance(node, FootnoteReference):
+                refs.append(node)
+            if isinstance(node, FootnoteDefinition):
+                defs.append(node)
+            for attr in ("children", "content"):
+                value = getattr(node, attr, None)
+                if isinstance(value, list):
+                    for child in value:
+                        if hasattr(child, "accept"):
+                            walk(child)
+
+        walk(doc)
+        return refs, defs
+
+    def test_numbered_footnote_keeps_its_label(self) -> None:
+        """`.. [42]` carries identifier '42', not docutils' anchor 'footnote-1'.
+
+        The label lives in the docutils `names` attribute; `ids` holds a
+        normalized anchor. Preferring ids lost the label on both the
+        definition and the resolved reference.
+        """
+        doc = RestructuredTextParser().parse("Body [42]_ end.\n\n.. [42] Note.\n")
+        refs, defs = self._refs_and_defs(doc)
+
+        assert [r.identifier for r in refs] == ["42"]
+        assert [d.identifier for d in defs] == ["42"]
+
+    def test_named_footnote_identifier_survives(self) -> None:
+        """The named auto-numbered form `[#a1]_` / `.. [#a1]` keeps its name."""
+        doc = RestructuredTextParser().parse("Body [#a1]_ end.\n\n.. [#a1] Note.\n")
+        refs, defs = self._refs_and_defs(doc)
+
+        assert [r.identifier for r in refs] == ["a1"]
+        assert [d.identifier for d in defs] == ["a1"]
+
+    def test_named_footnote_with_leading_digits(self) -> None:
+        """A name like '42x' survives -- id normalization would strip it to 'x'."""
+        doc = RestructuredTextParser().parse("Body [#42x]_ end.\n\n.. [#42x] Note.\n")
+        refs, defs = self._refs_and_defs(doc)
+
+        assert [r.identifier for r in refs] == ["42x"]
+        assert [d.identifier for d in defs] == ["42x"]
+
+    def test_multi_paragraph_definition_keeps_both_paragraphs(self) -> None:
+        """An indented blank-line-separated body parses as two paragraphs."""
+        doc = RestructuredTextParser().parse("Body [#a1]_ end.\n\n.. [#a1] First paragraph.\n\n   Second paragraph.\n")
+        _refs, defs = self._refs_and_defs(doc)
+
+        assert len(defs) == 1
+        paragraphs = [c for c in defs[0].content if isinstance(c, Paragraph)]
+        assert len(paragraphs) == 2
+
+    def test_escaped_whitespace_leaves_no_null_marker(self) -> None:
+        r"""Escaped whitespace (`0\ [0]_`) vanishes instead of leaking '\x00 ' into text."""
+        doc = RestructuredTextParser().parse("0\\ [0]_ end.\n\n.. [0] Note.\n")
+
+        texts: list[str] = []
+
+        def walk(node) -> None:
+            if isinstance(node, Text):
+                texts.append(node.content)
+            for attr in ("children", "content"):
+                value = getattr(node, attr, None)
+                if isinstance(value, list):
+                    for child in value:
+                        if hasattr(child, "accept"):
+                            walk(child)
+
+        walk(doc)
+        assert all("\x00" not in t for t in texts)
+        assert texts[0] == "0"
+
 
 @pytest.mark.unit
 class TestLineBlocks:

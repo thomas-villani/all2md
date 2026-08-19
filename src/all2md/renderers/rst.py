@@ -101,6 +101,7 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._in_list: bool = False
         self._list_depth: int = 0
         self._in_blockquote: int = 0
+        self._in_footnote: int = 0
 
     def render_to_string(self, document: Document) -> str:
         """Render a document AST to RST string.
@@ -120,6 +121,7 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._in_list = False
         self._list_depth = 0
         self._in_blockquote = 0
+        self._in_footnote = 0
 
         document.accept(self)
 
@@ -737,7 +739,7 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         else:
             # Hard line break rendering depends on configured mode and context
             # Check if we should fallback to raw mode in containers
-            in_container = self._in_list or self._in_blockquote > 0
+            in_container = self._in_list or self._in_blockquote > 0 or self._in_footnote > 0
             use_raw_mode = self.options.hard_line_break_mode == "raw" or (
                 self.options.hard_line_break_fallback_in_containers and in_container
             )
@@ -894,22 +896,70 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """Render HTML block (preserve as-is)."""
         self._output.append(node.content)
 
+    @staticmethod
+    def _footnote_label(identifier: str) -> str:
+        """Spell a footnote identifier the way reST footnote syntax can carry it.
+
+        A bare alphanumeric label (``[a1]_``) is reST *citation* syntax, so an
+        identifier rendered that way stops being a footnote. Non-numeric
+        identifiers need the named auto-numbered form (``[#a1]_``); purely
+        numeric ones are already valid as manually numbered footnotes.
+        """
+        return identifier if identifier.isdigit() else f"#{identifier}"
+
+    def _needs_inline_markup_boundary(self) -> bool:
+        r"""Whether output ends where reST inline markup cannot start.
+
+        Docutils only recognizes an inline markup start after whitespace or an
+        opening/quoting character, so ``0[0]_`` is plain text. The reST idiom
+        for a marker glued to a word is escaped whitespace: ``0\ [0]_``.
+        """
+        for fragment in reversed(self._output):
+            if fragment:
+                last = fragment[-1]
+                return not (last.isspace() or last in "-:/'\"<([{")
+        return False
+
     def visit_footnote_reference(self, node: FootnoteReference) -> None:
         """Render footnote reference."""
-        self._output.append(f"[{node.identifier}]_")
+        if self._needs_inline_markup_boundary():
+            self._output.append("\\ ")
+        self._output.append(f"[{self._footnote_label(node.identifier)}]_")
 
     def visit_footnote_definition(self, node: FootnoteDefinition) -> None:
         """Render footnote definition."""
-        self._output.append(f".. [{node.identifier}] ")
-        for i, child in enumerate(node.content):
+        self._output.append(f".. [{self._footnote_label(node.identifier)}] ")
+        # A footnote body is a container like a list item: line-block syntax
+        # (`| line`) on the marker line becomes a line_block node instead of
+        # the definition's paragraph, so hard breaks fall back to raw newlines
+        # here, the same trade visit_line_break already makes inside lists.
+        self._in_footnote += 1
+        block_texts = []
+        try:
+            for child in node.content:
+                saved_output = self._output
+                self._output = []
+                child.accept(self)
+                block_texts.append("".join(self._output))
+                self._output = saved_output
+        finally:
+            self._in_footnote -= 1
+
+        # The first block rides the marker line; every further line -- a later
+        # block, or a continuation line within one -- indents to the marker's
+        # body column, with blank lines between blocks so they stay separate
+        # paragraphs. Joining with a bare newline made every block a
+        # continuation line of the first paragraph, collapsing a
+        # multi-paragraph definition to one paragraph on re-parse (#347).
+        for i, block_text in enumerate(block_texts):
+            lines = [line for line in block_text.split("\n") if line.strip()]
             if i > 0:
-                self._output.append("\n   ")
-            saved_output = self._output
-            self._output = []
-            child.accept(self)
-            child_content = "".join(self._output)
-            self._output = saved_output
-            self._output.append(child_content)
+                self._output.append("\n")
+            for j, line in enumerate(lines):
+                if i == 0 and j == 0:
+                    self._output.append(line)
+                else:
+                    self._output.append(f"\n   {line}")
 
     def visit_math_inline(self, node: MathInline) -> None:
         """Render inline math."""
