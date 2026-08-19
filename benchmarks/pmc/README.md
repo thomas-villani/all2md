@@ -130,6 +130,32 @@ than committing a manifest that a bad link quietly thinned out.
 .venv/Scripts/python.exe -m benchmarks.pmc build --per-seed 3
 ```
 
+## The held-out corpus
+
+`manifest-holdout.json` pins a **second, disjoint corpus of 110 articles** that the
+development work has never been tuned against. The 66-article corpus above has been the
+instrument for every table, heading and OCR change on the born-digital path — which makes
+it a development set, and makes any number measured on it alone an in-sample number.
+
+The held-out set is drawn by the same selection rules from **offset seed anchors**
+(`build --seed-offset 250000 --per-seed 5`): each build's walk consumes only a few hundred
+prefixes past its anchors, so anchors shifted by 250k list bucket regions the committed
+manifest's walk never touched. Expected disjointness is still verified, not assumed —
+**zero article overlap** with the committed manifest, checked at build time.
+
+Build ledger (2026-08-18): 184 candidates, 110 accepted, 45 rejected `no_paragraphs`
+(the scanned back-catalogue filter, same as the main build), 29 `pdf_missing`
+(XML-only deposits), 0 network losses.
+
+Rules for keeping it held-out:
+
+- **Score against it; do not tune against it.** A guard threshold or strategy choice read
+  off this corpus moves it into the development set, and the next held-out set has to be
+  drawn from fresh anchors.
+- Use it through the same commands with `--manifest benchmarks/pmc/manifest-holdout.json`.
+- Published comparisons (against other converters, or in the docs) quote this corpus;
+  the 66-article corpus's numbers are development figures and are labeled as such.
+
 ## What comes next, and what must not be assumed
 
 **Step 2 — characterization: DONE, and it agrees with the spike.** Measured over all 66
