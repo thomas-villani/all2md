@@ -38,7 +38,7 @@ def _snapshot(tmp_path: Path, page_ids: tuple[str, ...] = ("page-a", "page-b")) 
 
 def _annotation(page_id: str, text: str = "Body") -> dict[str, object]:
     return {
-        "page_info": {"image_path": f"images/{page_id}.jpg"},
+        "page_info": {"image_path": f"images/{page_id}.jpg", "page_attribute": {"data_source": "testsource"}},
         "layout_dets": [
             {
                 "category_type": "text_block",
@@ -50,12 +50,13 @@ def _annotation(page_id: str, text: str = "Body") -> dict[str, object]:
     }
 
 
-def _truth(page_id: str) -> GroundTruthPage:
+def _truth(page_id: str, stratum: str = "testsource") -> GroundTruthPage:
     return GroundTruthPage(
         page_id=page_id,
         projection=PageProjection(("Body",), ("text_block",), (), ()),
         unscored_categories={"figure": 1},
         explicitly_ignored=1,
+        stratum=stratum,
     )
 
 
@@ -263,7 +264,7 @@ def test_normalization_records_variance_failures_and_unsupported_dimensions(tmp_
         parser_runtime={"pymupdf": "1.28.0", "tesseract": "tesseract 5.3.0"},
     )
 
-    assert payload["schema_version"] == 2
+    assert payload["schema_version"] == 3
     assert payload["pages"] == {
         "expected": 2,
         "annotations": 2,
@@ -291,13 +292,67 @@ def test_normalization_records_variance_failures_and_unsupported_dimensions(tmp_
     assert payload["conversion_failures"] == {"page-b": "RuntimeError: broken PDF"}
     assert payload["unscored_annotation_categories"] == {"figure": 2}
     assert payload["explicitly_ignored_annotations"] == 2
-    assert payload["provenance"]["oracle_schema_version"] == 5
+    assert payload["provenance"]["oracle_schema_version"] == 6
     assert payload["provenance"]["parser_config"]["layout_analysis_mode"] == "enabled"
     assert payload["provenance"]["parser_runtime"] == {
         "pymupdf": "1.28.0",
         "tesseract": "tesseract 5.3.0",
     }
     assert payload["provenance"]["parser_config"]["ocr"]["languages"] == "eng+chi_sim"
+
+
+def test_normalization_stratifies_every_dimension_by_data_source(tmp_path: Path) -> None:
+    """A mean over newspapers, notes and slides cannot drive work; per-stratum ones can (#257).
+
+    The strata must partition the corpus (every page in exactly one), aggregate only that
+    stratum's samples, and stay out of the gate's identity: ``emit_baseline`` must not copy
+    them, so a stratum shifting can never invalidate a recorded baseline by itself.
+    """
+    from benchmarks.omnidocbench import gate
+
+    snapshot = _snapshot(tmp_path, ("page-a", "page-b", "page-c"))
+    truth = {
+        "page-a": _truth("page-a", stratum="newspaper"),
+        "page-b": _truth("page-b", stratum="newspaper"),
+        "page-c": _truth("page-c", stratum="notes"),
+    }
+    evaluations = [
+        benchmark.PageEvaluation(
+            page_id=page_id,
+            scores={"text_content_similarity": score},
+            predicted_tables=1,
+            predicted_formulas=1,
+            duration_seconds=0.1,
+        )
+        for page_id, score in (("page-a", 0.2), ("page-b", 0.6), ("page-c", 1.0))
+    ]
+
+    payload = benchmark.normalize_results(
+        snapshot=snapshot,
+        ground_truth=truth,
+        evaluations=evaluations,
+        all2md_commit="all2md-commit",
+        parser_runtime={"pymupdf": "1.28.0", "tesseract": "tesseract 5.3.0"},
+    )
+
+    assert set(payload["strata"]) == {"newspaper", "notes"}
+    assert sum(entry["pages"] for entry in payload["strata"].values()) == len(evaluations)
+    newspaper = payload["strata"]["newspaper"]
+    assert newspaper["pages"] == 2
+    assert newspaper["dimensions"]["text_content_similarity"] == {
+        "value": pytest.approx(0.4),
+        "eligible_items": 2,
+        "variance": pytest.approx(0.04),
+    }
+    assert payload["strata"]["notes"]["dimensions"]["text_content_similarity"]["value"] == pytest.approx(1.0)
+    # The whole-corpus aggregate is unchanged by stratification.
+    assert payload["dimensions"]["text_content_similarity"]["value"] == pytest.approx(0.6)
+
+    # The fixture snapshot's revision is not a real 40-hex pin; make identity valid so the
+    # emission exercises the strata question rather than failing on provenance shape.
+    payload["provenance"]["dataset_revision"] = "a" * 40
+    baseline = gate.emit_baseline(payload)
+    assert "strata" not in baseline
 
 
 def test_strict_result_json_rejects_non_finite_scores(tmp_path: Path) -> None:
@@ -426,6 +481,7 @@ def test_an_erased_dimension_reports_the_input_shape_not_a_parser_verdict(tmp_pa
             projection=PageProjection(("Body",), ("text_block",), ("<table><tr><td>1</td></tr></table>",), ()),
             unscored_categories={},
             explicitly_ignored=0,
+            stratum="testsource",
         )
     }
     evaluations = [

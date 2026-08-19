@@ -58,6 +58,7 @@ def _real_result(tmp_path: Path, scores: tuple[float, ...]) -> dict[str, object]
                 projection=PageProjection(("Body",), ("text_block",), (), ()),
                 unscored_categories={},
                 explicitly_ignored=0,
+                stratum="testsource",
             )
             for page_id in page_ids
         },

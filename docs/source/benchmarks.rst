@@ -74,19 +74,27 @@ Did the text survive?
      - Value
      -
    * - Raw recall
-     - 59.8%
+     - 60.2%
      - of 8,905 ground-truth blocks
    * - Attainable ceiling
      - 62.4%
      - what the PDF's own text layer reproduces
    * - **Recall of what is attainable**
-     - **94.7%**
+     - **95.4%**
      - the number worth reading
    * - Control: the *wrong* article
      - 0.4%
      - wants to be ~0%
 
-Raw recall is 59.8%, and that figure is close to meaningless on its own. A large share of
+Part of the most recent movement in these figures is a *measurement* correction, not a
+parser change, and it is flagged as such: the shared oracle was blind to captions the
+parser had correctly bound to their figures — the text left the paragraph stream for a
+``caption`` attribute the projection never read, so recall *fell* as figure binding
+improved. On the held-out corpus, 101 of the 103 caption blocks the instruments called
+lost were in the output the whole time. The oracle now reads what the AST carries
+(oracle schema 6), and both lanes' artifacts are re-recorded against it.
+
+Raw recall is 60.2%, and that figure is close to meaningless on its own. A large share of
 any JATS article cannot be recovered by *any* parser, because the markup records words in an
 order the page never prints — author affiliation blocks, structured metadata, citation
 fields. Charging a PDF parser for failing to reproduce text the PDF does not contain
@@ -108,8 +116,8 @@ By block kind:
      - Share of attainable
    * - Text blocks
      - 3,160 of 6,356
-     - 3,102
-     - **97.2%**
+     - 3,141
+     - **98.4%**
    * - Titles
      - 2,291 of 2,426
      - 2,146
@@ -145,26 +153,33 @@ Unsupported output is therefore split in two:
      - Share
      - Meaning
    * - Supported
-     - **92.9%**
+     - **92.6%**
      - the n-gram appears in the document's text layer
    * - Resequenced
-     - 6.1%
+     - 6.3%
      - every word is in the document, in a new adjacency
    * - **Novel**
-     - **1.0%**
+     - **1.1%**
      - at least one word appears nowhere — the number worth reading
    * - Duplication
-     - 0.5%
+     - 2.0%
      - supported text emitted more than once
    * - Control: the *wrong* article
      - 0.7%
      - wants to be ~0%
 
-Over 445,252 emitted n-grams, 4,447 are novel. Reporting the raw unsupported figure instead
+Over 447,446 emitted n-grams, 4,827 are novel. Reporting the raw unsupported figure instead
 would have made the result roughly seven times worse than the parser deserves.
 
 Duplication is counted apart from both, because it is invisible to either. Text emitted
 twice is an unchanged *set* and a doubled *multiset* — no set-based score can see it at all.
+
+The duplication figure jumped from 0.5% to 2.0% at the same re-record that corrected the
+caption-blind oracle, and the jump is real output, not a scoring artifact: with caption
+text visible to the instruments at all, they can finally see that multi-panel figures
+re-bind the shared caption to every panel, so one printed caption is emitted several
+times (issue #410). The honest ordering matters here — the defect predates the
+re-record; what changed is that a measurement became able to report it.
 
 Tables
 ~~~~~~
@@ -203,19 +218,29 @@ The ``omnidocbench`` lane scores 981 scanned pages against human annotation, fro
      - Value
      -
    * - ``text_content_similarity``
-     - 0.506
+     - 0.482
      - over 981 pages
    * - ``reading_order_similarity``
-     - 0.603
+     - 0.578
      - over 981 pages
    * - ``block_structure_similarity``
-     - 0.118
+     - 0.398
      - **not gated** — see below
 
 ``block_structure_similarity`` is recorded but excluded from the verdict. It compares
 sequences of block *categories* without ever inspecting the text underneath, so output with
 no correct content at all can score well on it. A measurement that cannot distinguish those
 two cases must not be allowed to support one.
+
+This baseline was re-recorded alongside the oracle correction described above, and the
+movement was attributed before being blessed: two record runs on the same runner image and
+corpus pin — one with the corrected oracle, one without — produced **byte-identical
+per-page scores on all 981 pages**, so the oracle contributes exactly zero here and the
+whole movement against the previous recording is the v1.12/v1.13 parser arc (tracked as
+issue #411 rather than silently absorbed). The payload now also reports every dimension
+per corpus stratum: the whole-corpus mean averages handwritten notes scoring near zero
+with academic papers scoring far above it, and the strata are what make the number
+actionable.
 
 Round-trip fidelity
 -------------------

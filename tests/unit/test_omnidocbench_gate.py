@@ -14,11 +14,11 @@ pytestmark = pytest.mark.unit
 
 
 RESULTS = {
-    "schema_version": 2,
+    "schema_version": 3,
     "provenance": {
         "dataset_revision": "f5f559bddf50e36f7f9899d842d0006f13ce8afc",
         "annotation_sha256": "2fafe9329dc92fc426b30036aee51c716b3fcdcc1d20cb964dc7670579533817",
-        "oracle_schema_version": 5,
+        "oracle_schema_version": 6,
         "parser_config": {
             "layout_analysis_mode": "auto",
             "ocr": {
@@ -611,7 +611,7 @@ def test_baseline_emission_copies_identity_metrics_tolerances_and_failures() -> 
     """Emission must preserve the complete ratchet identity and produce its own green baseline."""
     emitted = gate.emit_baseline(_results(), {"text_similarity": 0.02}, default_tolerance=0.005)
     assert emitted == {
-        "schema_version": 2,
+        "schema_version": 3,
         "provenance": RESULTS["provenance"],
         "pages": RESULTS["pages"],
         "dimensions": {
@@ -700,10 +700,10 @@ def test_matching_malformed_baseline_identity_is_red(path: tuple[str, ...], valu
             "INVALID_BASELINE",
             ".".join(path),
             {
-                ("schema_version",): "must be integer 2",
+                ("schema_version",): "must be integer 3",
                 ("provenance", "dataset_revision"): "must be a 40-character lowercase hexadecimal revision",
                 ("provenance", "annotation_sha256"): "must be a 64-character lowercase hexadecimal digest",
-                ("provenance", "oracle_schema_version"): "must be integer 5",
+                ("provenance", "oracle_schema_version"): "must be integer 6",
                 ("provenance", "parser_config"): "must be a mapping",
                 ("provenance", "parser_runtime"): "must be a non-empty mapping",
             }[path],
@@ -876,7 +876,7 @@ def test_regression_at_the_tolerance_boundary_is_green(metric: str, value: float
 def test_cli_rejects_duplicate_json_keys(tmp_path, capsys) -> None:
     """Ambiguous JSON objects must fail before comparison."""
     results_path = tmp_path / "results.json"
-    results_path.write_text('{"schema_version": null, "schema_version": 2}', encoding="utf-8")
+    results_path.write_text('{"schema_version": null, "schema_version": 3}', encoding="utf-8")
 
     assert gate.main([str(results_path), "--emit-baseline"]) == 2
     captured = capsys.readouterr()
@@ -905,7 +905,7 @@ def test_emit_baseline_rejects_invalid_identity() -> None:
     results = _results()
     results["schema_version"] = None
 
-    with pytest.raises(ValueError, match="INVALID_BASELINE schema_version: must be integer 2"):
+    with pytest.raises(ValueError, match="INVALID_BASELINE schema_version: must be integer 3"):
         gate.emit_baseline(results)
 
 

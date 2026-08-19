@@ -1,13 +1,13 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "provenance": {
-    "corpus_pin": "9ba5c0cd59067bda102b9e27a7c1e613987c145f9fb61a4c26b811d9fd24dc58",
+    "corpus_pin": "2710aef0f1a7133550a358b58a46aa89037c0f855cf9d22a719d82e100e91eb9",
     "bucket": "pmc-oa-opendata",
     "complete_corpus": true,
-    "oracle_schema_version": 1,
-    "all2md_commit": "e7c0b9deea39701a5aba425421807b636b9d8ed0",
+    "oracle_schema_version": 2,
+    "all2md_commit": "a8d4390faab271fa72bc29eeabdd8eb73262fde4",
     "worktree_dirty": false,
-    "created_at": "2026-08-19T04:24:08.445968+00:00",
+    "created_at": "2026-08-19T19:28:00.776586+00:00",
     "python": "3.12.3 (main, Jun 19 2026, 12:46:00) [GCC 13.3.0]",
     "platform": "linux",
     "parser_runtime": {
@@ -68,13 +68,13 @@
     "unsplit_spans": 42
   },
   "article_recall": {
-    "recall": 0.5979786636720943,
-    "recovered": 5325,
+    "recall": 0.6023582257158899,
+    "recovered": 5364,
     "scored": 8905,
     "too_short": 2598,
     "ceiling": 0.624480628860191,
     "attainable": 5561,
-    "attainable_recall": 0.9473116345980939,
+    "attainable_recall": 0.9543247617335011,
     "by_kind": {
       "table": {
         "recovered": 77,
@@ -83,10 +83,10 @@
         "attainable_recall": 0.6909090909090909
       },
       "text_block": {
-        "recovered": 3102,
+        "recovered": 3141,
         "attainable": 3160,
         "scored": 6356,
-        "attainable_recall": 0.9721518987341772
+        "attainable_recall": 0.984493670886076
       },
       "title": {
         "recovered": 2146,
@@ -97,21 +97,21 @@
     },
     "control_recall": 0.003593486805165637,
     "control_scored": 8905,
-    "discrimination": 0.5943851768669286
+    "discrimination": 0.5987647389107242
   },
   "article_precision": {
-    "precision": 0.9288223298267049,
-    "supported": 413560,
-    "emitted": 445252,
-    "resequenced": 27245,
-    "novel": 4447,
-    "novel_share": 0.009987602526209876,
-    "duplication": 0.004508978776666829,
-    "excess": 2129,
-    "occurrences": 472169,
-    "control_precision": 0.006991546360263401,
-    "control_emitted": 445252,
-    "discrimination": 0.9218307834664414
+    "precision": 0.9264827487562745,
+    "supported": 414551,
+    "emitted": 447446,
+    "resequenced": 28068,
+    "novel": 4827,
+    "novel_share": 0.01078789395815361,
+    "duplication": 0.02026025195707398,
+    "excess": 9770,
+    "occurrences": 482225,
+    "control_precision": 0.006957264116787277,
+    "control_emitted": 447446,
+    "discrimination": 0.9195254846394871
   },
   "figure_binding": {
     "binding_rate": 0.5255813953488372,
@@ -120,8 +120,8 @@
     "too_short": 13,
     "misfiled_rate": 0.0,
     "misfiled": 0,
-    "caption_recall": 0.7674418604651163,
-    "present": 165,
+    "caption_recall": 0.9441860465116279,
+    "present": 203,
     "images_emitted": 448,
     "captioned_emitted": 209,
     "control_binding_rate": 0.0,
@@ -131,35 +131,35 @@
   "dimensions": {
     "block_structure_similarity": {
       "count": 706.0,
-      "mean": 0.5470754250291459,
-      "median": 0.5714285714285714,
+      "mean": 0.5376131726173652,
+      "median": 0.5625,
       "minimum": 0.016393442622950838,
       "maximum": 1.0,
-      "stdev": 0.20799760103847226,
+      "stdev": 0.20910230767053464,
       "direction": "higher",
-      "control_mean": 0.4437154372652199,
-      "discrimination": 0.10335998776392596,
+      "control_mean": 0.4406226435897821,
+      "discrimination": 0.0969905290275831,
       "mutation_drop": {
-        "reversed": 0.01103409330041826,
-        "shuffled": 0.022710520984149166,
-        "halved": 0.07254480684009222
+        "reversed": 0.011313431940310537,
+        "shuffled": 0.02215105004406372,
+        "halved": 0.06278276748452316
       },
       "ungateable": "compares kind sequences without inspecting the text under a block, so content-free output scores 1.0 (issue #256); eleven text categories collapse to `text_block`, so fully reversed output scores exactly 1.0 on 153 of the 981 pinned pages; and on the born-digital lane it separates own-page from wrong-page output by only ~0.06 while *rising* when half the emitted content is deleted, which rewards dropping blocks"
     },
     "reading_order_similarity": {
       "count": 706.0,
-      "mean": 0.7688915915868425,
+      "mean": 0.7686226098186316,
       "median": 0.8,
       "minimum": 0.0,
       "maximum": 1.0,
-      "stdev": 0.21193232179555213,
+      "stdev": 0.21007253974973572,
       "direction": "higher",
-      "control_mean": 0.287408784914641,
-      "discrimination": 0.4814828066722015,
+      "control_mean": 0.28738236693875924,
+      "discrimination": 0.4812402428798724,
       "mutation_drop": {
-        "reversed": 0.4354260297670871,
-        "shuffled": 0.21052865446162583,
-        "halved": 0.329007185336738
+        "reversed": 0.4201391234711173,
+        "shuffled": 0.2095946215811197,
+        "halved": 0.3112284307672439
       }
     },
     "table_content_similarity": {
@@ -196,18 +196,18 @@
     },
     "text_content_similarity": {
       "count": 706.0,
-      "mean": 0.5692277212303014,
-      "median": 0.5394443962523008,
+      "mean": 0.5582261645706342,
+      "median": 0.5330238627026651,
       "minimum": 0.010652463382157085,
       "maximum": 0.9901380670611439,
-      "stdev": 0.22795083520466647,
+      "stdev": 0.2192191157194943,
       "direction": "higher",
-      "control_mean": 0.23289228137998044,
-      "discrimination": 0.336335439850321,
+      "control_mean": 0.23458798685548662,
+      "discrimination": 0.3236381777151476,
       "mutation_drop": {
-        "reversed": 0.18623164337477574,
-        "shuffled": 0.1300649551596,
-        "halved": 0.24614047911720185
+        "reversed": 0.17515444512156728,
+        "shuffled": 0.12488377402788574,
+        "halved": 0.22389428557224242
       }
     }
   },

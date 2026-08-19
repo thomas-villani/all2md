@@ -9,7 +9,9 @@ from hypothesis import strategies as st
 from all2md.ast.nodes import (
     CodeBlock,
     Document,
+    Figure,
     Heading,
+    Image,
     MathBlock,
     MathInline,
     Paragraph,
@@ -35,7 +37,7 @@ pytestmark = pytest.mark.unit
 def test_annotation_projection_uses_order_and_supported_ground_truth() -> None:
     """External facts must come from annotation fields, not from an all2md renderer."""
     record = {
-        "page_info": {"image_path": "nested/page-7.jpg"},
+        "page_info": {"image_path": "nested/page-7.jpg", "page_attribute": {"data_source": "testsource"}},
         "layout_dets": [
             {
                 "category_type": "text_block",
@@ -146,6 +148,72 @@ def test_ast_projection_reads_nodes_directly_in_document_order() -> None:
     )
 
 
+def test_bound_captions_are_projected_text_not_invisible_attributes() -> None:
+    """A caption bound to a Figure, Table, or Image must count as page text (#406).
+
+    The annotation side has always collapsed ``figure_caption``/``table_caption`` to
+    ``text_block``; the AST side used to descend children only, so a caption the parser
+    correctly folded into a ``caption`` attribute vanished from measurement -- recall fell
+    as figure binding improved. 101 of the 103 "lost" captions on the held-out PMC corpus
+    were in the output the whole time.
+    """
+    document = Document(
+        children=[
+            Figure(
+                children=[Paragraph(content=[Image(url="fig1.png")])],
+                caption="Fig. 1 A bound figure caption.",
+            ),
+            Table(
+                rows=[TableRow(cells=[TableCell(content=[Text(content="A")])])],
+                caption="Table 1 A bound table caption.",
+            ),
+            Paragraph(content=[Image(url="fig2.png", caption="An inline image caption.")]),
+        ]
+    )
+
+    projection = project_ast(document)
+
+    # Every caption lands as an ordinary text block, in document order, content before its
+    # caption -- exactly how the annotation side reads a printed caption. The empty
+    # strings are the image-bearing paragraphs themselves, unchanged from before.
+    assert projection.text_blocks == (
+        "",
+        "Fig. 1 A bound figure caption.",
+        "A",
+        "Table 1 A bound table caption.",
+        "",
+        "An inline image caption.",
+    )
+    assert projection.block_kinds == (
+        "text_block",
+        "text_block",
+        "table",
+        "text_block",
+        "text_block",
+        "text_block",
+    )
+    # The caption must not leak into the table's *cell* text: the annotation side keeps
+    # table_caption outside the table HTML, so folding it in would corrupt the
+    # table-content dimension while flattering the text one.
+    assert projection.tables == (TableProjection(1, 1, 1, "A"),)
+
+
+def test_a_caption_free_ast_projects_exactly_as_before() -> None:
+    """The caption path must not disturb documents that carry none."""
+    document = Document(
+        children=[
+            Heading(level=1, content=[Text(content="Title")]),
+            Figure(children=[Paragraph(content=[Text(content="Panel text")])]),
+            Paragraph(content=[Image(url="plain.png")]),
+        ]
+    )
+
+    projection = project_ast(document)
+
+    assert projection.text_blocks == ("Title", "Panel text", "")
+    assert projection.block_kinds == ("title", "text_block", "text_block")
+
+
 def test_page_scores_have_exact_independent_dimension_semantics() -> None:
     """Each metric must react to the fact it names rather than a shared output-length proxy."""
     expected = PageProjection(
@@ -219,7 +287,13 @@ def test_every_text_bearing_annotation_category_is_ground_truth() -> None:
     } <= oracles.TEXT_CATEGORIES
 
     record = {
-        "page_info": {"page_no": 0, "image_path": "p.jpg", "height": 10, "width": 10},
+        "page_info": {
+            "page_no": 0,
+            "image_path": "p.jpg",
+            "height": 10,
+            "width": 10,
+            "page_attribute": {"data_source": "testsource"},
+        },
         "layout_dets": [
             {"category_type": "header", "text": "Journal of Things", "order": 0},
             {"category_type": "text_block", "text": "Body", "order": 1},
@@ -400,7 +474,13 @@ def test_recovering_table_text_beats_deleting_the_table() -> None:
     html = "<table><tr><td>Alpha</td><td>Beta</td></tr></table>"
     truth = oracles.project_annotation(
         {
-            "page_info": {"page_no": 0, "image_path": "p.jpg", "height": 100, "width": 100},
+            "page_info": {
+                "page_no": 0,
+                "image_path": "p.jpg",
+                "height": 100,
+                "width": 100,
+                "page_attribute": {"data_source": "testsource"},
+            },
             "layout_dets": [
                 {"category_type": "text_block", "text": "Body", "order": 0, "poly": [0, 10] * 4},
                 {"category_type": "table", "html": html, "order": 1, "poly": [0, 50] * 4},
@@ -429,7 +509,13 @@ def test_unordered_running_content_is_placed_by_geometry() -> None:
     about one page number in seven sits at the top of the page.
     """
     record = {
-        "page_info": {"page_no": 0, "image_path": "p.jpg", "height": 1000, "width": 800},
+        "page_info": {
+            "page_no": 0,
+            "image_path": "p.jpg",
+            "height": 1000,
+            "width": 800,
+            "page_attribute": {"data_source": "testsource"},
+        },
         "layout_dets": [
             {"category_type": "text_block", "text": "Body", "order": 5, "poly": [0, 400] * 4},
             {"category_type": "header", "text": "Journal", "order": None, "poly": [0, 40] * 4},
@@ -493,7 +579,13 @@ def test_inline_equations_inside_code_are_not_ground_truth() -> None:
     before reaching the guard and would pass with the guard deleted.
     """
     record = {
-        "page_info": {"page_no": 0, "image_path": "p.jpg", "height": 100, "width": 100},
+        "page_info": {
+            "page_no": 0,
+            "image_path": "p.jpg",
+            "height": 100,
+            "width": 100,
+            "page_attribute": {"data_source": "testsource"},
+        },
         "layout_dets": [
             {
                 "category_type": "code_txt",
