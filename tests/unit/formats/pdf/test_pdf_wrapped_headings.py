@@ -141,6 +141,67 @@ class TestAdjacentHeadingsStayApart:
         assert _headings(second) == ["Results"]
 
 
+class TestASubsectionUnderItsSectionStaysItsOwnHeading:
+    """The wrap-width test (#400).
+
+    A line only wraps because it filled its measure, so a "continuation" that
+    extends past the line above it is a different heading. Before this test a
+    section title with its subsection printed directly beneath -- `Methods` /
+    `Study design` -- fused into one heading, and both JATS titles went
+    missing; measured at ~30% of the heading residual on the PMC corpus.
+    """
+
+    def test_a_wider_second_line_is_a_new_heading(self, converter):
+        state = _BlockProcessingState()
+
+        _emit(converter, state, "Methods", bottom=100, bbox=_bbox(100, x1=95.0))
+        _emit(converter, state, "Study design", bottom=100 + LINE_HEIGHT, bbox=_bbox(100 + LINE_HEIGHT, x1=140.0))
+
+        assert _headings(state) == ["Methods", "Study design"]
+
+    def test_a_first_line_nearly_at_the_measure_still_wraps(self, converter):
+        # Ragged-right wraps rarely end exactly at the measure; 0.96 fill is a wrap.
+        state = _BlockProcessingState()
+
+        _emit(converter, state, "Effects of long-term exposure on", bottom=100, bbox=_bbox(100, x1=290.0))
+        _emit(
+            converter,
+            state,
+            "cardiovascular outcomes",
+            bottom=100 + LINE_HEIGHT,
+            bbox=_bbox(100 + LINE_HEIGHT, x1=300.0),
+        )
+
+        assert _headings(state) == ["Effects of long-term exposure on cardiovascular outcomes"]
+
+    def test_the_fill_boundary_separates(self, converter):
+        # Just under HEADING_WRAP_MIN_FILL: (247 - 50) / (300 - 50) = 0.788.
+        state = _BlockProcessingState()
+
+        _emit(converter, state, "Results", bottom=100, bbox=_bbox(100, x1=247.0))
+        _emit(
+            converter,
+            state,
+            "Dynamic regulation of miRNAs",
+            bottom=100 + LINE_HEIGHT,
+            bbox=_bbox(100 + LINE_HEIGHT, x1=300.0),
+        )
+
+        assert _headings(state) == ["Results", "Dynamic regulation of miRNAs"]
+
+    def test_a_wider_first_line_still_merges(self, converter):
+        # The known residual: when the section title is the wider line
+        # (`Methods and Design` over `Study design`), width cannot separate the
+        # pair and the merge stands. Pinned so a future fix has to change this
+        # test deliberately rather than by side effect.
+        state = _BlockProcessingState()
+
+        _emit(converter, state, "Methods and Design", bottom=100, bbox=_bbox(100, x1=200.0))
+        _emit(converter, state, "Study design", bottom=100 + LINE_HEIGHT, bbox=_bbox(100 + LINE_HEIGHT, x1=150.0))
+
+        assert _headings(state) == ["Methods and Design Study design"]
+
+
 class TestTheJoinNeedsGeometry:
     def test_without_a_bbox_nothing_joins(self, converter):
         # Callers that cannot supply a line box keep the old behaviour rather than
