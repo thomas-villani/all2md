@@ -156,6 +156,17 @@ _RUNNING_DIGITS = re.compile(r"\d+")
 #: section, which is what puts them beyond this.
 HEADING_WRAP_GAP_RATIO = 1.6
 
+#: How much of the two lines' shared measure the *first* line must fill for the second to
+#: be its wrap. A line only wraps because it ran out of room, so a "continuation" that
+#: extends past the line above it is a different heading -- a section title with its
+#: subsection printed directly beneath was fusing into one heading this way, losing both
+#: titles (#400). Measured on the PMC born-digital corpus (307 merges, labeled against
+#: JATS): true wraps fill 0.852-1.0 (plausible unlabeled ones 0.822+), while fused pairs
+#: separable by width sit at 0.222-0.835. 0.8 keeps every measured wrap and cuts the
+#: fused band; pairs whose first line is the wider one (`Methods` + `Animals`) stay
+#: geometrically inseparable and still merge.
+HEADING_WRAP_MIN_FILL = 0.8
+
 
 def _span_union_bbox(spans: list) -> tuple[float, float, float, float] | None:
     """Bounding box covering every span on a line, or None if none carry one.
@@ -594,6 +605,10 @@ class _BlockProcessingState:
     last_heading_slot: int = -1
     last_heading_bottom: float = 0.0
     last_heading_height: float = 0.0
+    # Full bbox of that line, kept for the wrap-width test: a line only wraps
+    # because it filled its measure, so a "continuation" wider than the line
+    # above it is a different heading, not the rest of this one.
+    last_heading_bbox: tuple[float, float, float, float] | None = None
 
     def reset_paragraph(self) -> None:
         """Reset paragraph accumulation state."""
@@ -2510,6 +2525,7 @@ class PdfToAstConverter(BaseParser):
             heading.content.extend([Text(content=" "), *inline_content])
             state.last_heading_bottom = line_bbox[3]
             state.last_heading_height = max(line_bbox[3] - line_bbox[1], state.last_heading_height)
+            state.last_heading_bbox = line_bbox
             return
 
         if parse_numbering_prefix(line_text) is not None:
@@ -2559,10 +2575,12 @@ class PdfToAstConverter(BaseParser):
         """Record where the heading just appended to ``state.nodes`` was printed."""
         if line_bbox is None:
             state.last_heading_slot = -1
+            state.last_heading_bbox = None
             return
         state.last_heading_slot = len(state.nodes) - 1
         state.last_heading_bottom = line_bbox[3]
         state.last_heading_height = line_bbox[3] - line_bbox[1]
+        state.last_heading_bbox = line_bbox
 
     @staticmethod
     def _continues_wrapped_heading(
@@ -2573,13 +2591,16 @@ class PdfToAstConverter(BaseParser):
     ) -> bool:
         """Report whether this line is the rest of the heading emitted immediately above it.
 
-        Four things have to hold, and each rules out a way two heading lines can be
+        Five things have to hold, and each rules out a way two heading lines can be
         adjacent without being one heading: the previous node is a heading and nothing
         came between them; it is at this line's level, since a subheading under a
         heading is two headings; the line sits within a line's height of it, which is
-        what a wrap looks like and what the space above a new section does not; and it
+        what a wrap looks like and what the space above a new section does not; it
         does not open with its own numbering, which announces a new section however
-        tightly it is set.
+        tightly it is set; and the line above it filled the measure the two lines
+        share, because a line only wraps when it ran out of room -- a section title
+        with its subsection printed directly beneath fused into one heading before
+        this test, losing both titles (#400).
         """
         if not state.nodes or state.last_heading_slot != len(state.nodes) - 1:
             return False
@@ -2588,6 +2609,14 @@ class PdfToAstConverter(BaseParser):
             return False
         if parse_numbering_prefix(line_text.split(" ", 1)[0]) is not None:
             return False
+
+        prev_bbox = state.last_heading_bbox
+        if prev_bbox is not None:
+            left = min(prev_bbox[0], line_bbox[0])
+            right = max(prev_bbox[2], line_bbox[2])
+            width = right - left
+            if width > 0 and (prev_bbox[2] - left) / width < HEADING_WRAP_MIN_FILL:
+                return False
 
         height = max(line_bbox[3] - line_bbox[1], state.last_heading_height)
         if height <= 0:
