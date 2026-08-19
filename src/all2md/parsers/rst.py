@@ -232,6 +232,8 @@ class RestructuredTextParser(BaseParser):
         elif isinstance(node, docutils_nodes.math_block):
             # Math block (displayed equation)
             return self._process_math_block(node)
+        elif isinstance(node, docutils_nodes.line_block):
+            return self._process_line_block(node)
         elif isinstance(node, docutils_nodes.raw):
             # Raw content (could be HTML or other formats)
             return self._process_raw_block(node)
@@ -239,6 +241,33 @@ class RestructuredTextParser(BaseParser):
             # Unknown node type - log and skip
             logger.debug(f"Skipping unknown docutils node type: {node_type}")
             return None
+
+    def _process_line_block(self, node: Any) -> Paragraph | None:
+        """Process a line block (``| `` verse lines) into a hard-broken paragraph.
+
+        The node used to fall through the unknown-block branch and be dropped,
+        so every ``| `` line in a document silently lost its text. Lines join
+        with hard breaks -- the closest shape this AST has for "these lines
+        break exactly here". Nested line blocks flatten into the same
+        paragraph; their indentation is presentation the AST does not model.
+        """
+        from docutils import nodes as docutils_nodes
+
+        content: list[Node] = []
+
+        def add_lines(block: Any) -> None:
+            for child in block.children:
+                if isinstance(child, docutils_nodes.line_block):
+                    add_lines(child)
+                elif isinstance(child, docutils_nodes.line):
+                    if content:
+                        content.append(LineBreak(soft=False))
+                    content.extend(self._process_inline_nodes(child.children))
+
+        add_lines(node)
+        if not content:
+            return None
+        return Paragraph(content=content)
 
     def _process_section(self, node: Any) -> list[Node]:
         """Process a section node (heading + content).
