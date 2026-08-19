@@ -218,19 +218,29 @@ The ``omnidocbench`` lane scores 981 scanned pages against human annotation, fro
      - Value
      -
    * - ``text_content_similarity``
-     - 0.506
+     - 0.482
      - over 981 pages
    * - ``reading_order_similarity``
-     - 0.603
+     - 0.578
      - over 981 pages
    * - ``block_structure_similarity``
-     - 0.118
+     - 0.398
      - **not gated** — see below
 
 ``block_structure_similarity`` is recorded but excluded from the verdict. It compares
 sequences of block *categories* without ever inspecting the text underneath, so output with
 no correct content at all can score well on it. A measurement that cannot distinguish those
 two cases must not be allowed to support one.
+
+This baseline was re-recorded alongside the oracle correction described above, and the
+movement was attributed before being blessed: two record runs on the same runner image and
+corpus pin — one with the corrected oracle, one without — produced **byte-identical
+per-page scores on all 981 pages**, so the oracle contributes exactly zero here and the
+whole movement against the previous recording is the v1.12/v1.13 parser arc (tracked as
+issue #411 rather than silently absorbed). The payload now also reports every dimension
+per corpus stratum: the whole-corpus mean averages handwritten notes scoring near zero
+with academic papers scoring far above it, and the strata are what make the number
+actionable.
 
 Round-trip fidelity
 -------------------
