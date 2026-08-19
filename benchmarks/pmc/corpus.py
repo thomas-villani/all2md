@@ -69,6 +69,24 @@ _ALI_LICENSE_REF = "{http://www.niso.org/schemas/ali/1.0/}license_ref"
 _SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
 _ARTICLE_ID_RE = re.compile(r"PMC(?P<pmcid>[0-9]+)\.(?P<version>[0-9]+)\Z")
 
+#: The anchor spacing behind the default seeds; see `seed_anchors`.
+_SEED_ANCHOR_RANGE = range(1_500_000, 12_500_000, 500_000)
+
+
+def seed_anchors(offset: int = 0) -> tuple[str, ...]:
+    """Return ``start-after`` seeds spread across the PMCID range.
+
+    ``offset`` shifts every anchor by the same amount, which is how a
+    **held-out** corpus is drawn: a walk from offset anchors lists bucket
+    regions the committed manifest's walk never reached (each build consumes
+    only a few hundred prefixes past its anchor), so the two corpora cannot
+    share articles or even neighbourhoods.  Verify the non-overlap against the
+    committed manifest after a build anyway; the offset makes it expected, the
+    check makes it evidence.
+    """
+    return tuple(f"PMC{value + offset}" for value in _SEED_ANCHOR_RANGE)
+
+
 #: Numeric anchors spread across the PMCID range.  Selection **never** starts at the front
 #: of the bucket: the numerically-first PMCIDs are one 19th-century journal's scanned back
 #: catalogue, and a sample drawn there is 100% scans while still showing a text layer on
@@ -76,7 +94,7 @@ _ARTICLE_ID_RE = re.compile(r"PMC(?P<pmcid>[0-9]+)\.(?P<version>[0-9]+)\Z")
 #: not an ordering.  Many seeds taking few articles each beats few seeds taking many: the
 #: spread across publishers and eras is the point, and a large ``per_seed`` just walks
 #: further into one region.
-DEFAULT_SEEDS: tuple[str, ...] = tuple(f"PMC{value}" for value in range(1_500_000, 12_500_000, 500_000))
+DEFAULT_SEEDS: tuple[str, ...] = seed_anchors()
 
 #: Candidates are taken every ``DEFAULT_STRIDE``-th prefix rather than consecutively.
 #: Adjacent PMCIDs are typically the same journal issue, so a consecutive run would draw

@@ -21,6 +21,7 @@ def _build(args: argparse.Namespace) -> int:
     report = corpus.build_manifest(
         Path(args.out),
         workspace=Path(args.cache),
+        seeds=corpus.seed_anchors(args.seed_offset),
         per_seed=args.per_seed,
         stride=args.stride,
         max_candidates_per_seed=args.max_candidates,
@@ -258,6 +259,15 @@ def main(argv: list[str] | None = None) -> int:
     build.add_argument("--cache", default=str(DEFAULT_CACHE), help="workspace for candidate downloads")
     build.add_argument("--per-seed", type=int, default=3, help="articles to accept per ID-range seed")
     build.add_argument("--stride", type=int, default=corpus.DEFAULT_STRIDE, help="take every Nth listed prefix")
+    build.add_argument(
+        "--seed-offset",
+        type=int,
+        default=0,
+        help=(
+            "shift every seed anchor by N PMCIDs; a nonzero offset walks bucket regions "
+            "the committed manifest never touched, which is how a held-out corpus is drawn"
+        ),
+    )
     build.add_argument("--max-candidates", type=int, default=60, help="give up on a seed after N candidates")
     build.add_argument("--quiet", action="store_true", help="suppress per-candidate progress")
     build.set_defaults(handler=_build)

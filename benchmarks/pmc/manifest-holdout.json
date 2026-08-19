@@ -1,0 +1,1003 @@
+{
+  "articles": {
+    "PMC10250014.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc/4.0/",
+      "paragraphs": 39,
+      "pdf_sha256": "774b509b509e69a1f3e6fd9a117768a157ec8fe96d6110abdbed9fe6d35ab152",
+      "pdf_size_bytes": 1317609,
+      "xml_sha256": "c4ba5a43dc3cf82243d9d8dfb579fabe528c20e94d7517ac8fb28de1159de86f",
+      "xml_size_bytes": 206692
+    },
+    "PMC10250036.1": {
+      "licence": "unrecorded",
+      "paragraphs": 9,
+      "pdf_sha256": "8b279832a0cb0308e472cd8bc49f886d66262ab69fb2c5dd2c567dff8bbfbd46",
+      "pdf_size_bytes": 699876,
+      "xml_sha256": "0268495ec4226805bbf06a9383070e9b5db4878237bf2dbb7c22aae17635e423",
+      "xml_size_bytes": 10392
+    },
+    "PMC10250047.1": {
+      "licence": "unrecorded",
+      "paragraphs": 13,
+      "pdf_sha256": "3a433b55673b6aa9ea4210e5f06be7dbf6b9b596302815be1cdc9c46ec3f90ac",
+      "pdf_size_bytes": 435516,
+      "xml_sha256": "cee8794d602a7787f5d897ab0e292374a027a5c7f578a82909dab4c192b2f2f7",
+      "xml_size_bytes": 10534
+    },
+    "PMC10250057.1": {
+      "licence": "unrecorded",
+      "paragraphs": 46,
+      "pdf_sha256": "03441f202b276aa99849a5c6f7f3f1f085f7a59b8a7c6b79478c873bd285b4c8",
+      "pdf_size_bytes": 1756092,
+      "xml_sha256": "bb45151852d56f4697f64ec42378cc7fb62834080a510b15d3825ef1ca6711d2",
+      "xml_size_bytes": 98661
+    },
+    "PMC10250068.1": {
+      "licence": "unrecorded",
+      "paragraphs": 18,
+      "pdf_sha256": "83a6e19349f684aea4acea35cde53b91da03f1b0c3f4a44ddda9490e3e2fef80",
+      "pdf_size_bytes": 211933,
+      "xml_sha256": "2b98e630c7f19063b23681afd5fe9fdb8be3b0d860d1b4187219d7496ad84358",
+      "xml_size_bytes": 15550
+    },
+    "PMC10750000.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 60,
+      "pdf_sha256": "5d39e2b4adbb6bd6372a72921b65e62212d20a654bcd310833c28b169f5e5f45",
+      "pdf_size_bytes": 1252642,
+      "xml_sha256": "84358db293b8c8b465256d8f08055a73a6f1ac981e2c04ddc9d34ee34d372769",
+      "xml_size_bytes": 119925
+    },
+    "PMC10750011.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 116,
+      "pdf_sha256": "d585070ebfb5faa8d414e054b3c0667b10976fa6a6e646fc3e0b1e79c5d78602",
+      "pdf_size_bytes": 3418513,
+      "xml_sha256": "fcc9a15e8044234527007485c809db8c8e8bd68f09769adc961aaf929d5ebb33",
+      "xml_size_bytes": 78869
+    },
+    "PMC10750022.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+      "paragraphs": 52,
+      "pdf_sha256": "d3a27c6ad5d5c5c46014b3fd15e5d0a3b054465d230e4febcc2730c2ddd47cd1",
+      "pdf_size_bytes": 1003842,
+      "xml_sha256": "17213231fa72a113fd0ee776065c3de4edf671ed69c468f54d22822525e6130b",
+      "xml_size_bytes": 130666
+    },
+    "PMC10750033.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+      "paragraphs": 57,
+      "pdf_sha256": "95cc7fda21192ace6528944ff1deff096046091c65a2394d0c98752022bffbc0",
+      "pdf_size_bytes": 4362214,
+      "xml_sha256": "760d3c2b0ebc98b0028f4ad0b32da4fc9e40b3b5f7015ca6307ccc8d36fe71f5",
+      "xml_size_bytes": 91782
+    },
+    "PMC10750044.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+      "paragraphs": 54,
+      "pdf_sha256": "5d3e9938c3eb1e6e807f50eeb2e9f6262aa4a833e228663bf03c76b8218e198e",
+      "pdf_size_bytes": 5636754,
+      "xml_sha256": "47ec4d45b00b0f4ff9163b217130ca7907384002253bb5ba5c3a767a8cffb041",
+      "xml_size_bytes": 126355
+    },
+    "PMC11250000.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc/4.0/",
+      "paragraphs": 42,
+      "pdf_sha256": "bd8dea6d62ac6e3dc748423131afd64212345395a9890301cd71ef8c2361fb87",
+      "pdf_size_bytes": 346903,
+      "xml_sha256": "29c5a6c994c61775f20edb7d3606f748d68ef9ce1d910a6223a956223da77185",
+      "xml_size_bytes": 55974
+    },
+    "PMC11250011.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 43,
+      "pdf_sha256": "825a8a653833dd61d3fd8a7c7ad9838b50eac43319d29443053878e69831952d",
+      "pdf_size_bytes": 6277902,
+      "xml_sha256": "f2a5d886a6765482f88b306455f1403c43f2e5dec7838381ac31dfd9c1ad7adc",
+      "xml_size_bytes": 163640
+    },
+    "PMC11250022.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 61,
+      "pdf_sha256": "018375980e881ae5dbd5673bcad34257bf36d91c3d37f66ee8c729e62b900c6e",
+      "pdf_size_bytes": 912118,
+      "xml_sha256": "280bad0efe678c51f0494ecdf345d910b19f90501f50b2704581aa33c6c995da",
+      "xml_size_bytes": 63757
+    },
+    "PMC11250033.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 40,
+      "pdf_sha256": "1a0ad7afa03d2fccdd9dc938e235aa1d4b7f9d3ff459ade44be58679d24bbe40",
+      "pdf_size_bytes": 2571107,
+      "xml_sha256": "664ca1a0caa0c3b42ff5ab1fd68680a8ac09662b36b1f3be05ba04ae848b7e5c",
+      "xml_size_bytes": 145613
+    },
+    "PMC11250047.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 33,
+      "pdf_sha256": "c8f7dad2433ce99ffa0f7bb00f1954cb26a7a22f328fe0ed6db2778923567097",
+      "pdf_size_bytes": 8106416,
+      "xml_sha256": "1b1dc07f8243fe9c75db5b6d3b33fe09a6455fd6819413179ffccc2f744b5397",
+      "xml_size_bytes": 67697
+    },
+    "PMC11750000.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+      "paragraphs": 39,
+      "pdf_sha256": "33ad7df541e8ff8e86aee4d1513fd7f133b15e5b2777a3be4845026e79a802cb",
+      "pdf_size_bytes": 400259,
+      "xml_sha256": "8f60071d3a8593f36ba050cb349ca97783719ed9304c0b5bf5cbf9b65ba96627",
+      "xml_size_bytes": 102381
+    },
+    "PMC11750013.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 37,
+      "pdf_sha256": "9d696029c6c299d8ff57ec25b269cf16bb0a01a74c57b9474d56c2f3e46f88a8",
+      "pdf_size_bytes": 518547,
+      "xml_sha256": "8a1b0d2ff7155512c13039f52b9ddb13f99a37ee2123e50aa9a4a06b36f29011",
+      "xml_size_bytes": 138478
+    },
+    "PMC11750023.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+      "paragraphs": 33,
+      "pdf_sha256": "3695aeaa18e85a0a115e5ffd2f50b60e981b5cea0904f4127b841e60db3c8e4b",
+      "pdf_size_bytes": 560722,
+      "xml_sha256": "9058465f5ee2c24d0eb8f2f325760a7ed31cfc346326a1869a4343627e999fa8",
+      "xml_size_bytes": 70846
+    },
+    "PMC11750034.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+      "paragraphs": 27,
+      "pdf_sha256": "77552fb554d1ba7e8ddfc6fe7de04aa733adf1cc238a2259786c9cb78eb74d12",
+      "pdf_size_bytes": 327310,
+      "xml_sha256": "b0ffaef2c43ee05ded541b54ba222a9631e0e961c357b68b08834e4cbc1b55c0",
+      "xml_size_bytes": 26810
+    },
+    "PMC11750046.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 24,
+      "pdf_sha256": "a08ca03a7f5bf7c124bda6b57dfc1f0ca4d2613a516e5a9d4d1861a23d41ea30",
+      "pdf_size_bytes": 495693,
+      "xml_sha256": "56936e7cc3ebaa9919244ddf48f56ed9e75527e0bf1e5bf3dbb30485cec3b472",
+      "xml_size_bytes": 31722
+    },
+    "PMC12250000.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 356,
+      "pdf_sha256": "5be4867f6bde7e3347c49d3df8a15677cd4ada7b47eb5af997aa5c582e639e56",
+      "pdf_size_bytes": 445044,
+      "xml_sha256": "de893754ce4ace6669ac2524cee2f21e7ad04277383ecae63163f61e6ff225b4",
+      "xml_size_bytes": 346047
+    },
+    "PMC12250011.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 45,
+      "pdf_sha256": "33ee05ce7781a40dcc9d2822d83c0af1c366250a08335d3f67d7d4e16047a05c",
+      "pdf_size_bytes": 7436119,
+      "xml_sha256": "9f8dbfc4b0b995e11ac749f9a77fc394d8ddeb35075e2dca5f2fbb9d3bc23615",
+      "xml_size_bytes": 130086
+    },
+    "PMC12250022.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 63,
+      "pdf_sha256": "b5e0bbe64988099e032563819263a6c02a5a02e00cd0d2a370b2df12a0da9547",
+      "pdf_size_bytes": 6885723,
+      "xml_sha256": "733cd4d86a67ae98a3a3c8ad50391896134abb456a3ff8fd58f9d0bde29e9629",
+      "xml_size_bytes": 193701
+    },
+    "PMC12250033.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 66,
+      "pdf_sha256": "81d27881a011e22c0d8800bd224bd167f4ddd0cec4f29be599ebc4f5519d3a9e",
+      "pdf_size_bytes": 285102,
+      "xml_sha256": "6fe7bc9eda5e9137e82f9e81e02b5d07c16d5103237c16852a3f3a62b03c3bc4",
+      "xml_size_bytes": 154075
+    },
+    "PMC12250044.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 62,
+      "pdf_sha256": "b996bdc76117e6dd84bb8ff4c9167dce93d6b2a1d48d122468b18e06b9d71c2d",
+      "pdf_size_bytes": 875121,
+      "xml_sha256": "2223915784cf4c11ee40b2ad14428dbd1984609c1737ce37da9cf6c436e59e44",
+      "xml_size_bytes": 308695
+    },
+    "PMC1750924.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 83,
+      "pdf_sha256": "7f3c4aadf555b92aee92b8e06d87a05e99df46b82c5d73fa93a407ffba809ff7",
+      "pdf_size_bytes": 686034,
+      "xml_sha256": "0f1fb7eaeaad2f8a2bffbd9f9ddc8da0174609a230f8e730a3d29d833b7ce66c",
+      "xml_size_bytes": 106549
+    },
+    "PMC1750935.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 9,
+      "pdf_sha256": "93014b85b9e35351f14e171fd98f4179a592e9cccab115c51eb81834e629030f",
+      "pdf_size_bytes": 957151,
+      "xml_sha256": "ffa8626308fb18551ffa362357b7a0b4796383d7da1a3afe7914a1e280e13150",
+      "xml_size_bytes": 11553
+    },
+    "PMC1750972.1": {
+      "licence": "unrecorded",
+      "paragraphs": 24,
+      "pdf_sha256": "06ed66c31bbacf47a0cf9ffbb6cebe689123a3596778c58eb5db2a29b0320fb0",
+      "pdf_size_bytes": 304232,
+      "xml_sha256": "c5a99c788096c8abff4dbe7b6b299ce14991a04245eee726d70694fe9d1d171e",
+      "xml_size_bytes": 58443
+    },
+    "PMC1750983.1": {
+      "licence": "unrecorded",
+      "paragraphs": 25,
+      "pdf_sha256": "2837e1692f36b51000e66232a1fcc34c501abf3a267d2b5527ed3605ba9ac44b",
+      "pdf_size_bytes": 59963,
+      "xml_sha256": "47c1435f67d77299d0eaa81a9609a56163c461df57ff80aeb6bff46964b83527",
+      "xml_size_bytes": 75135
+    },
+    "PMC1750994.1": {
+      "licence": "unrecorded",
+      "paragraphs": 14,
+      "pdf_sha256": "c4fcffba5253004e689d88252ddc00044f0237d01d1f9ffe71fc1d3bc007efd8",
+      "pdf_size_bytes": 61214,
+      "xml_sha256": "0eecc899d18510741410b7e25d094f100b5407e77d4cc7c847fb606ba3e90b8a",
+      "xml_size_bytes": 17048
+    },
+    "PMC2250455.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+      "paragraphs": 7,
+      "pdf_sha256": "c7088e8505051f7552cc738961d730a1414c8d1b49460cc4255ca7e9275762e3",
+      "pdf_size_bytes": 271415,
+      "xml_sha256": "1f992b479055078437dc0782f7d2e12d398f0bcb3b195c983a434a876079db3c",
+      "xml_size_bytes": 8267
+    },
+    "PMC2250466.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+      "paragraphs": 6,
+      "pdf_sha256": "c0663bdb0d679fc31457e7549c9c5dbdb410269f95098fbe3b0578cda76a2bcd",
+      "pdf_size_bytes": 195193,
+      "xml_sha256": "135f6166ea94181582c270e1e612839749f4f20259887e86084f4eb2e5411556",
+      "xml_size_bytes": 7791
+    },
+    "PMC2253494.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 30,
+      "pdf_sha256": "d503c9de9d25f4ccee9a9aa330696dbd89aad12069c37767728ebb4c93192156",
+      "pdf_size_bytes": 331898,
+      "xml_sha256": "848b1ae3d929771bf0b8dfd8333b48bed8614f1ebeda31364e2d007bdf6dbb67",
+      "xml_size_bytes": 57604
+    },
+    "PMC2253505.1": {
+      "licence": "https://creativecommons.org/licenses/by/2.0/",
+      "paragraphs": 41,
+      "pdf_sha256": "47bc643b263c6933845be7e53f1ad08e802bbeface506683d1ee74253aa9b8e6",
+      "pdf_size_bytes": 909502,
+      "xml_sha256": "6269833e368fff49246e86dbe61860de7f296f8609500fee64eb3d6620bb66b4",
+      "xml_size_bytes": 83537
+    },
+    "PMC2253516.1": {
+      "licence": "https://creativecommons.org/licenses/by/2.0/",
+      "paragraphs": 61,
+      "pdf_sha256": "875ca4116f28db6cd4ec6d8c6bb7d7880a552f60b67ee29697df92883fc6b0ce",
+      "pdf_size_bytes": 403672,
+      "xml_sha256": "4d87aeecc1c12fc84176bebd14105ce3fccbd47ae8b14f7f52a31680e5b40d65",
+      "xml_size_bytes": 122725
+    },
+    "PMC2750101.1": {
+      "licence": "unrecorded",
+      "paragraphs": 39,
+      "pdf_sha256": "246b82af487acf18acf82725d5528e984829c34478ae67b2a68bde25c7720324",
+      "pdf_size_bytes": 550670,
+      "xml_sha256": "28d75d40143115856739ea683b1c97de3431cc6196195de878582f685d0f3525",
+      "xml_size_bytes": 156216
+    },
+    "PMC2750112.1": {
+      "licence": "https://creativecommons.org/licenses/by/2.0/",
+      "paragraphs": 65,
+      "pdf_sha256": "dd1720e3e9c67000d144b5f5a12fbf451188dd5d60d1362bc452824b0a1daf26",
+      "pdf_size_bytes": 351764,
+      "xml_sha256": "b81b552377dec730c20f83f770ab8df4ed2ee3e16e9f91aa46adf2dc83b1a63d",
+      "xml_size_bytes": 227157
+    },
+    "PMC2750123.1": {
+      "licence": "https://creativecommons.org/licenses/by/2.0/",
+      "paragraphs": 55,
+      "pdf_sha256": "4d1455ea2c089577107dd193264c597ca32902be1f32d8f6b10b2014f1b96ea3",
+      "pdf_size_bytes": 2916625,
+      "xml_sha256": "5048c6eee4a37fadc355b50c39f7c832a7a327d0f2cb7951b10ae677ad7cc913",
+      "xml_size_bytes": 89332
+    },
+    "PMC2750134.1": {
+      "licence": "unrecorded",
+      "paragraphs": 13,
+      "pdf_sha256": "dffd062c44340eb6ae171a1e578c1d7371e7d8d27560c482e1af53c3c0676461",
+      "pdf_size_bytes": 48402,
+      "xml_sha256": "8fa900c4210eb39ef4f52a5db3a671f334d4933b149f92d31de495b066e79de1",
+      "xml_size_bytes": 32930
+    },
+    "PMC2750145.1": {
+      "licence": "unrecorded",
+      "paragraphs": 12,
+      "pdf_sha256": "f6a661ea67614940caaf5c2638ac8e0a03816fd4117985041a164dac2b44d655",
+      "pdf_size_bytes": 45408,
+      "xml_sha256": "b16fe09488133be5eeb39977ba57d6be170b1d58cec1220a6040a62f3c915006",
+      "xml_size_bytes": 22297
+    },
+    "PMC3250000.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "paragraphs": 9,
+      "pdf_sha256": "c16a0fd3bfc765c4099a7bf86a2239e7b6740089108fb72151a8402cede6f0c2",
+      "pdf_size_bytes": 867891,
+      "xml_sha256": "72a225b55a2ca36b8e3a0ecf6cc53e8f14cf095dfc1832b76fe4ba394d62b388",
+      "xml_size_bytes": 28329
+    },
+    "PMC3250011.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "paragraphs": 16,
+      "pdf_sha256": "fb983ed3311ebcd3d7d66893e69fc2cb2389d7b89ce76f88a1fd739595fbd6cf",
+      "pdf_size_bytes": 2626494,
+      "xml_sha256": "e96e029b9376139b1539c416b45b5772dff017516a530e85792f1375ca73f2a2",
+      "xml_size_bytes": 15278
+    },
+    "PMC3250022.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "paragraphs": 5,
+      "pdf_sha256": "47ea5ccfa471293d2384c22126fef2ad32f9d702aa223fbc6221d363efdf506d",
+      "pdf_size_bytes": 282341,
+      "xml_sha256": "bdd451a94462c56e0686799c7e55a605783224bd31c317f7f4639717f15d129e",
+      "xml_size_bytes": 8528
+    },
+    "PMC3250033.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc-sa/3.0/",
+      "paragraphs": 48,
+      "pdf_sha256": "b7d214d3e77087be475ca88c1257aef95b0db6de9811839dac0cf6ed4136e869",
+      "pdf_size_bytes": 969235,
+      "xml_sha256": "90af9396e820463a9330005c24b43eb02755fbd1ba851289bde5eec424861826",
+      "xml_size_bytes": 52520
+    },
+    "PMC3250055.1": {
+      "licence": "http://www.frontiersin.org/licenseagreement",
+      "paragraphs": 53,
+      "pdf_sha256": "fdfb39894362f0fa45daa37378d2a056c6834a8d2a33f061e4040a900441b2e6",
+      "pdf_size_bytes": 1151969,
+      "xml_sha256": "6338005d44189b0ee9197d16f35ef6fbe50e4a1a6fc6e73a3212b8b2514c8732",
+      "xml_size_bytes": 99642
+    },
+    "PMC3750000.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 36,
+      "pdf_sha256": "e5f5c00b8ebc526ef9dbb440d5fb430027754e2c42b53f3343b7a168e2783faa",
+      "pdf_size_bytes": 896588,
+      "xml_sha256": "a6caabff0411cda3106bca5bae7e6d2d53043041ae7d1415b04b2f16ab73935c",
+      "xml_size_bytes": 106199
+    },
+    "PMC3750011.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 54,
+      "pdf_sha256": "76f550390289636ab38dcce60774934e5a666f2d4db0bd6358ff054a3b82199e",
+      "pdf_size_bytes": 1904730,
+      "xml_sha256": "5ba7679118e0a08362f44932bd6c2d55220e6bb42114f3ec9a0a654ecb6f4f4f",
+      "xml_size_bytes": 97169
+    },
+    "PMC3750022.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 98,
+      "pdf_sha256": "7b27a55614af2f9b99c7f365987203143d48cf58d8d1efda31c1cdd85f5c2a94",
+      "pdf_size_bytes": 1179272,
+      "xml_sha256": "0947f1730c34cfd9f747f2f44cef69705631818d390eafb12a00fdf9a86cff7b",
+      "xml_size_bytes": 127980
+    },
+    "PMC3750033.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 43,
+      "pdf_sha256": "0ff726c0f6bf3d2f761b9aa753a0311ba3a9aef0d9795ab4cf77db2fb683e49f",
+      "pdf_size_bytes": 13337420,
+      "xml_sha256": "761d3724f63b62b1cbba06c9ab5723a5a77040fca604291fb274410fddfe69da",
+      "xml_size_bytes": 117825
+    },
+    "PMC3750044.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 44,
+      "pdf_sha256": "435b5a8537e7e3d8c59fa52dda962135ff88ce0018bc4d76688b1de05ccb9b05",
+      "pdf_size_bytes": 492767,
+      "xml_sha256": "31c5ea283e715e5138afa32420251e721c9bbd94f0b828769e8742c085c56577",
+      "xml_size_bytes": 87155
+    },
+    "PMC4250000.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc/3.0/",
+      "paragraphs": 24,
+      "pdf_sha256": "55f2785fec608fc7070ed7c7155244cfa1c7e6f7f22df73e0b71b632c857458b",
+      "pdf_size_bytes": 924261,
+      "xml_sha256": "e66fe23305f649be1dcb80799ae02328f214e4c6cd0efa2cb6b55f033252daeb",
+      "xml_size_bytes": 38127
+    },
+    "PMC4250011.1": {
+      "licence": "https://creativecommons.org/licenses/by/2.0/",
+      "paragraphs": 18,
+      "pdf_sha256": "67e94f43f58b993a114f19854bc1d89b24d6d43a644d9a2fe8a42e3f9e45bb70",
+      "pdf_size_bytes": 389000,
+      "xml_sha256": "6b62ce42eada221e55f87143f2141140bb9d55ac541fbff344250f798f532073",
+      "xml_size_bytes": 23890
+    },
+    "PMC4250022.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc/3.0/",
+      "paragraphs": 38,
+      "pdf_sha256": "ecd4c24fb370feb2b574d339de5a67a9165fba4baf9d17052251390a2fadc3cd",
+      "pdf_size_bytes": 208591,
+      "xml_sha256": "18e2a3aa016bf25cdb7bd95e433060b7a5af19b221be02df66574b191f72dfd8",
+      "xml_size_bytes": 75483
+    },
+    "PMC4250033.1": {
+      "licence": "open-access",
+      "paragraphs": 26,
+      "pdf_sha256": "041298b854f9559e8233455914a2e6991c465e2f83071f69aca8e0658b8937c2",
+      "pdf_size_bytes": 1215452,
+      "xml_sha256": "1d326eca892e441a02c18f7f30b70f481ee8095825165a695d4ea6978fa235a1",
+      "xml_size_bytes": 34763
+    },
+    "PMC4250054.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 46,
+      "pdf_sha256": "7b225f6e8957c97ce4f4780087650775d5ae00e24a232012cec182a1f8c985e3",
+      "pdf_size_bytes": 517806,
+      "xml_sha256": "591a3e3f2c911e1e353c573febdbb565d4fa5d4cc0caebf9f56ccd91d8d97f00",
+      "xml_size_bytes": 86667
+    },
+    "PMC4750000.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 19,
+      "pdf_sha256": "345d85a464438127bf07659765ba6fa5a56ede06228599590ca5a0463db8e370",
+      "pdf_size_bytes": 842824,
+      "xml_sha256": "5d82c04ee0f60af9f17be7d280e087ba38a7e2d273f25209da805cc3136bac42",
+      "xml_size_bytes": 39715
+    },
+    "PMC4750011.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+      "paragraphs": 19,
+      "pdf_sha256": "57d692c4f457be0df6ef036f1f3b1667f0ab5bcfa9d29034ec30f6a1ba064d0f",
+      "pdf_size_bytes": 158925,
+      "xml_sha256": "166172bbb12c4447478f0b1ff524c0c6946ccee37381b0d673e0b6f721790ca6",
+      "xml_size_bytes": 30744
+    },
+    "PMC4750022.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+      "paragraphs": 44,
+      "pdf_sha256": "c90f7608c76bba9f2e2580f691d9129dba71df1a42dd901e8e10c82b9ec7ebc7",
+      "pdf_size_bytes": 470835,
+      "xml_sha256": "03f078099e8befd095325e8bcb14d46e7311f87f245f0ed6e32a4597b3d98509",
+      "xml_size_bytes": 107740
+    },
+    "PMC4750033.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 40,
+      "pdf_sha256": "d3651337d228ec2b55c8b08e1ca5a6ac96f0e16bdb0c93f146efa0db3adbc9c1",
+      "pdf_size_bytes": 1610168,
+      "xml_sha256": "86811b795197cd256d192d512ac22b201da9242066c388a4e28ba38bc3fa82b4",
+      "xml_size_bytes": 74676
+    },
+    "PMC4750044.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 49,
+      "pdf_sha256": "4b02ace7f59cd6302a562ccb86747fd8c180e2f1c7b8b8ca1e7d04cdae3625ce",
+      "pdf_size_bytes": 2298381,
+      "xml_sha256": "7177e0127becd7db50fd7ab9d069b5d06c79f48220dddedceb2993d77c6f36c9",
+      "xml_size_bytes": 94253
+    },
+    "PMC5250590.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 72,
+      "pdf_sha256": "021f4905e6f9e3c4bf320cef660e4befaa6f782ba052d59884c715fddeaec361",
+      "pdf_size_bytes": 1632712,
+      "xml_sha256": "d0a716ade0c5cd093b6d7bc54067f6330ffc336624c6650a931873805040354c",
+      "xml_size_bytes": 115741
+    },
+    "PMC5250601.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+      "paragraphs": 36,
+      "pdf_sha256": "9576a41e8caa963d7ca612a269dfbaf43d2e6d57057dccb41c645401dae21968",
+      "pdf_size_bytes": 3954317,
+      "xml_sha256": "66ec51e8f8850cba8ab26fc761632976c1d4819ec11958f46febb9d5bd76fdee",
+      "xml_size_bytes": 95038
+    },
+    "PMC5250623.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 5,
+      "pdf_sha256": "688ee2b1ec23a31f8ed930773e2e499bc7cf46656770ebeaa693af095add85df",
+      "pdf_size_bytes": 407990,
+      "xml_sha256": "a6566866d8290a33d507cd2837882a6aa75a276328bb37c33a1089f83e36dd78",
+      "xml_size_bytes": 11604
+    },
+    "PMC5250635.1": {
+      "licence": "unrecorded",
+      "paragraphs": 46,
+      "pdf_sha256": "67d07a8ab0b4c1cbfc26534fb4d5fd5cc820cc685e6cbf5362bbd2be085d7a0b",
+      "pdf_size_bytes": 321564,
+      "xml_sha256": "bb5f8aa56f0e3d3798607332b6e73f9bb2c7007230549af7f0fb91f2f27753c9",
+      "xml_size_bytes": 58126
+    },
+    "PMC5250647.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc/4.0/",
+      "paragraphs": 59,
+      "pdf_sha256": "a9001e2f1c2b114a36f4b51c532fb08696761b09b23ec6064a4e970123bf8e60",
+      "pdf_size_bytes": 1243372,
+      "xml_sha256": "1a389f1a8c672d9b232d2da471828ab5d76a6b88d41cb341256bcc2cf72ac87f",
+      "xml_size_bytes": 203711
+    },
+    "PMC5750000.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 27,
+      "pdf_sha256": "7f30fa84c95af8b3e75fe55e59af0abd814f58d4002311cda4165c71b2282d59",
+      "pdf_size_bytes": 1446075,
+      "xml_sha256": "1c50a2644f831a77204e6e0e980c8efc3ef44efb229d59e457944d5c0fec6ade",
+      "xml_size_bytes": 69429
+    },
+    "PMC5750011.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 49,
+      "pdf_sha256": "0a409530ad087f75c74b2bb9e922e7fc0efcc721314606df628adb0eddd9cd60",
+      "pdf_size_bytes": 848949,
+      "xml_sha256": "b19aab67c23c57e5576a8131d271014639d27161f1df7c4132062217e04d391f",
+      "xml_size_bytes": 113069
+    },
+    "PMC5750022.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 26,
+      "pdf_sha256": "3d575d2c1f38445cde3d3eb4653bbaf4e4f7b39773f8584c54e8afd50308e53b",
+      "pdf_size_bytes": 1532075,
+      "xml_sha256": "d0f0706500ba8bdc4c683f058767337782f36bd3fe451328cbe4a40e9e21bb7b",
+      "xml_size_bytes": 78781
+    },
+    "PMC5750033.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 45,
+      "pdf_sha256": "7a95b00667f62d8aa77eca95a7557c8ae754db0c00a82c884754b373f1ebb8ae",
+      "pdf_size_bytes": 492211,
+      "xml_sha256": "41244464c0f03b9f482a44b0d93e1fa42a9a3545f80db8a3dd453a6404230ae0",
+      "xml_size_bytes": 121164
+    },
+    "PMC5750208.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 58,
+      "pdf_sha256": "47c40a2d83cbc3c609573d525824d7c19eae4fc54174a43c3dcf31e36a53d2ea",
+      "pdf_size_bytes": 1487838,
+      "xml_sha256": "2be8e2e1de487068f2f243d4267143c22b19687dd98cfe01f5de402ab3f3ed80",
+      "xml_size_bytes": 105834
+    },
+    "PMC6250000.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 39,
+      "pdf_sha256": "372e17e8001015457abef3c2026000789a26c37978040504c410f4be66510418",
+      "pdf_size_bytes": 1158408,
+      "xml_sha256": "d2574380c5394341bcb0556a6d0f1fcadde30eec034fe1cf18a37248f650534b",
+      "xml_size_bytes": 133849
+    },
+    "PMC6250011.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 59,
+      "pdf_sha256": "9b21baa505097b21c11d4b279c284ab0e4afdeec5077c76adaddf0701af58501",
+      "pdf_size_bytes": 2966371,
+      "xml_sha256": "4d680966641c03b495114f330585f5d0e1aebeb2f4bc1cbc2acef2112ec511bb",
+      "xml_size_bytes": 116952
+    },
+    "PMC6250022.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 40,
+      "pdf_sha256": "df1d4bc30965cbaf967f9a0a4e6b0afb8c0a5ad3102dca31e1fa506803249832",
+      "pdf_size_bytes": 2617336,
+      "xml_sha256": "a26f6ed9dcf7d4ebc5ba06615a76eb51380fc96ba52b6a204a2748a23475a241",
+      "xml_size_bytes": 80573
+    },
+    "PMC6250033.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 19,
+      "pdf_sha256": "abc42059b828435527307ceefc6da438a25b261b731194d52c958404c06f847d",
+      "pdf_size_bytes": 2368515,
+      "xml_sha256": "cd60415f87359ebf2c03c462c930234381e6ee3d25bd5f963536b53b05a00ca5",
+      "xml_size_bytes": 39139
+    },
+    "PMC6250044.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 61,
+      "pdf_sha256": "eed5c4a925490fd0f73f6f65686992d3f9bfcc37738c841b9651f4c8f626c90d",
+      "pdf_size_bytes": 1285263,
+      "xml_sha256": "89d04c8a504246dffd1188acf9ff028c25755a583d95475db7142f7aed851ede",
+      "xml_size_bytes": 268707
+    },
+    "PMC6750044.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 31,
+      "pdf_sha256": "381216a3e476be46ec1f225d677fb3f5d40586d6d633ab17bd88ef75055a971e",
+      "pdf_size_bytes": 2675956,
+      "xml_sha256": "b42f2ed9637976e9f3da77ce26d30a482f26930db8664a4fe85e7be5c12b2dc9",
+      "xml_size_bytes": 92900
+    },
+    "PMC6750072.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 54,
+      "pdf_sha256": "0e54df67e6ec06270c4e62b9c940eef9a5f9a51a4aac51e3c6a1e1e93724d266",
+      "pdf_size_bytes": 3300613,
+      "xml_sha256": "0d36d65d3bb5e116434f68837b8c6cc9cd47ea319e94223d06db0655ea3433c5",
+      "xml_size_bytes": 141063
+    },
+    "PMC6750083.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 37,
+      "pdf_sha256": "d36f57c4ea7e7007039af249befaa62596ba537d232dd1a5b8ddff0ceb89612b",
+      "pdf_size_bytes": 2731437,
+      "xml_sha256": "fb9e8dc6aec9bcd2ff298a455fa45d4f3800aafe40306c7fd0792e293e3b3ef5",
+      "xml_size_bytes": 280413
+    },
+    "PMC6750094.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 39,
+      "pdf_sha256": "a6cac8de8c156185dce11361c26516bd7873771c2e67d4d2fc4861db1b6b7ed7",
+      "pdf_size_bytes": 3009500,
+      "xml_sha256": "a88a426838052ca3b251225dccce1c7de00c1f2542b1282ac988fc30967c7dad",
+      "xml_size_bytes": 97549
+    },
+    "PMC6750105.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 24,
+      "pdf_sha256": "17871cdc021788d8866bd1f63da1b46af9991004e4ae45b6359fbfd259c648e6",
+      "pdf_size_bytes": 2358567,
+      "xml_sha256": "5c582e59c9e30e5bb500eda168101d133ff9f0cf85c8d00578238e6cc9207dc4",
+      "xml_size_bytes": 84435
+    },
+    "PMC7250000.1": {
+      "licence": "unrecorded",
+      "paragraphs": 76,
+      "pdf_sha256": "95ccb05844abb86fa26cd75c1304b13067fdde1d09a7caf81511c92bee2bed99",
+      "pdf_size_bytes": 2169743,
+      "xml_sha256": "f34c15fbbe4b648c2314d15f214766ab120c77b582ce01e69fc857d6fac3d8fd",
+      "xml_size_bytes": 156714
+    },
+    "PMC7250011.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+      "paragraphs": 57,
+      "pdf_sha256": "3bb581a053682cac2a38a45b473bb3777bc13d12a43d595c050cbcaa4dffa55f",
+      "pdf_size_bytes": 5589971,
+      "xml_sha256": "06f19f3467f305cb04fd1625a7a1a345786b9375a4a8fd0ceefd323a17b369fc",
+      "xml_size_bytes": 129992
+    },
+    "PMC7250022.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+      "paragraphs": 108,
+      "pdf_sha256": "9b3de08625aef3852167c23e3588510edd67ba30f64776b683b42ec27e9e3355",
+      "pdf_size_bytes": 18932860,
+      "xml_sha256": "634bfbc4472dec69045ca255985d6d522c5d39aae0ef122c5b8ccb672cde8a24",
+      "xml_size_bytes": 159260
+    },
+    "PMC7250033.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 23,
+      "pdf_sha256": "716e8e33003b9c5bd49d99a5a50ee37b724b2a1f109655750be771c3ec3897ff",
+      "pdf_size_bytes": 6954226,
+      "xml_sha256": "3513124bb54b5d40aa88839afea18e9ee740ceb865e59323506af26302ac8d32",
+      "xml_size_bytes": 287610
+    },
+    "PMC7250055.2": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 291,
+      "pdf_sha256": "0a3d7954c2d8a0d9f553485e660f50f04ef164a1a644c9262699036ad7ec685e",
+      "pdf_size_bytes": 2623925,
+      "xml_sha256": "25666e9f91f576c9ead0bab368c545d01ec6ac93d241c3711f830763e177ea46",
+      "xml_size_bytes": 137646
+    },
+    "PMC7750000.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 36,
+      "pdf_sha256": "1910dbe3ade4aeba6d3c4d0f6d84e1e9db3bc2bc35629bb12031328bc5125faa",
+      "pdf_size_bytes": 1661954,
+      "xml_sha256": "7e2c3e4cf965f84e039f7e31307bdb1270d9a5fb81b80f57145f96d8e71418e7",
+      "xml_size_bytes": 93310
+    },
+    "PMC7750009.1": {
+      "licence": "OpenAccess",
+      "paragraphs": 68,
+      "pdf_sha256": "f11376e49f027c6e85ac3351a7e2ce659946891803681d0070e06f3208f8aa8a",
+      "pdf_size_bytes": 404668,
+      "xml_sha256": "f37cbc97d183fa884f77dcc9c1a8d48049cfb310ceac52f2a32bf217609c3c94",
+      "xml_size_bytes": 111572
+    },
+    "PMC7750019.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 55,
+      "pdf_sha256": "20cc245aa9f3b91a0c1168aaae71f9e6c7fe6b3062fd2c6040fe8860e314aa27",
+      "pdf_size_bytes": 492646,
+      "xml_sha256": "553f6a0e114f1af22031269f2f77f3bb3d3a22e65b81598898046ab6abb88bde",
+      "xml_size_bytes": 76714
+    },
+    "PMC7750040.1": {
+      "licence": "open-access",
+      "paragraphs": 63,
+      "pdf_sha256": "e093bc010b80fbea2eedf6e3d455df013b24a9f27914c8e116dde909e09493d9",
+      "pdf_size_bytes": 397830,
+      "xml_sha256": "ba7342d4ba49eb742a88a20b0473009d41ae9ec7b3d156bf46d178110320a888",
+      "xml_size_bytes": 94975
+    },
+    "PMC7750051.1": {
+      "licence": "open-access",
+      "paragraphs": 47,
+      "pdf_sha256": "f8291e6f531232e86e78c60863f36fa249633b2eb00b15b17f99bca1e91cc569",
+      "pdf_size_bytes": 495761,
+      "xml_sha256": "2c4713bffcc1dcc521b59023560c57a2af16c5d3d259003953c823f7d6d56176",
+      "xml_size_bytes": 83561
+    },
+    "PMC8250041.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+      "paragraphs": 53,
+      "pdf_sha256": "80eb355b6acf0fe2f5685eafb979403f72062fd255a54c2c8621ad5aec4dac15",
+      "pdf_size_bytes": 402507,
+      "xml_sha256": "69d886f023eb1148d387060899d08bd26802867e8bb5a6125b3e99d5534d55ca",
+      "xml_size_bytes": 66794
+    },
+    "PMC8250095.2": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 46,
+      "pdf_sha256": "07f6fc3f1e922ef25f23b59cd24475c68da32a66e5e84b19717ae8e88a648666",
+      "pdf_size_bytes": 881885,
+      "xml_sha256": "d6ff77911f630214f532ba4221c73e3facc31ffe5fb49df274e3eaa76b93f12a",
+      "xml_size_bytes": 121159
+    },
+    "PMC8250106.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc/4.0/",
+      "paragraphs": 11,
+      "pdf_sha256": "7a631ec97d7af9965f76cf6f727249935c9a5935e43734068e4ad1b9a5a8c310",
+      "pdf_size_bytes": 527292,
+      "xml_sha256": "b384962a7d92fa4abe97a1d18f2a0ef049a82401dbbc15c0f8abf4b13ee2232c",
+      "xml_size_bytes": 19733
+    },
+    "PMC8250133.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 17,
+      "pdf_sha256": "5c8bbc37875d7199d1911027147dd05a74f3fa13fe9aeadebc921223bccb0ef5",
+      "pdf_size_bytes": 205502,
+      "xml_sha256": "ec651896c7e81c3d76b8401322508f652688ed0e4ad750f311c6430d36905044",
+      "xml_size_bytes": 18182
+    },
+    "PMC8250144.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 42,
+      "pdf_sha256": "372e5de2c203f3195c5eecf6f15507ab77d8963fc757a36d2c93bf38ddd98153",
+      "pdf_size_bytes": 9067047,
+      "xml_sha256": "e14c39770e6b5ede0fef1487688fd03cfaad1131c3fb79925e701e468d5a7bb6",
+      "xml_size_bytes": 89966
+    },
+    "PMC8750000.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 79,
+      "pdf_sha256": "a935d6ae1eb5ca429ea152c2e7ea57cd0637f42661e1ced975bbf15dd891cd37",
+      "pdf_size_bytes": 3138576,
+      "xml_sha256": "bc1bc9964114ff55922bd12e096010d523f729033bb6815c04bc7e25f7f24530",
+      "xml_size_bytes": 143105
+    },
+    "PMC8750011.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 90,
+      "pdf_sha256": "29b7c6cc3866b1eb63f56a06759c37a0eb7b0880094b8cb64d9a4f570dd32846",
+      "pdf_size_bytes": 2382502,
+      "xml_sha256": "ae0efd597bfe8f27247806444ca8e26b4f1725bd5d7c38df9321edc6fd6b3691",
+      "xml_size_bytes": 170765
+    },
+    "PMC8750022.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 62,
+      "pdf_sha256": "5bc7c1f044b6c6c4ccba0dcf3f0f02501aba60dd4c83c1b32c4961641a6ebeb4",
+      "pdf_size_bytes": 2817436,
+      "xml_sha256": "8efaacfe2830bf6a3b5038ce3d1edca976a9b7f0f28d921f74dff0e2a770bc06",
+      "xml_size_bytes": 126782
+    },
+    "PMC8750036.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 61,
+      "pdf_sha256": "6801ba5b95cbdcfe96bb0fc2036fa32e2bfb97c2ba71c893d955a1ddbd34b398",
+      "pdf_size_bytes": 2733651,
+      "xml_sha256": "ceb6b3170381519ff40de2ee6cc65c30b42a2db7613e6138accc6a8362a5b2c4",
+      "xml_size_bytes": 100857
+    },
+    "PMC8750048.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 66,
+      "pdf_sha256": "c48257c74105e6bf96558795ad5eeb271d103538549e3293df13d5ed2a164b7d",
+      "pdf_size_bytes": 3767481,
+      "xml_sha256": "77e114952cad3bd1a74722dabdb07131b3654f1be5fb392d17c91e3e759ea295",
+      "xml_size_bytes": 168799
+    },
+    "PMC9250000.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+      "paragraphs": 6,
+      "pdf_sha256": "721716d8de6ba80f319a568a3ac7113c2675cac670215cd8fbd33a8b2cf70c0a",
+      "pdf_size_bytes": 95975,
+      "xml_sha256": "72d5ef903a09383cfb4ea7fa152a513f001879e1e2c93044010ac83a27a1aa1c",
+      "xml_size_bytes": 22961
+    },
+    "PMC9250014.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+      "paragraphs": 100,
+      "pdf_sha256": "3adb751780342dc9f6f3ac959d5771adbf8f980cde1f7df0b2eaf6cae0229fdd",
+      "pdf_size_bytes": 5939669,
+      "xml_sha256": "ad98c9cfb4938bfc2cb010b27e13755339e0c2760528d92947c4c25645e062bd",
+      "xml_size_bytes": 233791
+    },
+    "PMC9250025.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+      "paragraphs": 96,
+      "pdf_sha256": "96ef2f4359bf24a9efce6b1f047162006fc2a999044b9a324b4fc0fdbc78de05",
+      "pdf_size_bytes": 2738939,
+      "xml_sha256": "a88a3bc18c4cc27387c60b4af30c0dbc2ed8524f31b908815b65beed191aa707",
+      "xml_size_bytes": 190451
+    },
+    "PMC9250036.1": {
+      "licence": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+      "paragraphs": 43,
+      "pdf_sha256": "976abebbb86c41a51b2c41f1c6831167a82b2c9985917b473b4f83720a4ed9c6",
+      "pdf_size_bytes": 493351,
+      "xml_sha256": "77650c9e725440faa474cceaff167e1c47f3b4c74ef3d92b2846ae40d3814fe5",
+      "xml_size_bytes": 120539
+    },
+    "PMC9250060.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 55,
+      "pdf_sha256": "aa951feb8fa1bf7f28f80513bbb2d682f7a38eaaccc4d16ea91ae3e8f665ca59",
+      "pdf_size_bytes": 380498,
+      "xml_sha256": "3e0978774b66e67b145b9ad4a7f9423ef506dece8644a4c2608ee037bc6a4fca",
+      "xml_size_bytes": 102238
+    },
+    "PMC9750000.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 393,
+      "pdf_sha256": "2c71ccfc5797ad89a777978820330632a1709224922ba30b541d215f07e1f8c7",
+      "pdf_size_bytes": 491887,
+      "xml_sha256": "b11809bc1f7d57f521fb52fb9e5a1dbc62a6e8118fe46acff8d76fcde7585ea6",
+      "xml_size_bytes": 130187
+    },
+    "PMC9750011.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 237,
+      "pdf_sha256": "83eef6e516f4125fac371622d60fa30dc342beaaf0fc4ac39dc43c0e3903a5e1",
+      "pdf_size_bytes": 994767,
+      "xml_sha256": "7842fb93ceb7f5dead57cbf4345718a08cfb9dde12af7f5f9d06c054fe6e742c",
+      "xml_size_bytes": 170202
+    },
+    "PMC9750022.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 176,
+      "pdf_sha256": "3ddcdadf18cc1d6fa6310f6d014e8c17052a58483072db80666672a90a77a45a",
+      "pdf_size_bytes": 1065105,
+      "xml_sha256": "3265852f0980291630390ca461171f9fc2f3574abcccf2ca0bd8c5fbfba9c49e",
+      "xml_size_bytes": 148726
+    },
+    "PMC9750033.1": {
+      "licence": "https://creativecommons.org/licenses/by/4.0/",
+      "paragraphs": 63,
+      "pdf_sha256": "eb74be77c0f8774fbeac5abb6778906d950d96e7e007e7f639e9f241d11067c8",
+      "pdf_size_bytes": 2329910,
+      "xml_sha256": "bc6e3754e0b2047ed3bed774595db4fb813242e5683ea44944cbebd21e90b83b",
+      "xml_size_bytes": 99065
+    },
+    "PMC9750044.1": {
+      "licence": "unrecorded",
+      "paragraphs": 85,
+      "pdf_sha256": "9d53868a4b8c6092baab9d316170b6b6282d82220283776b46d1429ed4d05d18",
+      "pdf_size_bytes": 812458,
+      "xml_sha256": "31d50d901a2d2b88c04ddff695d4ddf3c16e9a38cf5c265c3557489d3df2af11",
+      "xml_size_bytes": 65813
+    }
+  },
+  "bucket": "pmc-oa-opendata",
+  "rejected": {
+    "PMC10250002.319": "pdf_missing",
+    "PMC10250025.1": "pdf_missing",
+    "PMC2750001.1": "pdf_missing",
+    "PMC2750036.1": "pdf_missing",
+    "PMC2750077.1": "pdf_missing",
+    "PMC2750089.1": "pdf_missing",
+    "PMC4250044.1": "pdf_missing",
+    "PMC5250000.1": "no_paragraphs",
+    "PMC5250011.1": "no_paragraphs",
+    "PMC5250022.1": "no_paragraphs",
+    "PMC5250033.1": "no_paragraphs",
+    "PMC5250044.1": "no_paragraphs",
+    "PMC5250055.1": "no_paragraphs",
+    "PMC5250066.1": "no_paragraphs",
+    "PMC5250077.1": "no_paragraphs",
+    "PMC5250088.1": "no_paragraphs",
+    "PMC5250099.1": "no_paragraphs",
+    "PMC5250110.1": "no_paragraphs",
+    "PMC5250121.1": "no_paragraphs",
+    "PMC5250132.1": "no_paragraphs",
+    "PMC5250143.1": "no_paragraphs",
+    "PMC5250154.1": "no_paragraphs",
+    "PMC5250165.1": "no_paragraphs",
+    "PMC5250176.1": "no_paragraphs",
+    "PMC5250187.1": "no_paragraphs",
+    "PMC5250198.1": "no_paragraphs",
+    "PMC5250209.1": "no_paragraphs",
+    "PMC5250220.1": "no_paragraphs",
+    "PMC5250231.1": "no_paragraphs",
+    "PMC5250242.1": "no_paragraphs",
+    "PMC5250253.1": "no_paragraphs",
+    "PMC5250264.1": "no_paragraphs",
+    "PMC5250275.1": "no_paragraphs",
+    "PMC5250286.1": "no_paragraphs",
+    "PMC5250297.1": "no_paragraphs",
+    "PMC5250308.1": "no_paragraphs",
+    "PMC5250320.1": "no_paragraphs",
+    "PMC5250331.1": "no_paragraphs",
+    "PMC5250343.1": "no_paragraphs",
+    "PMC5250354.1": "no_paragraphs",
+    "PMC5250365.1": "no_paragraphs",
+    "PMC5250376.1": "no_paragraphs",
+    "PMC5250387.1": "no_paragraphs",
+    "PMC5250398.1": "no_paragraphs",
+    "PMC5250409.1": "no_paragraphs",
+    "PMC5250420.1": "no_paragraphs",
+    "PMC5250431.1": "no_paragraphs",
+    "PMC5250442.1": "no_paragraphs",
+    "PMC5250453.1": "no_paragraphs",
+    "PMC5250464.1": "no_paragraphs",
+    "PMC5250475.1": "no_paragraphs",
+    "PMC5250486.1": "no_paragraphs",
+    "PMC5250535.1": "pdf_missing",
+    "PMC5250546.1": "pdf_missing",
+    "PMC5250557.1": "pdf_missing",
+    "PMC5250568.1": "pdf_missing",
+    "PMC5250579.1": "pdf_missing",
+    "PMC5250612.1": "pdf_missing",
+    "PMC5750046.1": "pdf_missing",
+    "PMC5750061.1": "pdf_missing",
+    "PMC5750072.1": "pdf_missing",
+    "PMC5750083.1": "pdf_missing",
+    "PMC5750094.1": "pdf_missing",
+    "PMC5750105.1": "pdf_missing",
+    "PMC5750116.1": "pdf_missing",
+    "PMC5750127.1": "pdf_missing",
+    "PMC5750138.1": "pdf_missing",
+    "PMC6750000.1": "pdf_missing",
+    "PMC6750011.1": "pdf_missing",
+    "PMC6750028.1": "pdf_missing",
+    "PMC6750060.1": "pdf_missing",
+    "PMC7250044.1": "pdf_missing",
+    "PMC7750030.1": "pdf_missing",
+    "PMC9250048.1": "pdf_missing"
+  },
+  "rejection_counts": {
+    "no_paragraphs": 45,
+    "no_vector_drawings": 0,
+    "pdf_missing": 29,
+    "pdf_unreadable": 0,
+    "xml_missing": 0,
+    "xml_unparsable": 0
+  },
+  "schema_version": 1,
+  "selection": {
+    "candidates": 184,
+    "filter": "JATS <p> > 0 and vector drawings on some PDF page",
+    "max_candidates_per_seed": 60,
+    "per_seed": 5,
+    "seeds": [
+      "PMC1750000",
+      "PMC2250000",
+      "PMC2750000",
+      "PMC3250000",
+      "PMC3750000",
+      "PMC4250000",
+      "PMC4750000",
+      "PMC5250000",
+      "PMC5750000",
+      "PMC6250000",
+      "PMC6750000",
+      "PMC7250000",
+      "PMC7750000",
+      "PMC8250000",
+      "PMC8750000",
+      "PMC9250000",
+      "PMC9750000",
+      "PMC10250000",
+      "PMC10750000",
+      "PMC11250000",
+      "PMC11750000",
+      "PMC12250000"
+    ],
+    "stride": 11,
+    "unavailable": [],
+    "xml_entity_fallbacks": 0
+  }
+}
