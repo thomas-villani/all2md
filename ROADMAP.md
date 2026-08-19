@@ -6,6 +6,54 @@
 Legend: 🌱 natural next step · 🚀 ambitious · 🌙 moonshot · ✅ foundation already exists
 · 🚢 **shipped**
 
+**Status (2026-08-19).** Batch 12 — **Figures & the born-digital queue** — is complete and
+ships as **v1.13.0**: the figure pipeline ([#338](https://github.com/thomas-villani/all2md/issues/338),
+[#340](https://github.com/thomas-villani/all2md/issues/340) — figures get an AST node, PDFs
+emit them by default, captions bind to them), the born-digital table admissions (word-gutter
+grids [#386](https://github.com/thomas-villani/all2md/issues/386), rotated tables
+[#389](https://github.com/thomas-villani/all2md/issues/389), two-column regions
+[#391](https://github.com/thomas-villani/all2md/issues/391), each behind a measured guard),
+the wrapped-heading fix ([#400](https://github.com/thomas-villani/all2md/issues/400)), and
+the round-trip defect cluster. The tables bottleneck **moved** in the process — from
+under-detection (92 emitted against 121 expected) to over-emission plus a text-survival
+trade (table-text recall 83.6% → 69.1% because committed tables route through cell
+extraction instead of flowing out as prose) — and the fidelity page states the trade rather
+than netting it.
+
+Two new instruments landed with the batch. A **held-out 110-article corpus**
+(`manifest-holdout.json`) that development never tunes against — its first validation run
+landed within a point of the development corpus on every text instrument, so the v1.13
+numbers are not overfit. And the head-to-head comparison this roadmap once declared
+**not planned** got built anyway (`benchmarks/comparison/`), on exactly the terms the
+refusal demanded: defaults for every tool, one normalization path, dated pinned readings,
+never in CI, and prepared to lose a column. It lost two — pymupdf4llm wins raw text
+survival (98.3% vs 93.5%) and Docling wins table-cell preservation (82.2% vs 69.9%) — and
+both are published, because all2md wins the column the refusal said a single number would
+hide: invented text, 0.84% against 5.5% (pymupdf4llm's defaults now auto-OCR born-digital
+pages) and 2.9% (Docling), at 3–9× their speed.
+
+The comparison paid the way every lane here pays, with a defect stream: **#405**
+(side-by-side regions interleave line-by-line — the largest recoverable text-loss class,
+~405 of 528 lost blocks) and **#406**, which the diagnosis then **refuted as filed**. The
+"66 captions absent from output" were in the output — 101 of 103 verified present in the
+raw markdown. The oracle folds a bound caption into `Figure.caption`, a string attribute
+`project_ast` never reads, so the better caption *binding* gets, the worse measured recall
+gets. The instrument that caught everyone else's flaws had one of its own, and the
+lost-block diff pointed at the parser when the parser was innocent. Correcting it is a
+measurement change (schema bump + re-record); holdout recall reads 94.6% with the
+blindness removed.
+
+Decisions taken this pass: **leg 1** is the oracle caption fix and its re-record, batching
+[#257](https://github.com/thomas-villani/all2md/issues/257)'s re-baseline exactly as its
+2026-08-13 demotion stipulated ("batch it with the next oracle change"), plus closing #347
+and re-measuring #296. **Leg 2** is #405 as the next batch spine — it is Theme 8 Stage 4
+work wearing a recall number. **Leg 3** is a Docling table study feeding cell-extraction
+text survival. The **outward push (item 13) is unblocked** by its own 2026-08-13
+criterion; its low-effort halves (upstream-sharing the OCR-gate calibration to
+pymupdf4llm, registry listings) interleave now, and the louder announcement waits until
+#405 lands — "measured, honest, and just fixed its biggest known gap" beats announcing the
+gap.
+
 **Status (2026-08-13).** A planning pass, not a release. Sequencing item 11 — restore the
 PMC corpus to 66 articles ([#332](https://github.com/thomas-villani/all2md/issues/332)) — is
 done and sits in `[Unreleased]`, with the published figures now *checked* against the
@@ -424,14 +472,20 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
     Wikipedia HTML dumps, and **arXiv source↔PDF pairs** (free round-trip *math* ground
     truth — pairs with the math-support work).
 
-  **Not planned: a head-to-head vs markitdown / pandoc / docling.** The regression-guard half
-  of what such a benchmark would offer is the ratchet above, which needs no competitor. The
-  comparison half doesn't survive the fact that these tools optimise for genuinely different
-  jobs — markitdown for a fast minimal LLM payload, pandoc for typesetting round-trips,
-  docling for layout ML. A single fidelity number across four tools with four goals measures
-  whose goal the corpus happened to match. Our score against an external ground truth stands
-  on its own. *If* a comparison ever gets built, it should be per-use-case, run each tool's
-  config as its maintainers would recommend it, and be prepared to lose a column.
+  **The head-to-head this entry refused got built anyway — on the refusal's own terms**
+  (🚢 `benchmarks/comparison/`, 2026-08-19). The original objection stands and shaped the
+  design: no single fidelity number across tools with different goals. What shipped is
+  deliberately narrow — article-level text survival and invented text, the two instruments
+  with published false-positive controls that third-party output can enter — scored on the
+  held-out corpus, every tool at its defaults, every tool's markdown re-parsed through one
+  normalization path, pinned versions, dated readings, never in CI. And it was prepared to
+  lose a column, which it did, twice: pymupdf4llm wins raw survival, Docling wins
+  table-cell preservation, all2md wins invented text by 3.5–6.5× and speed. The lane's real
+  product is the **lost-block diff** (`lost_blocks.py`) — the truth blocks a baseline keeps
+  that we lose — which generated #405 and #406 on its first run. The page instruments
+  (reading order, table structure, heading fidelity) remain ours alone; competitors'
+  output cannot enter them, and the docs say so rather than letting text survival stand in
+  for quality.
 - 🚢 **Born-digital ground truth** — *lane landed in `benchmarks/pmc` (v1.12.0).* The raster
   lane above grades OCR; nothing external covered text-layer extraction, vector table
   detection or layout-derived reading order, which is most real-world PDF conversion. This
@@ -854,8 +908,13 @@ more than planned:
     exactly like a measured one. The headline readings held to the published precision
     (95.3% attainable-text recall), which is what a representative corpus should do when one
     article of 66 swaps.
-12. **Next batch (decided 2026-08-13): Figures & the born-digital queue** (Theme 2 →
-    Theme 8). The spine is the **PDF figure pipeline**
+12. 🚢 **Figures & the born-digital queue** (Theme 2 → Theme 8) — *shipped as **v1.13.0**;
+    see the 2026-08-19 status block for the ledger.* Of the queue as planned below: the
+    figure pipeline shipped in full, tables moved from a detection deficit to an
+    over-emission + text-survival trade (the bottleneck the plan names is stale), the
+    #343 intermittent render crash never recurred, and run-in headings (#296) stayed
+    parked pending the post-#401 re-measure now owed. The original plan, kept as the
+    record: the spine is the **PDF figure pipeline**
     ([#340](https://github.com/thomas-villani/all2md/issues/340),
     [#338](https://github.com/thomas-villani/all2md/issues/338)) — see the new Theme 2
     entry. It is user-visible in a way benchmark plumbing is not ("your PDF's figures now
@@ -874,7 +933,16 @@ more than planned:
     ([#296](https://github.com/thomas-villani/all2md/issues/296)) stay **parked with a
     measurement**: every gate tried invents more headings than it recovers, and the
     body-length rule that looked clean on 12 articles collapsed on 66.
-13. **The outward-facing push** (Theme 5; decided 2026-08-13: starts when batch 12 ships).
+13. **The outward-facing push** (Theme 5) — **unblocked 2026-08-19** by its own criterion:
+    batch 12 shipped. Split decision rather than a start: the low-effort halves interleave
+    now — upstream-sharing the OCR-gate calibration to pymupdf/pymupdf4llm (their defaults
+    now auto-OCR born-digital pages, the exact misfire class the PMC lane measured and
+    gated; goodwill *and* the strongest possible credibility artifact for the comparison),
+    MCP-registry listings, the Marketplace call
+    ([#186](https://github.com/thomas-villani/all2md/issues/186)) — while the louder
+    announcement waits for item 15 (#405), the largest known text-loss class, to land
+    first. The original decision, kept as the record: (decided 2026-08-13: starts when
+    batch 12 ships).
     The public-channels work was deferred until the born-digital benchmark landed — it
     landed, and `docs/source/benchmarks.rst` with a control beside every figure is exactly
     the artifact that makes a listing credible rather than promotional. Scope: MCP-registry
@@ -884,25 +952,51 @@ more than planned:
     figure batch on purpose: fix "figures don't appear" before inviting eyes. The push is
     mostly writing rather than engineering, so it can interleave with early Theme 8 work
     instead of occupying a batch alone.
-14. **Theme 8: positional fidelity** (OCR geometry → provenance → layout). Stage 1 is
+14. **Leg 1 (in progress): make the oracle read what the AST carries** (Theme 2, small).
+    `project_ast` yields caption text from the `caption` attributes on Figure/Table/Image
+    instead of being blind to them — the #406 fix. It is a measurement change, so it takes
+    the full re-record workflow: `SCHEMA_VERSION` bump, CI re-record of
+    `benchmarks/pmc/reference.json`, fidelity-page update, and — batched in, as its
+    demotion stipulated — [#257](https://github.com/thomas-villani/all2md/issues/257)'s
+    OmniDocBench re-baseline, since both lanes share the oracle. Riders: close #347 (only
+    the inexpressible dokuwiki entry remains) and re-measure #296 post-#401. The correction
+    is flattering (holdout attainable recall 93.5% → 94.6%; tables and titles unchanged, so
+    the published trade narrative survives), which is exactly why it must land through the
+    verbatim-gated re-record rather than quietly.
+15. **Leg 2: #405 — side-by-side regions interleave line-by-line** (Theme 2 → Theme 8
+    Stage 4). The largest recoverable text-loss class: two-column reference lists whose
+    tight gutter the column split never fires on, and boxed sidebars beside body columns
+    that are not page-level columns at all; y-order then shreds both, destroying adjacency
+    while every word survives — which is also what feeds the 6.1% resequenced share. High
+    regression risk of the table-guard kind, so the same discipline: tune against the
+    development corpus with the lost-block diff as the instrument, A/B every guard, validate
+    on the holdout without tuning against it. This is geometry work — the batch advances
+    Theme 8 Stage 4 under a recall number.
+16. **Leg 3: the Docling table study** (Theme 2). Docling preserves 82.2% of attainable
+    table text against our 69.9% — its cell extraction keeps words ours drops. Diff
+    table-by-table what survives there and dies here, and spend the findings on
+    cell-extraction text survival; revisit #389's residue (the table classes with no shared
+    mechanism) with whatever the study teaches. This moves the one number the fidelity page
+    currently calls an accepted trade.
+17. **Theme 8: positional fidelity** (OCR geometry → provenance → layout). Stage 1 is
     substantially done; the open pieces are span granularity, carrying OCR confidence through,
     and the EasyOCR adapter that still flattens. Then Stage 2 (decouple the contract from
     PyMuPDF, *then* socket it) and Stage 3 (node-level provenance), which is the RAG-trust
     differentiator and the largest remaining bet on this roadmap. Both lanes can now measure
     it: the raster one exercises the OCR path directly, and the born-digital one is the
     control that says whether a geometry change broke the text-layer path.
-15. **Script coverage in the benchmarks** (Theme 2, cheap, blind spot). Every corpus here is
+18. **Script coverage in the benchmarks** (Theme 2, cheap, blind spot). Every corpus here is
     English, so a change that deleted all CJK, Cyrillic and Arabic content would score
     perfectly on all three lanes. Until a non-Latin corpus exists, a character-level change
     is unmeasured no matter how green the run — write cross-script tests rather than reading
     the benchmarks as coverage. M6Doc (scanned + CJK) is the obvious candidate corpus.
-16. **Structured extraction** (Theme 1, promoted 2026-08-13). `all2md extract doc.pdf
+19. **Structured extraction** (Theme 1, promoted 2026-08-13). `all2md extract doc.pdf
     --schema invoice.json` → typed, schema-validated JSON — document → *data*, not prose.
     The biggest unstarted user-visible item on the board. Sequenced *behind* Theme 8 Stage 3
     rather than before it, deliberately: extraction wants the same provenance the loader
     adapters want, and a typed field that can cite the page and bbox it came from is the
     version nobody else ships.
-17. **Math support** (Theme 2) — deepens the fidelity moat; pairs with the arXiv source↔PDF
+20. **Math support** (Theme 2) — deepens the fidelity moat; pairs with the arXiv source↔PDF
     ground-truth corpus. Note that neither external lane can grade it: OmniDocBench's 260
     formula pages are rasters, so recovering them is OCR-side maths recognition rather than
     parsing, and the PMC lane's JATS records maths as MathML the page does not print in that
@@ -915,7 +1009,7 @@ unscheduled; a natural opportunistic slot whenever DOCX fidelity is the batch's 
 [#257](https://github.com/thomas-villani/all2md/issues/257) (stratify the raster lane's
 score — demoted from the numbered list 2026-08-13; two of its three parts already resolved,
 and what remains costs an ~80-minute re-baseline, so batch it with the next oracle change
-rather than running it alone);
+rather than running it alone — *scheduled: item 14 is that oracle change*);
 [#328](https://github.com/thomas-villani/all2md/issues/328) (triage the 16 Semgrep findings
 outside `src/` — `defusedxml` in the two corpus fetchers is worth doing on its own merits;
 the rest is a suppress-or-scope decision);
