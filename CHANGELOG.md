@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-08-19
+
 ### Added
 
 - **Figures carry a caption: `Image.caption`.** `Image` had `url`, `alt_text`, `title`,
@@ -33,6 +35,98 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the remaining step, and will be graded against the figure-binding oracle rather than
   assumed.
   ([#338](https://github.com/thomas-villani/all2md/issues/338))
+- **The AST has a home for figures: a `Figure` block container with children
+  and a caption.** A figure is not always one image — multi-panel journal
+  figures embed one raster per panel, LaTeXML wraps every arXiv table in
+  `<figure>`, and a vector-drawn PDF figure has a caption and no raster at all,
+  which `Image.caption` alone could not represent
+  ([#338](https://github.com/thomas-villani/all2md/issues/338)). `Figure` holds
+  block children (possibly none) plus an optional `caption: str`, mirroring
+  `Table.caption`. All 16 renderers emit it — natively where the format has a
+  spelling (HTML `<figure>`/`<figcaption>`, reST's `figure` directive, LaTeX's
+  `figure` float, AsciiDoc block titles, org `#+CAPTION:`), children plus an
+  italic caption line elsewhere — and Markdown round-trips it through an
+  extent-based variant of the #237 marker device (`<!-- all2md:figure -->` …
+  `<!-- all2md:figure-caption -->`/`<!-- all2md:figure-end -->`). The HTML
+  parser gains an opt-in `figures_parsing="figure"` mode that reads
+  `<figure>` back as the container (made the default in a separate change,
+  noted below); the PDF parser does not emit `Figure` yet — that follow-up is
+  its own deliberate change. `NodeVisitor.visit_figure` is
+  concrete rather than abstract (the `visit_mark` precedent), so third-party
+  visitors degrade to the figure's children instead of crashing; the
+  `figure:`/`image:` extraction selector now returns a multi-panel figure as
+  one figure rather than N images.
+- **The PDF parser emits `Figure` containers.** A captioned raster is now
+  wrapped in a `Figure` with the caption on the container (it used to ride on
+  `Image.caption`, both unreleased), panels grouped by a layout `picture`
+  region or an identical detected caption fold into one multi-panel figure,
+  and a `picture` region holding no raster at all — a vector-drawn chart —
+  becomes a caption-only `Figure`, because the caption is the only record the
+  figure exists ([#338](https://github.com/thomas-villani/all2md/issues/338),
+  [#340](https://github.com/thomas-villani/all2md/issues/340)). The `picture`
+  region also rescues captions the per-image search cannot reach: a stacked
+  panel's below-band finds the next panel, not the caption, while the region's
+  extent ends where the caption starts. Caption body-copy suppression now
+  follows emission: when OCR replaces a page or `image_placement_markers` is
+  off, no figures are emitted and caption paragraphs are no longer dropped
+  from the text. Measured on the 12-article PMC born-digital sample,
+  `figure_binding` rose 0.47 → 0.56 (19 of 34 captions bound, both controls
+  held at zero); the newly bound captions leave the prose stream, the same
+  trade every bound caption already makes. The PMC oracle now counts a
+  `Figure` container once — not once per panel — matching JATS `<fig>`
+  granularity.
+- **The PDF parser recovers borderless tables from word-box gutters.** Layout-predicted
+  table regions that PyMuPDF's strategies could not grid — 56 of the 63 tables missing
+  from the born-digital corpus, every one shredded by the text strategy and then
+  correctly refused by the split-word guard — now get a third pass that builds the grid
+  from the page's own word boxes: columns from vertical bands no word crosses, whole
+  words assigned to the column holding their center, wrapped cell lines folded into
+  their logical row with hyphenation repair across the join
+  ([#386](https://github.com/thomas-villani/all2md/issues/386)). Cut and space-joined
+  words are impossible by construction. Three measured guards keep prose out: a grid
+  needs three-plus columns (one gutter is what any two-column layout has), a
+  sequential-integer column beside sentence-length cells reads as a numbered
+  bibliography and demotes to prose (gridding one scrambles every citation), and a
+  region of predominantly rotated words is declined in favor of the rotation-aware
+  prose path. Measured on the 12-article PMC sample: tables emitted rose 12 → 30 of 32
+  expected, `table_content_similarity` median 0.000 → 0.88, `table_structure_similarity`
+  median 0.000 → 0.73, with whole-article attainable recall at 0.941 (baseline 0.951 —
+  a table's cell stream breaks a few truth blocks' n-grams that its prose form kept)
+  and both wrong-article controls at zero.
+- **The PDF parser recovers rotated (landscape) tables in their own frame.** The
+  word-gutter pass declined any region whose words were predominantly taller than
+  wide, because gridding a rotated table in page coordinates scrambles its reading
+  order — measured, a 28x4 truth table came back 8x12 with its containment destroyed.
+  Declining was the right call and the wrong ending: on the PMC born-digital corpus,
+  3 of the 13 still-missing tables were genuine landscape tables behind exactly this
+  guard ([#389](https://github.com/thomas-villani/all2md/issues/389)). Such regions
+  now go through the same gutter sweep with their boxes transposed into the table's
+  own frame. Transposing is a reflection, so one axis always runs backwards for one
+  of the two rotation directions — undecidable from the boxes alone, so both axes are
+  checked against PyMuPDF's own stream order, which holds the words as they read, and
+  mirrored where they disagree; getting that wrong would not mis-shape the grid but
+  reverse its rows or columns, putting every cell in the wrong place. Dispatch demands
+  stronger evidence than the old decline did: a word counts as rotated only when its
+  box is taller than wide by a measured margin (real rotated table words sit at median
+  aspect 2.5–2.7, a mixed-orientation region that must not be transposed at 1.05),
+  because transposing upright text manufactures perfect fake "gutters" out of its line
+  spacing. Ambiguous regions are still declined to the prose path, exactly as before —
+  including the fourth rotated table in the deficit, whose orientation evidence is
+  genuinely mixed.
+- **The word-gutter table pass admits two-column grids.** A single gutter is what any
+  two-column layout has, so the pass shipped refusing it outright -- and that refusal
+  cost the 4 real two-column tables still missing on the PMC born-digital corpus
+  (`Questions | Answers`, `Male patients | 226 (69.8%)`) to save junk the downstream
+  guards were already catching ([#389](https://github.com/thomas-villani/all2md/issues/389)).
+  Measured, the corpus's whole two-column population is 12 regions: the 4 real tables,
+  7 numbered reference lists, and 1 chart whose axis ticks and legend grid perfectly.
+  Six reference lists were already condemned by the bibliography guard; the seventh
+  numbered its entries `2)`, a spelling the guard's integer pattern now counts. The
+  chart is caught by a new drawing-density gate that runs only at the two-column tier:
+  a chart's labels float over its plot's vector paths (541 in the measured region)
+  while a borderless table has at most its own rules (0-4 in all four real ones).
+  Wider grids carry two aligned boundaries, which chart labels do not produce, so no
+  established path changes.
 
 ### Changed
 
@@ -49,6 +143,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   search found no reference to it outside its own definition — not imported, not exported,
   not called from any parser, test, or script. ~85 unmaintained lines, including a
   stream-position trap for file-like input. No behaviour changes: nothing called it.
+- **HTML `figures_parsing` now defaults to `"figure"`.** A `<figure>` element
+  parses to the `Figure` AST container introduced alongside
+  [#338](https://github.com/thomas-villani/all2md/issues/338) — children plus a
+  `caption` — instead of degrading to a `BlockQuote` with the caption folded
+  into its prose. Callers that read the caption as paragraph text should read
+  `Figure.caption`; the previous behaviour remains one option away
+  (`figures_parsing="blockquote"`). With the default flipped, the generative
+  figure round-trip gate now covers HTML alongside `ast` and `markdown`.
+- **Default options no longer drop every PDF figure silently.** The default
+  `attachment_mode="alt_text"` returned before extracting anything, so a journal
+  PDF's figures left no trace — a 23-page arXiv paper with 251 embedded rasters
+  produced zero `Image` nodes ([#340](https://github.com/thomas-villani/all2md/issues/340)).
+  The mode now runs a decode-free geometry pass and emits the figures that carry
+  a detected caption, as URL-less `Image` nodes whose caption renders through
+  the caption marker device. Uncaptioned images stay suppressed under that mode:
+  with no bytes and no caption, an `![alt]()` placeholder is noise, which was
+  the sound half of the old rationale
+  ([#338](https://github.com/thomas-villani/all2md/issues/338)). No pixmap is
+  decoded on this path, so the default mode keeps its performance edge over
+  `save`/`base64`. Vector-drawn figures still yield nothing — they emit no
+  raster placement to hang a caption on, and reaching them is #338's
+  caption-bearing container, deliberately not attempted here.
+- **Changelog entries are now written as `changelog.d/` fragments, not as edits to
+  `CHANGELOG.md`.** Every branch appended its entry to the same place in the same
+  file — under `## [Unreleased]`, at the end of the same `###` section — so any sweep
+  landing more than one PR hit a conflict in `CHANGELOG.md` on every merge after the
+  first, and resolving it by hand next to two thousand lines of prose is exactly the
+  situation in which an entry gets dropped. A PR now adds
+  `changelog.d/<slug>.<category>.md` holding the bullets it wants published; two
+  branches never write the same lines because they never write the same file.
+  `scripts/compile_changelog.py --version X.Y.Z` folds the fragments into a new
+  released section at release time, updates the link references at the bottom of the
+  changelog, and deletes what it consumed; `--check` validates fragments without
+  writing. Entries already sitting under `## [Unreleased]` were deliberately left
+  there rather than migrated: the compiler merges hand-written content and fragments
+  into the same sections by design, so the two styles coexist and nothing had to be
+  rewritten to adopt this. towncrier and scriv were both rejected — they rewrite the
+  whole changelog with their own newline and formatting conventions, which would turn
+  a two-line release edit into a whole-file diff and flatten the long-form entries
+  this project writes. Nothing enforces the fragment yet; adding a CI check that a PR
+  touching `src/` carries one is a separate decision.
+- Re-recorded `benchmarks/pmc/reference.json` on post-merge `main` and brought every
+  figure on the fidelity page up to date with it. The tables story inverted: 164 tables
+  emitted against 121 expected (was 92), with the surplus mostly continuation tables the
+  expected count does not yet credit, and table-block text recall fell to 69.1% (was
+  83.6%) because table text now routes through structured cell extraction instead of
+  flowing out as prose — a trade the page now states instead of netting away. The page
+  also documents the new 110-article held-out corpus and its first validation result.
 
 ### Fixed
 
@@ -480,6 +622,136 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is illegal in a Windows filename, so the write raised `OSError` and the resource was
   dropped. The filename is now taken from the URL's path only (query string and fragment
   stripped) and run through the existing attachment-filename sanitizer.
+- **A detected PDF figure caption now reaches `Image.caption` instead of being
+  discarded.** The caption was routed through `fallback_alt_text`, a dead path:
+  extraction writes a non-empty placeholder alt text (`Image from page N`), so
+  the fallback never fired and `include_image_captions=True` could not affect
+  output in any attachment mode. The caption now rides on the node's `caption`
+  field — visible page content set beside the figure, not a substitute for it —
+  and the Markdown renderer already round-trips it as an italic line plus a
+  marker comment. The default `alt_text` mode still extracts nothing; that is
+  the remaining half of the defect and is tracked separately.
+  ([#340](https://github.com/thomas-villani/all2md/issues/340))
+- **DokuWiki footnote definitions no longer fuse their paragraphs into one token.**
+  A multi-paragraph definition was rendered through the inline path with nothing
+  between the blocks, so `first para` and `second para` came out `first parasecond
+  para` -- a destroyed word boundary, the same corruption class fixed for reST and
+  Org definition lists ([#347](https://github.com/thomas-villani/all2md/issues/347)).
+  Blocks now render separately and join with a space. The paragraph boundary itself
+  is still lost -- DokuWiki's inline footnotes have nowhere to carry it -- and the
+  round-trip fuzzing gate continues to document that; the words survive.
+- **Org footnote definitions keep their paragraphs across a round trip.**
+  Org continues a footnote definition across a single blank line and ends it at
+  two, but neither side spoke that dialect
+  ([#347](https://github.com/thomas-villani/all2md/issues/347)): the renderer
+  joined a definition's paragraphs with a bare newline (one continuation line on
+  re-parse) and followed a definition with a single blank line (which would
+  swallow the next block), while the parser's block splitter discarded the blank
+  counts entirely. The renderer now separates a definition's paragraphs with one
+  blank line and follows a definition with two; the splitter counts the blank
+  lines between blocks, and single-gap paragraph blocks after a `[fn:id]` join
+  its definition. Also ported the boundary-break hoisting cure
+  ([#391](https://github.com/thomas-villani/all2md/issues/391)) to the Org
+  span delimiters (`/`, `*`, `+`, `_`): a hard break at a span's edge stranded
+  the delimiter at a line start, where `* ` opens a headline and `+ ` a list
+  item.
+- **reST footnotes survive a round trip with their identifiers and paragraphs.**
+  Three defects stacked ([#347](https://github.com/thomas-villani/all2md/issues/347)):
+  the renderer spelled every footnote `[a1]_` / `.. [a1]`, which for an
+  alphanumeric label is reST *citation* syntax, so the footnote stopped being
+  one -- non-numeric identifiers now use the named auto-numbered form
+  (`[#a1]_` / `.. [#a1]`), with escaped whitespace (`word\ [#a1]_`) where a
+  marker rides a word, since docutils only starts inline markup after a
+  boundary. A multi-paragraph definition rendered as continuation lines and
+  read back as one paragraph -- its blocks now separate with blank lines at
+  the marker's body column, and hard breaks inside a body fall back to raw
+  newlines so `| ` line-block syntax cannot displace it. And the parser
+  preferred docutils' normalized anchors (`ids`, e.g. `footnote-1`) over the
+  label as written (`names`), mangling identifiers even for plain numbered
+  footnotes; it now takes the name on both definitions and resolved
+  references, and resolves docutils' internal `\x00` escape markers instead
+  of copying them into text.
+- **reST and Org definition descriptions no longer fuse or lose words.** Both
+  renderers concatenated a description's paragraphs with nothing at all between them,
+  so `alpha` and `beta` came back as the single token `alphabeta` -- a destroyed word
+  boundary, not a lost break ([#352](https://github.com/thomas-villani/all2md/issues/352)).
+  The reST renderer now separates blocks with a blank line at the same indent, which
+  round-trips the paragraph count exactly; the Org renderer joins blocks as indented
+  continuation lines, so the boundary degrades to a line rather than a fused word.
+  Worse than the reported fusion, the Org *parser* silently deleted every definition
+  line that did not start a new `- term ::` item -- a wrapped definition lost all but
+  its first line; continuation lines now join the open definition. A term's several
+  descriptions still flatten into the one definition each syntax can hold (docutils:
+  one definition per term; Org: one `::` per item) -- words intact, count inherently
+  lost -- and the fuzzing-gate entries now say exactly that.
+- **PDF: a subsection heading printed directly under its section heading is no
+  longer fused into it.** The wrap-merge that reassembles a long title set on
+  two printed lines had no width test, so `Methods` over `Study design` became
+  one heading — and both section titles went missing, the largest single class
+  (~30%) of the heading residual on the PMC born-digital corpus
+  ([#400](https://github.com/thomas-villani/all2md/issues/400)). A line only
+  wraps because it filled its measure, so the merge now requires the first line
+  to fill at least `HEADING_WRAP_MIN_FILL` (0.8) of the two lines' shared
+  width — a threshold read off 307 labeled merges: true wraps fill 0.852–1.0,
+  the separable fused band 0.22–0.84. Pairs whose first line is the wider one
+  (`Methods and Design` over `Study design`) remain geometrically inseparable
+  and still merge; that residual is documented on the issue.
+- **The AsciiDoc renderer/parser pair stops rejecting, corrupting, or leaking its own
+  output.** Four defects, one format. A bold or italic span wrapping only a hard break
+  stranded its delimiters at a line start, where `* ` is a level-1 list marker and
+  `** ` a level-2 one -- the first silently turned emphasis into a list item, the
+  second crashed the parser outright, the round-trip matrix's only open crash
+  ([#353](https://github.com/thomas-villani/all2md/issues/353)); boundary breaks now
+  hoist outside the delimiters, the same cure as markdown's #391. A definition-list
+  description on the line directly below its `term::` -- the standard placement, and
+  what this renderer itself emits -- parsed to nothing: the term came back empty, the
+  text as a sibling paragraph, and the list split at every term
+  ([#351](https://github.com/thomas-villani/all2md/issues/351)); unindented lines
+  adjacent to the term now bind to it as one wrapped paragraph. The renderer also
+  fused a description's paragraphs into one token (`only`+`extra` -> `onlyextra`,
+  #352's class); blocks now join as continuation lines. And the parser did not
+  recognise the named inline footnote form `footnote:a1[text]` -- valid Asciidoctor
+  and the renderer's own spelling -- so the raw markup leaked into the prose as
+  literal text ([#346](https://github.com/thomas-villani/all2md/issues/346)); it now
+  parses, a hard break inside the macro's brackets degrades to a space instead of an
+  unparseable embedded newline, and an id referenced but never defined gets an empty
+  definition rather than an unbalanced round trip.
+- **The Markdown renderer no longer emits markdown its own parser misreads.** Three
+  defects shared that shape. A spanned table was written one pipe cell per AST cell
+  while the delimiter row was sized to the logical width, so a `colspan` header made
+  the cell counts mismatch and GFM read the whole table as prose; cells are now placed
+  on the resolved grid, spans padded with empty cells -- the merge is lost (pipe tables
+  cannot express one), the table is not, and rows after a `rowspan` stay in their own
+  columns instead of sliding left ([#385](https://github.com/thomas-villani/all2md/issues/385)).
+  A hard line break was always spelled as two trailing spaces, so a break on a line
+  with no visible text (one break following another) left a whitespace-only line, which
+  is a paragraph boundary in every conformant parser -- consecutive breaks silently split
+  their paragraph in half; such breaks now use the backslash spelling, which puts a
+  visible character on the line ([#384](https://github.com/thomas-villani/all2md/issues/384)).
+  And an emphasis, strong, or strikethrough span wrapping nothing visible -- or ending in
+  a line break -- stranded its delimiter run alone at a line start, where `***` is a
+  thematic break and `~~~~` opens a tilde code fence that swallows the rest of the
+  document; nested strikethrough now renders its inner content bare (GFM strikethrough
+  does not nest), spans over nothing visible emit no delimiters, and boundary breaks are
+  hoisted outside the delimiters ([#391](https://github.com/thomas-villani/all2md/issues/391)).
+  The round-trip fuzzer's figure-gate strategies were constrained to avoid the first two
+  defects and its footnote allowlist carried the third under a wrong attribution; the
+  constraints and the stale allowlist entry are removed, so the gates now guard all
+  three classes.
+- **The PMC born-digital lane runs again.** Moving the corpus fetchers' XML parsing to
+  `defusedxml` left the scheduled `PMC Born-Digital Fidelity` workflow crashing at import:
+  it syncs a deliberately lean environment (`--extra pdf_layout --extra ocr`), and
+  `defusedxml` lived only in format extras the lane does not install, so the 2026-08-15
+  scheduled run died in 29 seconds before scoring a page. A run that cannot execute also
+  cannot count toward the lane's exit criterion (two consecutive clean scheduled runs
+  before a fidelity baseline is recorded), so this was holding the gate open. What the
+  benchmark lanes import beyond the library now has its own named home — a `benchmarks`
+  extra — instead of borrowing from a format extra that happened to carry it.
+- **reST line blocks are no longer silently dropped.** A `| ` line block fell
+  through the parser's unknown-node branch, so every line of it vanished from
+  the output -- text loss, not formatting loss. A line block now parses as a
+  paragraph whose lines join with hard breaks; nested (indented) lines flatten
+  into the same paragraph, since the AST does not model their indentation.
 
 ### Changed
 
@@ -3007,7 +3279,8 @@ surfaced one real conversion bug, which is the reason to take the release.
 - NumPy-style docstrings
 - Modular architecture with clear separation of concerns
 
-[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.12.0...HEAD
+[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.13.0...HEAD
+[1.13.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.13.0
 [1.12.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.12.0
 [1.11.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.11.0
 [1.10.1]: https://github.com/thomas-villani/all2md/releases/tag/v1.10.1
