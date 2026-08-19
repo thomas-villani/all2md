@@ -118,6 +118,36 @@ corroboration were each tried as guards and each failed to separate real tables
 from gridded prose; whole-word integrity, measured against the page's own word
 segmentation, separates them cleanly.
 
+**Borderless tables are recovered from the geometry of their own words.** When
+neither ruling lines nor the grid fallback commit, a table-predicted region is
+swept for *word gutters* — vertical channels no word crosses, persistent down
+the region. Columns that never touch are what makes a table a table, so the
+gutters recover exactly the booktabs-style grid the line strategies cannot see.
+The same sweep runs a second time in the rotated frame, which is how a sideways
+table on a landscape page comes back as a table rather than a column of
+fragments. Two-column regions — the narrowest grid the sweep can claim — are
+admitted under measured guards: a numbered-bibliography test (the one
+two-column grid every reference list resembles) and a drawing-density gate
+(chart regions carry hundreds of vector paths where real tables carry a
+handful).
+
+Together these took the corpus from **4 tables emitted against 121 expected**
+to **173 against 121** — the surplus is real tables the ground truth does not
+place, not junk — with the residual deficit at 6, each miss with its own
+recorded cause.
+
+Figures
+-------
+
+A figure on a PDF page is an image (or a cluster of images, or bare vector
+drawings) with a caption set near it. The parser binds the two into a
+``Figure`` container — the image plus its caption as one block — rather than
+emitting an image here and an orphaned paragraph there. Grouped panels bind to
+one shared caption, and a vector-drawn figure with no raster image at all still
+gets its caption attached. This holds under the default attachment mode
+(``alt_text``): the caption survives as the figure's structure even when the
+image bytes themselves are not extracted.
+
 Reading order and columns
 -------------------------
 
@@ -143,9 +173,12 @@ otherwise look arbitrary:
 
 **A heading that wraps onto a second printed line is one heading.** A PDF has no
 notion of a wrapped heading — it has two lines of type. A second line continues
-the first when they share a level, nothing was emitted between them, and the gap
-is within a ratio of the line height. A line opening with its own numbering
-starts a new heading however tightly it is set.
+the first when they share a level, nothing was emitted between them, the gap is
+within a ratio of the line height, and the first line *filled the measure the
+two lines share* — a line only wraps because it ran out of room, which is what
+separates a wrap from a subsection heading printed directly under its section
+heading. A line opening with its own numbering starts a new heading however
+tightly it is set.
 
 **A heading must contain a letter or digit.** Large math delimiters are set in a
 symbol font well above body size, so they cleared every size and length gate. One

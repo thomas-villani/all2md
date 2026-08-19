@@ -1245,12 +1245,12 @@ via file:// URLs and similar mechanisms.
 
 **figures_parsing**
 
-   How to parse <figure> elements: blockquote, paragraph, image_with_caption, caption_only, html, skip
+   How to parse <figure> elements: figure (Figure AST node), blockquote, paragraph, image_with_caption, caption_only, html, skip
 
-   :Type: ``Literal['blockquote', 'paragraph', 'image_with_caption', 'caption_only', 'html', 'skip']``
+   :Type: ``Literal['figure', 'blockquote', 'paragraph', 'image_with_caption', 'caption_only', 'html', 'skip']``
    :CLI flag: ``--chm-html-options-figures-parsing``
-   :Default: ``'blockquote'``
-   :Choices: ``blockquote``, ``paragraph``, ``image_with_caption``, ``caption_only``, ``html``, ``skip``
+   :Default: ``'figure'``
+   :Choices: ``figure``, ``blockquote``, ``paragraph``, ``image_with_caption``, ``caption_only``, ``html``, ``skip``
    :Importance: advanced
 
 **details_parsing**
@@ -3107,12 +3107,12 @@ via file:// URLs and similar mechanisms.
 
 **figures_parsing**
 
-   How to parse <figure> elements: blockquote, paragraph, image_with_caption, caption_only, html, skip
+   How to parse <figure> elements: figure (Figure AST node), blockquote, paragraph, image_with_caption, caption_only, html, skip
 
-   :Type: ``Literal['blockquote', 'paragraph', 'image_with_caption', 'caption_only', 'html', 'skip']``
+   :Type: ``Literal['figure', 'blockquote', 'paragraph', 'image_with_caption', 'caption_only', 'html', 'skip']``
    :CLI flag: ``--epub-html-options-figures-parsing``
-   :Default: ``'blockquote'``
-   :Choices: ``blockquote``, ``paragraph``, ``image_with_caption``, ``caption_only``, ``html``, ``skip``
+   :Default: ``'figure'``
+   :Choices: ``figure``, ``blockquote``, ``paragraph``, ``image_with_caption``, ``caption_only``, ``html``, ``skip``
    :Importance: advanced
 
 **details_parsing**
@@ -3766,12 +3766,12 @@ via file:// URLs and similar mechanisms.
 
 **figures_parsing**
 
-   How to parse <figure> elements: blockquote, paragraph, image_with_caption, caption_only, html, skip
+   How to parse <figure> elements: figure (Figure AST node), blockquote, paragraph, image_with_caption, caption_only, html, skip
 
-   :Type: ``Literal['blockquote', 'paragraph', 'image_with_caption', 'caption_only', 'html', 'skip']``
+   :Type: ``Literal['figure', 'blockquote', 'paragraph', 'image_with_caption', 'caption_only', 'html', 'skip']``
    :CLI flag: ``--html-figures-parsing``
-   :Default: ``'blockquote'``
-   :Choices: ``blockquote``, ``paragraph``, ``image_with_caption``, ``caption_only``, ``html``, ``skip``
+   :Default: ``'figure'``
+   :Choices: ``figure``, ``blockquote``, ``paragraph``, ``image_with_caption``, ``caption_only``, ``html``, ``skip``
    :Importance: advanced
 
 **details_parsing**
@@ -6341,12 +6341,12 @@ via file:// URLs and similar mechanisms.
 
 **figures_parsing**
 
-   How to parse <figure> elements: blockquote, paragraph, image_with_caption, caption_only, html, skip
+   How to parse <figure> elements: figure (Figure AST node), blockquote, paragraph, image_with_caption, caption_only, html, skip
 
-   :Type: ``Literal['blockquote', 'paragraph', 'image_with_caption', 'caption_only', 'html', 'skip']``
+   :Type: ``Literal['figure', 'blockquote', 'paragraph', 'image_with_caption', 'caption_only', 'html', 'skip']``
    :CLI flag: ``--mhtml-figures-parsing``
-   :Default: ``'blockquote'``
-   :Choices: ``blockquote``, ``paragraph``, ``image_with_caption``, ``caption_only``, ``html``, ``skip``
+   :Default: ``'figure'``
+   :Choices: ``figure``, ``blockquote``, ``paragraph``, ``image_with_caption``, ``caption_only``, ``html``, ``skip``
    :Importance: advanced
 
 **details_parsing**
@@ -8074,7 +8074,7 @@ including page selection, image handling, and formatting preferences.
 
 **header_min_occurrences**
 
-   Minimum occurrences of a font size to consider for headers
+   Minimum number of lines at a font size to consider it for headers
 
    :Type: ``int``
    :CLI flag: ``--pdf-header-min-occurrences``
@@ -8274,7 +8274,7 @@ including page selection, image handling, and formatting preferences.
 
 **include_image_captions**
 
-   Try to extract image captions
+   Try to extract image captions (under alt_text mode, only captioned figures are emitted)
 
    :Type: ``bool``
    :CLI flag: ``--pdf-no-include-image-captions``
@@ -10406,12 +10406,12 @@ via file:// URLs and similar mechanisms.
 
 **figures_parsing**
 
-   How to parse <figure> elements: blockquote, paragraph, image_with_caption, caption_only, html, skip
+   How to parse <figure> elements: figure (Figure AST node), blockquote, paragraph, image_with_caption, caption_only, html, skip
 
-   :Type: ``Literal['blockquote', 'paragraph', 'image_with_caption', 'caption_only', 'html', 'skip']``
+   :Type: ``Literal['figure', 'blockquote', 'paragraph', 'image_with_caption', 'caption_only', 'html', 'skip']``
    :CLI flag: ``--webarchive-figures-parsing``
-   :Default: ``'blockquote'``
-   :Choices: ``blockquote``, ``paragraph``, ``image_with_caption``, ``caption_only``, ``html``, ``skip``
+   :Default: ``'figure'``
+   :Choices: ``figure``, ``blockquote``, ``paragraph``, ``image_with_caption``, ``caption_only``, ``html``, ``skip``
    :Importance: advanced
 
 **details_parsing**

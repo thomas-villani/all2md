@@ -469,13 +469,23 @@ It also refuses to pass quietly: no matching files, no threshold set, or a docum
 
 Built on an **AST-based pipeline** (parse → transform → render), all2md offers capabilities that direct format-to-format converters can't:
 
-- **Advanced PDF parsing** — intelligent table detection, multi-column layout analysis, optional GNN-based semantic layout classification (`pdf_layout` extra), header/footer removal, and OCR for scanned documents (Tesseract or binary-free EasyOCR), powered by PyMuPDF.
+- **Advanced PDF parsing** — table recovery that goes beyond ruling lines (booktabs-style and fully borderless tables via word-gutter analysis, rotated tables read in their own frame), figure/caption binding, multi-column layout analysis, heading reconstruction (wrapped titles rejoined, adjacent headings kept apart), optional ML layout classification (`pdf_layout` extra), header/footer removal, and OCR for scanned pages (Tesseract or binary-free EasyOCR) — powered by PyMuPDF, measured against external ground truth (see below).
 - **Conversion quality tooling** — `all2md report` gives a reference-free confidence "quality card" for any document (usable as a CI gate); `all2md roundtrip` scores how much structure survives a `convert → parse-back` round trip; `all2md optimize` auto-tunes converter settings for a difficult document.
 - **Document diff** — a `diff` command that works like Unix `diff` but across any document formats, with text-based symmetric comparison.
 - **Custom output via templates** — render the AST to any text format (DocBook XML, YAML, ANSI, custom markup) using Jinja2 templates, no Python required.
 - **Static site generation** — turn document collections into ready-to-deploy Hugo, Jekyll, MkDocs, Zola, or Eleventy sites.
 - **Extensible plugin system** — add custom converters (`all2md.converters` entry point) and transforms (`all2md.transforms` entry point). See [examples/plugins/](examples/plugins/).
 - **Security-conscious** — SSRF protection when fetching remote resources, archive validation (ZIP bombs, path traversal), and sandboxed HTML rendering.
+
+## How good is the conversion, measured?
+
+all2md's conversion quality is measured, not asserted — against three independent ground truths, each published beside a control that shows what the measurement looks like when it *should* fail:
+
+- **Born-digital PDFs** (`benchmarks/pmc/`): 66 publisher PDFs from PubMed Central scored against the JATS XML deposited beside them. Text recall, structural recovery of headings and tables, and an invented-text rate — with the corpus pinned by committed SHA-256 digests.
+- **Scanned pages** (`benchmarks/omnidocbench/`): 981 raster pages against human annotation, exercising the OCR path the born-digital corpus never touches.
+- **Round-trip fidelity** (`benchmarks/roundtrip/`): Markdown → format → Markdown must survive at fidelity 100 for the repository's own docs, gated on every pull request.
+
+Current figures, their controls, and — just as important — what each lane structurally *cannot* see are documented in [Conversion Fidelity](https://all2md.readthedocs.io/en/latest/benchmarks.html).
 
 ## Frequently asked questions
 
@@ -510,7 +520,7 @@ Use parallel processing: `all2md ./docs -r --output-dir ./output -p 8`, or `--wa
 
 Contributions are welcome — bug reports, feature requests, documentation improvements, and code. Ways to help: report bugs, improve docs, add support for new formats via the plugin system, create new AST transforms, or fix bugs in existing converters.
 
-For contributors evaluating parser changes, all2md ships benchmark harnesses in [`benchmarks/corpus/`](benchmarks/corpus/) (times conversion across public document corpora) and [`benchmarks/roundtrip/`](benchmarks/roundtrip/) (checks `Markdown → AST → Markdown` fidelity). See the [Performance Tuning docs](https://all2md.readthedocs.io/en/latest/performance.html) for details.
+For contributors evaluating parser changes, all2md ships benchmark harnesses: [`benchmarks/pmc/`](benchmarks/pmc/) (born-digital PDF fidelity against publisher JATS ground truth), [`benchmarks/omnidocbench/`](benchmarks/omnidocbench/) (scanned pages against human annotation), [`benchmarks/roundtrip/`](benchmarks/roundtrip/) (`Markdown → AST → Markdown` fidelity, the CI gate), and [`benchmarks/corpus/`](benchmarks/corpus/) (conversion timing across public corpora). See [Conversion Fidelity](https://all2md.readthedocs.io/en/latest/benchmarks.html) and the [Performance Tuning docs](https://all2md.readthedocs.io/en/latest/performance.html) for details.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
 
