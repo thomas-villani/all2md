@@ -216,7 +216,13 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         for i, child in enumerate(node.children):
             child.accept(self)
             if i < len(node.children) - 1:
-                self._output.append("\n\n")
+                # A footnote definition continues across a single blank line
+                # (that is how its own paragraphs separate), so it needs two
+                # blank lines to hand the document back its next block.
+                if isinstance(child, FootnoteDefinition):
+                    self._output.append("\n\n\n")
+                else:
+                    self._output.append("\n\n")
 
     def _render_file_properties(self, metadata: dict) -> None:
         """Render metadata as Org file-level properties.
@@ -732,7 +738,11 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         content = self._render_inline_content(node.content)
-        self._output.append(f"/{content}/")
+        lead, core, trail = self._split_boundary_breaks(content)
+        if not core.strip():
+            self._output.append(content)
+            return
+        self._output.append(f"{lead}/{core}/{trail}")
 
     def visit_strong(self, node: Strong) -> None:
         """Render a Strong node.
@@ -744,7 +754,44 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         content = self._render_inline_content(node.content)
-        self._output.append(f"*{content}*")
+        lead, core, trail = self._split_boundary_breaks(content)
+        if not core.strip():
+            self._output.append(content)
+            return
+        self._output.append(f"{lead}*{core}*{trail}")
+
+    @staticmethod
+    def _split_boundary_breaks(content: str) -> tuple[str, str, str]:
+        """Split rendered inline content into leading breaks, core, trailing breaks.
+
+        A break at the edge of a span strands the delimiter alone at a line
+        start, where Org stops reading it as inline syntax: ``* `` opens a
+        headline or list item and ``+ `` a list item, so the span silently
+        becomes structure (the same class as markdown's #391 and AsciiDoc's
+        #353). Breaks hoist outside the delimiters instead: a span over a line
+        break marks nothing visible, so nothing is lost, and a span left with
+        no visible core emits no delimiters at all.
+        """
+        spellings = (" \\\\\n", "\n")
+        lead = ""
+        stripped = True
+        while stripped:
+            stripped = False
+            for spelling in spellings:
+                if content.startswith(spelling):
+                    lead += spelling
+                    content = content[len(spelling) :]
+                    stripped = True
+        trail = ""
+        stripped = True
+        while stripped:
+            stripped = False
+            for spelling in spellings:
+                if content.endswith(spelling):
+                    trail = spelling + trail
+                    content = content[: -len(spelling)]
+                    stripped = True
+        return lead, content, trail
 
     def visit_code(self, node: Code) -> None:
         """Render a Code node.
@@ -820,7 +867,11 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         content = self._render_inline_content(node.content)
-        self._output.append(f"+{content}+")
+        lead, core, trail = self._split_boundary_breaks(content)
+        if not core.strip():
+            self._output.append(content)
+            return
+        self._output.append(f"{lead}+{core}+{trail}")
 
     def visit_underline(self, node: Underline) -> None:
         """Render an Underline node.
@@ -832,7 +883,11 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         content = self._render_inline_content(node.content)
-        self._output.append(f"_{content}_")
+        lead, core, trail = self._split_boundary_breaks(content)
+        if not core.strip():
+            self._output.append(content)
+            return
+        self._output.append(f"{lead}_{core}_{trail}")
 
     def visit_superscript(self, node: Superscript) -> None:
         """Render a Superscript node.
@@ -877,17 +932,28 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._output.append(f"[fn:{node.identifier}]")
 
     def visit_footnote_definition(self, node: FootnoteDefinition) -> None:
-        """Render footnote definition."""
+        """Render footnote definition.
+
+        Org continues a footnote definition across single blank lines (it ends
+        at two consecutive blank lines, the next definition, or a heading), so
+        a blank line is the correct spelling of a paragraph boundary inside the
+        body. The single newline this used to emit made the second paragraph a
+        continuation line of the first (#347).
+        """
         self._output.append(f"[fn:{node.identifier}] ")
-        for i, child in enumerate(node.content):
-            if i > 0:
-                self._output.append("\n")
+        rendered_blocks = []
+        for child in node.content:
             saved_output = self._output
             self._output = []
             child.accept(self)
-            child_content = "".join(self._output)
+            # Newlines at a block's edge (a hard break renders ' \\' plus a
+            # newline) would stack with the blank-line separator into two blank
+            # lines, which is the spelling for "the definition ends here".
+            child_content = "".join(self._output).strip("\n")
             self._output = saved_output
-            self._output.append(child_content)
+            if child_content:
+                rendered_blocks.append(child_content)
+        self._output.append("\n\n".join(rendered_blocks))
 
     def visit_math_inline(self, node: MathInline) -> None:
         """Render inline math."""
