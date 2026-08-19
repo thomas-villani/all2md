@@ -25,8 +25,11 @@ from all2md.ast import (
     CommentInline,
     Document,
     Emphasis,
+    FootnoteDefinition,
+    FootnoteReference,
     Heading,
     Image,
+    LineBreak,
     Link,
     List,
     ListItem,
@@ -986,3 +989,89 @@ class TestEdgeCases:
         assert "- Item 1" in org
         assert "#+BEGIN_SRC python" in org
         assert "| Header" in org
+
+
+@pytest.mark.unit
+class TestFootnoteDefinitions:
+    """Tests for footnote definition rendering.
+
+    Org continues a definition across a single blank line and ends it at two,
+    so the blank-line budget carries meaning (#347).
+    """
+
+    @staticmethod
+    def _doc_with_definition(*, blocks: list, after: list | None = None) -> Document:
+        children = [
+            Paragraph(content=[Text(content="Body "), FootnoteReference(identifier="a1"), Text(content=" end.")]),
+            FootnoteDefinition(identifier="a1", content=blocks),
+        ]
+        children.extend(after or [])
+        return Document(children=children)
+
+    def test_paragraphs_separate_with_one_blank_line(self) -> None:
+        """A definition's paragraphs separate with a single blank line -- Org's continuation spelling."""
+        doc = self._doc_with_definition(
+            blocks=[
+                Paragraph(content=[Text(content="First paragraph.")]),
+                Paragraph(content=[Text(content="Second paragraph.")]),
+            ]
+        )
+        org = OrgRenderer().render_to_string(doc)
+
+        assert "[fn:a1] First paragraph.\n\nSecond paragraph." in org
+
+    def test_two_blank_lines_before_following_content(self) -> None:
+        """A definition followed by ordinary content emits two blank lines so it does not swallow it."""
+        doc = self._doc_with_definition(
+            blocks=[Paragraph(content=[Text(content="Only paragraph.")])],
+            after=[Paragraph(content=[Text(content="Document continues.")])],
+        )
+        org = OrgRenderer().render_to_string(doc)
+
+        assert "Only paragraph.\n\n\nDocument continues." in org
+
+    def test_break_only_paragraph_does_not_end_definition(self) -> None:
+        """A hard break's own newline must not stack with the separator into a definition-ending double blank."""
+        doc = self._doc_with_definition(
+            blocks=[
+                Paragraph(content=[LineBreak(soft=False)]),
+                Paragraph(content=[Text(content="Second paragraph.")]),
+            ]
+        )
+        org = OrgRenderer().render_to_string(doc)
+
+        assert "\n\n\nSecond" not in org
+
+
+@pytest.mark.unit
+class TestBoundaryBreakHoisting:
+    """Breaks at a span's edge hoist outside the delimiters.
+
+    A delimiter stranded at a line start stops being inline syntax: ``* ``
+    opens a headline or list item, ``+ `` a list item -- the same class as
+    markdown's #391 and AsciiDoc's #353.
+    """
+
+    def test_trailing_break_hoists_out_of_strong(self) -> None:
+        """The break renders after the closing delimiter, not inside it."""
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Strong(content=[Text(content="bold"), LineBreak(soft=False)]),
+                        Text(content="after"),
+                    ]
+                )
+            ]
+        )
+        org = OrgRenderer().render_to_string(doc)
+
+        assert "*bold*" in org
+        assert "\n*" not in org
+
+    def test_break_only_strong_emits_no_delimiters(self) -> None:
+        """A span over nothing visible marks nothing: it renders bare."""
+        doc = Document(children=[Paragraph(content=[Strong(content=[LineBreak(soft=False)])])])
+        org = OrgRenderer().render_to_string(doc)
+
+        assert "*" not in org

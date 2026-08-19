@@ -646,7 +646,7 @@ class OrgParser(BaseParser):
         return Heading(level=level, content=content, metadata=heading_metadata)
 
     @staticmethod
-    def _split_body_blocks(body_text: str) -> list[str]:
+    def _split_body_blocks(body_text: str) -> list[tuple[int, str]]:
         """Split body text into blocks, keeping each greater block in one piece.
 
         Blank lines separate Org elements, but not inside a greater block: a
@@ -661,15 +661,28 @@ class OrgParser(BaseParser):
         follows or precedes ordinary text without a blank line between them still marks
         a boundary. The one exception is an affiliated keyword such as ``#+CAPTION:``,
         which belongs to the block written underneath it and therefore stays attached.
+
+        Each block is returned with the number of blank lines that preceded it,
+        because Org gives that count meaning: one blank line after a footnote
+        definition continues the definition, two end it.
         """
-        blocks: list[str] = []
+        blocks: list[tuple[int, str]] = []
         current: list[str] = []
         open_kind: str | None = None
+        gap = 0
+        gap_before_current = 0
 
         def flush() -> None:
             if current:
-                blocks.append("\n".join(current))
+                blocks.append((gap_before_current, "\n".join(current)))
                 current.clear()
+
+        def append_line(text: str) -> None:
+            nonlocal gap, gap_before_current
+            if not current:
+                gap_before_current = gap
+            gap = 0
+            current.append(text)
 
         for line in body_text.split("\n"):
             stripped = line.strip()
@@ -688,17 +701,39 @@ class OrgParser(BaseParser):
                 if not all(re.match(r"^#\+[\w-]+:", pending.strip()) for pending in current):
                     flush()
                 open_kind = begin.group(1)
-                current.append(line)
+                append_line(line)
                 continue
 
             if not stripped:
                 flush()
+                gap += 1
                 continue
 
-            current.append(line)
+            append_line(line)
 
         flush()
         return blocks
+
+    @staticmethod
+    def _is_paragraph_content_block(block: str) -> bool:
+        """Whether *block* would parse as a plain paragraph.
+
+        Used to decide if a block continues a footnote definition. Anything
+        that would parse as a structural element -- another definition, a
+        thematic break, a table, a list, a greater block, a block quote --
+        ends the definition instead of joining it.
+        """
+        if not block or re.match(r"^-{5,}$", block) or re.match(r"^\[fn:[^\]]+\]", block):
+            return False
+        if block.startswith(("#+", "|", "\\[")):
+            return False
+        if re.search(r"^-\s+.+?\s+::\s+", block, re.MULTILINE):
+            return False
+        if re.match(r"^([\-\+\*]\s+|\d+[\.\)]\s*)", block):
+            return False
+        if all(line.strip().startswith(":") for line in block.split("\n") if line.strip()):
+            return False
+        return True
 
     def _process_body(self, body_text: str) -> list[Node]:
         """Process body text into AST nodes.
@@ -727,8 +762,10 @@ class OrgParser(BaseParser):
         # Track footnote definitions for later
         footnote_defs: list[FootnoteDefinition] = []
 
-        for block in blocks:
-            block = block.strip()
+        index = 0
+        while index < len(blocks):
+            block = blocks[index][1].strip()
+            index += 1
             if not block:
                 continue
 
@@ -755,6 +792,21 @@ class OrgParser(BaseParser):
                 footnote_content_text = footnote_match.group(2)
                 # Parse footnote content as inline
                 footnote_content = [Paragraph(content=self._parse_inline(footnote_content_text))]
+                # Org continues a definition across a single blank line; two
+                # consecutive blank lines (or the next definition) end it. Each
+                # single-gap paragraph block that follows is another paragraph
+                # of this definition, not document content. Structural blocks
+                # (lists, tables, greater blocks...) end the definition here --
+                # a conservative reading of the spec, which would keep them too.
+                while index < len(blocks):
+                    next_gap, next_block = blocks[index]
+                    next_block = next_block.strip()
+                    if next_gap != 1 or not self._is_paragraph_content_block(next_block):
+                        break
+                    continuation = self._parse_paragraph(next_block)
+                    if continuation:
+                        footnote_content.append(continuation)
+                    index += 1
                 footnote_def = FootnoteDefinition(identifier=footnote_id, content=cast(list[Node], footnote_content))
                 footnote_defs.append(footnote_def)
                 continue
