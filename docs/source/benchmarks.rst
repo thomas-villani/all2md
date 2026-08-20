@@ -74,13 +74,13 @@ Did the text survive?
      - Value
      -
    * - Raw recall
-     - 60.2%
+     - 62.0%
      - of 8,905 ground-truth blocks
    * - Attainable ceiling
      - 62.4%
      - what the PDF's own text layer reproduces
    * - **Recall of what is attainable**
-     - **95.4%**
+     - **98.3%**
      - the number worth reading
    * - Control: the *wrong* article
      - 0.4%
@@ -94,7 +94,14 @@ improved. On the held-out corpus, 101 of the 103 caption blocks the instruments 
 lost were in the output the whole time. The oracle now reads what the AST carries
 (oracle schema 6), and both lanes' artifacts are re-recorded against it.
 
-Raw recall is 60.2%, and that figure is close to meaningless on its own. A large share of
+The movement after that correction is the opposite kind: a parser fix (#405).
+Side-by-side regions with tight gutters — two-column reference lists above all — were
+read as one column and interleaved line-by-line, so every word survived while every
+adjacency died. Admitting those gutters on structural evidence and joining words
+hyphenated at block seams raised attainable recall from 95.4% to 98.3%, and the
+held-out corpus moved the same way it was never tuned against.
+
+Raw recall is 62.0%, and that figure is close to meaningless on its own. A large share of
 any JATS article cannot be recovered by *any* parser, because the markup records words in an
 order the page never prints — author affiliation blocks, structured metadata, citation
 fields. Charging a PDF parser for failing to reproduce text the PDF does not contain
@@ -116,12 +123,12 @@ By block kind:
      - Share of attainable
    * - Text blocks
      - 3,160 of 6,356
-     - 3,141
-     - **98.4%**
+     - 3,155
+     - **98.9%**
    * - Titles
      - 2,291 of 2,426
-     - 2,146
-     - **92.5%**
+     - 2,285
+     - **98.8%**
    * - Tables
      - 110 of 123
      - 77
@@ -153,13 +160,13 @@ Unsupported output is therefore split in two:
      - Share
      - Meaning
    * - Supported
-     - **92.6%**
+     - **94.0%**
      - the n-gram appears in the document's text layer
    * - Resequenced
-     - 6.3%
+     - 5.1%
      - every word is in the document, in a new adjacency
    * - **Novel**
-     - **1.1%**
+     - **1.0%**
      - at least one word appears nowhere — the number worth reading
    * - Duplication
      - 2.0%
@@ -168,8 +175,8 @@ Unsupported output is therefore split in two:
      - 0.7%
      - wants to be ~0%
 
-Over 447,446 emitted n-grams, 4,827 are novel. Reporting the raw unsupported figure instead
-would have made the result roughly seven times worse than the parser deserves.
+Over 447,320 emitted n-grams, 4,251 are novel. Reporting the raw unsupported figure instead
+would have made the result roughly six times worse than the parser deserves.
 
 Duplication is counted apart from both, because it is invisible to either. Text emitted
 twice is an unchanged *set* and a doubled *multiset* — no set-based score can see it at all.
