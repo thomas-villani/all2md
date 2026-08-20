@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 
     from all2md.parsers._ocr import OcrParagraph
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 
 from all2md.ast import (
@@ -92,19 +93,25 @@ from all2md.parsers._pdf_ocr import (
 )
 from all2md.parsers._pdf_tables import (
     MAX_DOT_LEADER_CELL_RATIO,
+    MAX_EXTRACT_LOSS_SHARE,
+    MAX_ROW_EXTENT_OVERLAP_PT,
     MAX_SPLIT_WORD_RATIO,
     MAX_TABLE_COLS,
     MAX_TABLE_EMPTY_RATIO,
     MAX_TABLE_ROWS,
     MAX_TWO_COLUMN_REGION_DRAWINGS,
     MIN_FILLED_FOR_UNIFORMITY_CHECK,
+    MIN_REBUILD_CHAR_RATIO,
     MIN_TABLE_COLS,
     MIN_TABLE_ROWS,
     TABLE_REGION_STRATEGIES,
     detect_tables_by_ruling_lines,
+    extract_loss_share,
     is_dot_leader_cell,
     looks_like_numbered_bibliography,
+    merge_continuation_lines,
     page_has_table_signals,
+    rebuild_cells_from_words,
     split_word_ratio,
     word_gutter_grid,
 )
@@ -3071,6 +3078,52 @@ class PdfToAstConverter(BaseParser):
             return ""
         return str(cell_text).strip()
 
+    @staticmethod
+    def _char_mass(table_data: "Sequence[Sequence[str | None]]") -> int:
+        """Non-whitespace character count of a grid -- the mass a rebuild must preserve."""
+        return sum(len("".join(str(cell).split())) for row in table_data for cell in row if cell is not None)
+
+    @staticmethod
+    def _table_row_extents(table: Any, n_rows: int) -> list[tuple[float, float]] | None:
+        """Vertical extents of a find_tables() grid's rows, for continuation merging.
+
+        Parameters
+        ----------
+        table : PyMuPDF Table
+            Table object from ``find_tables()``.
+        n_rows : int
+            Number of rows in the extracted grid; the extents are only meaningful
+            when they describe exactly those rows.
+
+        Returns
+        -------
+        list of (float, float) or None
+            ``(top, bottom)`` per row, or ``None`` when the table's row geometry
+            is missing, does not match the extracted grid, or is not line-like --
+            the caller then skips the merge rather than merging on wrong geometry.
+
+        """
+        try:
+            rows = list(table.rows)
+            if len(rows) != n_rows:
+                return None
+            extents = [(float(row.bbox[1]), float(row.bbox[3])) for row in rows]
+        except Exception:
+            return None
+        # The merge reads inter-line gaps, which only mean anything when the rows
+        # are stacked printed lines. On tables with row spans, find_tables() hands
+        # back overlapping row bboxes -- one row's box containing whole later rows,
+        # gaps of -17pt -- and every gap statistic computed over them is garbage
+        # (measured: a rowspan table's 5 true rows fused to 4, another's 42 to 31).
+        # Printed lines never overlap by more than font-box slop, so anything past
+        # 1pt of overlap means this is not line geometry, and extract()'s own row
+        # structure -- which already understands the spans -- is left alone.
+        if any(
+            extents[index][0] < extents[index - 1][1] - MAX_ROW_EXTENT_OVERLAP_PT for index in range(1, len(extents))
+        ):
+            return None
+        return extents
+
     def _process_table_to_ast(self, table: Any, page: "pymupdf.Page", page_num: int) -> Node | None:
         """Process a PyMuPDF table to AST Table node.
 
@@ -3105,6 +3158,36 @@ class PdfToAstConverter(BaseParser):
             if not table_data or len(table_data) == 0:
                 logger.debug("Table has no data")
                 return None
+
+            # ``Table.extract()`` assembles cell text from the characters its cell
+            # rects clip, so a glyph straddling a boundary is cut mid-character --
+            # on the PMC dev corpus it produced cells reading "Contro" and
+            # "perce ntage" inside grids whose geometry the rulings corroborate.
+            # The split-word guard that already protects the text-alignment
+            # strategy detects exactly this damage, so run it on every grid; but
+            # where the text strategy's failure means the *columns* are invented
+            # (reject), a line-corroborated grid's failure means only the text
+            # assembly is wrong -- so repair it from the page's own word boxes,
+            # which cannot be cut by construction.
+            repaired = False
+            fragments = split_word_ratio(page, table_data)
+            lost = extract_loss_share(page, table_data, table.bbox)
+            if fragments > MAX_SPLIT_WORD_RATIO or lost > MAX_EXTRACT_LOSS_SHARE:
+                rebuilt = rebuild_cells_from_words(page, table)
+                # The rebuild must come back at least as heavy as what it replaces:
+                # on rotated pages the cell rects and word boxes do not share a
+                # coordinate frame, and a rebuild that misses the words would gut
+                # the table it was meant to repair.
+                if rebuilt is not None and self._char_mass(rebuilt) >= MIN_REBUILD_CHAR_RATIO * self._char_mass(
+                    table_data
+                ):
+                    logger.debug(
+                        f"Rebuilt table cell text from word boxes on page {page_num + 1}: "
+                        f"{fragments:.0%} of extracted tokens were fragments, "
+                        f"{lost:.0%} of the region's words were missing from the grid"
+                    )
+                    table_data = rebuilt
+                    repaired = True
 
             # Reject pathological detections (PyMuPDF's find_tables() can fire on
             # decorative frames / TOC dot-leader regions / non-tabular content,
@@ -3165,17 +3248,45 @@ class PdfToAstConverter(BaseParser):
                 self._record_table_rejection("dot_leader_toc")
                 return self._region_text_as_paragraph(page, pymupdf.Rect(table.bbox), page_num)
 
-            # Separate header row (first row) from data rows
-            header_row_data = table_data[0] if table_data else []
-            data_rows_data = table_data[1:] if len(table_data) > 1 else []
+            # A find_tables() grid can shred wrapped cells the same way the
+            # word-gutter grid did before #416: where the rulings only mark
+            # columns, PyMuPDF snaps its rows to printed lines, and a cell
+            # wrapping to a second line splits mid-sentence. The row bboxes
+            # carry the same inter-line geometry the gutter path merges on, so
+            # the same guarded merge runs here. Dense grids with real row
+            # rulings have uniform gaps and filled anchors, and pass through
+            # untouched.
+            line_rows = [[self._extract_cell_text(c) for c in row] for row in table_data]
+            row_extents = self._table_row_extents(table, len(line_rows))
+            merged = (
+                merge_continuation_lines(line_rows, row_extents, continuation_within_start_columns=True)
+                if row_extents is not None
+                else line_rows
+            )
+            if len(merged) < MIN_TABLE_ROWS:
+                # The merge collapsed the grid below two rows: whatever this
+                # region is, it is one logical row of text, not a table.
+                logger.debug(
+                    f"Rejecting pymupdf table on page {page_num + 1}: "
+                    f"{len(line_rows)} printed lines merge into {len(merged)} logical rows"
+                )
+                self._record_table_rejection("degenerate_grid")
+                return self._region_text_as_paragraph(page, pymupdf.Rect(table.bbox), page_num)
 
-            header_cells = [TableCell(content=[Text(content=self._extract_cell_text(c))]) for c in header_row_data]
-            header_row = TableRow(cells=header_cells, is_header=True)
+            # Untouched tables keep the exact text extract() gave them. Repaired
+            # or merged ones get the word-gutter path's cell treatment: newline
+            # joins feed hyphenation repair, then whitespace collapses.
+            changed = repaired or len(merged) != len(line_rows)
 
-            data_rows = []
-            for row_data in data_rows_data:
-                row_cells = [TableCell(content=[Text(content=self._extract_cell_text(c))]) for c in row_data]
-                data_rows.append(TableRow(cells=row_cells))
+            def make_cell(cell_text: str) -> TableCell:
+                if changed:
+                    if self.options.merge_hyphenated_words:
+                        cell_text = dehyphenate_text(cell_text)
+                    cell_text = " ".join(cell_text.split())
+                return TableCell(content=[Text(content=cell_text)])
+
+            header_row = TableRow(cells=[make_cell(cell_text) for cell_text in merged[0]], is_header=True)
+            data_rows = [TableRow(cells=[make_cell(cell_text) for cell_text in row]) for row in merged[1:]]
 
             return AstTable(
                 header=header_row, rows=data_rows, source_location=SourceLocation(format="pdf", page=page_num + 1)

@@ -18,6 +18,8 @@ if TYPE_CHECKING:
 
 __all__ = [
     "MAX_DOT_LEADER_CELL_RATIO",
+    "MAX_EXTRACT_LOSS_SHARE",
+    "MIN_REBUILD_CHAR_RATIO",
     "MAX_GUTTER_INTRUSION_SHARE",
     "MAX_TABLE_COLS",
     "MIN_TABLE_COLS",
@@ -29,15 +31,19 @@ __all__ = [
     "MIN_GUTTER_LINES",
     "MIN_GUTTER_WIDTH_PT",
     "MAX_ROTATED_WORD_SHARE",
+    "MAX_ROW_EXTENT_OVERLAP_PT",
     "MAX_TWO_COLUMN_REGION_DRAWINGS",
     "MIN_WORD_GUTTER_COLS",
     "TABLE_REGION_STRATEGIES",
     "TABLE_SIGNAL_RULING_THRESHOLD",
     "detect_tables_by_ruling_lines",
+    "extract_loss_share",
     "group_words_into_lines",
     "is_dot_leader_cell",
     "looks_like_numbered_bibliography",
+    "merge_continuation_lines",
     "page_has_table_signals",
+    "rebuild_cells_from_words",
     "split_word_ratio",
     "word_gutter_grid",
 ]
@@ -195,6 +201,32 @@ ROW_ANCHOR_TRUSTED_FILL = 0.6
 # guard (its cells are prose), while its row-label column showed 15 separate runs.
 ROW_GROUP_MAX_COLUMN_RUNS = 2
 
+# Row bboxes may overlap by at most this much before the merge distrusts them as
+# line geometry. Printed lines never overlap beyond font-box slop; find_tables()
+# rows on a rowspan table overlap by whole rows (measured: -17pt on a
+# two-axis-header table whose spans stretched one row's bbox over three).
+MAX_ROW_EXTENT_OVERLAP_PT = 1.0
+
+# Maximum share of the page's own words (centered inside a grid's bbox) that may be
+# missing from the extracted cell text before the grid's text assembly is distrusted
+# and rebuilt from word boxes. The complement of MAX_SPLIT_WORD_RATIO: that guard asks
+# "does the grid hold tokens the page does not?", this one asks "does the page hold
+# words the grid lost?" -- and unlike the fragment test it counts numbers, because
+# ``Table.extract()``'s clipping eats numeric cells ("0.75", "(-0.04-0.28)") that the
+# letters-only fragment tokenizer is blind to by design. Measured on the PMC dev
+# corpus with the per-cell containment rule: intact grids 0.000-0.029 (subscript and
+# ligature noise), grids with clipped cell text 0.055-0.441, so the threshold sits in
+# the gap between them.
+MAX_EXTRACT_LOSS_SHARE = 0.04
+
+# A rebuilt grid must carry at least this share of the extracted grid's non-whitespace
+# characters to replace it. The rebuild exists to *recover* clipped text; when it comes
+# back lighter than the extract, it lost text instead -- measured on rotated (landscape)
+# pages, where find_tables() cell rects and the page's word boxes do not share a
+# coordinate frame, so nearly every cell came back empty (27/121 filled), the gutted
+# grid died at the mostly-empty guard, and three intact tables were destroyed outright.
+MIN_REBUILD_CHAR_RATIO = 0.9
+
 
 def split_word_ratio(page: "pymupdf.Page", table_data: list[list[str | None]]) -> float:
     """Share of a grid's word tokens that are not whole words of the page.
@@ -241,6 +273,124 @@ def split_word_ratio(page: "pymupdf.Page", table_data: list[list[str | None]]) -
         return 0.0
 
     return sum(1 for token in tokens if token not in vocabulary) / len(tokens)
+
+
+def extract_loss_share(
+    page: "pymupdf.Page", table_data: list[list[str | None]], bbox: tuple[float, float, float, float]
+) -> float:
+    """Share of the page's words inside *bbox* that the extracted grid does not contain.
+
+    ``split_word_ratio`` catches invented column boundaries by finding tokens in the grid
+    that are whole words nowhere on the page. This is its complement for the opposite
+    damage: ``Table.extract()`` clipping cell text, which *removes* words from the grid --
+    most of them numeric, which the fragment tokenizer deliberately ignores. A word counts
+    as lost when its exact text is not among the grid's whitespace-split tokens.
+
+    Parameters
+    ----------
+    page : pymupdf.Page
+        Page the grid was extracted from.
+    table_data : list of list of (str or None)
+        Extracted cell text, as returned by ``Table.extract()``.
+    bbox : tuple of float
+        The table's bounding box; only words centered inside it are judged.
+
+    Returns
+    -------
+    float
+        Lost-word share in ``0.0..1.0``; ``0.0`` when the region holds no words, and on
+        error -- the same fail-open posture as :func:`split_word_ratio`.
+
+    """
+    # A page word is judged against whitespace-stripped cell text, cell by cell: a
+    # cell wrapping "(-0.04-0.28)" across two printed lines still *contains* the word,
+    # while a cell truncated to "(-0.04-0." does not. Token equality was measured
+    # first and misfires on exactly the wrapped-cell shape (0.10-0.44 "loss" on
+    # undamaged landscape grids); per-cell containment keeps the truncation signal
+    # without it. Cells are tested individually so two adjacent cells cannot
+    # accidentally concatenate into a word neither of them holds.
+    cell_texts = [
+        "".join(str(cell).lower().split()) for row in table_data for cell in row if cell is not None and str(cell)
+    ]
+    try:
+        words = page.get_text("words")
+    except Exception:
+        return 0.0
+    x0, y0, x1, y1 = bbox
+    lost = 0
+    total = 0
+    for word in words:
+        center_x = (word[0] + word[2]) / 2
+        center_y = (word[1] + word[3]) / 2
+        if not (x0 <= center_x < x1 and y0 <= center_y < y1):
+            continue
+        total += 1
+        needle = "".join(str(word[4]).lower().split())
+        if needle and not any(needle in cell for cell in cell_texts):
+            lost += 1
+    return lost / total if total else 0.0
+
+
+def rebuild_cells_from_words(page: "pymupdf.Page", table: object) -> list[list[str]] | None:
+    """Rebuild a ``find_tables()`` grid's cell text from the page's own word boxes.
+
+    ``Table.extract()`` assembles cell text from the characters its cell rects clip,
+    so a glyph straddling a cell boundary is cut mid-character: the PMC dev corpus
+    holds tables whose extracted cells read ``"Contro"`` / ``"perce ntage"`` while the
+    page itself spells every word whole. The grid geometry is right -- the rulings
+    corroborate it -- only the text assembly is wrong.
+
+    Word boxes cannot be cut by construction: each of the page's words lands whole in
+    the cell holding its center, exactly the guarantee the word-gutter path is built
+    on. Within a cell, words keep the page's reading order, joined by spaces within a
+    printed line and newlines across lines so the caller's hyphenation repair can run
+    across wraps.
+
+    Parameters
+    ----------
+    page : pymupdf.Page
+        Page the table was found on.
+    table : PyMuPDF Table
+        Table object from ``find_tables()`` whose ``rows[].cells`` rects define the
+        grid.
+
+    Returns
+    -------
+    list of list of str or None
+        The rebuilt grid, or ``None`` when the table exposes no usable cell
+        geometry -- the caller keeps the extracted text it already has.
+
+    """
+    try:
+        rows = list(table.rows)  # type: ignore[attr-defined]
+        words = page.get_text("words")
+    except Exception:
+        return None
+    if not rows:
+        return None
+
+    rebuilt: list[list[str]] = []
+    for row in rows:
+        cells = getattr(row, "cells", None)
+        if not cells:
+            return None
+        row_texts: list[str] = []
+        for cell in cells:
+            if cell is None:
+                row_texts.append("")
+                continue
+            x0, y0, x1, y1 = cell[:4]
+            lines: dict[tuple[int, int], list[str]] = {}
+            for word in words:
+                center_x = (word[0] + word[2]) / 2
+                center_y = (word[1] + word[3]) / 2
+                # Half-open on the far edges so a word centered exactly on a shared
+                # boundary lands in exactly one of the two cells meeting there.
+                if x0 <= center_x < x1 and y0 <= center_y < y1:
+                    lines.setdefault((word[5], word[6]), []).append(str(word[4]))
+            row_texts.append("\n".join(" ".join(parts) for _key, parts in sorted(lines.items())))
+        rebuilt.append(row_texts)
+    return rebuilt
 
 
 def is_dot_leader_cell(text: str) -> bool:
@@ -727,7 +877,7 @@ def _gutter_grid_core(words: list[tuple]) -> list[list[str]] | None:
             cells[column].append(str(word[4]))
         line_rows.append([" ".join(parts) for parts in cells])
         line_extents.append((min(word[1] for word in line), max(word[3] for word in line)))
-    return _merge_continuation_lines(line_rows, line_extents)
+    return merge_continuation_lines(line_rows, line_extents)
 
 
 def _mostly_numeric_cell(cell: str) -> bool:
@@ -844,8 +994,11 @@ def _rows_from_groups(line_rows: list[list[str]], groups: list[list[int]]) -> li
     return merged
 
 
-def _merge_continuation_lines(
-    line_rows: list[list[str]], line_extents: list[tuple[float, float]] | None = None
+def merge_continuation_lines(
+    line_rows: list[list[str]],
+    line_extents: list[tuple[float, float]] | None = None,
+    *,
+    continuation_within_start_columns: bool = False,
 ) -> list[list[str]]:
     """Fold wrapped cell lines into their logical row.
 
@@ -870,6 +1023,18 @@ def _merge_continuation_lines(
 
     Fully-dense numeric tables have uniform gaps, no single-column lines, and every
     anchor cell filled, so nothing merges and the per-line rows stand.
+
+    ``continuation_within_start_columns`` extends the sparse-anchor path's
+    no-new-columns test to *every* anchor continuation: a line only folds into the row
+    above when its filled columns are a subset of the columns that row already fills.
+    The find_tables() path asks for this because its row bboxes tile the grid -- every
+    gap is exactly zero -- so the geometric rules above are inert and the anchor rule
+    carries the whole merge unaided. Measured on the PMC dev corpus: a two-tier header
+    whose second row ("# | Acc | # | Acc") has an empty label cell fused into the tier
+    above, interleaving both rows' grams (0.87 -> 0.79); its filled columns were
+    exactly the ones the first tier left empty. Word-gutter callers keep the default:
+    their middle-aligned continuation shape legitimately fills fresh columns, and
+    their real inter-line gaps give the guards above their say first.
 
     Cell fragments join with a newline rather than a space so the caller can run its
     hyphenation repair across the join, exactly as the paragraph path does.
@@ -939,6 +1104,9 @@ def _merge_continuation_lines(
             and gaps[index - 1] < median_gap
         )
         anchor_continuation = merged and not (anchor < len(row) and row[anchor])
+        if anchor_continuation and continuation_within_start_columns:
+            row_columns = {column for column, cell in enumerate(merged[-1]) if cell}
+            anchor_continuation = all(column in row_columns for column in filled_columns)
         if not (single_column_wrap or anchor_continuation):
             merged.append(list(row))
             continue
