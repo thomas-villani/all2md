@@ -6,6 +6,30 @@
 Legend: 🌱 natural next step · 🚀 ambitious · 🌙 moonshot · ✅ foundation already exists
 · 🚢 **shipped**
 
+**Status (2026-08-20).** Legs 1 and 2 of the comparison's defect stream are **landed**.
+Leg 1 ([#412](https://github.com/thomas-villani/all2md/pull/412)): the caption-blind oracle
+is fixed with both artifacts re-recorded, [#257](https://github.com/thomas-villani/all2md/issues/257)'s
+strata landed with it (the whole-corpus raster mean hid a 16× spread between handwritten
+notes and academic papers), and the movement was attributed before being blessed —
+byte-identical per-page scores proved the oracle change contributes zero to the raster
+lane, so the baseline drift is the v1.12/v1.13 parser arc, ledgered as
+[#411](https://github.com/thomas-villani/all2md/issues/411). Leg 2
+([#413](https://github.com/thomas-villani/all2md/pull/413)): the
+[#405](https://github.com/thomas-villani/all2md/issues/405) interleaving class is
+**fixed and closed**. Measured on dev — reference-page gutters run 14.9–17.9pt against the
+20pt threshold across four publishers, and 64 of 455 pages arrive with both columns fused
+into one PyMuPDF block — and fixed three ways behind structural guards: channel-based
+gutter admission, line-band resegmentation of fused blocks, hyphen joins at block seams.
+Dev: 254 → 97 missing attainable blocks, zero newly missing. Holdout, untuned: 469 → 147
+(−69%, better than dev — no overfit). Published: attainable recall **95.4% → 98.3%**
+(titles 98.8%), raw recall 62.0% against a 62.4% ceiling, resequenced 6.3% → 5.1%; raster
+gate flat-to-better. The gap to pymupdf4llm's raw text survival that motivated the
+comparison is essentially closed. Residue (boxed regions needing y-segmentation) is
+scoped as [#414](https://github.com/thomas-villani/all2md/issues/414), small on both
+corpora. **Item 13's louder announcement is unblocked** — #405 was its stated gate. Next:
+leg 3, the Docling table study (item 16) — table-text survival at 69.1% is now
+unambiguously the bottleneck.
+
 **Status (2026-08-19).** Batch 12 — **Figures & the born-digital queue** — is complete and
 ships as **v1.13.0**: the figure pipeline ([#338](https://github.com/thomas-villani/all2md/issues/338),
 [#340](https://github.com/thomas-villani/all2md/issues/340) — figures get an AST node, PDFs
@@ -952,7 +976,10 @@ more than planned:
     figure batch on purpose: fix "figures don't appear" before inviting eyes. The push is
     mostly writing rather than engineering, so it can interleave with early Theme 8 work
     instead of occupying a batch alone.
-14. **Leg 1 (in progress): make the oracle read what the AST carries** (Theme 2, small).
+14. 🚢 **Leg 1: make the oracle read what the AST carries** (Theme 2, small) — **landed
+    2026-08-20 as [#412](https://github.com/thomas-villani/all2md/pull/412)**; #406 and
+    #257 closed, #347 closed, #296 re-measured and re-parked, drift ledgered as #411.
+    The original scope, kept as the record:
     `project_ast` yields caption text from the `caption` attributes on Figure/Table/Image
     instead of being blind to them — the #406 fix. It is a measurement change, so it takes
     the full re-record workflow: `SCHEMA_VERSION` bump, CI re-record of
@@ -963,8 +990,15 @@ more than planned:
     is flattering (holdout attainable recall 93.5% → 94.6%; tables and titles unchanged, so
     the published trade narrative survives), which is exactly why it must land through the
     verbatim-gated re-record rather than quietly.
-15. **Leg 2: #405 — side-by-side regions interleave line-by-line** (Theme 2 → Theme 8
-    Stage 4). The largest recoverable text-loss class: two-column reference lists whose
+15. 🚢 **Leg 2: #405 — side-by-side regions interleave line-by-line** (Theme 2 → Theme 8
+    Stage 4) — **landed 2026-08-20 as
+    [#413](https://github.com/thomas-villani/all2md/pull/413)**; #405 closed, residue
+    scoped as [#414](https://github.com/thomas-villani/all2md/issues/414). The discipline
+    held exactly as written below: tuned on dev (254 → 97 missing attainable blocks, zero
+    newly missing), validated on the holdout untuned (469 → 147, −69% — better than dev),
+    attainable recall 95.4% → 98.3% published through the verbatim-gated re-record.
+    The original scope, kept as the record: the largest recoverable text-loss class:
+    two-column reference lists whose
     tight gutter the column split never fires on, and boxed sidebars beside body columns
     that are not page-level columns at all; y-order then shreds both, destroying adjacency
     while every word survives — which is also what feeds the 6.1% resequenced share. High
