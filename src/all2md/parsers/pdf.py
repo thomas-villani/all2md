@@ -70,7 +70,7 @@ from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import DependencyError, MalformedFileError, PasswordProtectedError, ValidationError
 
 # Import from private submodules
-from all2md.parsers._pdf_columns import detect_columns
+from all2md.parsers._pdf_columns import detect_columns, split_gutter_merged_blocks
 from all2md.parsers._pdf_headers import IdentifyHeaders, compute_line_style
 from all2md.parsers._pdf_images import detect_image_caption, extract_page_images
 from all2md.parsers._pdf_layout import (
@@ -2252,6 +2252,10 @@ class PdfToAstConverter(BaseParser):
         # and poster layouts, and sorting them into columns measurably recovers it.
         if self.options.detect_columns and self.options.column_detection_mode not in ("disabled", "force_single"):
             force_multi = self.options.column_detection_mode == "force_multi"
+            # PyMuPDF fuses both columns of a tight-gutter page into one block on some
+            # pages; the fused block's interleaving is invisible to any block-level
+            # split, so its lines are regrouped into per-band blocks first (#405).
+            text_blocks = split_gutter_merged_blocks(text_blocks, page.rect.width)
             columns = detect_columns(
                 text_blocks,
                 self.options.column_gap_threshold,
@@ -4139,9 +4143,14 @@ class PdfToAstConverter(BaseParser):
                 )
 
                 if should_merge:
-                    # Merge: accumulate content
+                    # Merge: accumulate content. A word hyphenated across the seam --
+                    # the last line of one PyMuPDF block continuing in the next, which
+                    # dehyphenate_blocks cannot see because it works within a block --
+                    # is joined here under the same rules, instead of surviving as
+                    # "transcrip- tion" (#405).
                     if accumulated_content and node.content:
-                        accumulated_content.append(Text(content=" "))
+                        if not self._join_hyphenated_seam(accumulated_content, node.content):
+                            accumulated_content.append(Text(content=" "))
                     accumulated_content.extend(node.content)
                     if last_source_location is None:
                         last_source_location = node.source_location
@@ -4177,6 +4186,45 @@ class PdfToAstConverter(BaseParser):
             merged.append(AstParagraph(content=accumulated_content, source_location=last_source_location))
 
         return merged
+
+    def _join_hyphenated_seam(self, accumulated_content: list[Node], incoming: list[Node]) -> bool:
+        """Join a word hyphenated across two merged paragraphs, if one is split there.
+
+        Returns True when the seam was a hyphenated line break -- the caller must then
+        *not* insert the joining space. The hyphen and capitalization rules are
+        :func:`dehyphenate_blocks`'s exactly: an uppercase continuation keeps the
+        hyphen ("Anglo-" + "Saxon"), a lowercase one drops it ("transcrip-" + "tion").
+
+        Parameters
+        ----------
+        accumulated_content : list of Node
+            Content accumulated so far; its last `Text` node may end with a hyphen.
+        incoming : list of Node
+            The next paragraph's content; its first `Text` node may continue the word.
+
+        Returns
+        -------
+        bool
+            True if the hyphen seam was joined.
+
+        """
+        from all2md.parsers._pdf_ocr import _CONTINUATION_RE, _LINE_END_HYPHEN_RE
+
+        if not self.options.merge_hyphenated_words:
+            return False
+        last = accumulated_content[-1]
+        first = incoming[0]
+        if not isinstance(last, Text) or not isinstance(first, Text):
+            return False
+        hyphen = _LINE_END_HYPHEN_RE.search(last.content)
+        continuation = _CONTINUATION_RE.match(first.content.lstrip())
+        if not hyphen or not continuation:
+            return False
+        joiner = "-" if continuation.group(1)[0].isupper() else ""
+        accumulated_content[-1] = Text(content=_LINE_END_HYPHEN_RE.sub(rf"\1{joiner}", last.content))
+        if first.content != first.content.lstrip():
+            incoming[0] = Text(content=first.content.lstrip())
+        return True
 
     @staticmethod
     def _is_valid_list_marker(text: str) -> tuple[bool, str | None]:

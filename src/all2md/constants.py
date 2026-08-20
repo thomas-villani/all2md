@@ -781,6 +781,26 @@ PDF_COLUMN_FREQ_THRESHOLD_RATIO = 0.3  # Ratio of max frequency for gap detectio
 PDF_COLUMN_MIN_BLOCKS_FOR_WIDTH_CHECK = 3  # Minimum blocks to perform median width check
 PDF_COLUMN_SINGLE_COLUMN_WIDTH_RATIO = 0.6  # Width ratio threshold for single column detection
 
+# Tight-gutter column admission (#405). Journal reference pages print two columns
+# separated by less than DEFAULT_COLUMN_GAP_THRESHOLD -- measured 14.9-17.9pt across
+# four different publishers on the PMC dev corpus -- so a raw gap test can never
+# admit them without also splitting on every indented quotation. A *channel* is
+# admitted on structural evidence instead: an x-interval no block touches anywhere
+# on the page, with enough blocks on both sides overlapping in y that a y-sort
+# would provably interleave them. The width floor only has to clear intra-column
+# word spacing, not distinguish columns from indentation -- the other guards do that.
+PDF_COLUMN_CHANNEL_MIN_WIDTH = 8.0  # Points; measured gutters bottom out at 14.9
+PDF_COLUMN_CHANNEL_MIN_BLOCKS_PER_SIDE = 3  # Sides with fewer blocks cannot interleave much
+PDF_COLUMN_CHANNEL_MIN_Y_OVERLAP_RATIO = 0.3  # Of the smaller side's y-span
+
+# Line-level resegmentation of gutter-merged blocks (#405). On 64 of 455 dev-corpus
+# pages PyMuPDF fuses both columns of a tight-gutter page into a single block, so no
+# block-level split can help; the lines themselves fall into disjoint x-bands and are
+# regrouped into one sub-block per band. A normal paragraph cannot split: its lines
+# all overlap in x, so interval clustering keeps them together.
+PDF_GUTTER_SPLIT_MIN_LINES_PER_BAND = 2
+PDF_GUTTER_SPLIT_MIN_BLOCK_WIDTH_RATIO = 0.5  # Narrower blocks cannot hold two columns
+
 # Reading order: how close two block tops must be to count as starting on the same
 # row, in which case they are read left-to-right instead of by a hairline y
 # difference. A fraction of the page's average line height rather than a constant,
