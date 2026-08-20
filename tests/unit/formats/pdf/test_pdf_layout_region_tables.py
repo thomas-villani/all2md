@@ -429,6 +429,141 @@ class TestContinuationLineMerging:
 
         assert grid is not None and len(grid) == 3
 
+    def test_gap_jump_names_the_rows_when_wrap_and_row_leading_separate(self):
+        """Wraps sit one leading below their row; the next row sits leading plus padding.
+
+        Measured on the PMC corpus: wraps at 1.0-1.3pt against rows at 2.0-6.1pt. The
+        continuation lines here keep their anchor cell FILLED (the label wraps too), so
+        the anchor rule alone cannot merge them -- the geometry must.
+        """
+        from all2md.parsers._pdf_tables import word_gutter_grid
+
+        columns = (10.0, 100.0, 180.0)
+        words = []
+        y = 10.0
+        for row in range(3):
+            for column, text in zip(columns, (f"Label{row}", f"description{row}", f"outcome{row}"), strict=True):
+                words.append(_word(column, y, text))
+            wrap_y = y + 10.0 + 1.0  # one tight leading below: the wrapped fragment
+            words.append(_word(10.0, wrap_y, f"wrapped{row}"))
+            words.append(_word(100.0, wrap_y, f"more{row}"))
+            y = wrap_y + 10.0 + 6.0  # leading plus row padding: the next logical row
+        grid = word_gutter_grid(words)
+
+        assert grid is not None
+        assert len(grid) == 3, "six printed lines are three logical rows"
+        assert grid[0][0] == "Label0\nwrapped0"
+        assert grid[0][1] == "description0\nmore0"
+
+    def test_a_parallel_prose_panel_table_collapses_to_its_two_rows(self):
+        """Three narrative columns under one header: 8 printed lines, 2 logical rows."""
+        from all2md.parsers._pdf_tables import word_gutter_grid
+
+        columns = (10.0, 150.0, 290.0)
+        words = [
+            _word(column, 10.0, head) for column, head in zip(columns, ("Hospital", "Clinic", "Home"), strict=True)
+        ]
+        y = 10.0 + 10.0 + 6.0  # header seam: leading plus padding
+        for line in range(7):
+            for column in columns:
+                words.append(_word(column, y, f"story{line}"))
+            y += 10.0 + 1.0  # uniform tight leading throughout the body
+        grid = word_gutter_grid(words)
+
+        assert grid is not None
+        assert len(grid) == 2, "uniform body leading under one header seam is two rows"
+        assert grid[1][0].split("\n") == [f"story{line}" for line in range(7)]
+
+    def test_the_header_seam_jump_does_not_fuse_numeric_data_rows(self):
+        """The header seam is a qualifying jump; believing it would fuse the data rows.
+
+        Two adjacent mostly-numeric lines abort the grouping, and per-line rows stand.
+        """
+        from all2md.parsers._pdf_tables import word_gutter_grid
+
+        columns = (10.0, 100.0, 180.0, 260.0)
+        words = [_word(column, 10.0, head) for column, head in zip(columns, ("Q", "Range", "Mean", "SD"), strict=True)]
+        y = 10.0 + 10.0 + 14.0  # a big header seam, the only qualifying jump
+        for row in range(4):
+            for column, text in zip(columns, (f"item{row}", "0-9", "6.67", "1.3"), strict=True):
+                words.append(_word(column, y, text))
+            y += 10.0 + 4.0  # row gaps too uniform to qualify on their own
+        grid = word_gutter_grid(words)
+
+        assert grid is not None
+        assert len(grid) == 5, "numeric rows must not fuse under the header-seam jump"
+
+    def test_a_single_column_wrap_below_median_gap_merges_up(self):
+        """The fill shape the anchor rule cannot see.
+
+        The wrap lives IN the anchor column while every other column is empty ('Length
+        of incubation period in' / 'days'), sitting tighter than the median gap.
+        """
+        from all2md.parsers._pdf_tables import word_gutter_grid
+
+        columns = (10.0, 150.0, 230.0)
+        words = []
+        y = 10.0
+        for row in range(4):
+            for column, text in zip(columns, (f"question{row}", "6.67", "1.3"), strict=True):
+                words.append(_word(column, y, text))
+            if row == 1:
+                y += 10.0 + 4.0  # the wrap sits tighter than this table's rows...
+                words.append(_word(10.0, y, "days"))
+            y += 10.0 + 4.4  # ...which are separated too uniformly for a gap jump
+        grid = word_gutter_grid(words)
+
+        assert grid is not None
+        assert len(grid) == 4
+        assert grid[1][0] == "question1\ndays"
+
+    def test_a_sparse_row_label_column_anchors_a_heavily_wrapped_table(self):
+        """Uniform leading end to end, so the rows are named by fill, not geometry.
+
+        The label column is filled only on row starts. The 20%-floor anchor merges each
+        row's wraps; the numeric-fusion guard keeps this from firing on data columns.
+        """
+        from all2md.parsers._pdf_tables import word_gutter_grid
+
+        columns = (10.0, 80.0, 200.0)
+        words = []
+        y = 10.0
+        for row in range(3):
+            for line in range(4):
+                if line == 0:
+                    words.append(_word(10.0, y, f"GENE{row}"))
+                words.append(_word(columns[1], y, f"describes{row}{line}"))
+                words.append(_word(columns[2], y, f"relevance{row}{line}"))
+                y += 10.0 + 2.6  # the same leading between wraps and between rows
+        grid = word_gutter_grid(words)
+
+        assert grid is not None
+        assert len(grid) == 3, "rows are named by the sparse label column, not the leading"
+        assert grid[0][0] == "GENE0"
+        assert grid[0][1].split("\n") == [f"describes0{line}" for line in range(4)]
+
+    def test_a_sparse_numeric_column_is_not_mistaken_for_a_row_label(self):
+        """A sparse first column must not anchor a merge that fuses numeric rows.
+
+        Grouped-label tables have exactly this shape, and their data rows are real rows.
+        """
+        from all2md.parsers._pdf_tables import word_gutter_grid
+
+        columns = (10.0, 100.0, 180.0)
+        words = []
+        y = 10.0
+        for group in range(2):
+            for line in range(4):
+                if line == 0:
+                    words.append(_word(10.0, y, f"Group{group}"))
+                words.append(_word(columns[1], y, "0.774"))
+                words.append(_word(columns[2], y, "226"))
+                y += 10.0 + 2.0
+        grid = word_gutter_grid(words)
+
+        assert grid is not None
+        assert len(grid) == 8, "adjacent numeric rows stay separate rows"
+
 
 class TestNumberedBibliography:
     def test_a_numbered_reference_grid_is_condemned(self):

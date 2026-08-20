@@ -162,6 +162,39 @@ MAX_ROTATED_WORD_SHARE = 0.5
 # while a mixed-orientation region that must NOT be transposed sits at median 1.05.
 MIN_ROTATED_WORD_ASPECT = 1.2
 
+# Row grouping from inter-line gaps. A wrapped cell's continuation line sits one
+# leading below its row; the next logical row sits leading plus row padding below.
+# When those two populations are separable, the gap between them names the rows --
+# measured on the PMC corpus: wraps at 1.0-1.3pt against rows at 2.0-6.1pt across
+# four publishers. The jump must clear both bars before it is believed: an absolute
+# floor as a share of line height (0.10 x ~8pt line = 0.8pt, so the 4.0-vs-4.4pt
+# near-tie one publisher prints does NOT qualify) and a ratio (1.8x, so uniform
+# leading with jitter does not manufacture rows).
+ROW_GAP_JUMP_MIN_HEIGHT_SHARE = 0.10
+ROW_GAP_JUMP_MIN_RATIO = 1.8
+# A cell is "mostly numeric" when digits dominate its alphanumerics. Two adjacent
+# lines that each hold two or more such cells are two data rows, not a wrapped cell:
+# no publisher wraps a numeric row. Any grouping that would fuse such a pair is
+# structurally wrong, so the grouping that proposed it is abandoned wholesale --
+# measured, the failure this prevents is a table whose only detectable gap jump is
+# its header seam, where believing the jump fuses every data row into one.
+ROW_NUMERIC_CELL_DIGIT_SHARE = 0.5
+ROW_FUSE_MIN_NUMERIC_CELLS = 2
+# The continuation-merge anchor may be a sparse column: a row-label column in a
+# heavily wrapped table is filled only on row starts (measured: 23% of printed lines
+# on a table whose every row wraps to 3-6 lines). Columns below this floor are noise;
+# columns between the floor and the trusted 60% bar are believed only when the merge
+# they imply survives the numeric-fusion guard above.
+ROW_ANCHOR_MIN_FILL = 0.2
+ROW_ANCHOR_TRUSTED_FILL = 0.6
+# A column may hold at most this many separate filled runs inside one merged row.
+# A cell fills contiguous lines, so two runs is a hole (tolerated: one stray gap in a
+# ragged prose cell), while three or more is a stack of distinct cells -- the group is
+# fusing rows and the grouping that proposed it is wrong. Measured: a TF-gene table
+# whose only gap jump was its header seam fused 64 lines into one row past the numeric
+# guard (its cells are prose), while its row-label column showed 15 separate runs.
+ROW_GROUP_MAX_COLUMN_RUNS = 2
+
 
 def split_word_ratio(page: "pymupdf.Page", table_data: list[list[str | None]]) -> float:
     """Share of a grid's word tokens that are not whole words of the page.
@@ -685,6 +718,7 @@ def _gutter_grid_core(words: list[tuple]) -> list[list[str]] | None:
         return None
 
     line_rows: list[list[str]] = []
+    line_extents: list[tuple[float, float]] = []
     for line in lines:
         cells: list[list[str]] = [[] for _ in range(len(boundaries) + 1)]
         for word in line:
@@ -692,37 +726,220 @@ def _gutter_grid_core(words: list[tuple]) -> list[list[str]] | None:
             column = sum(1 for boundary in boundaries if boundary < center)
             cells[column].append(str(word[4]))
         line_rows.append([" ".join(parts) for parts in cells])
-    return _merge_continuation_lines(line_rows)
+        line_extents.append((min(word[1] for word in line), max(word[3] for word in line)))
+    return _merge_continuation_lines(line_rows, line_extents)
 
 
-def _merge_continuation_lines(line_rows: list[list[str]]) -> list[list[str]]:
+def _mostly_numeric_cell(cell: str) -> bool:
+    """Whether digits dominate a cell's alphanumeric characters."""
+    alnum = [character for character in cell if character.isalnum()]
+    if not alnum:
+        return False
+    digits = sum(1 for character in alnum if character.isdigit())
+    return digits / len(alnum) > ROW_NUMERIC_CELL_DIGIT_SHARE
+
+
+def _numeric_cell_count(row: list[str]) -> int:
+    return sum(1 for cell in row if cell and _mostly_numeric_cell(cell))
+
+
+def _groups_stack_column_cells(line_rows: list[list[str]], groups: list[list[int]]) -> bool:
+    """Whether any group holds a column with three-plus separate filled runs.
+
+    A cell fills contiguous lines, so a column inside one logical row is a single run
+    (two tolerated -- a ragged prose cell can leave one hole). Three or more runs is a
+    stack of distinct cells: the group is fusing rows, however plausible its gap
+    structure looked, and the grouping that proposed it cannot be trusted.
+    """
+    for group in groups:
+        columns = max(len(line_rows[index]) for index in group)
+        for column in range(columns):
+            runs = 0
+            previous_filled = False
+            for index in group:
+                row = line_rows[index]
+                filled = column < len(row) and bool(row[column])
+                if filled and not previous_filled:
+                    runs += 1
+                previous_filled = filled
+            if runs > ROW_GROUP_MAX_COLUMN_RUNS:
+                return True
+    return False
+
+
+def _groups_fuse_numeric_rows(line_rows: list[list[str]], groups: list[list[int]]) -> bool:
+    """Whether any group would fuse two adjacent lines that are each a numeric data row.
+
+    No publisher wraps a numeric row, so a grouping that joins two of them has mistaken
+    row separation for cell wrapping and cannot be trusted anywhere on the grid.
+    """
+    for group in groups:
+        for first, second in zip(group, group[1:], strict=False):
+            if (
+                _numeric_cell_count(line_rows[first]) >= ROW_FUSE_MIN_NUMERIC_CELLS
+                and _numeric_cell_count(line_rows[second]) >= ROW_FUSE_MIN_NUMERIC_CELLS
+            ):
+                return True
+    return False
+
+
+def _gap_row_groups(line_rows: list[list[str]], line_extents: list[tuple[float, float]]) -> list[list[int]] | None:
+    """Group printed lines into logical rows by the jump in their inter-line gaps.
+
+    A wrapped continuation sits one leading below its row; the next row sits leading
+    plus row padding below. When the sorted gaps show a first jump clearing both the
+    height-share floor and the ratio bar, gaps above the jump are row boundaries.
+    Uniform leading has no such jump and returns ``None`` -- the per-line rows stand,
+    exactly as before. Vertically centered multi-line cells interlace their baselines
+    across columns, so gaps go *negative* inside a row; a negative baseline satisfies
+    the ratio vacuously and the height-share floor still applies.
+    """
+    if len(line_extents) != len(line_rows) or len(line_rows) < 3:
+        return None
+    gaps = [line_extents[index][0] - line_extents[index - 1][1] for index in range(1, len(line_extents))]
+    heights = sorted(y1 - y0 for y0, y1 in line_extents)
+    median_height = heights[len(heights) // 2]
+    unique_gaps = sorted({round(gap, 2) for gap in gaps})
+    if len(unique_gaps) < 2:
+        return None
+
+    threshold: float | None = None
+    for lower, upper in zip(unique_gaps, unique_gaps[1:], strict=False):
+        if upper - lower < ROW_GAP_JUMP_MIN_HEIGHT_SHARE * median_height:
+            continue
+        if lower > 0 and upper / lower < ROW_GAP_JUMP_MIN_RATIO:
+            continue
+        threshold = (lower + upper) / 2
+        break
+    if threshold is None:
+        return None
+
+    groups: list[list[int]] = []
+    current = [0]
+    for index, gap in enumerate(gaps, start=1):
+        if gap > threshold:
+            groups.append(current)
+            current = [index]
+        else:
+            current.append(index)
+    groups.append(current)
+    if len(groups) < 2 or _groups_fuse_numeric_rows(line_rows, groups):
+        return None
+    if _groups_stack_column_cells(line_rows, groups):
+        return None
+    return groups
+
+
+def _rows_from_groups(line_rows: list[list[str]], groups: list[list[int]]) -> list[list[str]]:
+    """Assemble merged rows from line groups, joining cell fragments with newlines."""
+    merged: list[list[str]] = []
+    for group in groups:
+        row = list(line_rows[group[0]])
+        for index in group[1:]:
+            for column, fragment in enumerate(line_rows[index]):
+                if not fragment:
+                    continue
+                row[column] = f"{row[column]}\n{fragment}" if row[column] else fragment
+        merged.append(row)
+    return merged
+
+
+def _merge_continuation_lines(
+    line_rows: list[list[str]], line_extents: list[tuple[float, float]] | None = None
+) -> list[list[str]]:
     """Fold wrapped cell lines into their logical row.
 
     One printed line is not one table row: a cell holding more than a line of text wraps,
     and emitting each printed line as a row splits every wrapped cell -- including through
-    hyphenated words, which the whole-word guarantee is supposed to make impossible. The
-    anchor is the leftmost column filled on at least 60% of lines: a line with the anchor
-    cell empty is a continuation of the row above it, because a new logical row announces
-    itself in the column that names rows. Leftmost-qualifying rather than most-filled on
-    purpose -- a heavily wrapped description column is *more* filled than the key column
-    beside it, and choosing it would read every real row as a continuation of the first.
-    Fully-dense numeric tables have every anchor cell filled, so nothing merges and the
-    per-line rows stand.
+    hyphenated words, which the whole-word guarantee is supposed to make impossible.
+    Three signals decide, each measured on the PMC corpus and each guarded:
+
+    1. **Gap grouping** (`_gap_row_groups`): when inter-line gaps separate into a wrap
+       population and a row population, the rows are geometric fact and the fill-based
+       rules below never run. Abandoned whole when it would fuse adjacent numeric rows
+       (the header-seam trap).
+    2. **Single-column wraps**: a line filling exactly one column of a 3+-column grid,
+       sitting closer to the previous line than this table's median gap, is a wrapped
+       fragment -- the shape the anchor rule cannot see, because the wrap lives *in*
+       the anchor column while every other column is empty.
+    3. **The anchor rule**: the leftmost column filled on at least 60% of lines names
+       the rows; a line with that cell empty continues the row above. A sparser anchor
+       (down to the 20% floor) is believed only when the merge it implies survives the
+       numeric-fusion guard -- a row-label column in a heavily wrapped table is filled
+       only on row starts, but a sparse *data* column must not be mistaken for one.
+
+    Fully-dense numeric tables have uniform gaps, no single-column lines, and every
+    anchor cell filled, so nothing merges and the per-line rows stand.
 
     Cell fragments join with a newline rather than a space so the caller can run its
     hyphenation repair across the join, exactly as the paragraph path does.
     """
     column_count = max(len(row) for row in line_rows)
+
+    if line_extents is not None:
+        groups = _gap_row_groups(line_rows, line_extents)
+        if groups is not None:
+            return _rows_from_groups(line_rows, groups)
+
+    gaps: list[float] | None = None
+    median_gap = 0.0
+    if line_extents is not None and len(line_extents) == len(line_rows) and len(line_rows) > 1:
+        gaps = [line_extents[index][0] - line_extents[index - 1][1] for index in range(1, len(line_extents))]
+        median_gap = sorted(gaps)[len(gaps) // 2]
+
     fill = [sum(1 for row in line_rows if column < len(row) and row[column]) for column in range(column_count)]
-    anchor = next(
-        (column for column in range(column_count) if fill[column] >= 0.6 * len(line_rows)),
+    trusted_anchor = next(
+        (column for column in range(column_count) if fill[column] >= ROW_ANCHOR_TRUSTED_FILL * len(line_rows)),
         max(range(column_count), key=lambda column: (fill[column], -column)),
     )
+    anchor = trusted_anchor
+    sparse_anchor = next(
+        (column for column in range(column_count) if fill[column] >= ROW_ANCHOR_MIN_FILL * len(line_rows)),
+        trusted_anchor,
+    )
+    if sparse_anchor < trusted_anchor:
+        # A sparser, further-left candidate implies a bolder merge. Simulate it: the
+        # groups it builds must not fuse adjacent numeric rows, or it is a data column.
+        candidate_groups: list[list[int]] = []
+        for index, row in enumerate(line_rows):
+            if candidate_groups and not (sparse_anchor < len(row) and row[sparse_anchor]):
+                candidate_groups[-1].append(index)
+            else:
+                candidate_groups.append([index])
+
+        # And the merge must look like wrapping, not like new rows under a group label:
+        # a wrapped continuation only *continues* columns its row start already filled,
+        # while a grouped-label table's inner rows introduce fresh content in columns
+        # the label line left empty (measured: an exercise-program table whose sparse
+        # first column held section names fused 13 real rows into 4 without this).
+        def _introduces_new_columns(group: list[int]) -> bool:
+            start_columns = {column for column, cell in enumerate(line_rows[group[0]]) if cell}
+            return any(
+                column not in start_columns
+                for index in group[1:]
+                for column, cell in enumerate(line_rows[index])
+                if cell
+            )
+
+        if (
+            not _groups_fuse_numeric_rows(line_rows, candidate_groups)
+            and not _groups_stack_column_cells(line_rows, candidate_groups)
+            and not any(_introduces_new_columns(group) for group in candidate_groups)
+        ):
+            anchor = sparse_anchor
 
     merged: list[list[str]] = []
-    for row in line_rows:
-        is_continuation = merged and not (anchor < len(row) and row[anchor])
-        if not is_continuation:
+    for index, row in enumerate(line_rows):
+        filled_columns = [column for column, cell in enumerate(row) if cell]
+        single_column_wrap = (
+            gaps is not None
+            and merged
+            and column_count >= 3
+            and len(filled_columns) == 1
+            and gaps[index - 1] < median_gap
+        )
+        anchor_continuation = merged and not (anchor < len(row) and row[anchor])
+        if not (single_column_wrap or anchor_continuation):
             merged.append(list(row))
             continue
         target = merged[-1]
