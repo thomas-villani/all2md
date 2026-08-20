@@ -13,3 +13,16 @@ __pycache__/
 
 # Example files (not production code)
 examples/
+
+# Triaged out of the blocking scan (#328). The scan covers `src/` and `benchmarks/`;
+# these two trees are excluded here rather than suppressed per line because the
+# findings are rule-shaped, not site-shaped:
+#   - tests/: `urlopen` against the test's own localhost server (audit rule
+#     `dynamic-urllib-use-detected`, 9 sites), `xml.etree` parsing of fixture XML the
+#     test wrote itself, and an MD5 used as a content hash in a fixture generator.
+#     None of it ships and none of it sees untrusted input.
+#   - stubs/: type stubs never execute; the `xml.etree` import is an annotation.
+# Remove an entry here only by re-running the scan with it included and triaging
+# whatever it reports.
+tests/
+stubs/

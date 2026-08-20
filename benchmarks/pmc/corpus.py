@@ -51,6 +51,7 @@ from uuid import uuid4
 # disclosure or memory exhaustion. `Element` is imported from the stdlib because
 # defusedxml does not re-export it -- it is the node type, not a parser, and
 # nothing here constructs one, it is only used in annotations.
+# nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
 from xml.etree.ElementTree import Element
 
 from defusedxml import ElementTree
@@ -652,6 +653,9 @@ def _object_url(article_id: str, suffix: str) -> str:
 
 def _open_url(url: str, *, timeout: int = DEFAULT_TIMEOUT) -> Any:
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    # The URL is always built from BUCKET_BASE, a fixed https host; the same judgement
+    # bandit accepts under S310, restated for semgrep's audit rule (#328).
+    # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
     return urllib.request.urlopen(request, timeout=timeout)  # noqa: S310 - fixed https bucket
 
 
