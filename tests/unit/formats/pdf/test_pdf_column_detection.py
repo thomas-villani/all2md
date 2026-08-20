@@ -333,3 +333,215 @@ def test_column_detection_all_spanning_blocks():
     # Should return single column when all blocks span full width
     assert len(columns) == 1
     assert len(columns[0]) == 3
+
+
+# --- Tight-gutter channel admission (#405) ---------------------------------------
+#
+# Journal reference pages print two columns whose gutter is narrower than the
+# 20pt threshold (measured 14.9-17.9pt across four publishers on the PMC dev
+# corpus). The channel detector admits them on structural evidence a raw gap
+# test cannot demand.
+
+
+def _two_tight_columns(gap_start: float = 285.0, gap_end: float = 300.0) -> list[dict]:
+    """Two columns with a 15pt gutter, five multi-line blocks per side."""
+    blocks = []
+    for i in range(5):
+        y = 100 + i * 60
+        blocks.append({"bbox": [50, y, gap_start, y + 50], "text": f"L{i}"})
+        blocks.append({"bbox": [gap_end, y, 540, y + 50], "text": f"R{i}"})
+    return blocks
+
+
+def test_tight_gutter_two_columns_admitted():
+    """A 15pt gutter splits when both sides carry y-overlapping block stacks."""
+    columns = detect_columns(_two_tight_columns(), column_gap_threshold=20)
+
+    assert len(columns) == 2
+    assert {b["text"] for b in columns[0]} == {f"L{i}" for i in range(5)}
+    assert {b["text"] for b in columns[1]} == {f"R{i}" for i in range(5)}
+
+
+def test_tight_gutter_page_number_in_gutter_is_pruned():
+    """A centered page number below both columns must not erase the channel.
+
+    Measured on PMC5500034.1 p4 / PMC10500022.1 p6: the footer page number sits
+    *inside* the 15pt gutter. It y-overlaps nothing, so it cannot be interleaved
+    with anything and carries no evidence against the channel.
+    """
+    blocks = _two_tight_columns()
+    blocks.append({"bbox": [288, 460, 293, 470], "text": "4"})
+
+    columns = detect_columns(blocks, column_gap_threshold=20)
+
+    assert len(columns) == 2
+
+
+def test_tight_gutter_needs_blocks_on_both_sides():
+    """Two blocks on one side is not a column; it is a figure label or margin note."""
+    blocks = [{"bbox": [50, 100 + i * 60, 285, 150 + i * 60], "text": f"L{i}"} for i in range(5)]
+    blocks += [
+        {"bbox": [300, 100, 540, 150], "text": "R0"},
+        {"bbox": [300, 160, 540, 210], "text": "R1"},
+    ]
+
+    columns = detect_columns(blocks, column_gap_threshold=20)
+
+    assert len(columns) == 1
+
+
+def test_tight_gutter_needs_y_overlap():
+    """Left blocks above, right blocks below: a y-sort cannot interleave them."""
+    blocks = [{"bbox": [50, 100 + i * 30, 285, 120 + i * 30], "text": f"L{i}"} for i in range(4)]
+    blocks += [{"bbox": [300, 400 + i * 30, 540, 420 + i * 30], "text": f"R{i}"} for i in range(4)]
+
+    columns = detect_columns(blocks, column_gap_threshold=20)
+
+    assert len(columns) == 1
+
+
+def test_tight_gutter_indented_quotation_does_not_split():
+    """An indented block overlaps its body text in x; no channel can exist."""
+    blocks = [{"bbox": [50, 100 + i * 60, 540, 150 + i * 60], "text": f"B{i}"} for i in range(4)]
+    blocks += [{"bbox": [120, 340 + i * 30, 470, 360 + i * 30], "text": f"Q{i}"} for i in range(3)]
+
+    columns = detect_columns(blocks, column_gap_threshold=20)
+
+    assert len(columns) == 1
+
+
+def test_tight_gutter_multiple_channels_rejected():
+    """Several qualifying tight channels is a table signature, not a layout."""
+    blocks = []
+    for col, (x0, x1) in enumerate([(50, 180), (192, 322), (334, 464)]):
+        for i in range(5):
+            y = 100 + i * 60
+            blocks.append({"bbox": [x0, y, x1, y + 50], "text": f"C{col}"})
+
+    columns = detect_columns(blocks, column_gap_threshold=20)
+
+    assert len(columns) == 1
+
+
+# --- Gutter-merged block resegmentation (#405) ------------------------------------
+
+
+def _fused_two_column_block() -> dict:
+    """One block whose lines alternate between two disjoint x-bands (y order)."""
+    lines = []
+    for i in range(4):
+        y = 100 + i * 12
+        lines.append({"bbox": [50, y, 280, y + 10], "spans": [{"text": f"left {i}"}]})
+        lines.append({"bbox": [300, y + 1, 540, y + 11], "spans": [{"text": f"right {i}"}]})
+    return {"type": 0, "bbox": [50, 100, 540, 148], "lines": lines, "_layout_label": "text"}
+
+
+def test_split_fused_two_column_block():
+    """Lines regroup into one block per band, left band first, order preserved."""
+    from all2md.parsers.pdf import split_gutter_merged_blocks
+
+    result = split_gutter_merged_blocks([_fused_two_column_block()], page_width=595.0)
+
+    assert len(result) == 2
+    left, right = result
+    assert [s["text"] for line in left["lines"] for s in line["spans"]] == [f"left {i}" for i in range(4)]
+    assert [s["text"] for line in right["lines"] for s in line["spans"]] == [f"right {i}" for i in range(4)]
+    assert left["bbox"] == (50, 100, 280, 146)
+    assert right["bbox"] == (300, 101, 540, 147)
+    assert left["_layout_label"] == "text"
+
+
+def test_split_leaves_normal_paragraph_alone():
+    """A paragraph's lines all overlap in x -- including a short last line."""
+    from all2md.parsers.pdf import split_gutter_merged_blocks
+
+    lines = [
+        {"bbox": [50, 100, 540, 110], "spans": [{"text": "full line"}]},
+        {"bbox": [50, 112, 540, 122], "spans": [{"text": "full line"}]},
+        {"bbox": [50, 124, 540, 134], "spans": [{"text": "full line"}]},
+        {"bbox": [50, 136, 200, 146], "spans": [{"text": "short last"}]},
+    ]
+    block = {"type": 0, "bbox": [50, 100, 540, 146], "lines": lines}
+
+    result = split_gutter_merged_blocks([block], page_width=595.0)
+
+    assert result == [block]
+
+
+def test_split_leaves_fused_table_alone():
+    """Many narrow bands is a data grid; column-major order would be wrong for it."""
+    from all2md.parsers.pdf import split_gutter_merged_blocks
+
+    lines = []
+    for i in range(4):
+        y = 100 + i * 12
+        for x0, x1 in [(50, 100), (150, 200), (250, 300), (350, 400), (450, 500)]:
+            lines.append({"bbox": [x0, y, x1, y + 10], "spans": [{"text": "cell"}]})
+    block = {"type": 0, "bbox": [50, 100, 500, 146], "lines": lines}
+
+    result = split_gutter_merged_blocks([block], page_width=595.0)
+
+    assert result == [block]
+
+
+def test_split_leaves_narrow_block_alone():
+    """A block narrower than half the page cannot hold two columns."""
+    from all2md.parsers.pdf import split_gutter_merged_blocks
+
+    lines = [{"bbox": [50, 100 + i * 12, 130, 110 + i * 12], "spans": [{"text": "a"}]} for i in range(2)] + [
+        {"bbox": [160, 100 + i * 12, 240, 110 + i * 12], "spans": [{"text": "b"}]} for i in range(2)
+    ]
+    block = {"type": 0, "bbox": [50, 100, 240, 134], "lines": lines}
+
+    result = split_gutter_merged_blocks([block], page_width=595.0)
+
+    assert result == [block]
+
+
+# --- Hyphenated words across merged paragraph seams (#405) -------------------------
+
+
+def _seam_paragraphs(left_tail: str, right_head: str):
+    """Two Paragraph nodes as the PDF parser produces them at a block seam."""
+    from all2md.ast.nodes import Paragraph, SourceLocation, Text
+
+    return [
+        Paragraph(
+            content=[Text(content=left_tail)],
+            source_location=SourceLocation(format="pdf", page=1, metadata={"bbox": [50, 100, 280, 120]}),
+        ),
+        Paragraph(
+            content=[Text(content=right_head)],
+            source_location=SourceLocation(format="pdf", page=1, metadata={"bbox": [50, 122, 280, 142]}),
+        ),
+    ]
+
+
+def _merged_text(nodes) -> str:
+    from all2md.parsers.pdf import PdfToAstConverter
+
+    merged = PdfToAstConverter()._merge_adjacent_paragraphs(nodes)
+    assert len(merged) == 1
+    return "".join(t.content for t in merged[0].content)
+
+
+def test_merge_joins_hyphenated_word_across_blocks():
+    """dehyphenate_blocks cannot see across blocks; the paragraph merge must.
+
+    Measured on PMC7000152.1: tight-gutter reference columns fragment into 2-4
+    line PyMuPDF blocks, so words hyphenated at a block's last line survived as
+    "transcrip- tion" and cost every affected title its recall.
+    """
+    text = _merged_text(_seam_paragraphs("a farnesoic acid-responsive transcrip-", "tion factor"))
+    assert text == "a farnesoic acid-responsive transcription factor"
+
+
+def test_merge_keeps_hyphen_for_uppercase_continuation():
+    """An uppercase continuation signals a real compound: keep the hyphen."""
+    text = _merged_text(_seam_paragraphs("the Anglo-", "Saxon corpus"))
+    assert text == "the Anglo-Saxon corpus"
+
+
+def test_merge_without_hyphen_keeps_the_space():
+    text = _merged_text(_seam_paragraphs("a sentence that continues", "on the next block"))
+    assert text == "a sentence that continues on the next block"

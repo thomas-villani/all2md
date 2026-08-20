@@ -5,9 +5,9 @@
     "bucket": "pmc-oa-opendata",
     "complete_corpus": true,
     "oracle_schema_version": 2,
-    "all2md_commit": "a8d4390faab271fa72bc29eeabdd8eb73262fde4",
+    "all2md_commit": "ea105c037779b0fc10ba239a493f37456228fc6e",
     "worktree_dirty": false,
-    "created_at": "2026-08-19T19:28:00.776586+00:00",
+    "created_at": "2026-08-20T01:03:43.003369+00:00",
     "python": "3.12.3 (main, Jun 19 2026, 12:46:00) [GCC 13.3.0]",
     "platform": "linux",
     "parser_runtime": {
@@ -68,13 +68,13 @@
     "unsplit_spans": 42
   },
   "article_recall": {
-    "recall": 0.6023582257158899,
-    "recovered": 5364,
+    "recall": 0.6195395845030881,
+    "recovered": 5517,
     "scored": 8905,
     "too_short": 2598,
     "ceiling": 0.624480628860191,
     "attainable": 5561,
-    "attainable_recall": 0.9543247617335011,
+    "attainable_recall": 0.9825570940478331,
     "by_kind": {
       "table": {
         "recovered": 77,
@@ -83,35 +83,35 @@
         "attainable_recall": 0.6909090909090909
       },
       "text_block": {
-        "recovered": 3141,
+        "recovered": 3155,
         "attainable": 3160,
         "scored": 6356,
-        "attainable_recall": 0.984493670886076
+        "attainable_recall": 0.9889240506329114
       },
       "title": {
-        "recovered": 2146,
+        "recovered": 2285,
         "attainable": 2291,
         "scored": 2426,
-        "attainable_recall": 0.9253601047577477
+        "attainable_recall": 0.9877782627673505
       }
     },
     "control_recall": 0.003593486805165637,
     "control_scored": 8905,
-    "discrimination": 0.5987647389107242
+    "discrimination": 0.6159460976979224
   },
   "article_precision": {
-    "precision": 0.9264827487562745,
-    "supported": 414551,
-    "emitted": 447446,
-    "resequenced": 28068,
-    "novel": 4827,
-    "novel_share": 0.01078789395815361,
-    "duplication": 0.02026025195707398,
-    "excess": 9770,
-    "occurrences": 482225,
-    "control_precision": 0.006957264116787277,
-    "control_emitted": 447446,
-    "discrimination": 0.9195254846394871
+    "precision": 0.9397992488598766,
+    "supported": 420391,
+    "emitted": 447320,
+    "resequenced": 22678,
+    "novel": 4251,
+    "novel_share": 0.009503263882679067,
+    "duplication": 0.02022487757425917,
+    "excess": 9751,
+    "occurrences": 482129,
+    "control_precision": 0.007012876687829741,
+    "control_emitted": 447320,
+    "discrimination": 0.9327863721720469
   },
   "figure_binding": {
     "binding_rate": 0.5255813953488372,
@@ -131,35 +131,35 @@
   "dimensions": {
     "block_structure_similarity": {
       "count": 706.0,
-      "mean": 0.5376131726173652,
-      "median": 0.5625,
-      "minimum": 0.016393442622950838,
+      "mean": 0.5420577473256009,
+      "median": 0.5656275635767023,
+      "minimum": 0.022727272727272707,
       "maximum": 1.0,
-      "stdev": 0.20910230767053464,
+      "stdev": 0.21246647137787839,
       "direction": "higher",
-      "control_mean": 0.4406226435897821,
-      "discrimination": 0.0969905290275831,
+      "control_mean": 0.4403768308558073,
+      "discrimination": 0.10168091646979355,
       "mutation_drop": {
-        "reversed": 0.011313431940310537,
-        "shuffled": 0.02215105004406372,
-        "halved": 0.06278276748452316
+        "reversed": 0.014850039809720163,
+        "shuffled": 0.03073238589012482,
+        "halved": 0.05961438938430722
       },
       "ungateable": "compares kind sequences without inspecting the text under a block, so content-free output scores 1.0 (issue #256); eleven text categories collapse to `text_block`, so fully reversed output scores exactly 1.0 on 153 of the 981 pinned pages; and on the born-digital lane it separates own-page from wrong-page output by only ~0.06 while *rising* when half the emitted content is deleted, which rewards dropping blocks"
     },
     "reading_order_similarity": {
       "count": 706.0,
-      "mean": 0.7686226098186316,
-      "median": 0.8,
+      "mean": 0.8217827559935488,
+      "median": 0.9,
       "minimum": 0.0,
       "maximum": 1.0,
-      "stdev": 0.21007253974973572,
+      "stdev": 0.21520731075755462,
       "direction": "higher",
-      "control_mean": 0.28738236693875924,
-      "discrimination": 0.4812402428798724,
+      "control_mean": 0.28801802793641296,
+      "discrimination": 0.5337647280571358,
       "mutation_drop": {
-        "reversed": 0.4201391234711173,
-        "shuffled": 0.2095946215811197,
-        "halved": 0.3112284307672439
+        "reversed": 0.5053984442937073,
+        "shuffled": 0.24732391181625454,
+        "halved": 0.33821752696770685
       }
     },
     "table_content_similarity": {
@@ -196,18 +196,18 @@
     },
     "text_content_similarity": {
       "count": 706.0,
-      "mean": 0.5582261645706342,
-      "median": 0.5330238627026651,
+      "mean": 0.6650094046176821,
+      "median": 0.6753701116624102,
       "minimum": 0.010652463382157085,
-      "maximum": 0.9901380670611439,
-      "stdev": 0.2192191157194943,
+      "maximum": 0.9930305215092525,
+      "stdev": 0.2214188305407939,
       "direction": "higher",
-      "control_mean": 0.23458798685548662,
-      "discrimination": 0.3236381777151476,
+      "control_mean": 0.2344655008641329,
+      "discrimination": 0.43054390375354923,
       "mutation_drop": {
-        "reversed": 0.17515444512156728,
-        "shuffled": 0.12488377402788574,
-        "halved": 0.22389428557224242
+        "reversed": 0.27629192773201244,
+        "shuffled": 0.2006449054953756,
+        "halved": 0.2961827527191879
       }
     }
   },
