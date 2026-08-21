@@ -524,3 +524,66 @@ def test_a_word_clipped_by_the_table_bbox_joins_the_outer_cell():
 
     assert isinstance(node, AstTable)
     assert _cells(node) == [["Method", "mAP"], ["Image", "0.024"], ["Video", "0.090"]]
+
+
+def test_a_whole_column_outside_the_bbox_is_detected_and_admitted():
+    """A column the bbox excluded entirely is found by its three signals and joins the grid (#419).
+
+    The words sit a column gutter away (5pt), align with every grid row, and nothing
+    continues beyond them -- a prose neighbour or caption fails at least one of the
+    three. Admitted through clip_extension, they become the last cell of every row.
+    """
+    from all2md.parsers._pdf_tables import adjacent_clipped_column
+
+    extents = [(0.0, 10.0), (14.0, 24.0), (28.0, 38.0)]
+    words = [
+        _word(2, 0, "Group", 0),
+        _word(62, 0, "Mean", 0),
+        _word(125, 0, "SD", 0),  # x=125..137: 5pt past the bbox edge at 120
+        _word(2, 14, "Control", 1),
+        _word(62, 14, "4.1", 1),
+        _word(125, 14, "0.7", 1),
+        _word(2, 28, "Treated", 2),
+        _word(62, 28, "5.9", 2),
+        _word(125, 28, "0.9", 2),
+    ]
+    page = _FakePage(words)
+    grid = [["Group", "Mean"], ["Control", "4.1"], ["Treated", "5.9"]]
+    table = _FakeTable(grid, extents, EDGES)
+
+    found = adjacent_clipped_column(page, table)
+    assert found is not None
+    rect, side = found
+    assert side == "right"
+
+    node = PdfToAstConverter()._process_table_to_ast(table, page, 0, clip_extension=(rect, side))
+    assert isinstance(node, AstTable)
+    assert _cells(node) == [
+        ["Group", "Mean", "SD"],
+        ["Control", "4.1", "0.7"],
+        ["Treated", "5.9", "0.9"],
+    ]
+
+
+def test_a_prose_neighbour_is_not_admitted_as_a_column():
+    """Words that keep going past the near band are a prose column, not a clipped one."""
+    from all2md.parsers._pdf_tables import adjacent_clipped_column
+
+    extents = [(0.0, 10.0), (14.0, 24.0), (28.0, 38.0)]
+    words = [
+        _word(2, 0, "Group", 0),
+        _word(62, 0, "Mean", 0),
+        _word(2, 14, "Control", 1),
+        _word(62, 14, "4.1", 1),
+        _word(2, 28, "Treated", 2),
+        _word(62, 28, "5.9", 2),
+    ]
+    # A neighbouring prose column: near words on every row, but text runs on far
+    # past them, which no clipped table column does.
+    for row, top in enumerate((0, 14, 28)):
+        for k in range(6):
+            words.append(_word(126 + 24 * k, top, "word", row))
+    page = _FakePage(words)
+    grid = [["Group", "Mean"], ["Control", "4.1"], ["Treated", "5.9"]]
+
+    assert adjacent_clipped_column(page, _FakeTable(grid, extents, EDGES)) is None

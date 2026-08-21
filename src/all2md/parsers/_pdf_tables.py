@@ -44,6 +44,7 @@ __all__ = [
     "merge_continuation_lines",
     "page_has_table_signals",
     "MIN_COLUMN_CUT_ROWS",
+    "adjacent_clipped_column",
     "bbox_clipped_rows",
     "boundaries_to_dissolve",
     "contradicted_column_boundaries",
@@ -255,6 +256,22 @@ COLUMN_CUT_MARGIN_PT = 1.0
 # Two x-positions within this distance are the same column edge (find_tables() emits
 # cell rects whose shared edges agree to well under a point).
 COLUMN_EDGE_TOLERANCE_PT = 0.5
+
+# find_tables() can also draw its bbox short of a whole column: on the PMC dev corpus
+# a four-column table was detected as three, with the fourth ("3rd trimester ...")
+# printed just outside the bbox. The evidence that a band of outside words is the
+# table's own clipped column and not a neighbour: it sits a column gutter away, not a
+# page-layout gutter (measured 3.0-4.7pt against 13.7+ for prose neighbours and
+# captions); its words line up with essentially every grid row (measured full
+# coverage against <=0.73 for prose and <=0.45 for captions); and nothing continues
+# beyond it (measured 0-1 further words against 62+ where a prose column runs on, and
+# 100+ where a second table sits alongside -- both of which must not be swallowed).
+# Each threshold sits inside its measured gap.
+MAX_ADJACENT_COLUMN_GAP_PT = 8.0
+MIN_ADJACENT_COLUMN_ROW_COVERAGE = 0.8
+MAX_ADJACENT_COLUMN_FAR_WORDS = 2
+ADJACENT_COLUMN_SEARCH_PT = 40.0
+ADJACENT_COLUMN_FAR_SEARCH_PT = 150.0
 
 # A contradicted boundary names the damage, not the repair. Two shapes produce cut
 # words, and they need opposite treatment. A *spurious* boundary splits one printed
@@ -496,6 +513,93 @@ def contradicted_column_boundaries(
         if len(cut_rows) >= MIN_COLUMN_CUT_ROWS:
             contradicted.append((boundary, tuple(cut_rows)))
     return contradicted
+
+
+def adjacent_clipped_column(page: "pymupdf.Page", table: object) -> "tuple[pymupdf.Rect, str] | None":
+    """Find a whole column of the table printed just outside its bbox.
+
+    Scans the bbox's vertical band on each side for words the bbox excluded, and
+    admits them as the table's own clipped column only on three measured signals
+    together: they sit a column gutter away (not a page-layout gutter), they align
+    with essentially every grid row, and nothing continues beyond them. See the
+    constants above for the measured gaps; prose neighbours, captions, and
+    side-by-side tables each fail at least one.
+
+    Parameters
+    ----------
+    page : pymupdf.Page
+        Page the table was found on.
+    table : PyMuPDF Table
+        Table object from ``find_tables()`` whose ``rows[].cells`` rects define the
+        grid.
+
+    Returns
+    -------
+    tuple of (pymupdf.Rect, str) or None
+        The rectangle holding the clipped column's words and which side of the
+        table it sits on (``"left"`` or ``"right"``), or ``None`` when no side
+        qualifies.
+
+    """
+    import pymupdf
+
+    try:
+        rows = list(table.rows)  # type: ignore[attr-defined]
+        bbox = pymupdf.Rect(table.bbox)  # type: ignore[attr-defined]
+        words = page.get_text("words")
+    except Exception:
+        return None
+    row_bands = []
+    for row in rows:
+        cells = [cell[:4] for cell in (getattr(row, "cells", None) or []) if cell is not None]
+        if cells:
+            row_bands.append((min(cell[1] for cell in cells), max(cell[3] for cell in cells)))
+    if not row_bands:
+        return None
+
+    for side in ("right", "left"):
+        near = []
+        n_far = 0
+        for word in words:
+            center_y = (word[1] + word[3]) / 2
+            if not (bbox.y0 - 2 <= center_y <= bbox.y1 + 2):
+                continue
+            rect = pymupdf.Rect(word[:4])
+            if rect.intersects(bbox):
+                continue
+            if side == "right" and word[0] >= bbox.x1:
+                gap = word[0] - bbox.x1
+            elif side == "left" and word[2] <= bbox.x0:
+                gap = bbox.x0 - word[2]
+            else:
+                continue
+            if gap <= ADJACENT_COLUMN_SEARCH_PT:
+                near.append((word, gap))
+            elif gap <= ADJACENT_COLUMN_FAR_SEARCH_PT:
+                n_far += 1
+        if not near:
+            continue
+        if min(gap for _word, gap in near) > MAX_ADJACENT_COLUMN_GAP_PT:
+            continue
+        if n_far > MAX_ADJACENT_COLUMN_FAR_WORDS:
+            continue
+        covered = set()
+        for word, _gap in near:
+            center_y = (word[1] + word[3]) / 2
+            for index, (top, bottom) in enumerate(row_bands):
+                if top <= center_y <= bottom:
+                    covered.add(index)
+                    break
+        if len(covered) / len(row_bands) < MIN_ADJACENT_COLUMN_ROW_COVERAGE:
+            continue
+        rect = pymupdf.Rect(
+            min(word[0] for word, _gap in near),
+            min(word[1] for word, _gap in near),
+            max(word[2] for word, _gap in near),
+            max(word[3] for word, _gap in near),
+        )
+        return rect, side
+    return None
 
 
 def bbox_clipped_rows(page: "pymupdf.Page", table: object) -> int:
