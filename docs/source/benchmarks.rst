@@ -80,7 +80,7 @@ Did the text survive?
      - 62.4%
      - what the PDF's own text layer reproduces
    * - **Recall of what is attainable**
-     - **98.3%**
+     - **98.5%**
      - the number worth reading
    * - Control: the *wrong* article
      - 0.4%
@@ -98,8 +98,9 @@ The movement after that correction is the opposite kind: a parser fix (#405).
 Side-by-side regions with tight gutters — two-column reference lists above all — were
 read as one column and interleaved line-by-line, so every word survived while every
 adjacency died. Admitting those gutters on structural evidence and joining words
-hyphenated at block seams raised attainable recall from 95.4% to 98.3%, and the
-held-out corpus moved the same way it was never tuned against.
+hyphenated at block seams raised attainable recall from 95.4% to 98.3% (98.5% after
+the table repairs below), and the held-out corpus moved the same way it was never
+tuned against.
 
 Raw recall is 62.1%, and that figure is close to meaningless on its own. A large share of
 any JATS article cannot be recovered by *any* parser, because the markup records words in an
@@ -128,11 +129,11 @@ By block kind:
    * - Titles
      - 2,291 of 2,426
      - 2,287
-     - **98.8%**
+     - **98.9%**
    * - Tables
      - 110 of 123
      - 86
-     - **78.2%**
+     - **77.3%**
 
 Table blocks are the outlier, and deliberately so — their text now routes through
 structured table extraction rather than flowing out as prose. What that buys and what it
@@ -212,7 +213,7 @@ order, and n-grams reward that order; a committed table re-cuts the same words a
 cell boundary, and each boundary in the wrong place breaks a run of them. The two
 mechanisms that dominated — every printed line emitted as its own row, splitting wrapped
 cells mid-sentence, and ``Table.extract()`` clipping characters at cell rects — were
-measured, fixed behind guards (#416, #417), and the figure recovered to **78.2%**. The
+measured, fixed behind guards (#416, #417), and the figure recovered to **77.3%**. The
 trade still stands with eyes open — a table recovered *as a table* is what downstream
 consumers need, and the residual gap now sits in named mechanisms (#419) rather than a
 vague deficit — but it is a trade, and the artifact says so rather than netting the two

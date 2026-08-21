@@ -28,7 +28,7 @@ comparison is essentially closed. Residue (boxed regions needing y-segmentation)
 scoped as [#414](https://github.com/thomas-villani/all2md/issues/414), small on both
 corpora. **Item 13's louder announcement is unblocked** — #405 was its stated gate. Next:
 leg 3, the Docling table study (item 16) — complete: the study refuted its own
-premise and the fixes it fed moved table-text survival 69.1% → 78.2%; the arc's single
+premise and the fixes it fed moved table-text survival 69.1% → 77.3%; the arc's single
 untuned holdout validation is what remains.
 
 **Status (2026-08-19).** Batch 12 — **Figures & the born-digital queue** — is complete and
@@ -1019,7 +1019,7 @@ more than planned:
     and the same shred plus ``Table.extract()`` clipping characters at cell rects on the
     ``find_tables()`` side ([#417](https://github.com/thomas-villani/all2md/issues/417) —
     cell text now rebuilt from the page's own word boxes when a digit-aware loss test
-    fires). Dev table survival 69.1% → **78.2%**, lane precision 94.8 → 94.9, novel share
+    fires). Dev table survival 69.1% → **77.3%**, lane precision 94.8 → 94.9, novel share
     0.84 → 0.80%, zero collateral. The residue has names now: column boundaries drawn
     through cell content and bbox-clipped regions
     ([#419](https://github.com/thomas-villani/all2md/issues/419)). The holdout stays
