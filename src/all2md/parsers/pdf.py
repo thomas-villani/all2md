@@ -100,11 +100,16 @@ from all2md.parsers._pdf_tables import (
     MAX_TABLE_EMPTY_RATIO,
     MAX_TABLE_ROWS,
     MAX_TWO_COLUMN_REGION_DRAWINGS,
+    MIN_COLUMN_CUT_ROWS,
     MIN_FILLED_FOR_UNIFORMITY_CHECK,
     MIN_REBUILD_CHAR_RATIO,
     MIN_TABLE_COLS,
     MIN_TABLE_ROWS,
     TABLE_REGION_STRATEGIES,
+    adjacent_clipped_column,
+    bbox_clipped_rows,
+    boundaries_to_dissolve,
+    contradicted_column_boundaries,
     detect_tables_by_ruling_lines,
     extract_loss_share,
     is_dot_leader_cell,
@@ -1583,7 +1588,18 @@ class PdfToAstConverter(BaseParser):
                 # causing t.bbox to fail with "min() iterable argument is empty".
                 # Skip these empty tables.
                 continue
-            table_info.append({"bbox": bbox, "idx": i, "type": "pymupdf", "table_obj": t})
+            # A whole column of the table can be printed just outside the detected
+            # bbox (#419). Admitting it must happen here, not at emission time: the
+            # recorded bbox is what excludes the region's text from the ordinary
+            # blocks, so a column admitted later would be emitted twice -- once in
+            # the table and once as a paragraph beside it.
+            clipped = adjacent_clipped_column(page, t)
+            entry = {"bbox": bbox, "idx": i, "type": "pymupdf", "table_obj": t}
+            if clipped is not None:
+                extension_rect, side = clipped
+                entry["bbox"] = bbox | extension_rect
+                entry["clip_extension"] = (extension_rect, side)
+            table_info.append(entry)
         for i, rect in enumerate(fallback_table_rects):
             table_info.append({"bbox": rect, "idx": i, "type": "fallback", "lines": fallback_table_lines[i]})
 
@@ -1887,7 +1903,9 @@ class PdfToAstConverter(BaseParser):
 
         """
         if item_data["type"] == "pymupdf":
-            return self._process_table_to_ast(item_data["table_obj"], page, page_num)
+            return self._process_table_to_ast(
+                item_data["table_obj"], page, page_num, clip_extension=item_data.get("clip_extension")
+            )
         elif item_data["type"] == "fallback":
             h_lines, v_lines = item_data["lines"]
             return self._extract_table_from_ruling_rect(page, item_data["bbox"], h_lines, v_lines, page_num)
@@ -3124,7 +3142,13 @@ class PdfToAstConverter(BaseParser):
             return None
         return extents
 
-    def _process_table_to_ast(self, table: Any, page: "pymupdf.Page", page_num: int) -> Node | None:
+    def _process_table_to_ast(
+        self,
+        table: Any,
+        page: "pymupdf.Page",
+        page_num: int,
+        clip_extension: "tuple[pymupdf.Rect, str] | None" = None,
+    ) -> Node | None:
         """Process a PyMuPDF table to AST Table node.
 
         Directly accesses table cell data from PyMuPDF table object instead of
@@ -3139,6 +3163,11 @@ class PdfToAstConverter(BaseParser):
             detection is rejected as a degenerate grid.
         page_num : int
             Page number for source tracking
+        clip_extension : tuple of (pymupdf.Rect, str), optional
+            A clipped column admitted at detection time (see
+            ``adjacent_clipped_column``): the rectangle holding its words and the
+            side of the table it sits on. Its words join the grid as one more cell
+            per row.
 
         Returns
         -------
@@ -3172,8 +3201,33 @@ class PdfToAstConverter(BaseParser):
             repaired = False
             fragments = split_word_ratio(page, table_data)
             lost = extract_loss_share(page, table_data, table.bbox)
-            if fragments > MAX_SPLIT_WORD_RATIO or lost > MAX_EXTRACT_LOSS_SHARE:
-                rebuilt = rebuild_cells_from_words(page, table)
+            # A third failure mode is invisible to both guards above (#419): a column
+            # boundary drawn *through* cell content splits "Vitamin B12," into
+            # "Vitamin B" | "12," -- no word is lost, and the fragment tokenizer is
+            # digit-blind by design. The page's word boxes are the evidence again: a
+            # boundary the grid draws on a row while the page prints a word across it
+            # is contradicted. Spanning header cells omit the edge on their row and
+            # are left untouched -- see MIN_COLUMN_CUT_ROWS for the measured gap.
+            cut_boundaries = contradicted_column_boundaries(page, table, table_data)
+            # The bbox's own outer edge can cut words the same way ("0.454 \u00b1 0.024"
+            # extracted as "4 \u00b1 0"): extract_loss_share cannot see those words -- their
+            # centers lie outside the bbox -- so rows carrying them are their own
+            # trigger, and the rebuild's outer-cell rule heals them in place.
+            clipped_rows = bbox_clipped_rows(page, table) if not cut_boundaries else 0
+            if (
+                fragments > MAX_SPLIT_WORD_RATIO
+                or lost > MAX_EXTRACT_LOSS_SHARE
+                or cut_boundaries
+                or clipped_rows >= MIN_COLUMN_CUT_ROWS
+            ):
+                # Rebuilding fixes the *text* either way -- a cut word lands whole in
+                # the cell holding its center. Whether the boundary itself should go
+                # depends on which shape cut it: dissolve the ones whose uncut rows
+                # read straight across them (one printed column split in two), and
+                # keep the real boundaries wide values merely overhang. See
+                # boundaries_to_dissolve for the gutter-width arbiter.
+                dissolve = boundaries_to_dissolve(page, table, cut_boundaries) if cut_boundaries else []
+                rebuilt = rebuild_cells_from_words(page, table, dissolve_boundaries=dissolve or None)
                 # The rebuild must come back at least as heavy as what it replaces:
                 # on rotated pages the cell rects and word boxes do not share a
                 # coordinate frame, and a rebuild that misses the words would gut
@@ -3184,9 +3238,40 @@ class PdfToAstConverter(BaseParser):
                     logger.debug(
                         f"Rebuilt table cell text from word boxes on page {page_num + 1}: "
                         f"{fragments:.0%} of extracted tokens were fragments, "
-                        f"{lost:.0%} of the region's words were missing from the grid"
+                        f"{lost:.0%} of the region's words were missing from the grid, "
+                        f"{len(cut_boundaries)} column boundaries contradicted by word boxes"
                     )
                     table_data = rebuilt
+                    repaired = True
+
+            # A clipped column admitted at detection time joins the grid here: its
+            # words, grouped by the grid's own row bands, become one more cell per
+            # row on the side the bbox cut it from. The bbox recorded in table_info
+            # already covers the region, so the text appears nowhere else.
+            if clip_extension is not None:
+                extension_rect, side = clip_extension
+                extension_words = [
+                    word for word in page.get_text("words") if pymupdf.Rect(word[:4]).intersects(extension_rect)
+                ]
+                extension_cells: list[str] = []
+                for row in getattr(table, "rows", []) or []:
+                    row_cells = [cell[:4] for cell in (getattr(row, "cells", None) or []) if cell is not None]
+                    if not row_cells:
+                        extension_cells.append("")
+                        continue
+                    top = min(cell[1] for cell in row_cells)
+                    bottom = max(cell[3] for cell in row_cells)
+                    lines: dict[tuple[int, int], list[str]] = {}
+                    for word in extension_words:
+                        center_y = (word[1] + word[3]) / 2
+                        if top <= center_y <= bottom:
+                            lines.setdefault((word[5], word[6]), []).append(str(word[4]))
+                    extension_cells.append("\n".join(" ".join(parts) for _key, parts in sorted(lines.items())))
+                if len(extension_cells) == len(table_data) and any(cell.strip() for cell in extension_cells):
+                    table_data = [
+                        [*row, cell] if side == "right" else [cell, *row]
+                        for row, cell in zip(table_data, extension_cells, strict=True)
+                    ]
                     repaired = True
 
             # Reject pathological detections (PyMuPDF's find_tables() can fire on
