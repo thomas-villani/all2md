@@ -100,11 +100,13 @@ from all2md.parsers._pdf_tables import (
     MAX_TABLE_EMPTY_RATIO,
     MAX_TABLE_ROWS,
     MAX_TWO_COLUMN_REGION_DRAWINGS,
+    MIN_COLUMN_CUT_ROWS,
     MIN_FILLED_FOR_UNIFORMITY_CHECK,
     MIN_REBUILD_CHAR_RATIO,
     MIN_TABLE_COLS,
     MIN_TABLE_ROWS,
     TABLE_REGION_STRATEGIES,
+    bbox_clipped_rows,
     boundaries_to_dissolve,
     contradicted_column_boundaries,
     detect_tables_by_ruling_lines,
@@ -3182,7 +3184,17 @@ class PdfToAstConverter(BaseParser):
             # is contradicted. Spanning header cells omit the edge on their row and
             # are left untouched -- see MIN_COLUMN_CUT_ROWS for the measured gap.
             cut_boundaries = contradicted_column_boundaries(page, table, table_data)
-            if fragments > MAX_SPLIT_WORD_RATIO or lost > MAX_EXTRACT_LOSS_SHARE or cut_boundaries:
+            # The bbox's own outer edge can cut words the same way ("0.454 \u00b1 0.024"
+            # extracted as "4 \u00b1 0"): extract_loss_share cannot see those words -- their
+            # centers lie outside the bbox -- so rows carrying them are their own
+            # trigger, and the rebuild's outer-cell rule heals them in place.
+            clipped_rows = bbox_clipped_rows(page, table) if not cut_boundaries else 0
+            if (
+                fragments > MAX_SPLIT_WORD_RATIO
+                or lost > MAX_EXTRACT_LOSS_SHARE
+                or cut_boundaries
+                or clipped_rows >= MIN_COLUMN_CUT_ROWS
+            ):
                 # Rebuilding fixes the *text* either way -- a cut word lands whole in
                 # the cell holding its center. Whether the boundary itself should go
                 # depends on which shape cut it: dissolve the ones whose uncut rows

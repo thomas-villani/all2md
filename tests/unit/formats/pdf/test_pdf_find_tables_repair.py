@@ -494,3 +494,33 @@ def test_a_cut_value_in_a_real_gutter_keeps_the_boundary_and_heals_the_word():
         ["Attitude", "<0.001"],
         ["Practice", "0.20"],
     ]
+
+
+def test_a_word_clipped_by_the_table_bbox_joins_the_outer_cell():
+    """A word beginning inside the last cell survives even when its center leaks past the edge (#419).
+
+    find_tables() drew its bbox through the middle of "0.024": extract() clipped it
+    to "0", and the center-assignment rule alone would have dropped the word into no
+    cell at all. Beginning inside the outer cell is the evidence that it belongs
+    there.
+    """
+    extents = [(0.0, 10.0), (14.0, 24.0), (28.0, 38.0)]
+    page = _FakePage(
+        [
+            _word(2, 0, "Method", 0),
+            _word(62, 0, "mAP", 0),
+            _word(2, 14, "Image", 1),
+            # 6pt/char * 5 chars from x=86: box 86..116 -- starts inside the last
+            # cell (ends at x=90) but its center (101) leaks past the table edge.
+            _word(86, 14, "0.024", 1),
+            _word(2, 28, "Video", 2),
+            _word(86, 28, "0.090", 2),
+        ]
+    )
+    # extract() kept only what its cell rects clip.
+    grid = [["Method", "mAP"], ["Image", "0"], ["Video", "0"]]
+
+    node = PdfToAstConverter()._process_table_to_ast(_FakeTable(grid, extents, [0.0, 60.0, 90.0]), page, 0)
+
+    assert isinstance(node, AstTable)
+    assert _cells(node) == [["Method", "mAP"], ["Image", "0.024"], ["Video", "0.090"]]

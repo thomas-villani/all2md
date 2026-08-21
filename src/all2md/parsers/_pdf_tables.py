@@ -44,6 +44,7 @@ __all__ = [
     "merge_continuation_lines",
     "page_has_table_signals",
     "MIN_COLUMN_CUT_ROWS",
+    "bbox_clipped_rows",
     "boundaries_to_dissolve",
     "contradicted_column_boundaries",
     "rebuild_cells_from_words",
@@ -497,6 +498,58 @@ def contradicted_column_boundaries(
     return contradicted
 
 
+def bbox_clipped_rows(page: "pymupdf.Page", table: object) -> int:
+    """Count the rows whose words the table's own outer edge cuts through.
+
+    ``find_tables()`` sometimes draws its bbox through the middle of the last
+    column's values ("0.454 \u00b1 0.024" clipped to "4 \u00b1 0"): the word begins inside
+    the row's outer cell but extends past the table edge. ``extract_loss_share``
+    cannot see it -- the word's center lies outside the bbox, so it is not counted
+    against the grid -- and no interior boundary is contradicted. The rebuild's
+    outer-cell rule heals exactly these words, so rows carrying them are the
+    trigger for it.
+
+    Parameters
+    ----------
+    page : pymupdf.Page
+        Page the table was found on.
+    table : PyMuPDF Table
+        Table object from ``find_tables()`` whose ``rows[].cells`` rects define the
+        grid.
+
+    Returns
+    -------
+    int
+        Rows where a word begins inside the row's outermost cell and extends more
+        than ``COLUMN_CUT_MARGIN_PT`` beyond it.
+
+    """
+    try:
+        rows = list(table.rows)  # type: ignore[attr-defined]
+        words = page.get_text("words")
+    except Exception:
+        return 0
+    clipped = 0
+    for row in rows:
+        cells = [cell[:4] for cell in (getattr(row, "cells", None) or []) if cell is not None]
+        if not cells:
+            continue
+        first = cells[0]
+        last = cells[-1]
+        top = min(cell[1] for cell in cells)
+        bottom = max(cell[3] for cell in cells)
+        for word in words:
+            center_y = (word[1] + word[3]) / 2
+            if not top <= center_y < bottom:
+                continue
+            cut_right = word[0] < last[2] and word[0] >= last[0] and word[2] > last[2] + COLUMN_CUT_MARGIN_PT
+            cut_left = word[2] > first[0] and word[2] <= first[2] and word[0] < first[0] - COLUMN_CUT_MARGIN_PT
+            if cut_right or cut_left:
+                clipped += 1
+                break
+    return clipped
+
+
 def boundaries_to_dissolve(
     page: "pymupdf.Page", table: object, boundaries: list[tuple[float, tuple[int, ...]]]
 ) -> list[float]:
@@ -632,8 +685,11 @@ def rebuild_cells_from_words(
             return None
         if dissolve_boundaries:
             cells = _dissolve_cell_edges(cells, dissolve_boundaries)
+        filled = [index for index, cell in enumerate(cells) if cell is not None]
+        first_filled = filled[0] if filled else -1
+        last_filled = filled[-1] if filled else -1
         row_texts: list[str] = []
-        for cell in cells:
+        for cell_index, cell in enumerate(cells):
             if cell is None:
                 row_texts.append("")
                 continue
@@ -642,9 +698,21 @@ def rebuild_cells_from_words(
             for word in words:
                 center_x = (word[0] + word[2]) / 2
                 center_y = (word[1] + word[3]) / 2
+                if not y0 <= center_y < y1:
+                    continue
                 # Half-open on the far edges so a word centered exactly on a shared
                 # boundary lands in exactly one of the two cells meeting there.
-                if x0 <= center_x < x1 and y0 <= center_y < y1:
+                inside = x0 <= center_x < x1
+                # A word that *begins* inside the row's outer cell belongs to it even
+                # when its center leaks past the table edge: find_tables() draws its
+                # bbox through the middle of such words ("0.454" clipped to "4" by
+                # extract()), and the center rule alone would drop them into no cell
+                # at all. Interior boundaries are untouched -- there the neighbouring
+                # cell owns the center by the same rule.
+                leaked = (cell_index == last_filled and center_x >= x1 and word[0] < x1) or (
+                    cell_index == first_filled and center_x < x0 and word[2] > x0
+                )
+                if inside or leaked:
                     lines.setdefault((word[5], word[6]), []).append(str(word[4]))
             row_texts.append("\n".join(" ".join(parts) for _key, parts in sorted(lines.items())))
         rebuilt.append(row_texts)
