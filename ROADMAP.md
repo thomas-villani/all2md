@@ -26,10 +26,12 @@ Dev: 254 → 97 missing attainable blocks, zero newly missing. Holdout, untuned:
 gate flat-to-better. The gap to pymupdf4llm's raw text survival that motivated the
 comparison is essentially closed. Residue (boxed regions needing y-segmentation) is
 scoped as [#414](https://github.com/thomas-villani/all2md/issues/414), small on both
-corpora. **Item 13's louder announcement is unblocked** — #405 was its stated gate. Next:
-leg 3, the Docling table study (item 16) — complete: the study refuted its own
-premise and the fixes it fed moved table-text survival 69.1% → 77.3%; the arc's single
-untuned holdout validation is what remains.
+corpora. **Item 13's louder announcement is unblocked** — #405 was its stated gate. Leg 3,
+the Docling table study (item 16), is **closed 2026-08-21** with the arc's single untuned
+holdout validation: table survival 69.9% → **76.0%** on the sealed 110-article corpus
+(+6.1 against dev's +8.2 — same direction, no overfit signature; the gap to Docling's
+82.2% narrows from 12.3 to 6.2 points). The comparison arc is complete; the next table
+lever is [#419](https://github.com/thomas-villani/all2md/issues/419).
 
 **Status (2026-08-19).** Batch 12 — **Figures & the born-digital queue** — is complete and
 ships as **v1.13.0**: the figure pipeline ([#338](https://github.com/thomas-villani/all2md/issues/338),
@@ -1022,8 +1024,12 @@ more than planned:
     fires). Dev table survival 69.1% → **77.3%**, lane precision 94.8 → 94.9, novel share
     0.84 → 0.80%, zero collateral. The residue has names now: column boundaries drawn
     through cell content and bbox-clipped regions
-    ([#419](https://github.com/thomas-villani/all2md/issues/419)). The holdout stays
-    sealed until the arc's single untuned validation, which closes this item.
+    ([#419](https://github.com/thomas-villani/all2md/issues/419)). **Closed 2026-08-21**
+    by the arc's single untuned holdout validation: table survival 69.9% → **76.0%**
+    (+6.1 points on a corpus the fixes never saw, against +8.2 on dev — no overfit
+    signature), overall attainable recall 98.5%, precision 94.9%, novel 0.7%. The gap to
+    Docling's 82.2% narrows from 12.3 to 6.2 points, and per the discipline no tuning
+    follows this reading.
 17. **Theme 8: positional fidelity** (OCR geometry → provenance → layout). Stage 1 is
     substantially done; the open pieces are span granularity, carrying OCR confidence through,
     and the EasyOCR adapter that still flattens. Then Stage 2 (decouple the contract from
