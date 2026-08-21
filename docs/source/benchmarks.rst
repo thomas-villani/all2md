@@ -74,7 +74,7 @@ Did the text survive?
      - Value
      -
    * - Raw recall
-     - 62.0%
+     - 62.1%
      - of 8,905 ground-truth blocks
    * - Attainable ceiling
      - 62.4%
@@ -101,7 +101,7 @@ adjacency died. Admitting those gutters on structural evidence and joining words
 hyphenated at block seams raised attainable recall from 95.4% to 98.3%, and the
 held-out corpus moved the same way it was never tuned against.
 
-Raw recall is 62.0%, and that figure is close to meaningless on its own. A large share of
+Raw recall is 62.1%, and that figure is close to meaningless on its own. A large share of
 any JATS article cannot be recovered by *any* parser, because the markup records words in an
 order the page never prints — author affiliation blocks, structured metadata, citation
 fields. Charging a PDF parser for failing to reproduce text the PDF does not contain
@@ -127,12 +127,12 @@ By block kind:
      - **98.9%**
    * - Titles
      - 2,291 of 2,426
-     - 2,285
+     - 2,287
      - **98.8%**
    * - Tables
      - 110 of 123
-     - 77
-     - **69.1%**
+     - 86
+     - **78.2%**
 
 Table blocks are the outlier, and deliberately so — their text now routes through
 structured table extraction rather than flowing out as prose. What that buys and what it
@@ -160,13 +160,13 @@ Unsupported output is therefore split in two:
      - Share
      - Meaning
    * - Supported
-     - **94.0%**
+     - **94.9%**
      - the n-gram appears in the document's text layer
    * - Resequenced
-     - 5.1%
+     - 4.3%
      - every word is in the document, in a new adjacency
    * - **Novel**
-     - **1.0%**
+     - **0.8%**
      - at least one word appears nowhere — the number worth reading
    * - Duplication
      - 2.0%
@@ -175,7 +175,7 @@ Unsupported output is therefore split in two:
      - 0.7%
      - wants to be ~0%
 
-Over 447,320 emitted n-grams, 4,251 are novel. Reporting the raw unsupported figure instead
+Over 446,533 emitted n-grams, 3,594 are novel. Reporting the raw unsupported figure instead
 would have made the result roughly six times worse than the parser deserves.
 
 Duplication is counted apart from both, because it is invisible to either. Text emitted
@@ -203,13 +203,20 @@ across pages is one JATS ``<table-wrap>`` but several printed tables, and the ex
 count does not yet credit continuations. The remaining deficit is a handful of table
 classes with no shared mechanism.
 
-The cost sits one section up: table blocks are the one kind whose attainable-recall figure
-*fell* across those recordings, from 83.6% to 69.1%. When a table was missed, its text
-flowed out as ordinary prose and survived nearly verbatim; committed as a table, the same
-region's text passes through cell extraction, which does not yet preserve every word of
-every cell. The trade is accepted with eyes open — a table recovered *as a table* is what
-downstream consumers need — but it is a trade, and the artifact says so rather than
-netting the two effects into one flattering number.
+The cost sat one section up: table blocks are the one kind whose attainable-recall figure
+*fell* across those recordings, from 83.6% to 69.1%. The first explanation written here —
+that cell extraction "does not yet preserve every word of every cell" — turned out to be
+wrong when measured: word-level survival inside committed tables is above 99%. What the
+commitment actually costs is *adjacency*. A missed table flows out as prose in reading
+order, and n-grams reward that order; a committed table re-cuts the same words at every
+cell boundary, and each boundary in the wrong place breaks a run of them. The two
+mechanisms that dominated — every printed line emitted as its own row, splitting wrapped
+cells mid-sentence, and ``Table.extract()`` clipping characters at cell rects — were
+measured, fixed behind guards (#416, #417), and the figure recovered to **78.2%**. The
+trade still stands with eyes open — a table recovered *as a table* is what downstream
+consumers need, and the residual gap now sits in named mechanisms (#419) rather than a
+vague deficit — but it is a trade, and the artifact says so rather than netting the two
+effects into one flattering number.
 
 Scanned pages
 -------------

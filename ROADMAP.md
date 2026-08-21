@@ -27,8 +27,9 @@ gate flat-to-better. The gap to pymupdf4llm's raw text survival that motivated t
 comparison is essentially closed. Residue (boxed regions needing y-segmentation) is
 scoped as [#414](https://github.com/thomas-villani/all2md/issues/414), small on both
 corpora. **Item 13's louder announcement is unblocked** — #405 was its stated gate. Next:
-leg 3, the Docling table study (item 16) — table-text survival at 69.1% is now
-unambiguously the bottleneck.
+leg 3, the Docling table study (item 16) — complete: the study refuted its own
+premise and the fixes it fed moved table-text survival 69.1% → 78.2%; the arc's single
+untuned holdout validation is what remains.
 
 **Status (2026-08-19).** Batch 12 — **Figures & the born-digital queue** — is complete and
 ships as **v1.13.0**: the figure pipeline ([#338](https://github.com/thomas-villani/all2md/issues/338),
@@ -1006,12 +1007,23 @@ more than planned:
     development corpus with the lost-block diff as the instrument, A/B every guard, validate
     on the holdout without tuning against it. This is geometry work — the batch advances
     Theme 8 Stage 4 under a recall number.
-16. **Leg 3: the Docling table study** (Theme 2). Docling preserves 82.2% of attainable
-    table text against our 69.9% — its cell extraction keeps words ours drops. Diff
-    table-by-table what survives there and dies here, and spend the findings on
-    cell-extraction text survival; revisit #389's residue (the table classes with no shared
-    mechanism) with whatever the study teaches. This moves the one number the fidelity page
-    currently calls an accepted trade.
+16. **Leg 3: the Docling table study** (Theme 2) — **landed 2026-08-20** (PRs
+    [#418](https://github.com/thomas-villani/all2md/pull/418),
+    [#420](https://github.com/thomas-villani/all2md/pull/420)), and the study refuted its
+    own premise. Docling's 82.2%-vs-69.9% table lead was not "cell extraction keeps words
+    ours drops": word-level survival was at parity (99.5% vs 99.4%) and continuous gram
+    recall tied — the whole published gap sat at the binary 0.80 per-table bar, fed by
+    *adjacency* damage, not lost text. The mechanisms, measured and fixed behind guards:
+    wrapped cells emitted one row per printed line
+    ([#416](https://github.com/thomas-villani/all2md/issues/416), the word-gutter side),
+    and the same shred plus ``Table.extract()`` clipping characters at cell rects on the
+    ``find_tables()`` side ([#417](https://github.com/thomas-villani/all2md/issues/417) —
+    cell text now rebuilt from the page's own word boxes when a digit-aware loss test
+    fires). Dev table survival 69.1% → **78.2%**, lane precision 94.8 → 94.9, novel share
+    0.84 → 0.80%, zero collateral. The residue has names now: column boundaries drawn
+    through cell content and bbox-clipped regions
+    ([#419](https://github.com/thomas-villani/all2md/issues/419)). The holdout stays
+    sealed until the arc's single untuned validation, which closes this item.
 17. **Theme 8: positional fidelity** (OCR geometry → provenance → layout). Stage 1 is
     substantially done; the open pieces are span granularity, carrying OCR confidence through,
     and the EasyOCR adapter that still flattens. Then Stage 2 (decouple the contract from
