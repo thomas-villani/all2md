@@ -220,6 +220,26 @@ class TestTheLayoutRegion:
         finally:
             document.close()
 
+    def test_a_long_caption_is_returned_whole(self, tmp_path: Path) -> None:
+        """The stored caption is not clipped to ``PDF_CAPTION_MAX_LENGTH`` (#410).
+
+        Clipping cut real ~550-character journal captions mid-sentence: the figure
+        carried the 500-character prefix while the body copy kept the full text, so
+        the two could never match and the caption printed twice. The cap now bounds
+        only the cue matcher's input.
+        """
+        sentence = "Figure 1. The assay grows steadily across every cohort we measured. "
+        lines = {250.0 + 12.0 * index: sentence.strip() for index in range(9)}
+        document, page, image_rect = _page(tmp_path, lines, name="long.pdf")
+        try:
+            region = [FakeRegion((60.0, 240.0, 560.0, 360.0))]
+            caption = detect_image_caption(page, image_rect, region)
+            assert caption is not None
+            assert len(caption) > 500
+            assert caption.endswith("measured.")
+        finally:
+            document.close()
+
     def test_an_empty_region_falls_through_to_the_cue(self, tmp_path: Path) -> None:
         document, page, bbox = _page(tmp_path, {250.0: CAPTION})
         try:

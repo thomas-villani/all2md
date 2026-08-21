@@ -66,8 +66,15 @@ def _matches_caption_cue(text: str) -> bool:
 
 
 def _region_text(page: "pymupdf.Page", rect: Any) -> str:
-    """Return the text inside a rect as a single whitespace-collapsed line."""
-    return " ".join(page.get_textbox(rect).split())[:PDF_CAPTION_MAX_LENGTH]
+    """Return the text inside a rect as a single whitespace-collapsed line.
+
+    Deliberately not clipped to ``PDF_CAPTION_MAX_LENGTH``: that cap belongs to the
+    cue *matcher*, not the stored caption. Clipping the caption itself cut real
+    captions mid-sentence -- the figure then carried a 500-character prefix while
+    the body copy kept the full text, so the copies could never match and the
+    caption printed twice (#410).
+    """
+    return " ".join(page.get_textbox(rect).split())
 
 
 def _caption_from_layout(
@@ -160,12 +167,13 @@ def detect_image_caption(
         image_bbox.y0,
     )
     for search_rect in (below, above):
-        # Truncated by _region_text before matching, so the pattern never sees an
-        # unbounded string. A whitespace-only band collapses to "" and is skipped --
+        # The cue pattern sees at most PDF_CAPTION_MAX_LENGTH characters, so it
+        # never matches against an unbounded string; the *returned* caption stays
+        # whole (#410). A whitespace-only band collapses to "" and is skipped --
         # it used to reach `text[0]` and raise IndexError, which the caller swallowed
         # as "skip this image", silently deleting 1 image in 70 on the PMC corpus.
         text = _region_text(page, search_rect)
-        if text and _matches_caption_cue(text):
+        if text and _matches_caption_cue(text[:PDF_CAPTION_MAX_LENGTH]):
             return text
 
     return None

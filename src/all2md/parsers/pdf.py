@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import re
+import unicodedata
 from datetime import datetime
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Callable, Optional, Union
@@ -2094,7 +2095,30 @@ class PdfToAstConverter(BaseParser):
             used_captions.add(caption)
             plan.append((rect.y0, {"images": [], "caption": caption}))
 
-        return [item for _y, item in sorted(plan, key=lambda entry: entry[0])]
+        # One printed caption is one figure. The region loop emits one item per
+        # ``picture`` region, so a multi-panel figure whose panels the layout model
+        # drew as separate regions would become one Figure per panel, each
+        # re-binding the same caption and printing it once per panel (#410).
+        # Folding by verbatim caption here covers every path that can produce a
+        # duplicate -- region items, loose items, and the caption-only rescue --
+        # and cannot fuse distinct figures: two different figures on one page do
+        # not share a verbatim caption.
+        by_caption_final: dict[str, dict] = {}
+        ordered: list[dict] = []
+        for _y, item in sorted(plan, key=lambda entry: entry[0]):
+            caption = item["caption"]
+            if caption is None:
+                ordered.append(item)
+                continue
+            existing = by_caption_final.get(caption)
+            if existing is None:
+                by_caption_final[caption] = item
+                ordered.append(item)
+            else:
+                existing["images"].extend(item["images"])
+        for item in by_caption_final.values():
+            item["images"].sort(key=lambda member: (member["bbox"].y0, member["bbox"].x0))
+        return ordered
 
     def _process_page_to_ast(
         self,
@@ -3942,12 +3966,15 @@ class PdfToAstConverter(BaseParser):
         if block.get("type") != 0:
             return False
         text = " ".join(span.get("text", "") for line in block.get("lines", []) for span in line.get("spans", []))
-        text = " ".join(text.split())
+        # NFKC on both sides: the caption came through ``get_textbox``, which expands
+        # ligatures, while the block's spans preserve them -- "ﬁrst" vs "first" made
+        # the same text fail the containment test and print twice (#410).
+        text = " ".join(unicodedata.normalize("NFKC", text).split())
         # The floor keeps a short cross-reference ("Figure 1.") standing alone in the
         # body from being mistaken for the caption fragment it is contained in.
         if len(text) < PDF_CAPTION_DEDUP_MIN_CHARS:
             return False
-        return any(text in caption for caption in bound_captions)
+        return any(text in " ".join(unicodedata.normalize("NFKC", caption).split()) for caption in bound_captions)
 
     def _create_image_node(self, img_info: dict, page_num: int) -> AstParagraph | None:
         """Create an image node from image info.

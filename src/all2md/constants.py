@@ -840,8 +840,10 @@ PDF_CAPTION_SEARCH_GAP = 80.0
 # how far it may overhang the image horizontally.
 PDF_CAPTION_BAND_HEIGHT = 50.0
 PDF_CAPTION_BAND_OVERHANG = 20.0
-# A caption is long-form prose, but not unbounded. Bounds the text handed to the cue
-# pattern so a runaway region cannot turn matching into a ReDoS surface.
+# Bounds the text handed to the caption *cue pattern* so a runaway region cannot turn
+# matching into a ReDoS surface. The stored caption itself is not clipped: clipping it
+# cut real captions mid-sentence, and the clipped copy could never match its body-text
+# original, so the caption printed twice (#410).
 PDF_CAPTION_MAX_LENGTH = 500
 # A body text block whose whole text sits inside a bound caption is that caption's
 # duplicate and is suppressed -- unless it is shorter than this, which keeps a bare
