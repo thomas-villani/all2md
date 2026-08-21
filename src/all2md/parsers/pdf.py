@@ -105,6 +105,8 @@ from all2md.parsers._pdf_tables import (
     MIN_TABLE_COLS,
     MIN_TABLE_ROWS,
     TABLE_REGION_STRATEGIES,
+    boundaries_to_dissolve,
+    contradicted_column_boundaries,
     detect_tables_by_ruling_lines,
     extract_loss_share,
     is_dot_leader_cell,
@@ -3172,8 +3174,23 @@ class PdfToAstConverter(BaseParser):
             repaired = False
             fragments = split_word_ratio(page, table_data)
             lost = extract_loss_share(page, table_data, table.bbox)
-            if fragments > MAX_SPLIT_WORD_RATIO or lost > MAX_EXTRACT_LOSS_SHARE:
-                rebuilt = rebuild_cells_from_words(page, table)
+            # A third failure mode is invisible to both guards above (#419): a column
+            # boundary drawn *through* cell content splits "Vitamin B12," into
+            # "Vitamin B" | "12," -- no word is lost, and the fragment tokenizer is
+            # digit-blind by design. The page's word boxes are the evidence again: a
+            # boundary the grid draws on a row while the page prints a word across it
+            # is contradicted. Spanning header cells omit the edge on their row and
+            # are left untouched -- see MIN_COLUMN_CUT_ROWS for the measured gap.
+            cut_boundaries = contradicted_column_boundaries(page, table, table_data)
+            if fragments > MAX_SPLIT_WORD_RATIO or lost > MAX_EXTRACT_LOSS_SHARE or cut_boundaries:
+                # Rebuilding fixes the *text* either way -- a cut word lands whole in
+                # the cell holding its center. Whether the boundary itself should go
+                # depends on which shape cut it: dissolve the ones whose uncut rows
+                # read straight across them (one printed column split in two), and
+                # keep the real boundaries wide values merely overhang. See
+                # boundaries_to_dissolve for the gutter-width arbiter.
+                dissolve = boundaries_to_dissolve(page, table, cut_boundaries) if cut_boundaries else []
+                rebuilt = rebuild_cells_from_words(page, table, dissolve_boundaries=dissolve or None)
                 # The rebuild must come back at least as heavy as what it replaces:
                 # on rotated pages the cell rects and word boxes do not share a
                 # coordinate frame, and a rebuild that misses the words would gut
@@ -3184,7 +3201,8 @@ class PdfToAstConverter(BaseParser):
                     logger.debug(
                         f"Rebuilt table cell text from word boxes on page {page_num + 1}: "
                         f"{fragments:.0%} of extracted tokens were fragments, "
-                        f"{lost:.0%} of the region's words were missing from the grid"
+                        f"{lost:.0%} of the region's words were missing from the grid, "
+                        f"{len(cut_boundaries)} column boundaries contradicted by word boxes"
                     )
                     table_data = rebuilt
                     repaired = True

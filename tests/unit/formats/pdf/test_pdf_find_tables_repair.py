@@ -299,3 +299,198 @@ def test_a_second_header_tier_with_an_empty_label_cell_stays_its_own_row():
         ["", "", "Acc", "", "Acc"],
         ["one", "1", "70", "2", "60"],
     ]
+
+
+def test_a_boundary_cutting_words_on_edge_bearing_rows_is_dissolved():
+    """A column boundary the page's words contradict on two rows merges its cell pair (#419).
+
+    The grid claims three columns, but the middle boundary at x=60 runs through
+    "B12," and "(B1)," on the two data rows -- the page wrote one word where the grid
+    drew two cells. Neither existing guard can see it: no character is lost, and the
+    fragment tokenizer is digit-blind. The rebuilt table reunites the pair.
+    """
+    extents = [(0.0, 10.0), (14.0, 24.0), (28.0, 38.0)]
+    page = _FakePage(
+        [
+            _word(2, 0, "Nutrient", 0),
+            _word(92, 0, "Amt", 0),
+            # "B12," spans x=32..56... make it straddle x=60: start at 44, 6pt/char * 4 = 44..68.
+            _word(2, 14, "Vitamin", 1),
+            _word(44, 14, "B12,", 1),
+            _word(92, 14, "2.8", 1),
+            _word(2, 28, "Thiamine", 2),
+            _word(50, 28, "(B1),", 2),
+            _word(92, 28, "800", 2),
+        ]
+    )
+    # extract() clipped the straddling words at the x=60 boundary.
+    grid = [
+        ["Nutrient", "", "Amt"],
+        ["Vitamin B1", "2,", "2.8"],
+        ["Thiamine (B", "1),", "800"],
+    ]
+
+    node = PdfToAstConverter()._process_table_to_ast(_FakeTable(grid, extents, [0.0, 60.0, 90.0, 120.0]), page, 0)
+
+    assert isinstance(node, AstTable)
+    assert _cells(node) == [
+        ["Nutrient", "Amt"],
+        ["Vitamin B12,", "2.8"],
+        ["Thiamine (B1),", "800"],
+    ]
+
+
+def test_words_crossing_under_a_spanning_header_do_not_dissolve_the_boundary():
+    """A two-tier header spanning two columns crosses their boundary legitimately.
+
+    The span row omits the edge, so its crossing words are no contradiction; the data
+    rows bear the edge and their words fall inside their cells. The grid keeps all
+    three columns and its extracted text verbatim.
+    """
+    top = _FakeRow(
+        (0.0, 0.0, 120.0, 10.0),
+        # First cell spans x=0..90 across the interior boundary at x=60.
+        [(0.0, 0.0, 90.0, 10.0), (90.0, 0.0, 120.0, 10.0)],
+    )
+    body_edges = [0.0, 60.0, 90.0, 120.0]
+    body_rows = []
+    grid = [
+        ["Interobserver variability", "p"],
+        ["mean", "sd", "0.05"],
+        ["1.2", "0.4", "0.01"],
+    ]
+    for (t, b), _row in zip([(14.0, 24.0), (28.0, 38.0)], grid[1:], strict=True):
+        cells = [(body_edges[i], t, body_edges[i + 1], b) for i in range(3)]
+        body_rows.append(_FakeRow((0.0, t, 120.0, b), cells))
+
+    class _SpanTable:
+        rows = [top, *body_rows]
+        bbox = (0.0, 0.0, 120.0, 38.0)
+
+        def extract(self):
+            return grid
+
+    page = _FakePage(
+        [
+            # Header words straddle x=60 -- inside the spanning cell.
+            _word(30, 0, "Interobserver", 0),
+            _word(56, 0, "variability", 0),
+            _word(94, 0, "p", 0),
+            _word(2, 14, "mean", 1),
+            _word(62, 14, "sd", 1),
+            _word(94, 14, "0.05", 1),
+            _word(2, 28, "1.2", 2),
+            _word(62, 28, "0.4", 2),
+            _word(94, 28, "0.01", 2),
+        ]
+    )
+
+    node = PdfToAstConverter()._process_table_to_ast(_SpanTable(), page, page_num=0)
+
+    assert isinstance(node, AstTable)
+    assert _cells(node) == grid
+
+
+def test_a_single_contradicted_row_does_not_dissolve_the_boundary():
+    """One crossing word is not evidence of a mis-split column: both columns survive.
+
+    The extract-loss guard may still rebuild the cell *text* from word boxes (here the
+    clipped "B12," is missing from the grid, so it does) -- but the boundary itself
+    stays, where a dissolve would have collapsed the grid to one column and demoted it
+    to a paragraph.
+    """
+    extents = [(0.0, 10.0), (14.0, 24.0), (28.0, 38.0)]
+    page = _FakePage(
+        [
+            _word(2, 0, "Name", 0),
+            _word(62, 0, "Value", 0),
+            # Only this row's word straddles x=60 (44..68).
+            _word(44, 14, "B12,", 1),
+            _word(92, 14, "2.8", 1),
+            _word(2, 28, "iron", 2),
+            _word(62, 28, "20", 2),
+        ]
+    )
+    grid = [["Name", "Value"], ["B1", "2, 2.8"], ["iron", "20"]]
+
+    node = PdfToAstConverter()._process_table_to_ast(_FakeTable(grid, extents, EDGES), page, page_num=0)
+
+    assert isinstance(node, AstTable)
+    assert _cells(node) == [["Name", "Value"], ["B12,", "2.8"], ["iron", "20"]]
+
+
+def test_an_overhanging_value_delivered_whole_does_not_dissolve_the_boundary():
+    """A wide value protruding past a correct boundary is not a mis-split (#419).
+
+    "<0.001" physically overhangs the boundary at x=60 on both data rows, but
+    extract() delivered it whole in its own cell -- nothing was cut, so the grid
+    keeps all three columns and its text verbatim. This is the case that separates
+    overhang from mis-split: dissolving here would fuse two real columns.
+    """
+    extents = [(0.0, 10.0), (14.0, 24.0), (28.0, 38.0)]
+    page = _FakePage(
+        [
+            _word(2, 0, "Metric", 0),
+            _word(62, 0, "P", 0),
+            _word(92, 0, "Q", 0),
+            # 6pt/char * 6 chars from x=40: box 40..76, straddling x=60 by >1pt each side.
+            _word(2, 14, "Knowledge", 1),
+            _word(40, 14, "<0.001", 1),
+            _word(92, 14, "0.4", 1),
+            _word(2, 28, "Attitude", 2),
+            _word(40, 28, "<0.001", 2),
+            _word(92, 28, "0.7", 2),
+        ]
+    )
+    grid = [
+        ["Metric", "P", "Q"],
+        ["Knowledge", "<0.001", "0.4"],
+        ["Attitude", "<0.001", "0.7"],
+    ]
+
+    node = PdfToAstConverter()._process_table_to_ast(_FakeTable(grid, extents, [0.0, 60.0, 90.0, 120.0]), page, 0)
+
+    assert isinstance(node, AstTable)
+    assert _cells(node) == grid
+
+
+def test_a_cut_value_in_a_real_gutter_keeps_the_boundary_and_heals_the_word():
+    """A wide value cut by a real boundary is healed in place, not fused (#419).
+
+    extract() clipped "<0.001" across the boundary at x=60 on two rows, so the
+    boundary is contradicted -- but on the uncut rows the words on either side sit a
+    gutter apart, which is what a real column boundary looks like. The repair keeps
+    both columns and the rebuild lands "<0.001" whole in the cell holding its
+    center.
+    """
+    extents = [(0.0, 10.0), (14.0, 24.0), (28.0, 38.0), (42.0, 52.0)]
+    page = _FakePage(
+        [
+            _word(2, 0, "Metric", 0),
+            _word(80, 0, "P", 0),
+            # 6pt/char * 6 chars from x=52: box 52..88, straddling x=60 by >1pt each side.
+            _word(2, 14, "Knowledge", 1),
+            _word(52, 14, "<0.001", 1),
+            _word(2, 28, "Attitude", 2),
+            _word(52, 28, "<0.001", 2),
+            _word(2, 42, "Practice", 3),
+            _word(80, 42, "0.20", 3),
+        ]
+    )
+    # extract() split "<0.001" at the boundary on the two cut rows.
+    grid = [
+        ["Metric", "P"],
+        ["Knowledge <0.0", "01"],
+        ["Attitude <0.0", "01"],
+        ["Practice", "0.20"],
+    ]
+
+    node = PdfToAstConverter()._process_table_to_ast(_FakeTable(grid, extents, [0.0, 60.0, 120.0]), page, 0)
+
+    assert isinstance(node, AstTable)
+    assert _cells(node) == [
+        ["Metric", "P"],
+        ["Knowledge", "<0.001"],
+        ["Attitude", "<0.001"],
+        ["Practice", "0.20"],
+    ]

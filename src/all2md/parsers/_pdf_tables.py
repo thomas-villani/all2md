@@ -43,6 +43,9 @@ __all__ = [
     "looks_like_numbered_bibliography",
     "merge_continuation_lines",
     "page_has_table_signals",
+    "MIN_COLUMN_CUT_ROWS",
+    "boundaries_to_dissolve",
+    "contradicted_column_boundaries",
     "rebuild_cells_from_words",
     "split_word_ratio",
     "word_gutter_grid",
@@ -227,6 +230,44 @@ MAX_EXTRACT_LOSS_SHARE = 0.04
 # grid died at the mostly-empty guard, and three intact tables were destroyed outright.
 MIN_REBUILD_CHAR_RATIO = 0.9
 
+# A grid column boundary is *contradicted* when the page prints a word straddling it on a
+# row whose cells really do abut there -- the grid claims two cells where the page wrote
+# one word ("Vitamin B12," cut into "Vitamin B" | "12,"). Both existing text guards are
+# blind to this by design: the fragment tokenizer drops digits, so "B12," reduces to "b"
+# and passes, and nothing is *lost* -- every character lands in one cell or the other.
+# The word boxes are the evidence, exactly as in the gutter path and the rebuild above.
+#
+# A word crossing an x-position where that row's cell *spans* is no contradiction: a
+# two-tier header ("Intraobserver variability" over three columns) legitimately crosses
+# the boundaries beneath it, and find_tables() records the span by omitting the edge on
+# that row. Counting only edge-bearing rows separates the two cases cleanly -- measured
+# on the PMC dev corpus, spanning headers show 0 contradicted rows while mis-split
+# columns show 2, 3, and 15+ -- and the threshold sits in that gap. A single
+# contradicted row is left alone: observed only on degenerate one-row detections, where
+# demotion to a paragraph already handles it.
+MIN_COLUMN_CUT_ROWS = 2
+
+# A word must extend at least this far beyond both sides of a boundary before it counts
+# as cut, so glyph-box slop against a real boundary is not read as a contradiction.
+COLUMN_CUT_MARGIN_PT = 1.0
+
+# Two x-positions within this distance are the same column edge (find_tables() emits
+# cell rects whose shared edges agree to well under a point).
+COLUMN_EDGE_TOLERANCE_PT = 0.5
+
+# A contradicted boundary names the damage, not the repair. Two shapes produce cut
+# words, and they need opposite treatment. A *spurious* boundary splits one printed
+# column in two ("Vitamin A, | μg"): away from the rows whose words it cut, the text
+# still runs straight across it -- the space between the words on either side is an
+# ordinary inter-word space. A *real* boundary with a wide value overhanging it
+# ("<0.001" protruding into the neighbour) lives where every column boundary lives:
+# in a gutter, with clear air on both sides on every row it does not cut. So the
+# arbiter is the same physical quantity the word-gutter path is built on -- the
+# median horizontal gap across the boundary on uncut rows, against
+# MIN_GUTTER_WIDTH_PT. Dissolve when the gap is a space; keep when it is a gutter,
+# because the word-box rebuild already lands an overhanging value whole in the cell
+# holding its center, and dissolving there would fuse two true columns.
+
 
 def split_word_ratio(page: "pymupdf.Page", table_data: list[list[str | None]]) -> float:
     """Share of a grid's word tokens that are not whole words of the page.
@@ -331,7 +372,216 @@ def extract_loss_share(
     return lost / total if total else 0.0
 
 
-def rebuild_cells_from_words(page: "pymupdf.Page", table: object) -> list[list[str]] | None:
+def _dissolve_cell_edges(
+    cells: "list[tuple[float, float, float, float] | None]", boundaries: list[float]
+) -> "list[tuple[float, float, float, float] | None]":
+    """Union a row's adjacent cell rects wherever they abut at a dissolved boundary."""
+    out: list[tuple[float, float, float, float] | None] = []
+    for cell in cells:
+        rect = None if cell is None else tuple(cell[:4])
+        previous = out[-1] if out else None
+        if (
+            rect is not None
+            and previous is not None
+            and any(
+                abs(previous[2] - boundary) <= COLUMN_EDGE_TOLERANCE_PT
+                and abs(rect[0] - boundary) <= COLUMN_EDGE_TOLERANCE_PT
+                for boundary in boundaries
+            )
+        ):
+            out[-1] = (previous[0], min(previous[1], rect[1]), rect[2], max(previous[3], rect[3]))
+        else:
+            out.append(rect)  # type: ignore[arg-type]
+    return out
+
+
+def contradicted_column_boundaries(
+    page: "pymupdf.Page", table: object, table_data: "list[list[str | None]] | None" = None
+) -> list[tuple[float, tuple[int, ...]]]:
+    """Interior column boundaries the page's own words contradict.
+
+    For every interior x-edge of a ``find_tables()`` grid, count the rows where the
+    grid draws the edge -- both neighbouring cells abut at it -- while the page prints
+    a word straddling it. Rows whose cell spans across the position (merged headers)
+    do not count, and neither do words that merely graze the edge; see
+    ``MIN_COLUMN_CUT_ROWS`` for the measured gap the threshold sits in.
+
+    Parameters
+    ----------
+    page : pymupdf.Page
+        Page the table was found on.
+    table : PyMuPDF Table
+        Table object from ``find_tables()`` whose ``rows[].cells`` rects define the
+        grid.
+    table_data : list of list of str or None, optional
+        The grid ``table.extract()`` returned. When given, a crossing word that one of
+        the two adjacent cells already holds **whole** does not count: the damage this
+        detector exists to find is ``extract()`` cutting a word across the boundary,
+        and a wide value merely overhanging its correct column ("<0.001" protruding
+        into the neighbour on two rows of an otherwise-aligned grid, measured on the
+        PMC dev corpus) arrives intact in its own cell.
+
+    Returns
+    -------
+    list of tuple of (float, tuple of int)
+        The contradicted boundary x-positions, ascending, each with the indices of
+        the rows whose words it cuts -- ``boundaries_to_dissolve`` reads the fill
+        pattern *away* from those rows. Empty when the grid's columns fall between
+        the page's words, or when the table exposes no usable cell geometry.
+
+    """
+    import pymupdf
+
+    try:
+        rows = list(table.rows)  # type: ignore[attr-defined]
+        bbox = pymupdf.Rect(table.bbox)  # type: ignore[attr-defined]
+        words = [word for word in page.get_text("words") if pymupdf.Rect(word[:4]).intersects(bbox)]
+    except Exception:
+        return []
+    if not rows or not words:
+        return []
+
+    row_cells: list[list[tuple[float, float, float, float]]] = []
+    row_tokens: list[list[tuple[tuple[float, float, float, float], set[str]]]] = []
+    edges: set[float] = set()
+    for row_index, row in enumerate(rows):
+        raw_cells = list(getattr(row, "cells", None) or [])
+        cells = [cell[:4] for cell in raw_cells if cell is not None]
+        row_cells.append(cells)
+        extracted_row = table_data[row_index] if table_data is not None and row_index < len(table_data) else []
+        cell_tokens: list[tuple[tuple[float, float, float, float], set[str]]] = []
+        for cell_index, cell in enumerate(raw_cells):
+            if cell is None:
+                continue
+            text = extracted_row[cell_index] if cell_index < len(extracted_row) else None
+            cell_tokens.append((cell[:4], set(str(text).split()) if text else set()))
+        row_tokens.append(cell_tokens)
+        xs = sorted({cell[0] for cell in cells} | {cell[2] for cell in cells})
+        edges.update(xs[1:-1])
+
+    def same_edge(a: float, b: float) -> bool:
+        return abs(a - b) <= COLUMN_EDGE_TOLERANCE_PT
+
+    contradicted: list[tuple[float, tuple[int, ...]]] = []
+    for boundary in sorted(edges):
+        if any(same_edge(boundary, seen) for seen, _rows in contradicted):
+            continue
+        cut_rows: list[int] = []
+        for row_index, (cells, cell_tokens) in enumerate(zip(row_cells, row_tokens, strict=True)):
+            if not cells:
+                continue
+            # The row bears this edge only if a cell ends (or the next begins) there;
+            # a spanning cell omits it, and its words may cross freely.
+            bears = any(same_edge(cell[2], boundary) for cell in cells[:-1]) or any(
+                same_edge(cell[0], boundary) for cell in cells[1:]
+            )
+            if not bears:
+                continue
+            # Tokens the two cells meeting at this boundary hold: a crossing word
+            # either delivered whole was not cut by it.
+            adjacent: set[str] = set()
+            for rect, tokens in cell_tokens:
+                if same_edge(rect[2], boundary) or same_edge(rect[0], boundary):
+                    adjacent |= tokens
+            top = min(cell[1] for cell in cells)
+            bottom = max(cell[3] for cell in cells)
+            for word in words:
+                if not (word[0] + COLUMN_CUT_MARGIN_PT < boundary < word[2] - COLUMN_CUT_MARGIN_PT):
+                    continue
+                center_y = (word[1] + word[3]) / 2
+                if top <= center_y < bottom and str(word[4]) not in adjacent:
+                    cut_rows.append(row_index)
+                    break
+        if len(cut_rows) >= MIN_COLUMN_CUT_ROWS:
+            contradicted.append((boundary, tuple(cut_rows)))
+    return contradicted
+
+
+def boundaries_to_dissolve(
+    page: "pymupdf.Page", table: object, boundaries: list[tuple[float, tuple[int, ...]]]
+) -> list[float]:
+    """Select the contradicted boundaries that split one column rather than two.
+
+    For each boundary, measure the horizontal gap between the nearest word ending
+    left of it and the nearest word starting right of it, within the pair's own cell
+    rects, on every row the boundary did not cut. A spurious boundary runs through a
+    line of text, so those gaps are ordinary inter-word spaces; a real boundary sits
+    in a column gutter. The median gap decides, against the same
+    ``MIN_GUTTER_WIDTH_PT`` the word-gutter path trusts. A boundary with no
+    measurable uncut row -- every row it bears either has its words cut or is blank
+    on one side -- runs through printed content wherever it is tested, which is the
+    spurious shape.
+
+    Parameters
+    ----------
+    page : pymupdf.Page
+        Page the table was found on.
+    table : PyMuPDF Table
+        Table object whose ``rows[].cells`` rects define the grid.
+    boundaries : list of tuple of (float, tuple of int)
+        Contradicted boundaries from ``contradicted_column_boundaries``: each an
+        x-position with the indices of the rows whose words it cuts.
+
+    Returns
+    -------
+    list of float
+        The boundary x-positions whose crossings are spaces, not gutters --
+        dissolving them merges the two halves of one printed column back together.
+
+    """
+    import pymupdf
+
+    try:
+        rows = list(table.rows)  # type: ignore[attr-defined]
+        bbox = pymupdf.Rect(table.bbox)  # type: ignore[attr-defined]
+        words = [word for word in page.get_text("words") if pymupdf.Rect(word[:4]).intersects(bbox)]
+    except Exception:
+        return []
+    dissolve: list[float] = []
+    for boundary, cut_row_indices in boundaries:
+        cut = set(cut_row_indices)
+        gaps: list[float] = []
+        for row_index, row in enumerate(rows):
+            if row_index in cut:
+                continue
+            cells = list(getattr(row, "cells", None) or [])
+            left = right = None
+            for cell in cells:
+                if cell is None:
+                    continue
+                if abs(cell[2] - boundary) <= COLUMN_EDGE_TOLERANCE_PT:
+                    left = cell
+                elif abs(cell[0] - boundary) <= COLUMN_EDGE_TOLERANCE_PT:
+                    right = cell
+            if left is None or right is None:
+                continue
+            top = min(left[1], right[1])
+            bottom = max(left[3], right[3])
+            nearest_end: float | None = None
+            nearest_start: float | None = None
+            for word in words:
+                center_y = (word[1] + word[3]) / 2
+                if not top <= center_y < bottom:
+                    continue
+                if word[2] <= boundary + COLUMN_CUT_MARGIN_PT and word[0] >= left[0] - COLUMN_EDGE_TOLERANCE_PT:
+                    nearest_end = word[2] if nearest_end is None else max(nearest_end, word[2])
+                elif word[0] >= boundary - COLUMN_CUT_MARGIN_PT and word[2] <= right[2] + COLUMN_EDGE_TOLERANCE_PT:
+                    nearest_start = word[0] if nearest_start is None else min(nearest_start, word[0])
+            if nearest_end is not None and nearest_start is not None:
+                gaps.append(nearest_start - nearest_end)
+        if not gaps:
+            dissolve.append(boundary)
+            continue
+        gaps.sort()
+        median = gaps[len(gaps) // 2]
+        if median < MIN_GUTTER_WIDTH_PT:
+            dissolve.append(boundary)
+    return dissolve
+
+
+def rebuild_cells_from_words(
+    page: "pymupdf.Page", table: object, dissolve_boundaries: list[float] | None = None
+) -> list[list[str]] | None:
     """Rebuild a ``find_tables()`` grid's cell text from the page's own word boxes.
 
     ``Table.extract()`` assembles cell text from the characters its cell rects clip,
@@ -353,6 +603,12 @@ def rebuild_cells_from_words(page: "pymupdf.Page", table: object) -> list[list[s
     table : PyMuPDF Table
         Table object from ``find_tables()`` whose ``rows[].cells`` rects define the
         grid.
+    dissolve_boundaries : list of float, optional
+        Contradicted column boundaries (from ``contradicted_column_boundaries``) to
+        dissolve while rebuilding: each row's cells abutting at one of these
+        x-positions are unioned into a single cell before words are assigned, so a
+        word the boundary cut lands whole in the reunited cell. Rows whose cells
+        span across the position are unaffected.
 
     Returns
     -------
@@ -374,6 +630,8 @@ def rebuild_cells_from_words(page: "pymupdf.Page", table: object) -> list[list[s
         cells = getattr(row, "cells", None)
         if not cells:
             return None
+        if dissolve_boundaries:
+            cells = _dissolve_cell_edges(cells, dissolve_boundaries)
         row_texts: list[str] = []
         for cell in cells:
             if cell is None:
