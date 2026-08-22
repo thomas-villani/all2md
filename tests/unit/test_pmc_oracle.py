@@ -799,3 +799,41 @@ def test_an_event_with_no_reason_still_totals() -> None:
     summary = benchmark._degraded_summary([_FakeEvaluation((_fact("ocr_failed", None, 3),))])
 
     assert summary["ocr_failed"] == {"occurrences": 3, "articles": 1}
+
+
+# ---------------------------------------------------------------------------
+# The published payload must be checkable from its own fields
+# ---------------------------------------------------------------------------
+
+
+def test_attainable_recall_is_reproducible_from_the_published_counts() -> None:
+    """The share's numerator ships beside it, per kind and overall.
+
+    ``attainable_recall`` is ``recovered_attainable / attainable``, and those are
+    different blocks from ``recovered``: a block can be recovered from the output
+    while the PDF's own text layer does not reproduce it, so it counts in
+    ``recovered`` and in neither side of the share. While the numerator was not
+    published, dividing the two counts that *were* gave a plausible wrong answer
+    -- 92/110 reads as 83.6% where the artifact says 82.7% -- and nothing in the
+    payload could settle which was right. A published figure nobody can check
+    against the artifact is the failure this lane exists to prevent.
+    """
+    # One block per case: recovered and attainable, attainable but not recovered,
+    # recovered though the layer never had it (the block the two counts disagree on).
+    layer = "alpha beta gamma delta epsilon zeta eta theta iota kappa"
+    missing_from_layer = "one two three four five six seven eight nine ten"
+    blocks = [
+        ("text_block", layer),
+        ("text_block", "lambda mu nu xi omicron pi rho sigma tau upsilon"),
+        ("text_block", missing_from_layer),
+    ]
+    emitted = f"{layer} {missing_from_layer}"
+    pdf_text = f"{layer} lambda mu nu xi omicron pi rho sigma tau upsilon"
+
+    report = article.measure_recall([("PMC1.1", blocks, emitted, pdf_text)])
+
+    assert report.recovered == 2, "both the layer block and the layer-less block were emitted"
+    assert report.attainable == 2, "the layer reproduces two of the three blocks"
+    assert report.recovered_attainable == 1, "only one block is on both sides of the share"
+    assert report.attainable_recall == pytest.approx(report.recovered_attainable / report.attainable)
+    assert report.attainable_recall != pytest.approx(report.recovered / report.attainable)

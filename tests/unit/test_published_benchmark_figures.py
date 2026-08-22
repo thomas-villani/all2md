@@ -214,3 +214,30 @@ def test_a_perturbed_artifact_is_caught() -> None:
 
     mismatches = _mismatches(perturbed)
     assert len(mismatches) >= 2, f"a perturbed artifact still matched the page: {mismatches}"
+
+
+def test_every_published_share_is_reproducible_from_published_counts() -> None:
+    """A ratio in the artifact must be checkable against counts in the same artifact.
+
+    ``attainable_recall`` is ``recovered_attainable / attainable``, and those are
+    not the same blocks as ``recovered``: a block the output recovered that the
+    PDF's own text layer does not reproduce counts in ``recovered`` and in
+    neither side of the share. While the numerator went unpublished, dividing the
+    two counts that *were* published gave a plausible wrong answer (92/110 reads
+    as 83.6% where the artifact says 82.7%), with nothing in the payload to
+    settle it. Skipped rather than failed on an artifact recorded before the
+    numerator shipped, so re-recording stays the fix and never the blocker.
+    """
+    recall = json.loads(_PMC.read_bytes())["article_recall"]
+    if "recovered_attainable" not in recall:
+        pytest.skip("artifact predates the published numerator -- re-record to enable this check")
+
+    subjects = [("overall", recall)] + [(kind, counts) for kind, counts in recall["by_kind"].items()]
+    for name, counts in subjects:
+        if not counts["attainable"]:
+            continue
+        expected = counts["recovered_attainable"] / counts["attainable"]
+        assert counts["attainable_recall"] == pytest.approx(expected), (
+            f"{name}: attainable_recall {counts['attainable_recall']} does not equal "
+            f"{counts['recovered_attainable']}/{counts['attainable']} = {expected}"
+        )
