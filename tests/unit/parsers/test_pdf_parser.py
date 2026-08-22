@@ -724,6 +724,52 @@ class TestDetectedCaptionsReachTheFigureNode:
         assert len(images) == 1
         assert images[0].caption is None
 
+    def test_a_ligature_in_the_body_copy_still_matches_the_bound_caption(self) -> None:
+        """NFKC applies to both sides of the containment test (#410).
+
+        The bound caption comes through ``get_textbox``, which expands ligatures;
+        the body block's spans preserve them. "ﬁrst" against "first" made the same
+        printed text fail the substring test and the caption printed twice.
+        """
+        from all2md.parsers.pdf import PdfToAstConverter
+
+        caption = "Figure 1. The first dataset to include the movement of every animal."
+        block = _create_mock_text_block("Figure 1. The ﬁrst dataset to include the movement of every animal.")
+
+        assert PdfToAstConverter._is_bound_caption_block(block, [caption])
+
+    def test_a_dehyphenated_body_copy_still_matches_the_caption_keeping_the_wrap_hyphen(self) -> None:
+        """The rescued-region route dehyphenates; ``get_textbox`` keeps the wrap hyphen.
+
+        "knock- down" in the bound caption against "knockdown" in the body copy is
+        the same printed word read through two policies; the comparison key drops
+        hyphens so the copy is recognized (#410).
+        """
+        from all2md.parsers.pdf import PdfToAstConverter
+
+        caption = "Figure 3. The CCT3 knock- down efficiencies were evaluated by western blot."
+        block = _create_mock_text_block("Figure 3. The CCT3 knockdown efficiencies were evaluated by western blot.")
+
+        assert PdfToAstConverter._is_bound_caption_block(block, [caption])
+
+    def test_a_body_copy_with_spacing_artifacts_still_matches_the_caption(self) -> None:
+        """``get_textbox`` can split a word ("enrich ment"); the block keeps it whole (#410)."""
+        from all2md.parsers.pdf import PdfToAstConverter
+
+        caption = "Figure 5. Pathway enrich ment analysis of the knockdown cells."
+        block = _create_mock_text_block("Figure 5. Pathway enrichment analysis of the knockdown cells.")
+
+        assert PdfToAstConverter._is_bound_caption_block(block, [caption])
+
+    def test_a_block_holding_caption_plus_other_prose_keeps_its_place(self) -> None:
+        """The conservative rule survives the NFKC change: only a pure body copy drops."""
+        from all2md.parsers.pdf import PdfToAstConverter
+
+        caption = "Figure 1. The first dataset to include the movement of every animal."
+        block = _create_mock_text_block(caption + " The cohort was measured for twelve weeks.")
+
+        assert not PdfToAstConverter._is_bound_caption_block(block, [caption])
+
     def test_the_bound_caption_appears_once_and_body_prose_survives(self, tmp_path) -> None:
         """Binding must not double the caption: its body copy is suppressed.
 

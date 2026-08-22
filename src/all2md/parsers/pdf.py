@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import re
+import unicodedata
 from datetime import datetime
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Callable, Optional, Union
@@ -63,6 +64,7 @@ from all2md.constants import (
     DEPS_PDF,
     DEPS_PDF_LAYOUT,
     PDF_CAPTION_DEDUP_MIN_CHARS,
+    PDF_CAPTION_REGION_SUPPRESS_MARGIN,
     PDF_MIN_PYMUPDF_VERSION,
     PDF_READING_ORDER_MIN_ROW_TOLERANCE,
     PDF_READING_ORDER_ROW_TOLERANCE_RATIO,
@@ -324,6 +326,20 @@ def _consume_leading_chars(content: list[Node], count: int) -> tuple[list[Node],
             out.append(node)
             remaining = 0
     return out, remaining
+
+
+def _caption_comparison_key(text: str) -> str:
+    """Reduce text to the glyphs both extraction routes agree on, for caption dedup.
+
+    A bound caption and its body copy are the same printed glyphs read back through
+    different routes -- ``get_textbox`` for the caption, span text (or a rescued
+    region, which dehyphenates) for the copy. The routes disagree on what they
+    insert or keep *between* glyphs: ligature expansion ("ﬁrst" vs "first"),
+    spacing split mid-word ("enrich ment"), and wrap hyphens kept by one route and
+    consumed by the other ("knock- down" vs "knockdown"). NFKC plus dropping
+    whitespace and hyphens leaves what they agree on (#410).
+    """
+    return "".join(unicodedata.normalize("NFKC", text).replace("-", "").split())
 
 
 def _running_text_key(text: str) -> str:
@@ -1980,6 +1996,28 @@ class PdfToAstConverter(BaseParser):
                     if table_node:
                         nodes.append(table_node)
 
+        # A caption's body copy can reach the node list around the block-level
+        # suppression entirely: find_tables() can fire on a caption's aligned lines,
+        # its bbox removes the block from ordinary text, and when the grid is then
+        # rejected _region_text_as_paragraph re-emits the region verbatim -- so the
+        # caption prints beside the figure *and* as this rescued paragraph (#410).
+        # Catch every such path in one place: a paragraph whose entire text sits
+        # inside a caption bound on this page is that caption's body copy, whatever
+        # route it took here. Runs before the merges so a body copy cannot first
+        # fuse with real prose and escape.
+        bound_keys = [_caption_comparison_key(item["caption"]) for item in figure_plan if item["caption"]]
+        if bound_keys:
+            kept: list[Node] = []
+            for candidate in nodes:
+                if isinstance(candidate, AstParagraph):
+                    text = extract_node_text(candidate)
+                    if len(" ".join(text.split())) >= PDF_CAPTION_DEDUP_MIN_CHARS:
+                        key = _caption_comparison_key(text)
+                        if any(key in bound for bound in bound_keys):
+                            continue
+                kept.append(candidate)
+            nodes = kept
+
         # Post-processing
         nodes = self._merge_rotated_paragraphs(nodes)
         nodes = self._merge_adjacent_paragraphs(nodes)
@@ -2094,7 +2132,30 @@ class PdfToAstConverter(BaseParser):
             used_captions.add(caption)
             plan.append((rect.y0, {"images": [], "caption": caption}))
 
-        return [item for _y, item in sorted(plan, key=lambda entry: entry[0])]
+        # One printed caption is one figure. The region loop emits one item per
+        # ``picture`` region, so a multi-panel figure whose panels the layout model
+        # drew as separate regions would become one Figure per panel, each
+        # re-binding the same caption and printing it once per panel (#410).
+        # Folding by verbatim caption here covers every path that can produce a
+        # duplicate -- region items, loose items, and the caption-only rescue --
+        # and cannot fuse distinct figures: two different figures on one page do
+        # not share a verbatim caption.
+        by_caption_final: dict[str, dict] = {}
+        ordered: list[dict] = []
+        for _y, item in sorted(plan, key=lambda entry: entry[0]):
+            caption = item["caption"]
+            if caption is None:
+                ordered.append(item)
+                continue
+            existing = by_caption_final.get(caption)
+            if existing is None:
+                by_caption_final[caption] = item
+                ordered.append(item)
+            else:
+                existing["images"].extend(item["images"])
+        for item in by_caption_final.values():
+            item["images"].sort(key=lambda member: (member["bbox"].y0, member["bbox"].x0))
+        return ordered
 
     def _process_page_to_ast(
         self,
@@ -2250,10 +2311,33 @@ class PdfToAstConverter(BaseParser):
         # page, so nothing that is not literally the caption can be dropped.
         bound_captions = [" ".join(item["caption"].split()) for item in figure_plan if item["caption"]]
 
+        # The caption's printed region suppresses geometrically what the textual rule
+        # cannot: ``get_textbox`` and the block spans read the same glyphs through
+        # different heuristics (wrap hyphens kept vs dehyphenated, spacing split mid-word,
+        # occasionally a dropped character), so the two strings can disagree while the
+        # geometry stays exact (#410). A region qualifies only when its entire text sits
+        # inside a caption actually bound on this page -- then every glyph a block inside
+        # it holds is already emitted on the figure, and dropping the block loses nothing.
+        bound_caption_rects: list[Any] = []
+        if bound_captions and layout:
+            region_bound_keys = [_caption_comparison_key(c) for c in bound_captions]
+            for pred in layout.get_predictions_by_label("caption"):
+                rect = pymupdf.Rect(pred.bbox)
+                region_key = _caption_comparison_key(page.get_textbox(rect))
+                if region_key and any(region_key in bound for bound in region_bound_keys):
+                    bound_caption_rects.append(rect + PDF_CAPTION_REGION_SUPPRESS_MARGIN)
+
         # Filter out blocks inside table regions
         text_blocks = []
         for block in all_blocks:
             if bound_captions and self._is_bound_caption_block(block, bound_captions):
+                continue
+            if (
+                bound_caption_rects
+                and block.get("type") == 0
+                and "bbox" in block
+                and any(rect.contains(pymupdf.Rect(block["bbox"])) for rect in bound_caption_rects)
+            ):
                 continue
             if "bbox" not in block:
                 text_blocks.append(block)
@@ -3955,12 +4039,15 @@ class PdfToAstConverter(BaseParser):
         if block.get("type") != 0:
             return False
         text = " ".join(span.get("text", "") for line in block.get("lines", []) for span in line.get("spans", []))
-        text = " ".join(text.split())
         # The floor keeps a short cross-reference ("Figure 1.") standing alone in the
         # body from being mistaken for the caption fragment it is contained in.
-        if len(text) < PDF_CAPTION_DEDUP_MIN_CHARS:
+        if len(" ".join(text.split())) < PDF_CAPTION_DEDUP_MIN_CHARS:
             return False
-        return any(text in caption for caption in bound_captions)
+        # See _caption_comparison_key: the two extraction routes disagree on
+        # ligatures, inserted spaces, and wrap hyphens; comparing what they agree
+        # on is what lets the body copy be recognized at all (#410).
+        key = _caption_comparison_key(text)
+        return any(key in _caption_comparison_key(caption) for caption in bound_captions)
 
     def _create_image_node(self, img_info: dict, page_num: int) -> AstParagraph | None:
         """Create an image node from image info.
