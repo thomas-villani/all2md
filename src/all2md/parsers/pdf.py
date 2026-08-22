@@ -2356,10 +2356,23 @@ class PdfToAstConverter(BaseParser):
             if remainder is not None:
                 text_blocks.append(remainder)
 
-        # Apply column detection if enabled. It runs on OCR-derived blocks too: the engine
-        # numbers its blocks in its own order, which is not reading order on multi-column
-        # and poster layouts, and sorting them into columns measurably recovers it.
-        if self.options.detect_columns and self.options.column_detection_mode not in ("disabled", "force_single"):
+        # Apply column detection if enabled -- but not to OCR-derived blocks (#411).
+        # The engine already ran its own layout analysis and numbers its blocks in
+        # reading order; re-sorting them with born-digital column geometry loses to
+        # that order across the OmniDocBench raster corpus. Bisecting the v1.12/v1.13
+        # raster regression put 91% of the text_content bill (-21.05 of -23.01 summed
+        # per-page delta) on 72 pages whose old single-block output scored 0.73/0.83
+        # (text/order); on every locally reproducible one of them, skipping this pass
+        # restored the pre-regression score exactly -- including a newspaper page,
+        # the very layout the pass exists for -- while keeping the block_structure
+        # gain the segmentation bought. An explicit ``force_multi`` request still
+        # runs the pass: that mode is a user override, not a heuristic.
+        run_column_pass = (
+            self.options.detect_columns
+            and self.options.column_detection_mode not in ("disabled", "force_single")
+            and (self.options.column_detection_mode == "force_multi" or not ocr_applied)
+        )
+        if run_column_pass:
             force_multi = self.options.column_detection_mode == "force_multi"
             # PyMuPDF fuses both columns of a tight-gutter page into one block on some
             # pages; the fused block's interleaving is invisible to any block-level
