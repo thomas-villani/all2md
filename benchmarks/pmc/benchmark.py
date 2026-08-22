@@ -35,7 +35,7 @@ from typing import Any, Callable, Mapping, Sequence
 
 from benchmarks.omnidocbench.dimensions import UNGATEABLE as SHARED_UNGATEABLE
 from benchmarks.omnidocbench.oracles import PageProjection, project_ast, score_page
-from benchmarks.pmc.alignment import TOKEN_PLACEMENT_MIN
+from benchmarks.pmc.alignment import MIN_NGRAMS, TOKEN_PLACEMENT_MIN, ngrams, normalize
 from benchmarks.pmc.article import (
     RECALL_MIN,
     BindingReport,
@@ -154,6 +154,11 @@ class ArticleEvaluation:
     ground_truth_blocks: int
     #: ``<table-wrap>`` elements the publisher deposited as a graphic rather than as markup.
     image_tables: int = 0
+    #: What the tables on over-emitting pages are, by `SURPLUS_VERDICTS`.
+    surplus_verdicts: Mapping[str, int] = field(default_factory=dict)
+    surplus_examined: int = 0
+    surplus_in_text_layer: int = 0
+    surplus_words_in_text_layer: int = 0
     emitted_text: str = ""
     #: The PDF's own text layer, which bounds what any parser could recover.
     pdf_text: str = ""
@@ -260,6 +265,7 @@ def evaluate_article(article: Any, *, options: Any = None) -> ArticleEvaluation:
 
     emitted = [project_ast(page) for page in converted.pages]
     evaluations: list[PageEvaluation] = []
+    scored_pages: list[tuple[Any, Any]] = []
     for index, placed in enumerate(assignment.pages):
         truth = to_projection(tuple(item.block for item in placed))
         if not truth.text_blocks:
@@ -267,6 +273,7 @@ def evaluate_article(article: Any, *, options: Any = None) -> ArticleEvaluation:
             # verdict. Counted in the payload's page accounting instead.
             continue
         actual = emitted[index]
+        scored_pages.append((truth, actual))
         # The next page of the same article: a harder control than a different article,
         # because it shares the running head, the vocabulary, and a continuing sentence.
         control = emitted[(index + 1) % len(emitted)] if len(emitted) > 1 else PageProjection((), (), (), ())
@@ -284,6 +291,10 @@ def evaluate_article(article: Any, *, options: Any = None) -> ArticleEvaluation:
             )
         )
 
+    surplus_verdicts, surplus_examined, surplus_in_layer, surplus_layer_words = _classify_surplus_tables(
+        blocks, pdf_text, scored_pages
+    )
+
     return ArticleEvaluation(
         article_id=article.article_id,
         pages=tuple(evaluations),
@@ -296,6 +307,10 @@ def evaluate_article(article: Any, *, options: Any = None) -> ArticleEvaluation:
         duration_seconds=time.perf_counter() - started,
         ground_truth_blocks=len(blocks),
         image_tables=image_tables,
+        surplus_verdicts=dict(surplus_verdicts),
+        surplus_examined=surplus_examined,
+        surplus_in_text_layer=surplus_in_layer,
+        surplus_words_in_text_layer=surplus_layer_words,
         emitted_text=" ".join(block for page in emitted for block in page.text_blocks),
         pdf_text=pdf_text,
         truth_blocks=truth_pairs,
@@ -350,6 +365,96 @@ def _dimension(pages: Sequence[PageEvaluation], name: str) -> dict[str, Any] | N
     if name in UNGATEABLE:
         summary["ungateable"] = UNGATEABLE[name]
     return summary
+
+
+#: Where a surplus table's text sits in the ground truth, by 5-gram containment at
+#: `RECALL_MIN` -- the same rule and the same threshold the recall instrument places blocks
+#: with, so a verdict here and a verdict there differ only in where the text was looked for.
+#:
+#: Deliberately *not* extended with an unordered-token fallback, though the alignment module
+#: has one. That rule answers "which page of this article holds this block", discriminating
+#: among that article's own pages, and it is calibrated for that question. The question here
+#: is whether a grid holds table text or prose -- and an article's tables and its prose share
+#: a vocabulary by construction, so a bag of words cannot separate them at any threshold. An
+#: earlier draft borrowed `TOKEN_PLACEMENT_MIN` anyway and filed 21 of 58 surplus tables as
+#: resequenced prose, none of which were prose.
+SURPLUS_VERDICTS = ("jats_table", "jats_prose", "outside_jats")
+
+
+def _share(needle: set, haystack: set) -> float:
+    return len(needle & haystack) / len(needle) if needle else 0.0
+
+
+def _classify_surplus_tables(
+    blocks: Sequence[Any],
+    pdf_text: str,
+    pages: Sequence[tuple[Any, Any]],
+) -> tuple[Counter, int, int, int]:
+    """Ask what the tables on over-emitting pages actually are.
+
+    The lane publishes `tables_emitted` beside `tables_expected`, and the gap between them
+    reads as invention unless something says otherwise. This says otherwise, or fails to.
+
+    Every table emitted on a page carrying more tables than the ground truth expects is
+    put to two questions. First, and independently of JATS: does the PDF's own text layer
+    hold this table's words? Text in the layer was printed on the page, so a table that
+    fails here is the only kind that could have been invented. Second: where does the text
+    sit in the ground truth -- inside a ``<table>``, inside prose, or nowhere? Prose
+    committed to a grid is the defect this was built to find.
+
+    Only the first question has an unordered form, and only there does it mean anything.
+    A grid re-cuts the page's words into cells, so a real table can hold every word the
+    text layer holds while sharing few of its 5-grams -- which is why `words_in_text_layer`
+    is the invention test and `in_text_layer` is a statement about adjacency. Against JATS
+    the same fallback would be worthless: prose committed to a grid keeps its word order
+    *inside* the cells, so ordered containment is what detects it, while a bag of words
+    cannot tell an article's table vocabulary from its prose vocabulary at all.
+
+    Returns
+    -------
+    tuple[Counter, int, int, int]
+        Verdict counts, tables examined, how many the text layer holds by n-gram
+        containment, and how many by word containment. Both are reported because they
+        answer different questions: a grid re-cuts the page's words into cells, so a
+        real table can hold every word the layer holds while sharing few of its
+        5-grams. The word figure is the invention test; the n-gram figure is adjacency.
+
+    """
+    truth_table_grams: set = set()
+    truth_prose_grams: set = set()
+    for block in blocks:
+        if not block.text:
+            continue
+        tokens = normalize(block.text)
+        if block.kind == "table":
+            truth_table_grams |= ngrams(tokens)
+        else:
+            truth_prose_grams |= ngrams(tokens)
+    layer_tokens = normalize(pdf_text)
+    layer_grams, layer_words = ngrams(layer_tokens), set(layer_tokens)
+
+    verdicts: Counter = Counter()
+    examined = layer_supported = layer_words_supported = 0
+    for truth, actual in pages:
+        if len(actual.tables) <= len(truth.tables):
+            continue
+        for table in actual.tables:
+            tokens = normalize(table.text)
+            grams, words = ngrams(tokens), set(tokens)
+            if len(grams) < MIN_NGRAMS:
+                continue
+            examined += 1
+            if _share(grams, layer_grams) >= RECALL_MIN:
+                layer_supported += 1
+            if _share(words, layer_words) >= TOKEN_PLACEMENT_MIN:
+                layer_words_supported += 1
+            if _share(grams, truth_table_grams) >= RECALL_MIN:
+                verdicts["jats_table"] += 1
+            elif _share(grams, truth_prose_grams) >= RECALL_MIN:
+                verdicts["jats_prose"] += 1
+            else:
+                verdicts["outside_jats"] += 1
+    return verdicts, examined, layer_supported, layer_words_supported
 
 
 def normalize_results(
@@ -456,6 +561,18 @@ def normalize_results(
             # cell text, so it is absent from `tables_expected` while the table it prints is
             # extracted from the page and counted in `tables_emitted`.
             "tables_deposited_as_images": sum(result.image_tables for result in evaluations),
+            # What the surplus *is*. Without this the gap between the two counts above can
+            # only be read as invention or explained away in prose; here it is measured
+            # every run, against the document's own text layer and against JATS.
+            "table_surplus": {
+                "examined": sum(result.surplus_examined for result in evaluations),
+                "in_text_layer": sum(result.surplus_in_text_layer for result in evaluations),
+                "words_in_text_layer": sum(result.surplus_words_in_text_layer for result in evaluations),
+                "by_source": {
+                    verdict: sum(result.surplus_verdicts.get(verdict, 0) for result in evaluations)
+                    for verdict in SURPLUS_VERDICTS
+                },
+            },
             "pages_with_expected_table": sum(1 for page in pages if page.truth_tables),
             "pages_with_emitted_table": sum(1 for page in pages if page.emitted_tables),
         },
