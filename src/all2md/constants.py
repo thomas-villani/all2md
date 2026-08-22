@@ -849,6 +849,10 @@ PDF_CAPTION_MAX_LENGTH = 500
 # duplicate and is suppressed -- unless it is shorter than this, which keeps a bare
 # cross-reference ("Figure 1.") from being mistaken for a caption fragment.
 PDF_CAPTION_DEDUP_MIN_CHARS = 10
+# A block wholly inside a bound caption's own layout region is that caption's body copy
+# even when the two extraction routes disagree on glyph details (#410); the margin
+# absorbs the model box's boundary jitter around the text it drew.
+PDF_CAPTION_REGION_SUPPRESS_MARGIN = (-2.0, -2.0, 2.0, 2.0)
 # When the layout model is available, also drop images that fall inside a
 # page-header / page-footer region (recurring logos, signature blocks).
 DEFAULT_FILTER_HEADER_FOOTER_IMAGES = True
