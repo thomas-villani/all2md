@@ -170,24 +170,24 @@ Unsupported output is therefore split in two:
      - **0.9%**
      - at least one word appears nowhere — the number worth reading
    * - Duplication
-     - 0.7%
+     - 0.8%
      - supported text emitted more than once
    * - Control: the *wrong* article
      - 0.7%
      - wants to be ~0%
 
-Over 446,321 emitted n-grams, 3,817 are novel. Reporting the raw unsupported figure instead
+Over 446,252 emitted n-grams, 3,822 are novel. Reporting the raw unsupported figure instead
 would have made the result roughly six times worse than the parser deserves.
 
 Duplication is counted apart from both, because it is invisible to either. Text emitted
 twice is an unchanged *set* and a doubled *multiset* — no set-based score can see it at all.
 
-Duplication is now 0.7%, and the path it took there is the point. It read 0.5% while the
-oracle was blind to captions, jumped to 2.0% when the corrected oracle could finally see
-that multi-panel figures re-bound one printed caption to every panel, and fell to 0.7%
-when that defect was fixed (issue #410). The middle figure was the honest one: the defect
-predated the re-record, and what changed first was only that a measurement became able to
-report it.
+Duplication is under a point, and the path it took there is the point. It read 0.5% while
+the oracle was blind to captions, jumped to 2.0% when the corrected oracle could finally
+see that multi-panel figures re-bound one printed caption to every panel, and fell by two
+thirds when that defect was fixed (issue #410). The middle figure was the honest one: the
+defect predated the re-record, and what changed first was only that a measurement became
+able to report it.
 
 Tables
 ~~~~~~
