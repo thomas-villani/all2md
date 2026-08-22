@@ -173,7 +173,10 @@ class TestVectorFigures:
             texts={_CAPTION_REGION.bbox: _CAPTION},
         )
 
-        assert plan == [{"images": [], "caption": _CAPTION}]
+        assert [(item["images"], item["caption"]) for item in plan] == [([], _CAPTION)]
+        # The region's own extent is where the figure prints, so a caption-only
+        # figure can still be placed back into the text stream (#429).
+        assert plan[0]["bbox"] == pymupdf.Rect(_PICTURE.bbox)
 
     def test_a_region_the_table_detector_claimed_stays_a_table(self) -> None:
         table = {"bbox": pymupdf.Rect(72, 100, 400, 300)}

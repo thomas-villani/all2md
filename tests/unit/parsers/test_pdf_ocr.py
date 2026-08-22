@@ -887,3 +887,42 @@ class TestOCRBlocksKeepEngineOrder:
     def test_born_digital_blocks_still_get_the_column_sort(self) -> None:
         ordered = self._convert(ocr_applied=False)
         assert ordered and ordered[0].startswith("LEFT"), ordered
+
+    def _place_figure(self, engine_segmented: bool) -> list[str]:
+        """Emit two stacked blocks and one figure printed between them; report the order."""
+        import pymupdf
+
+        from all2md.ast import Figure as AstFigure
+
+        top = self._block("TOP BLOCK", (40.0, 50.0, 280.0, 70.0), engine_segmented=engine_segmented)
+        bottom = self._block("BOTTOM BLOCK", (40.0, 400.0, 280.0, 420.0), engine_segmented=engine_segmented)
+        figure = {"images": [], "caption": "Figure 1. Printed between them.", "bbox": pymupdf.Rect(40, 200, 280, 300)}
+
+        page = Mock()
+        page.get_links = Mock(return_value=[])
+        converter = PdfToAstConverter(PdfOptions(attachment_mode="skip"))
+        nodes = converter._process_columns_and_tables([[top, bottom]], [], page, 0, figure_plan=[figure])
+
+        labels = []
+        for node in nodes:
+            if isinstance(node, AstFigure):
+                labels.append("FIGURE")
+            else:
+                text = "".join(
+                    child.content for child in getattr(node, "content", []) or [] if isinstance(child.content, str)
+                )
+                if "BLOCK" in text:
+                    labels.append(text.strip())
+        return labels
+
+    def test_a_figure_is_placed_where_it_prints_on_a_born_digital_page(self) -> None:
+        """The stream is y-ordered there, so the figure's own y locates it in it (#429)."""
+        assert self._place_figure(engine_segmented=False) == ["TOP BLOCK", "FIGURE", "BOTTOM BLOCK"]
+
+    def test_an_engine_ordered_page_keeps_the_tail_emission(self) -> None:
+        """A figure's position cannot be read out of a stream y did not order.
+
+        With the engine's order in the stream, a block's y no longer says where it
+        sits in it, so placing by y would be placing by noise (#411).
+        """
+        assert self._place_figure(engine_segmented=True) == ["TOP BLOCK", "BOTTOM BLOCK", "FIGURE"]
