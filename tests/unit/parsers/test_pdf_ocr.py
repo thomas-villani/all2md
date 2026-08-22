@@ -795,3 +795,95 @@ class TestEngineReadingOrderIsPreserved:
         items = converter._build_sorted_column_items(self._blocks(engine_segmented=True), [table])
 
         assert [item[1] for item in items] == [72.0, 72.0, 102.0, 102.0, 110.0, 132.0, 132.0]
+
+
+@pytest.mark.unit
+@pytest.mark.pdf
+class TestOCRBlocksKeepEngineOrder:
+    """OCR-derived blocks bypass the column re-sort; born-digital blocks do not (#411).
+
+    Tesseract runs its own layout analysis and numbers its blocks in reading
+    order. Re-sorting them with born-digital column geometry lost to that order
+    across the OmniDocBench raster corpus: 91% of the v1.12/v1.13 text_content
+    regression sat on 72 pages that the column pass alone had scrambled, and on
+    every locally reproducible one -- a newspaper page included -- skipping the
+    pass restored the pre-regression score exactly. The same two side-by-side
+    blocks are fed through both paths here: engine order survives when OCR
+    produced the blocks, and the geometric sort still applies when it did not.
+    """
+
+    @staticmethod
+    def _block(text: str, bbox: tuple[float, float, float, float], engine_segmented: bool = False) -> dict:
+        block = {
+            "type": 0,
+            "bbox": bbox,
+            "lines": [
+                {
+                    "bbox": bbox,
+                    "dir": (1, 0),
+                    "spans": [{"text": text, "bbox": bbox, "size": 12, "font": "Arial", "flags": 0}],
+                }
+            ],
+        }
+        if engine_segmented:
+            # The real OCR path stamps this marker (see _blocks_from_ocr_layout);
+            # the reading-order sort keys off it, so a faithful simulation must too.
+            block["_engine_segmented"] = True
+        return block
+
+    def _convert(self, ocr_applied: bool) -> list[str]:
+        from all2md.ast import Document
+
+        # Engine order deliberately right-column-first: a geometric column sort
+        # emits the left column first, so the output order tells the two apart.
+        right = self._block("RIGHT COLUMN TEXT FIRST", (320.0, 50.0, 560.0, 70.0), engine_segmented=ocr_applied)
+        left = self._block("LEFT COLUMN TEXT SECOND", (40.0, 50.0, 280.0, 70.0), engine_segmented=ocr_applied)
+
+        page = Mock()
+        page.get_text = Mock(return_value={"blocks": [right, left]})
+        page.rect = Mock()
+        page.rect.width = 612.0
+        page.rect.height = 792.0
+        page.number = 0
+        page.get_images = Mock(return_value=[])
+        page.find_tables = Mock(return_value=Mock(tables=[]))
+        page.get_drawings = Mock(return_value=[])
+        page.get_links = Mock(return_value=[])
+
+        document = Mock()
+        document.__iter__ = Mock(return_value=iter([page]))
+        document.__len__ = Mock(return_value=1)
+        document.__getitem__ = Mock(side_effect=lambda i: [page][i])
+        document.metadata = {}
+        document.page_count = 1
+
+        converter = PdfToAstConverter(PdfOptions(attachment_mode="skip"))
+        original = converter._apply_ocr_if_needed
+        converter._apply_ocr_if_needed = lambda p, blocks, text: (blocks, ocr_applied)  # type: ignore[method-assign]
+        try:
+            ast_doc: Document = converter.convert_to_ast(document, range(1), "test.pdf")
+        finally:
+            converter._apply_ocr_if_needed = original  # type: ignore[method-assign]
+
+        texts = []
+
+        def walk(node):
+            content = getattr(node, "content", None)
+            if isinstance(content, str):
+                texts.append(content)
+            elif isinstance(content, list):
+                for child in content:
+                    walk(child)
+            for child in getattr(node, "children", None) or []:
+                walk(child)
+
+        walk(ast_doc)
+        return [t for t in texts if "COLUMN TEXT" in t]
+
+    def test_ocr_blocks_come_out_in_engine_order(self) -> None:
+        ordered = self._convert(ocr_applied=True)
+        assert ordered and ordered[0].startswith("RIGHT"), ordered
+
+    def test_born_digital_blocks_still_get_the_column_sort(self) -> None:
+        ordered = self._convert(ocr_applied=False)
+        assert ordered and ordered[0].startswith("LEFT"), ordered
