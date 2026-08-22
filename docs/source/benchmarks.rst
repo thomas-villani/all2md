@@ -80,7 +80,7 @@ Did the text survive?
      - 62.4%
      - what the PDF's own text layer reproduces
    * - **Recall of what is attainable**
-     - **98.5%**
+     - **98.6%**
      - the number worth reading
    * - Control: the *wrong* article
      - 0.4%
@@ -98,7 +98,7 @@ The movement after that correction is the opposite kind: a parser fix (#405).
 Side-by-side regions with tight gutters — two-column reference lists above all — were
 read as one column and interleaved line-by-line, so every word survived while every
 adjacency died. Admitting those gutters on structural evidence and joining words
-hyphenated at block seams raised attainable recall from 95.4% to 98.3% (98.5% after
+hyphenated at block seams raised attainable recall from 95.4% to 98.3% (98.6% after
 the table repairs below), and the held-out corpus moved the same way it was never
 tuned against.
 
@@ -132,8 +132,8 @@ By block kind:
      - **98.9%**
    * - Tables
      - 110 of 123
-     - 86
-     - **77.3%**
+     - 92
+     - **82.7%**
 
 Table blocks are the outlier, and deliberately so — their text now routes through
 structured table extraction rather than flowing out as prose. What that buys and what it
@@ -161,33 +161,33 @@ Unsupported output is therefore split in two:
      - Share
      - Meaning
    * - Supported
-     - **94.9%**
+     - **95.0%**
      - the n-gram appears in the document's text layer
    * - Resequenced
-     - 4.3%
+     - 4.2%
      - every word is in the document, in a new adjacency
    * - **Novel**
-     - **0.8%**
+     - **0.9%**
      - at least one word appears nowhere — the number worth reading
    * - Duplication
-     - 2.0%
+     - 0.7%
      - supported text emitted more than once
    * - Control: the *wrong* article
      - 0.7%
      - wants to be ~0%
 
-Over 446,533 emitted n-grams, 3,594 are novel. Reporting the raw unsupported figure instead
+Over 446,321 emitted n-grams, 3,817 are novel. Reporting the raw unsupported figure instead
 would have made the result roughly six times worse than the parser deserves.
 
 Duplication is counted apart from both, because it is invisible to either. Text emitted
 twice is an unchanged *set* and a doubled *multiset* — no set-based score can see it at all.
 
-The duplication figure jumped from 0.5% to 2.0% at the same re-record that corrected the
-caption-blind oracle, and the jump is real output, not a scoring artifact: with caption
-text visible to the instruments at all, they can finally see that multi-panel figures
-re-bind the shared caption to every panel, so one printed caption is emitted several
-times (issue #410). The honest ordering matters here — the defect predates the
-re-record; what changed is that a measurement became able to report it.
+Duplication is now 0.7%, and the path it took there is the point. It read 0.5% while the
+oracle was blind to captions, jumped to 2.0% when the corrected oracle could finally see
+that multi-panel figures re-bound one printed caption to every panel, and fell to 0.7%
+when that defect was fixed (issue #410). The middle figure was the honest one: the defect
+predated the re-record, and what changed first was only that a measurement became able to
+report it.
 
 Tables
 ~~~~~~
@@ -213,11 +213,13 @@ order, and n-grams reward that order; a committed table re-cuts the same words a
 cell boundary, and each boundary in the wrong place breaks a run of them. The two
 mechanisms that dominated — every printed line emitted as its own row, splitting wrapped
 cells mid-sentence, and ``Table.extract()`` clipping characters at cell rects — were
-measured, fixed behind guards (#416, #417), and the figure recovered to **77.3%**. The
-trade still stands with eyes open — a table recovered *as a table* is what downstream
-consumers need, and the residual gap now sits in named mechanisms (#419) rather than a
-vague deficit — but it is a trade, and the artifact says so rather than netting the two
-effects into one flattering number.
+measured, fixed behind guards (#416, #417), and the figure recovered to 77.3%. A third
+mechanism followed the same route: ``find_tables()`` drew column boundaries and bbox edges
+straight through cell content, cutting values mid-word where neither guard could see it —
+dissolving those boundaries on structural evidence and healing the cut values in place
+(#419) took the figure to **82.7%**. The trade still stands with eyes open — a table
+recovered *as a table* is what downstream consumers need — but it is a trade, and the
+artifact says so rather than netting the two effects into one flattering number.
 
 Scanned pages
 -------------
