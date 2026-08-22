@@ -108,6 +108,48 @@ class TestPanelGrouping:
         assert plan[0]["caption"] == _CAPTION
         assert len(plan[0]["images"]) == 2
 
+    def test_panels_in_separate_picture_regions_sharing_a_caption_fold_into_one_figure(self) -> None:
+        """One printed caption is one figure, even across layout regions (#410).
+
+        The layout model can draw one region per panel of a multi-panel figure;
+        each region then binds the same caption and the caption prints once per
+        panel. The fold at the end of the planner is what makes the docstring's
+        promise -- identical caption, one figure -- hold on the region path too.
+        """
+        top_region = LayoutPrediction(72.0, 100.0, 400.0, 200.0, "picture")
+        bottom_region = LayoutPrediction(72.0, 201.0, 400.0, 300.0, "picture")
+        plan = _plan(
+            [_image(_TOP_PANEL, caption=_CAPTION), _image(_BOTTOM_PANEL, caption=_CAPTION)],
+            predictions=[top_region, bottom_region, _CAPTION_REGION],
+        )
+
+        assert len(plan) == 1
+        assert plan[0]["caption"] == _CAPTION
+        assert [img["bbox"] for img in plan[0]["images"]] == [_TOP_PANEL, _BOTTOM_PANEL]
+
+    def test_regions_with_distinct_captions_stay_separate_figures(self) -> None:
+        top_region = LayoutPrediction(72.0, 100.0, 400.0, 200.0, "picture")
+        bottom_region = LayoutPrediction(72.0, 201.0, 400.0, 300.0, "picture")
+        plan = _plan(
+            [_image(_TOP_PANEL, caption=_CAPTION), _image(_BOTTOM_PANEL, caption=_OTHER_CAPTION)],
+            predictions=[top_region, bottom_region],
+        )
+
+        assert [item["caption"] for item in plan] == [_CAPTION, _OTHER_CAPTION]
+        assert all(len(item["images"]) == 1 for item in plan)
+
+    def test_a_region_item_and_a_loose_image_sharing_a_caption_fold_together(self) -> None:
+        """The fold is path-blind: region-grouped and loose images with one caption merge."""
+        top_region = LayoutPrediction(72.0, 100.0, 400.0, 200.0, "picture")
+        loose_panel = pymupdf.Rect(80, 500, 200, 560)
+        plan = _plan(
+            [_image(_TOP_PANEL, caption=_CAPTION), _image(loose_panel, caption=_CAPTION)],
+            predictions=[top_region],
+        )
+
+        assert len(plan) == 1
+        assert [img["bbox"] for img in plan[0]["images"]] == [_TOP_PANEL, loose_panel]
+
     def test_uncaptioned_images_stay_bare(self) -> None:
         """No caption anywhere means no container: the paragraphs they always were."""
         plan = _plan([_image(_TOP_PANEL), _image(_BOTTOM_PANEL)])
