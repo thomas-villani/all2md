@@ -637,8 +637,12 @@ startxref
 _FIGURE_CAPTION = "Figure 1. Growth of the assay over twelve weeks."
 
 
-def _pdf_with_image(tmp_path, caption_text=None, body_text=None):
-    """A one-page PDF holding one raster image, optionally with a caption below it."""
+def _pdf_with_image(tmp_path, caption_text=None, body_text=None, lead_text=None):
+    """A one-page PDF holding one raster image, optionally with a caption below it.
+
+    ``lead_text`` prints above the image and ``body_text`` below it, so a test can
+    check the figure lands between them rather than after both.
+    """
     pymupdf = pytest.importorskip("pymupdf")
     source = pymupdf.open()
     source_page = source.new_page()
@@ -648,6 +652,8 @@ def _pdf_with_image(tmp_path, caption_text=None, body_text=None):
 
     document = pymupdf.open()
     page = document.new_page()
+    if lead_text:
+        page.insert_text((72, 100.0), lead_text, fontsize=9)
     # keep_proportion=False so the placement rect equals the requested rect;
     # fitted placement would leave the caption outside the detector's band.
     page.insert_image(pymupdf.Rect(72.0, 120.0, 400.0, 240.0), pixmap=pixmap, keep_proportion=False)
@@ -835,3 +841,44 @@ class TestDefaultModeEmitsCaptionedFigures:
         # The figure extent markers are what make the container round-trippable.
         assert "all2md:figure" in markdown
         assert "all2md:figure-caption" in markdown
+
+
+@pytest.mark.unit
+@pytest.mark.pdf
+@pytest.mark.image
+class TestFiguresPrintWhereTheyAre:
+    """A figure is emitted at the position it is printed at, not at the page tail (#429).
+
+    Every figure used to be appended after the page's text, so the paragraph that
+    introduces a figure and the one that refers back to it were separated by
+    nothing, and everything printed below the figure read one step out of order.
+    """
+
+    _LEAD = "The cohort design is summarized below."
+    _BODY = "The assay was repeated in triplicate across all cohorts."
+
+    def test_a_captioned_figure_lands_between_the_text_above_and_below_it(self, tmp_path) -> None:
+        from all2md.api import to_markdown
+
+        path = _pdf_with_image(tmp_path, caption_text=_FIGURE_CAPTION, lead_text=self._LEAD, body_text=self._BODY)
+        markdown = to_markdown(path, attachment_mode="base64")
+
+        assert markdown.index(self._LEAD) < markdown.index(_FIGURE_CAPTION) < markdown.index(self._BODY)
+
+    def test_an_uncaptioned_image_lands_in_position_too(self, tmp_path) -> None:
+        """The bare image paragraph takes the same route as the ``Figure`` container."""
+        from all2md.api import to_markdown
+
+        path = _pdf_with_image(tmp_path, lead_text=self._LEAD, body_text=self._BODY)
+        markdown = to_markdown(path, attachment_mode="base64")
+
+        assert markdown.index(self._LEAD) < markdown.index("![") < markdown.index(self._BODY)
+
+    def test_the_text_around_a_figure_is_not_fused_across_it(self, tmp_path) -> None:
+        """Placing a figure mid-stream must not let the paragraphs it separates merge."""
+        from all2md.api import to_markdown
+
+        path = _pdf_with_image(tmp_path, caption_text=_FIGURE_CAPTION, lead_text=self._LEAD, body_text=self._BODY)
+        markdown = to_markdown(path, attachment_mode="base64")
+
+        assert f"{self._LEAD} {self._BODY}" not in markdown

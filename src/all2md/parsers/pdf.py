@@ -1750,18 +1750,22 @@ class PdfToAstConverter(BaseParser):
             logger.warning(f"OCR processing failed: {e}. Falling back to standard text extraction.")
             return all_blocks, False
 
-    def _assign_tables_to_columns(self, table_info: list[dict], columns: list[list[dict]]) -> None:
-        """Assign each table to a column based on x-coordinate.
+    def _assign_to_columns(self, items: list[dict], columns: list[list[dict]]) -> None:
+        """Assign each item to a column based on x-coordinate.
+
+        Used for tables and for figures: both are placed by the column their own
+        bbox falls in, and both fall back to the first column when their centre
+        lands in none of them.
 
         Parameters
         ----------
-        table_info : list of dict
-            Table information with bbox
+        items : list of dict
+            Tables or figure plan items, each with a ``bbox`` rect
         columns : list of list of dict
             Column blocks
 
         """
-        for table in table_info:
+        for table in items:
             table_center_x = (table["bbox"].x0 + table["bbox"].x1) / 2
             table["column"] = 0  # Default to first column
 
@@ -1828,9 +1832,18 @@ class PdfToAstConverter(BaseParser):
         # as one, the y sort interleaves left and right into nonsense. Trust the engine's
         # order instead. Scoped to engine-segmented pages with no tables to interleave;
         # native blocks keep the existing behaviour exactly.
-        if col_tables or not items or not all(item[2].get("_engine_segmented") for item in items):
+        if not self._keeps_engine_order(items, col_tables):
             items = self._sort_items_into_reading_order(items, column)
         return items
+
+    @staticmethod
+    def _keeps_engine_order(items: list[tuple[str, float, Any]], col_tables: list[dict]) -> bool:
+        """Whether this column keeps the OCR engine's block order instead of sorting by y.
+
+        Callers that read position out of the item stream need to know: when this is
+        true, an item's ``y`` says nothing about where it sits in the stream.
+        """
+        return bool(items) and not col_tables and all(item[2].get("_engine_segmented") for item in items)
 
     def _sort_items_into_reading_order(
         self, items: list[tuple[str, float, Any]], column: list[dict]
@@ -1982,12 +1995,38 @@ class PdfToAstConverter(BaseParser):
         average_line_height = self._calculate_average_line_height(columns)
         links = self._get_page_links(page)
 
+        # A figure is printed at a place on the page, and the text around it reads as
+        # though it is there: the paragraph above introduces it, the one below refers
+        # back to it. Emitting every figure at the page tail moved all of that text
+        # one step out of reading order (#429). Place each figure in the column its
+        # own bbox falls in, at the y it is printed at, the way tables already are.
+        if figure_plan and columns:
+            self._assign_to_columns(figure_plan, columns)
+        placed: set[int] = set()
+
         # Process each column
         for col_idx, column in enumerate(columns):
             col_tables = [t for t in table_info if t["column"] == col_idx]
             items = self._build_sorted_column_items(column, col_tables)
+            # Placement reads position out of the item stream's y order. On a page an
+            # OCR engine segmented, that stream is in the engine's order instead (#411),
+            # where y says nothing about position -- those pages keep the tail emission.
+            col_figures = (
+                []
+                if self._keeps_engine_order(items, col_tables)
+                else sorted(
+                    (item for item in figure_plan if item.get("column") == col_idx),
+                    key=lambda item: (item["bbox"].y0, item["bbox"].x0),
+                )
+            )
+            pending = 0
 
-            for item_type, _y, item_data in items:
+            for item_type, item_y, item_data in items:
+                # Everything printed above this item's top belongs before it.
+                while pending < len(col_figures) and col_figures[pending]["bbox"].y0 <= item_y:
+                    nodes.extend(self._figure_nodes(col_figures[pending], page_num))
+                    placed.add(id(col_figures[pending]))
+                    pending += 1
                 if item_type == "block":
                     block_nodes = self._process_single_block_to_ast(item_data, links, page_num, average_line_height)
                     nodes.extend(block_nodes)
@@ -1995,6 +2034,9 @@ class PdfToAstConverter(BaseParser):
                     table_node = self._process_table_item(item_data, page, page_num)
                     if table_node:
                         nodes.append(table_node)
+            for item in col_figures[pending:]:
+                nodes.extend(self._figure_nodes(item, page_num))
+                placed.add(id(item))
 
         # A caption's body copy can reach the node list around the block-level
         # suppression entirely: find_tables() can fire on a caption's aligned lines,
@@ -2023,22 +2065,29 @@ class PdfToAstConverter(BaseParser):
         nodes = self._merge_adjacent_paragraphs(nodes)
         nodes = self._convert_paragraphs_to_lists(nodes)
 
-        # Emit the page's figures: a captioned group becomes a Figure container
-        # (caption on the container, so it renders once), an uncaptioned image
-        # stays the bare paragraph it always was, and a vector-drawn figure --
-        # images empty -- is a caption-only container (#338).
-        if figure_plan:
-            source = SourceLocation(format="pdf", page=page_num + 1)
-            for item in figure_plan:
-                panels: list[Node] = [
-                    node for info in item["images"] if (node := self._create_image_node(info, page_num))
-                ]
-                if item["caption"] is None:
-                    nodes.extend(panels)
-                elif panels or not item["images"]:
-                    nodes.append(AstFigure(children=panels, caption=item["caption"], source_location=source))
+        # Figures the column pass could not place -- a page with no text columns at
+        # all, so there was no stream to interleave them into -- keep the tail
+        # emission they have always had.
+        for item in figure_plan:
+            if id(item) not in placed:
+                nodes.extend(self._figure_nodes(item, page_num))
 
         return nodes
+
+    def _figure_nodes(self, item: dict, page_num: int) -> list[Node]:
+        """Render one figure plan item.
+
+        A captioned group becomes a ``Figure`` container (caption on the container, so
+        it renders once), an uncaptioned image stays the bare paragraph it always was,
+        and a vector-drawn figure -- images empty -- is a caption-only container (#338).
+        """
+        source = SourceLocation(format="pdf", page=page_num + 1)
+        panels: list[Node] = [node for info in item["images"] if (node := self._create_image_node(info, page_num))]
+        if item["caption"] is None:
+            return panels
+        if panels or not item["images"]:
+            return [AstFigure(children=panels, caption=item["caption"], source_location=source)]
+        return []
 
     def _plan_page_figures(
         self,
@@ -2070,6 +2119,13 @@ class PdfToAstConverter(BaseParser):
         picture_rects = (
             [pymupdf.Rect(pred.bbox) for pred in layout.get_predictions_by_label("picture")] if layout else []
         )
+
+        def union(members: list[dict]) -> Any:
+            """Return the extent of a figure's panels, used to place it back on the page."""
+            box = pymupdf.Rect(members[0]["bbox"])
+            for member in members[1:]:
+                box |= member["bbox"]
+            return box
 
         def region_index(bbox: Any) -> int | None:
             center = pymupdf.Point((bbox.x0 + bbox.x1) / 2, (bbox.y0 + bbox.y1) / 2)
@@ -2105,18 +2161,28 @@ class PdfToAstConverter(BaseParser):
                 continue
             used_captions.add(caption)
             members = sorted(members, key=lambda member: (member["bbox"].y0, member["bbox"].x0))
-            plan.append((min(member["bbox"].y0 for member in members), {"images": members, "caption": caption}))
+            plan.append(
+                (
+                    min(member["bbox"].y0 for member in members),
+                    {"images": members, "caption": caption, "bbox": union(members)},
+                )
+            )
 
         by_caption: dict[str, list[dict]] = {}
         for info in loose:
             if info.get("caption"):
                 by_caption.setdefault(info["caption"], []).append(info)
             else:
-                plan.append((info["bbox"].y0, {"images": [info], "caption": None}))
+                plan.append((info["bbox"].y0, {"images": [info], "caption": None, "bbox": union([info])}))
         for caption, members in by_caption.items():
             used_captions.add(caption)
             members = sorted(members, key=lambda member: (member["bbox"].y0, member["bbox"].x0))
-            plan.append((min(member["bbox"].y0 for member in members), {"images": members, "caption": caption}))
+            plan.append(
+                (
+                    min(member["bbox"].y0 for member in members),
+                    {"images": members, "caption": caption, "bbox": union(members)},
+                )
+            )
 
         for idx, rect in enumerate(picture_rects):
             if idx in by_region:
@@ -2130,7 +2196,7 @@ class PdfToAstConverter(BaseParser):
             if not caption or caption in used_captions:
                 continue
             used_captions.add(caption)
-            plan.append((rect.y0, {"images": [], "caption": caption}))
+            plan.append((rect.y0, {"images": [], "caption": caption, "bbox": pymupdf.Rect(rect)}))
 
         # One printed caption is one figure. The region loop emits one item per
         # ``picture`` region, so a multi-panel figure whose panels the layout model
@@ -2153,6 +2219,7 @@ class PdfToAstConverter(BaseParser):
                 ordered.append(item)
             else:
                 existing["images"].extend(item["images"])
+                existing["bbox"] |= item["bbox"]
         for item in by_caption_final.values():
             item["images"].sort(key=lambda member: (member["bbox"].y0, member["bbox"].x0))
         return ordered
@@ -2388,7 +2455,7 @@ class PdfToAstConverter(BaseParser):
             columns = [text_blocks]
 
         # Assign tables to columns
-        self._assign_tables_to_columns(table_info, columns)
+        self._assign_to_columns(table_info, columns)
 
         # Process columns and tables (the figure plan is already empty when OCR
         # replaced page content or placement markers are off)
