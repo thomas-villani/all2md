@@ -467,11 +467,19 @@ def normalize_results(
             # it is mostly JATS recording words in an order the page never prints.
             "ceiling": recall.ceiling,
             "attainable": recall.attainable,
+            # `attainable_recall` is recovered_attainable / attainable, NOT recovered /
+            # attainable: a block can be recovered from the output while the PDF's own text
+            # layer does not reproduce it, and that block belongs in neither side of the
+            # share. Publishing the numerator is what makes the ratio checkable from the
+            # artifact alone -- without it a reader divides the two counts that *are*
+            # published, gets a different number, and has no way to tell which is wrong.
+            "recovered_attainable": recall.recovered_attainable,
             "attainable_recall": recall.attainable_recall,
             "by_kind": {
                 kind: {
                     "recovered": counts.recovered,
                     "attainable": counts.attainable,
+                    "recovered_attainable": counts.recovered_attainable,
                     "scored": counts.scored,
                     "attainable_recall": counts.attainable_recall,
                 }
