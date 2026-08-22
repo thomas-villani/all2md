@@ -152,6 +152,8 @@ class ArticleEvaluation:
     degraded: tuple[DegradedFact, ...]
     duration_seconds: float
     ground_truth_blocks: int
+    #: ``<table-wrap>`` elements the publisher deposited as a graphic rather than as markup.
+    image_tables: int = 0
     emitted_text: str = ""
     #: The PDF's own text layer, which bounds what any parser could recover.
     pdf_text: str = ""
@@ -234,6 +236,7 @@ def evaluate_article(article: Any, *, options: Any = None) -> ArticleEvaluation:
     indexed = index_pages(article.pdf_path)
     assignment = assign_pages(blocks, indexed)
     truth_pairs = tuple((block.kind, block.text) for block in blocks if block.text)
+    image_tables = sum(1 for block in blocks if block.image_table)
 
     try:
         converted = convert_article(article.pdf_path, page_count, options=options or pdf_options())
@@ -249,6 +252,7 @@ def evaluate_article(article: Any, *, options: Any = None) -> ArticleEvaluation:
             degraded=(),
             duration_seconds=time.perf_counter() - started,
             ground_truth_blocks=len(blocks),
+            image_tables=image_tables,
             truth_blocks=truth_pairs,
             truth_captions=truth_captions,
             error=f"{type(exc).__name__}: {exc}",
@@ -291,6 +295,7 @@ def evaluate_article(article: Any, *, options: Any = None) -> ArticleEvaluation:
         degraded=converted.degraded,
         duration_seconds=time.perf_counter() - started,
         ground_truth_blocks=len(blocks),
+        image_tables=image_tables,
         emitted_text=" ".join(block for page in emitted for block in page.text_blocks),
         pdf_text=pdf_text,
         truth_blocks=truth_pairs,
@@ -446,6 +451,11 @@ def normalize_results(
             # `table_rejected` events say it often finds a candidate and then rejects it.
             "tables_expected": sum(page.truth_tables for page in pages),
             "tables_emitted": sum(page.emitted_tables for page in pages),
+            # Reported beside them because it is a share of the gap between them that no
+            # parser change can close: a `<table-wrap>` deposited as a graphic carries no
+            # cell text, so it is absent from `tables_expected` while the table it prints is
+            # extracted from the page and counted in `tables_emitted`.
+            "tables_deposited_as_images": sum(result.image_tables for result in evaluations),
             "pages_with_expected_table": sum(1 for page in pages if page.truth_tables),
             "pages_with_emitted_table": sum(1 for page in pages if page.emitted_tables),
         },

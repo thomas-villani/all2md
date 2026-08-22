@@ -97,6 +97,31 @@ def test_a_table_wrap_without_a_table_is_not_scored_as_an_empty_table() -> None:
     assert "Only an image" in blocks[0].text
 
 
+def test_a_table_deposited_as_a_graphic_is_counted_rather_than_only_absorbed() -> None:
+    """The page prints a table nothing in the ground truth can match; the count says so.
+
+    Five of the 66 pinned articles deposit every table as an image -- 19 ``<table-wrap>``
+    elements carrying no ``<table>`` markup at all. all2md extracts those tables from the
+    PDF's own text layer correctly, and each one lands in ``tables_emitted`` with nothing
+    on the expected side to answer it. Absorbing them silently made that gap read as
+    over-emission.
+    """
+    blocks, _ = oracles.project_jats(
+        _jats(
+            "<table-wrap><label>Table 2</label><caption><p>Only an image</p></caption>"
+            "<graphic href='tbl2.jpg'/></table-wrap>"
+        )
+    )
+    assert [block.image_table for block in blocks] == [True]
+
+
+def test_a_table_with_markup_is_not_counted_as_deposited_as_an_image() -> None:
+    blocks, _ = oracles.project_jats(
+        _jats("<table-wrap><caption><p>Real markup</p></caption><table><tr><td>1</td></tr></table></table-wrap>")
+    )
+    assert [(block.kind, block.image_table) for block in blocks] == [("table", False)]
+
+
 def test_element_text_is_joined_not_concatenated() -> None:
     """Concatenation fused ``<label>Table 2</label>`` onto its caption as one bogus token."""
     blocks, _ = oracles.project_jats(_jats("<p><italic>Table 2</italic>obtained results</p>"))

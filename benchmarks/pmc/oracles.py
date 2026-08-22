@@ -132,6 +132,11 @@ class JatsBlock:
         elsewhere.
     table : TableProjection or None
         Structure and content of a ``<table-wrap>``'s table, when it has one.
+    image_table : bool
+        True for a ``<table-wrap>`` the publisher deposited as a graphic rather than as
+        markup. The block is a caption-only ``text_block`` either way -- there is no cell
+        text to score -- but the count is reported, because the page still prints a table
+        the parser can and does extract, and nothing in the ground truth can match it.
 
     """
 
@@ -139,6 +144,7 @@ class JatsBlock:
     text: str
     caption: str = ""
     table: TableProjection | None = None
+    image_table: bool = False
 
 
 def _tag(element: Any) -> str:
@@ -266,8 +272,11 @@ def _table_wrap(element: Any) -> JatsBlock:
     if projection is None:
         # A table-wrap with no table renders as a graphic plus its caption: real page
         # content, but nothing a Table node could match. Scoring it as an empty table would
-        # punish a parser for the absence of something that was never there.
-        return JatsBlock(kind="text_block", text=caption, caption="")
+        # punish a parser for the absence of something that was never there. Flagged rather
+        # than merely absorbed, so the count can be reported beside the table totals: the
+        # page prints a table the parser extracts from the text layer, and it lands in
+        # `tables_emitted` with nothing on the expected side to answer it.
+        return JatsBlock(kind="text_block", text=caption, caption="", image_table=True)
     return JatsBlock(kind="table", text=projection.text, caption=caption, table=projection)
 
 
