@@ -167,33 +167,39 @@ Unsupported output is therefore split in two:
      - Share
      - Meaning
    * - Supported
-     - **95.0%**
+     - **95.1%**
      - the n-gram appears in the document's text layer
    * - Resequenced
-     - 4.2%
+     - 4.1%
      - every word is in the document, in a new adjacency
    * - **Novel**
-     - **0.9%**
+     - **0.8%**
      - at least one word appears nowhere — the number worth reading
    * - Duplication
-     - 0.8%
+     - 0.4%
      - supported text emitted more than once
    * - Control: the *wrong* article
      - 0.7%
      - wants to be ~0%
 
-Over 446,252 emitted n-grams, 3,822 are novel. Reporting the raw unsupported figure instead
+Over 445,887 emitted n-grams, 3,614 are novel. Reporting the raw unsupported figure instead
 would have made the result roughly six times worse than the parser deserves.
 
 Duplication is counted apart from both, because it is invisible to either. Text emitted
 twice is an unchanged *set* and a doubled *multiset* — no set-based score can see it at all.
 
-Duplication is under a point, and the path it took there is the point. It read 0.5% while
-the oracle was blind to captions, jumped to 2.0% when the corrected oracle could finally
-see that multi-panel figures re-bound one printed caption to every panel, and fell by two
-thirds when that defect was fixed (issue #410). The middle figure was the honest one: the
-defect predated the re-record, and what changed first was only that a measurement became
+Duplication is under half a point, and the path it took there is the point. It read 0.5%
+while the oracle was blind to captions, jumped to 2.0% when the corrected oracle could
+finally see that multi-panel figures re-bound one printed caption to every panel, and fell
+by two thirds when that defect was fixed (issue #410). The middle figure was the honest one:
+the defect predated the re-record, and what changed first was only that a measurement became
 able to report it.
+
+It fell by two fifths again, 0.8% to 0.4%, on #435. That defect mostly *doubled* captions
+rather than inventing them — the clipped-away typesetting is the same words as the printed
+one — so duplication is where the bulk of it landed. Novel share moved by less than a
+twentieth of a point, 0.86% to 0.81%, which is enough to cross a rounding boundary in the
+table above and not much more.
 
 Tables
 ~~~~~~
@@ -270,12 +276,12 @@ pages:
      - Gap
    * - ``reading_order_similarity``
      - 0.828
-     - 0.292
-     - **0.536**
+     - 0.291
+     - **0.537**
    * - ``text_content_similarity``
-     - 0.676
-     - 0.234
-     - **0.442**
+     - 0.681
+     - 0.233
+     - **0.448**
    * - ``table_content_similarity``
      - 0.606
      - 0.039
@@ -285,7 +291,7 @@ pages:
      - 0.095
      - **0.519**
    * - ``block_structure_similarity``
-     - 0.548
+     - 0.549
      - 0.444
      - 0.104 — **not gated**
 
@@ -306,6 +312,16 @@ the position they occupy in the column (#429) took reading order from 0.815 to 0
 content from 0.667 to 0.676, with recall, figure binding and the table counts unchanged — and
 left all three scanned-lane dimensions byte-identical across 981 pages, because the guard
 that keeps OCR pages in engine order held.
+
+Text content moved again, to 0.681, when the parser stopped reading text that clipping paths
+erase from the page (#435). Five of the 66 articles are journal proofs that keep a superseded,
+wider typesetting of each page inside a clipped form XObject: it renders as blank paper, but
+the one PyMuPDF call the parser used to read a region's text collected it anyway, cut mid-word
+at the region's edges. Reading order's own value did not move at all — the ghost was extra
+text, not misplaced text — and recall did not move either, for the same reason. What it
+changes is precision, below. One figure lost its caption, because the only thing that had
+ever captioned it was the ghost; ``caption_recall`` against the JATS captions is unchanged
+to every recorded digit, which is how we know no real one went with it.
 
 The two lanes' values are not comparable to each other as quality scores: born-digital pages
 carry a text layer and scanned pages do not, and the ground truths are differently strict.

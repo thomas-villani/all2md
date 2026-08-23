@@ -5,9 +5,9 @@
     "bucket": "pmc-oa-opendata",
     "complete_corpus": true,
     "oracle_schema_version": 2,
-    "all2md_commit": "5ad13f0997f12df48606e4e9c8fd36b9708ee9db",
+    "all2md_commit": "1226777d23973e2447a562a081b4f59b1c971d4f",
     "worktree_dirty": false,
-    "created_at": "2026-08-23T01:06:43.389010+00:00",
+    "created_at": "2026-08-23T21:00:44.428227+00:00",
     "python": "3.12.3 (main, Jun 19 2026, 12:46:00) [GCC 13.3.0]",
     "platform": "linux",
     "parser_runtime": {
@@ -115,18 +115,18 @@
     "discrimination": 0.6178551375631667
   },
   "article_precision": {
-    "precision": 0.9498668913528678,
+    "precision": 0.9506444457900769,
     "supported": 423880,
-    "emitted": 446252,
-    "resequenced": 18550,
-    "novel": 3822,
-    "novel_share": 0.008564667497288528,
-    "duplication": 0.0075020318441565,
-    "excess": 3563,
-    "occurrences": 474938,
-    "control_precision": 0.007036383030216111,
-    "control_emitted": 446252,
-    "discrimination": 0.9428305083226517
+    "emitted": 445887,
+    "resequenced": 18393,
+    "novel": 3614,
+    "novel_share": 0.008105192571211988,
+    "duplication": 0.004493983009108454,
+    "excess": 2126,
+    "occurrences": 473077,
+    "control_precision": 0.007042142964473062,
+    "control_emitted": 445887,
+    "discrimination": 0.9436023028256039
   },
   "figure_binding": {
     "binding_rate": 0.6697674418604651,
@@ -138,7 +138,7 @@
     "caption_recall": 0.9441860465116279,
     "present": 203,
     "images_emitted": 429,
-    "captioned_emitted": 190,
+    "captioned_emitted": 189,
     "control_binding_rate": 0.0,
     "control_scored": 215,
     "discrimination": 0.6697674418604651
@@ -146,18 +146,18 @@
   "dimensions": {
     "block_structure_similarity": {
       "count": 706.0,
-      "mean": 0.5484813685328609,
+      "mean": 0.5485028296024805,
       "median": 0.5714285714285714,
       "minimum": 0.023255813953488413,
       "maximum": 1.0,
-      "stdev": 0.21058232887528835,
+      "stdev": 0.21055959591452936,
       "direction": "higher",
-      "control_mean": 0.4441323844565242,
-      "discrimination": 0.10434898407633669,
+      "control_mean": 0.44415691139323243,
+      "discrimination": 0.1043459182092481,
       "mutation_drop": {
         "reversed": 0.015782263093977338,
         "shuffled": 0.03254869887397674,
-        "halved": 0.06241696982757137
+        "halved": 0.062309664479472816
       },
       "ungateable": "compares kind sequences without inspecting the text under a block, so content-free output scores 1.0 (issue #256); eleven text categories collapse to `text_block`, so fully reversed output scores exactly 1.0 on 153 of the 981 pinned pages; and on the born-digital lane it separates own-page from wrong-page output by only ~0.06 while *rising* when half the emitted content is deleted, which rewards dropping blocks"
     },
@@ -169,12 +169,12 @@
       "maximum": 1.0,
       "stdev": 0.20974930316180884,
       "direction": "higher",
-      "control_mean": 0.29215575823349715,
-      "discrimination": 0.5359759720880322,
+      "control_mean": 0.29069717196612904,
+      "discrimination": 0.5374345583554003,
       "mutation_drop": {
         "reversed": 0.5303437329469437,
-        "shuffled": 0.24328767375956228,
-        "halved": 0.3255185131028114
+        "shuffled": 0.24338884737348376,
+        "halved": 0.32697035446258477
       }
     },
     "table_content_similarity": {
@@ -211,18 +211,18 @@
     },
     "text_content_similarity": {
       "count": 706.0,
-      "mean": 0.6762563749831473,
-      "median": 0.6993291888523847,
+      "mean": 0.6813156888254379,
+      "median": 0.7082209683552323,
       "minimum": 0.010652463382157085,
       "maximum": 0.9930305215092525,
-      "stdev": 0.22360381359462717,
+      "stdev": 0.22329983041306012,
       "direction": "higher",
-      "control_mean": 0.2341678713390695,
-      "discrimination": 0.4420885036440778,
+      "control_mean": 0.2334461851782221,
+      "discrimination": 0.4478695036472158,
       "mutation_drop": {
-        "reversed": 0.2914274690677305,
-        "shuffled": 0.20251057893083302,
-        "halved": 0.29247980461231066
+        "reversed": 0.292270299536416,
+        "shuffled": 0.20376197639542715,
+        "halved": 0.29620063786003653
       }
     }
   },
