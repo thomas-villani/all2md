@@ -120,20 +120,26 @@ By block kind:
 
    * - Kind
      - Attainable
-     - Recovered
+     - Recovered of those
      - Share of attainable
    * - Text blocks
      - 3,160 of 6,356
-     - 3,155
+     - 3,125
      - **98.9%**
    * - Titles
      - 2,291 of 2,426
-     - 2,287
+     - 2,265
      - **98.9%**
    * - Tables
      - 110 of 123
-     - 92
+     - 91
      - **82.7%**
+
+The middle column counts only blocks inside the ceiling, so each row's share is its own
+two counts divided. A few more blocks are recovered than that: 3,155 text blocks, 2,287
+titles and 92 tables come out matching the ground truth, including some the PDF's own text
+layer does not reproduce. Those count as recovered and on neither side of the share, which
+is why the larger count is not the one printed here.
 
 Table blocks are the outlier, and deliberately so — their text now routes through
 structured table extraction rather than flowing out as prose. What that buys and what it
@@ -199,10 +205,34 @@ behind measured guards, the artifact reads **164 emitted against 121
 expected**, with tables emitted on 120 pages
 against the 94 that carry one in the ground truth.
 
-The surplus is mostly an accounting gap rather than invention: a table that continues
-across pages is one JATS ``<table-wrap>`` but several printed tables, and the expected
-count does not yet credit continuations. The remaining deficit is a handful of table
-classes with no shared mechanism.
+The surplus is not invention, and that is now measured rather than asserted. Every table
+emitted on a page carrying more tables than the ground truth expects — **58** of them — is
+put to two questions. The first does not involve JATS at all: does the PDF's own text layer
+hold this table's words? Text in the layer was printed on the page, so a table failing here
+is the only kind that could have been invented. **58 of 58** pass. The second asks where
+that text sits in the ground truth, and the verdict that would matter is prose committed to
+a grid — a parser turning running text into a table it invented. That is **0 of 58**.
+
+Only 41 of the 58 also match the *order* of the text layer, and that gap is a grid doing its
+job rather than a fault: re-cutting a page's words into cells changes their adjacency, which
+is why the invention test is asked of the words and not of the 5-grams.
+
+What the surplus is instead is accounting, with two named causes. **16** of the 58 trace to a
+JATS ``<table>`` that the expected count assigns to another page — a table continuing across
+a page break is one ``<table-wrap>`` and several printed tables, and the expected count does
+not credit continuations. And **19** ``<table-wrap>`` elements across five articles carry no
+``<table>`` markup at all: those publishers deposited their tables as images, so the ground
+truth holds no cell text for them and the tables those pages print can never reach the
+expected side, however well they are extracted. Those five articles alone contribute 20 of
+the **42** tables the census files outside JATS.
+
+The other 22 are in the page's own text layer and match no JATS block in order. The
+instrument stops there rather than guessing: it does not distinguish text JATS never
+recorded from a table re-cut into cells in an order JATS does not declare. Unordered token
+containment would answer neither, because an article's tables and its prose share a
+vocabulary by construction, so no bag-of-words threshold can separate them.
+
+The remaining table *deficit* is a handful of classes with no shared mechanism.
 
 The cost sat one section up: table blocks are the one kind whose attainable-recall figure
 *fell* across those recordings, from 83.6% to 69.1%. The first explanation written here —

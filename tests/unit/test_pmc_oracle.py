@@ -97,6 +97,104 @@ def test_a_table_wrap_without_a_table_is_not_scored_as_an_empty_table() -> None:
     assert "Only an image" in blocks[0].text
 
 
+def test_a_table_deposited_as_a_graphic_is_counted_rather_than_only_absorbed() -> None:
+    """The page prints a table nothing in the ground truth can match; the count says so.
+
+    Five of the 66 pinned articles deposit every table as an image -- 19 ``<table-wrap>``
+    elements carrying no ``<table>`` markup at all. all2md extracts those tables from the
+    PDF's own text layer correctly, and each one lands in ``tables_emitted`` with nothing
+    on the expected side to answer it. Absorbing them silently made that gap read as
+    over-emission.
+    """
+    blocks, _ = oracles.project_jats(
+        _jats(
+            "<table-wrap><label>Table 2</label><caption><p>Only an image</p></caption>"
+            "<graphic href='tbl2.jpg'/></table-wrap>"
+        )
+    )
+    assert [block.image_table for block in blocks] == [True]
+
+
+def test_a_table_with_markup_is_not_counted_as_deposited_as_an_image() -> None:
+    blocks, _ = oracles.project_jats(
+        _jats("<table-wrap><caption><p>Real markup</p></caption><table><tr><td>1</td></tr></table></table-wrap>")
+    )
+    assert [(block.kind, block.image_table) for block in blocks] == [("table", False)]
+
+
+# ---------------------------------------------------------------------------
+# What the surplus tables are
+# ---------------------------------------------------------------------------
+
+
+def _table_page(*tables: str) -> Any:
+    from benchmarks.omnidocbench.oracles import PageProjection, TableProjection
+
+    return PageProjection(
+        text_blocks=("a page needs one text block to be scored",),
+        block_kinds=("text_block",),
+        tables=tuple(TableProjection(rows=2, columns=2, cell_slots=4, text=text) for text in tables),
+        formulas=(),
+    )
+
+
+_TABLE_TEXT = "Group Control Treated N 15 18 Mean age 41.2 39.8 Response rate 0.62 0.71 P value 0.03"
+_PROSE_TEXT = "The cohort was recruited over eleven months from three centres in the same region."
+
+
+def _blocks() -> list[Any]:
+    return [
+        oracles.JatsBlock(kind="table", text=_TABLE_TEXT),
+        oracles.JatsBlock(kind="text_block", text=_PROSE_TEXT),
+    ]
+
+
+def test_a_surplus_table_holding_jats_table_text_is_traced_to_it() -> None:
+    verdicts, examined, _, _ = benchmark._classify_surplus_tables(
+        _blocks(), f"{_TABLE_TEXT} {_PROSE_TEXT}", [(_table_page(), _table_page(_TABLE_TEXT))]
+    )
+    assert examined == 1
+    assert verdicts["jats_table"] == 1
+
+
+def test_prose_committed_to_a_grid_is_the_defect_this_finds() -> None:
+    """The one verdict that would mean the parser invented a table out of running text."""
+    verdicts, _, _, _ = benchmark._classify_surplus_tables(
+        _blocks(), f"{_TABLE_TEXT} {_PROSE_TEXT}", [(_table_page(), _table_page(_PROSE_TEXT))]
+    )
+    assert verdicts["jats_prose"] == 1
+
+
+def test_a_table_the_text_layer_does_not_hold_is_the_only_kind_that_could_be_invented() -> None:
+    """The invention test asks the PDF, not JATS: text in the layer was printed on the page."""
+    invented = "Wholly absent phrasing that no page of this document ever printed anywhere"
+    _, examined, in_layer, words_in_layer = benchmark._classify_surplus_tables(
+        _blocks(), f"{_TABLE_TEXT} {_PROSE_TEXT}", [(_table_page(), _table_page(invented))]
+    )
+    assert (examined, in_layer, words_in_layer) == (1, 0, 0)
+
+    _, _, in_layer, words_in_layer = benchmark._classify_surplus_tables(
+        _blocks(), f"{_TABLE_TEXT} {_PROSE_TEXT}", [(_table_page(), _table_page(_TABLE_TEXT))]
+    )
+    assert (in_layer, words_in_layer) == (1, 1)
+
+
+def test_only_pages_carrying_more_tables_than_expected_are_examined() -> None:
+    """A page that emits what the ground truth expects is not in surplus and is not asked about."""
+    matched = (_table_page(_TABLE_TEXT), _table_page(_TABLE_TEXT))
+    _, examined, _, _ = benchmark._classify_surplus_tables(_blocks(), _TABLE_TEXT, [matched])
+    assert examined == 0
+
+
+def test_the_verdicts_reported_are_exactly_the_ones_the_payload_publishes() -> None:
+    """A verdict the payload never reads would vanish from the evidence without failing."""
+    verdicts, _, _, _ = benchmark._classify_surplus_tables(
+        _blocks(), f"{_TABLE_TEXT} {_PROSE_TEXT}", [(_table_page(), _table_page(_TABLE_TEXT, _PROSE_TEXT))]
+    )
+    assert set(verdicts) <= set(benchmark.SURPLUS_VERDICTS)
+    assert sum(verdicts.values()) == 2
+
+
 def test_element_text_is_joined_not_concatenated() -> None:
     """Concatenation fused ``<label>Table 2</label>`` onto its caption as one bogus token."""
     blocks, _ = oracles.project_jats(_jats("<p><italic>Table 2</italic>obtained results</p>"))
