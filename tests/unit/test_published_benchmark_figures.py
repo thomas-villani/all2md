@@ -137,12 +137,26 @@ def _pmc_figures(pmc: dict[str, Any]) -> list[tuple[str, str]]:
         entry = kinds[kind]
         rows.append(
             (
+                # The middle cell is the share's own numerator, not ``recovered``.
+                # Printing ``recovered`` beside a share computed from
+                # ``recovered_attainable`` invited the reader to divide the two printed
+                # counts and land somewhere the artifact contradicts -- 92/110 reads as
+                # 83.6% where the row says 82.7%.
                 f"by-kind row: {label}",
                 f"     - {entry['attainable']:,} of {entry['scored']:,}\n"
-                f"     - {entry['recovered']:,}\n"
+                f"     - {entry['recovered_attainable']:,}\n"
                 f"     - **{_percent(entry['attainable_recall'])}**",
             )
         )
+    rows.append(
+        (
+            # Published so the counts the share leaves out are on the page rather than
+            # inferred from its absence.
+            "by-kind recovered counts",
+            f"{kinds['text_block']['recovered']:,} text blocks, {kinds['title']['recovered']:,}\n"
+            f"titles and {kinds['table']['recovered']} tables come out matching the ground truth",
+        )
+    )
     return rows
 
 
@@ -258,11 +272,13 @@ def test_every_published_share_is_reproducible_from_published_counts() -> None:
     ``attainable_recall`` is ``recovered_attainable / attainable``, and those are
     not the same blocks as ``recovered``: a block the output recovered that the
     PDF's own text layer does not reproduce counts in ``recovered`` and in
-    neither side of the share. While the numerator went unpublished, dividing the
-    two counts that *were* published gave a plausible wrong answer (92/110 reads
-    as 83.6% where the artifact says 82.7%), with nothing in the payload to
-    settle it. Skipped rather than failed on an artifact recorded before the
-    numerator shipped, so re-recording stays the fix and never the blocker.
+    neither side of the share. The fidelity page printed ``recovered`` beside a
+    share computed from ``recovered_attainable`` for several recordings, so
+    dividing the two counts a reader could see gave a plausible wrong answer
+    (92/110 reads as 83.6% where the artifact says 82.7%). Both the page and this
+    check now print the share's own numerator. Skipped rather than failed on an
+    artifact recorded before that numerator shipped, so re-recording stays the
+    fix and never the blocker.
     """
     recall = json.loads(_PMC.read_bytes())["article_recall"]
     if "recovered_attainable" not in recall:

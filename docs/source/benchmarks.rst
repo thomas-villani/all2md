@@ -120,20 +120,26 @@ By block kind:
 
    * - Kind
      - Attainable
-     - Recovered
+     - Recovered of those
      - Share of attainable
    * - Text blocks
      - 3,160 of 6,356
-     - 3,155
+     - 3,125
      - **98.9%**
    * - Titles
      - 2,291 of 2,426
-     - 2,287
+     - 2,265
      - **98.9%**
    * - Tables
      - 110 of 123
-     - 92
+     - 91
      - **82.7%**
+
+The middle column counts only blocks inside the ceiling, so each row's share is its own
+two counts divided. A few more blocks are recovered than that: 3,155 text blocks, 2,287
+titles and 92 tables come out matching the ground truth, including some the PDF's own text
+layer does not reproduce. Those count as recovered and on neither side of the share, which
+is why the larger count is not the one printed here.
 
 Table blocks are the outlier, and deliberately so — their text now routes through
 structured table extraction rather than flowing out as prose. What that buys and what it
