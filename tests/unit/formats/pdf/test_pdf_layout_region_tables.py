@@ -57,7 +57,14 @@ class _FakePage:
         self._by_strategy = by_strategy or {}
         self.strategies_tried: list[str] = []
 
-    def get_textbox(self, rect) -> str:
+    def get_textpage(self, flags=None):
+        """Real pages hand one to ``get_textbox`` so clipped-away glyphs stay out.
+
+        This fake has no clipping paths, so the token it returns is never read.
+        """
+        return None
+
+    def get_textbox(self, rect, textpage=None) -> str:
         return self._text
 
     def get_text(self, kind: str, **kwargs):

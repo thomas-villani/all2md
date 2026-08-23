@@ -60,7 +60,14 @@ class _FakePage:
         assert kind == "words"
         return list(self._words)
 
-    def get_textbox(self, rect):
+    def get_textpage(self, flags=None):
+        """Real pages hand one to ``get_textbox`` so clipped-away glyphs stay out.
+
+        This fake has no clipping paths, so the token it returns is never read.
+        """
+        return None
+
+    def get_textbox(self, rect, textpage=None):
         return " ".join(word[4] for word in self._words)
 
 

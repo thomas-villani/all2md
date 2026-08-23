@@ -20,6 +20,7 @@ from all2md.constants import (
     PDF_CAPTION_SEARCH_GAP,
 )
 from all2md.options.pdf import PdfOptions
+from all2md.parsers._pdf_text import clipped_textbox
 from all2md.utils.attachments import generate_attachment_filename, process_attachment
 
 if TYPE_CHECKING:
@@ -74,7 +75,7 @@ def _region_text(page: "pymupdf.Page", rect: Any) -> str:
     the body copy kept the full text, so the copies could never match and the
     caption printed twice (#410).
     """
-    return " ".join(page.get_textbox(rect).split())
+    return " ".join(clipped_textbox(page, rect).split())
 
 
 def _caption_from_layout(

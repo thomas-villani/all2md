@@ -4,7 +4,7 @@
 """Text rescued from a rejected table region is prose, and has to be treated as prose.
 
 When a detected table's grid turns out to be degenerate, the region is emitted as a
-paragraph instead. Its text is recovered with ``page.get_textbox()``, which is raw
+paragraph instead. Its text is recovered with ``clipped_textbox()``, which is raw
 extraction: the glyphs come back with their printed line breaks intact. Every other route
 into the AST passes through ``dehyphenate_blocks()`` first, and this one did not, so a word
 broken across a line stayed broken -- "Coroman-" and "del" never became "Coromandel", and

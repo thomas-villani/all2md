@@ -46,7 +46,14 @@ class _FakePage:
     def __init__(self, texts: dict[tuple[float, float, float, float], str]) -> None:
         self._texts = texts
 
-    def get_textbox(self, rect: "pymupdf.Rect") -> str:
+    def get_textpage(self, flags=None):
+        """Real pages hand one to ``get_textbox`` so clipped-away glyphs stay out.
+
+        This fake has no clipping paths, so the token it returns is never read.
+        """
+        return None
+
+    def get_textbox(self, rect: "pymupdf.Rect", textpage=None) -> str:
         return self._texts.get((rect.x0, rect.y0, rect.x1, rect.y1), "")
 
 
