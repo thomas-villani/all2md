@@ -733,7 +733,7 @@ class TestDetectedCaptionsReachTheFigureNode:
     def test_a_ligature_in_the_body_copy_still_matches_the_bound_caption(self) -> None:
         """NFKC applies to both sides of the containment test (#410).
 
-        The bound caption comes through ``get_textbox``, which expands ligatures;
+        The bound caption comes through ``clipped_textbox``, which expands ligatures;
         the body block's spans preserve them. "ﬁrst" against "first" made the same
         printed text fail the substring test and the caption printed twice.
         """
@@ -745,7 +745,7 @@ class TestDetectedCaptionsReachTheFigureNode:
         assert PdfToAstConverter._is_bound_caption_block(block, [caption])
 
     def test_a_dehyphenated_body_copy_still_matches_the_caption_keeping_the_wrap_hyphen(self) -> None:
-        """The rescued-region route dehyphenates; ``get_textbox`` keeps the wrap hyphen.
+        """The rescued-region route dehyphenates; ``clipped_textbox`` keeps the wrap hyphen.
 
         "knock- down" in the bound caption against "knockdown" in the body copy is
         the same printed word read through two policies; the comparison key drops
@@ -759,7 +759,7 @@ class TestDetectedCaptionsReachTheFigureNode:
         assert PdfToAstConverter._is_bound_caption_block(block, [caption])
 
     def test_a_body_copy_with_spacing_artifacts_still_matches_the_caption(self) -> None:
-        """``get_textbox`` can split a word ("enrich ment"); the block keeps it whole (#410)."""
+        """``clipped_textbox`` can split a word ("enrich ment"); the block keeps it whole (#410)."""
         from all2md.parsers.pdf import PdfToAstConverter
 
         caption = "Figure 5. Pathway enrich ment analysis of the knockdown cells."

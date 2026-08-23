@@ -58,7 +58,14 @@ class _RuledRegion:
     def rect(self):
         return pymupdf.Rect(self.xs[0], self.ys[0], self.xs[-1], self.ys[-1])
 
-    def get_textbox(self, rect) -> str:
+    def get_textpage(self, flags=None):
+        """Real pages hand one to ``get_textbox`` so clipped-away glyphs stay out.
+
+        This fake has no clipping paths, so the token it returns is never read.
+        """
+        return None
+
+    def get_textbox(self, rect, textpage=None) -> str:
         for row, (y0, y1) in enumerate(zip(self.ys, self.ys[1:], strict=False)):
             for col, (x0, x1) in enumerate(zip(self.xs, self.xs[1:], strict=False)):
                 if (rect.x0, rect.y0, rect.x1, rect.y1) == (x0, y0, x1, y1):

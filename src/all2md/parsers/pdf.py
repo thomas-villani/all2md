@@ -124,6 +124,7 @@ from all2md.parsers._pdf_tables import (
 )
 from all2md.parsers._pdf_text import (
     classify_line_rotation,
+    clipped_textbox,
     collapse_whitespace_runs,
     extract_rotated_text,
     format_rotation_note,
@@ -332,7 +333,7 @@ def _caption_comparison_key(text: str) -> str:
     """Reduce text to the glyphs both extraction routes agree on, for caption dedup.
 
     A bound caption and its body copy are the same printed glyphs read back through
-    different routes -- ``get_textbox`` for the caption, span text (or a rescued
+    different routes -- ``clipped_textbox`` for the caption, span text (or a rescued
     region, which dehyphenates) for the copy. The routes disagree on what they
     insert or keep *between* glyphs: ligature expansion ("ﬁrst" vs "first"),
     spacing split mid-word ("enrich ment"), and wrap hyphens kept by one route and
@@ -2379,7 +2380,7 @@ class PdfToAstConverter(BaseParser):
         bound_captions = [" ".join(item["caption"].split()) for item in figure_plan if item["caption"]]
 
         # The caption's printed region suppresses geometrically what the textual rule
-        # cannot: ``get_textbox`` and the block spans read the same glyphs through
+        # cannot: ``clipped_textbox`` and the block spans read the same glyphs through
         # different heuristics (wrap hyphens kept vs dehyphenated, spacing split mid-word,
         # occasionally a dropped character), so the two strings can disagree while the
         # geometry stays exact (#410). A region qualifies only when its entire text sits
@@ -2390,7 +2391,7 @@ class PdfToAstConverter(BaseParser):
             region_bound_keys = [_caption_comparison_key(c) for c in bound_captions]
             for pred in layout.get_predictions_by_label("caption"):
                 rect = pymupdf.Rect(pred.bbox)
-                region_key = _caption_comparison_key(page.get_textbox(rect))
+                region_key = _caption_comparison_key(clipped_textbox(page, rect))
                 if region_key and any(region_key in bound for bound in region_bound_keys):
                     bound_caption_rects.append(rect + PDF_CAPTION_REGION_SUPPRESS_MARGIN)
 
@@ -3697,7 +3698,7 @@ class PdfToAstConverter(BaseParser):
 
             for _col_idx, (x0, x1) in enumerate(col_x_coords):
                 cell_rect = pymupdf.Rect(x0, y0, x1, y1)
-                cell_text = page.get_textbox(cell_rect).strip()
+                cell_text = clipped_textbox(page, cell_rect).strip()
 
                 if cell_text:
                     unique_texts.add(cell_text)
@@ -4011,11 +4012,11 @@ class PdfToAstConverter(BaseParser):
             The region's text as a paragraph, or ``None`` if the region holds no text.
 
         """
-        text = page.get_textbox(region)
+        text = clipped_textbox(page, region)
         if not text or not text.strip():
             return None
 
-        # get_textbox is raw extraction: it returns the glyphs with their printed line
+        # clipped_textbox is raw extraction: it returns the glyphs with their printed line
         # breaks, and this is the only path into the AST that does not pass through
         # dehyphenate_blocks(). Without this a word broken across a line survives as two
         # fragments and the whole word is absent from the output -- "Coroman-" + "del" meant

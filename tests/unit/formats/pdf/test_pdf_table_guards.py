@@ -46,7 +46,14 @@ class _FakePage:
         self._text = text
         self.asked_for: list[tuple] = []
 
-    def get_textbox(self, rect) -> str:
+    def get_textpage(self, flags=None):
+        """Real pages hand one to ``get_textbox`` so clipped-away glyphs stay out.
+
+        This fake has no clipping paths, so the token it returns is never read.
+        """
+        return None
+
+    def get_textbox(self, rect, textpage=None) -> str:
         self.asked_for.append(tuple(rect))
         return self._text
 
