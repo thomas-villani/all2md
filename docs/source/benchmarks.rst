@@ -251,6 +251,66 @@ dissolving those boundaries on structural evidence and healing the cut values in
 recovered *as a table* is what downstream consumers need — but it is a trade, and the
 artifact says so rather than netting the two effects into one flattering number.
 
+Did it come out in the right order?
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Recall counts whether a block's words came out. It says nothing about whether they came out
+in the order the page prints them, and a converter can score well on every measure above
+while emitting a page as a shuffled bag of correct paragraphs. So the born-digital lane also
+runs the *same* dimensions as the scanned lane below, through the same oracle, over its 706
+pages:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 14 20 26
+
+   * - Dimension
+     - Value
+     - Wrong page
+     - Gap
+   * - ``reading_order_similarity``
+     - 0.828
+     - 0.292
+     - **0.536**
+   * - ``text_content_similarity``
+     - 0.676
+     - 0.234
+     - **0.442**
+   * - ``table_content_similarity``
+     - 0.606
+     - 0.039
+     - **0.567**
+   * - ``table_structure_similarity``
+     - 0.613
+     - 0.095
+     - **0.519**
+   * - ``block_structure_similarity``
+     - 0.548
+     - 0.444
+     - 0.104 — **not gated**
+
+The two table dimensions score only the 124 pages that carry a table on either side; the
+other three score all 706.
+
+The middle column is each dimension scored against the *wrong* page of the same article, and
+the gap is what is left. A measure with no gap is not measuring the output. That is the case
+against ``block_structure_similarity``, which is recorded here and excluded from the verdict
+in both lanes, for the reasons set out in the scanned-pages section below: on this corpus it
+separates own-page from wrong-page output by 0.10, and it *rises* when half the emitted
+content is deleted.
+
+These are the numbers the figure-placement work moves. Figures and their captions used to be
+flushed at the end of whichever page they appeared on, no matter where on the page they were
+printed, so every block after them on the page was reported out of order. Emitting them at
+the position they occupy in the column (#429) took reading order from 0.815 to 0.828 and text
+content from 0.667 to 0.676, with recall, figure binding and the table counts unchanged — and
+left all three scanned-lane dimensions byte-identical across 981 pages, because the guard
+that keeps OCR pages in engine order held.
+
+The two lanes' values are not comparable to each other as quality scores: born-digital pages
+carry a text layer and scanned pages do not, and the ground truths are differently strict.
+What the shared dimensions buy is that a change can be watched in both places at once.
+
 Scanned pages
 -------------
 
