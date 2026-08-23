@@ -107,6 +107,41 @@ def _pmc_figures(pmc: dict[str, Any]) -> list[tuple[str, str]]:
                 f"     - **{_percent(entry['attainable_recall'])}**",
             )
         )
+    # The born-digital lane records the same dimensions as the scanned lane and
+    # published none of them, so the whole of #429's movement -- figures emitted where
+    # they are printed -- was invisible on this page. Value, wrong-page control and the
+    # gap between them are pinned together: a dimension is only worth reading next to
+    # its gap, and a control that quietly rose would flatter every row above it.
+    for name, summary in pmc["dimensions"].items():
+        gap = f"{summary['discrimination']:.3f}"
+        # The one ungateable dimension carries its exclusion in the same cell.
+        gap_cell = f"{gap} \u2014 **not gated**" if "ungateable" in summary else f"**{gap}**"
+        rows.append(
+            (
+                f"pmc dimension: {name}",
+                f"   * - ``{name}``\n"
+                f"     - {summary['mean']:.3f}\n"
+                f"     - {summary['control_mean']:.3f}\n"
+                f"     - {gap_cell}",
+            )
+        )
+    rows.append(
+        (
+            "pmc dimension page count",
+            "runs the *same* dimensions as the scanned lane below, through the same oracle, over its "
+            f"{int(pmc['dimensions']['reading_order_similarity']['count'])}",
+        )
+    )
+    rows.append(
+        (
+            # The table dimensions score a different, much smaller population than the
+            # other three, which is the kind of thing a reader assumes away unless told.
+            "pmc table dimension page count",
+            f"score only the {int(pmc['dimensions']['table_content_similarity']['count'])} pages that carry a table "
+            f"on either side; the\n"
+            f"other three score all {int(pmc['dimensions']['reading_order_similarity']['count'])}.",
+        )
+    )
     return rows
 
 
