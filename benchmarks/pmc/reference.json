@@ -5,9 +5,9 @@
     "bucket": "pmc-oa-opendata",
     "complete_corpus": true,
     "oracle_schema_version": 2,
-    "all2md_commit": "c35f6b454615629c6011a76b4e8fb83af2e1a7c3",
+    "all2md_commit": "5ad13f0997f12df48606e4e9c8fd36b9708ee9db",
     "worktree_dirty": false,
-    "created_at": "2026-08-22T15:57:45.006514+00:00",
+    "created_at": "2026-08-23T01:06:43.389010+00:00",
     "python": "3.12.3 (main, Jun 19 2026, 12:46:00) [GCC 13.3.0]",
     "platform": "linux",
     "parser_runtime": {
@@ -47,6 +47,17 @@
     },
     "tables_expected": 121,
     "tables_emitted": 164,
+    "tables_deposited_as_images": 19,
+    "table_surplus": {
+      "examined": 58,
+      "in_text_layer": 41,
+      "words_in_text_layer": 58,
+      "by_source": {
+        "jats_table": 16,
+        "jats_prose": 0,
+        "outside_jats": 42
+      }
+    },
     "pages_with_expected_table": 94,
     "pages_with_emitted_table": 120
   },

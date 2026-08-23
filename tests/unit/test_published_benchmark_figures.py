@@ -97,6 +97,42 @@ def _pmc_figures(pmc: dict[str, Any]) -> list[tuple[str, str]]:
             f"against the {corpus['pages_with_expected_table']} that carry one in the ground truth.",
         ),
     ]
+    surplus = corpus["table_surplus"]
+    rows.extend(
+        [
+            # The claim these support -- that the surplus is accounting rather than
+            # invention -- was prose on this page for three recordings before anything
+            # measured it. Gated now, so it cannot quietly stop being true.
+            (
+                "surplus tables examined",
+                f"expects — **{surplus['examined']}** of them — is",
+            ),
+            (
+                "surplus invention test",
+                f"**{surplus['words_in_text_layer']} of {surplus['examined']}** pass.",
+            ),
+            (
+                "surplus prose committed to a grid",
+                f"That is **{surplus['by_source']['jats_prose']} of {surplus['examined']}**.",
+            ),
+            (
+                "surplus matching the layer's order",
+                f"Only {surplus['in_text_layer']} of the {surplus['examined']} also match the *order*",
+            ),
+            (
+                "surplus traced to a JATS table",
+                f"**{surplus['by_source']['jats_table']}** of the {surplus['examined']} trace to a",
+            ),
+            (
+                "surplus outside JATS",
+                f"the **{surplus['by_source']['outside_jats']}** tables the census files outside JATS.",
+            ),
+            (
+                "tables deposited as images",
+                f"And **{corpus['tables_deposited_as_images']}** ``<table-wrap>`` elements across five articles",
+            ),
+        ]
+    )
     for label, kind in (("text blocks", "text_block"), ("titles", "title"), ("tables", "table")):
         entry = kinds[kind]
         rows.append(
