@@ -181,6 +181,8 @@ def _pmc_figures(pmc: dict[str, Any]) -> list[tuple[str, str]]:
             f"score only the {int(pmc['dimensions']['table_content_similarity']['count'])} pages that carry a table "
             f"on either side; the\n"
             f"other three score all {int(pmc['dimensions']['reading_order_similarity']['count'])}.",
+        )
+    )
     rows.append(
         (
             # Published so the counts the share leaves out are on the page rather than
