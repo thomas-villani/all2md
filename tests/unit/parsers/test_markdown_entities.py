@@ -110,3 +110,48 @@ class TestRendererEscapesOnlyWhatItMust:
         """A ``>`` opening a line would otherwise come back as a block quote."""
         assert _render("> not a quote") == r"\> not a quote"
         assert _reparse(_render("> not a quote")) == "> not a quote"
+
+
+class TestNeutralizedHtmlStaysNeutralized:
+    """Escaping HTML at parse time is pointless if the renderer re-arms it.
+
+    Found while updating the golden snapshots for #441. The textile parser
+    defaults to ``html_passthrough_mode="escape"`` and runs the textile library
+    in restricted mode, which turns ``<script>`` into ``&lt;script&gt;``. The
+    HTML converter then correctly decoded that back to real characters in a
+    ``Text`` node -- meaning "show this as text" -- and the markdown renderer
+    wrote it out bare, so a downstream renderer with HTML enabled saw a live
+    tag again. Every one of the three neutralizing modes was defeated the same
+    way.
+    """
+
+    @pytest.mark.parametrize("mode", ["escape", "sanitize", "drop"])
+    def test_textile_html_is_not_re_armed_by_the_renderer(self, mode: str) -> None:
+        import io
+
+        from all2md.options.textile import TextileParserOptions
+        from all2md.parsers.textile import TextileParser
+
+        source = b"h2. Demo\n\n<script>alert(1)</script>\n\nAfter.\n"
+        doc = TextileParser(options=TextileParserOptions(html_passthrough_mode=mode)).parse(io.BytesIO(source))
+        markdown = MarkdownRenderer().render_to_string(doc)
+
+        assert r"\<script>" in markdown
+        # Every "<" that opens a tag carries its backslash, so nothing is left
+        # that a downstream renderer would read as HTML.
+        assert "<" not in markdown.replace(r"\<", "")
+        # The text is still readable -- neutralized, not dropped.
+        assert "<script>alert(1)</script>" in _reparse(markdown)
+
+    def test_pass_through_mode_still_honours_the_html(self) -> None:
+        """The counterpart: an explicit pass-through must keep the real rule."""
+        import io
+
+        from all2md.options.textile import TextileParserOptions
+        from all2md.parsers.textile import TextileParser
+
+        source = b"h2. Rule\n\n<hr />\n\nAfter.\n"
+        doc = TextileParser(options=TextileParserOptions(html_passthrough_mode="pass-through")).parse(
+            io.BytesIO(source)
+        )
+        assert "---" in MarkdownRenderer().render_to_string(doc)
