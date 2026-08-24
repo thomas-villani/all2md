@@ -71,9 +71,15 @@ from benchmarks.pmc.pages import ASSIGNMENTS, assign_pages, index_pages
 #: the 103 "lost" captions on the held-out corpus were in the output the whole time (#406).
 #: No payload key changes shape; the measurement underneath every recall figure does.
 SCHEMA_VERSION = 6
+#: 3 = the shared projection admits any container of inline text, by shape rather than by
+#: type name, so a node holding inline content with no ``Paragraph`` wrapper is no longer
+#: invisible to measurement (#443). ``SCHEMA_VERSION`` deliberately does *not* move with
+#: it: this lane projects the PDF parser's AST, which emits no definition lists and wraps
+#: every list item in a ``Paragraph``, so no figure in the payload can change. The oracle
+#: version tracks the oracle; the lane version tracks what the lane measures.
 #: 2 = the shared projection reads caption attributes (see schema 6 above and
 #: ``benchmarks.omnidocbench.oracles._semantic_blocks``).
-ORACLE_SCHEMA_VERSION = 2
+ORACLE_SCHEMA_VERSION = 3
 
 #: Fixed seed: a control that scrambles differently every run cannot be compared across
 #: runs, and a resolution change would be indistinguishable from a parser change.

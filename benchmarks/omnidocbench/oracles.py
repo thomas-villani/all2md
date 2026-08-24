@@ -13,6 +13,8 @@ from typing import Any, Callable, Iterable, Literal, Mapping, TypeVar
 from all2md.ast.nodes import (
     Code,
     CodeBlock,
+    Comment,
+    CommentInline,
     Document,
     Heading,
     MathBlock,
@@ -200,6 +202,39 @@ def _attached_captions(block: Node) -> Iterable[Paragraph]:
             yield _caption_paragraph(caption)
 
 
+# The block-level node types the projection recognises by name.
+_BLOCK_TYPES = (Heading, Paragraph, CodeBlock, Table, MathBlock)
+
+# Markup that never prints. A comment's text is not document text, and admitting it
+# would inflate two baselines with markers no reader ever sees: docling writes 976
+# ``<!-- image -->`` comments across 106 of the 110 held-out articles and pymupdf4llm
+# 359 ``<!-- Start of picture text -->`` across 83. Excluding them is what separates
+# "text this projection cannot see" from "text this projection should not see".
+_NON_PRINTING = (Comment, CommentInline)
+
+
+def _carries_only_inline_text(node: Node) -> bool:
+    """Whether ``node`` holds document text with no block-level node anywhere inside it.
+
+    ``_semantic_blocks`` recurses through every type it does not recognise, so a
+    container holding *inline* content directly -- with no ``Paragraph`` wrapper --
+    falls straight through the walk and contributes nothing (#443). ``DefinitionTerm``
+    is the shape that exposed it: the term vanished while its sibling
+    ``DefinitionDescription`` survived, and survived only because it happens to wrap
+    its own content in a ``Paragraph``.
+
+    Recognising the *shape* rather than adding two more type names is deliberate: an
+    instrument that silently cannot see part of its input is a bad instrument, and the
+    next node type built to the same shape would otherwise reproduce the bug in
+    silence.
+    """
+    if isinstance(node, _NON_PRINTING):
+        return False
+    if any(isinstance(descendant, _BLOCK_TYPES) for descendant in _all_nodes(node)):
+        return False
+    return bool(_node_text(node).strip())
+
+
 def _semantic_blocks(node: Node) -> Iterable[Node]:
     # A caption is document text the AST carries as a string *attribute* --
     # ``Figure.caption``, ``Table.caption``, ``Image.caption`` -- not as a child node, so a
@@ -210,12 +245,21 @@ def _semantic_blocks(node: Node) -> Iterable[Node]:
     # corpus were sitting in the output the whole time. Captions are projected as
     # synthesized paragraphs because that is exactly how the annotation side reads them:
     # ``project_annotation`` collapses figure_caption/table_caption to ``text_block``.
-    if isinstance(node, (Heading, Paragraph, CodeBlock, Table, MathBlock)):
+    if isinstance(node, _BLOCK_TYPES):
         yield node
         yield from _attached_captions(node)
         return
     for child in get_node_children(node):
-        yield from _semantic_blocks(child)
+        # Tested on the child rather than on ``node`` so the text is yielded at the
+        # coarsest node that owns all of it: asking here admits a whole
+        # ``DefinitionTerm`` as one block, where asking at the top would either
+        # collapse a document into a single block or shred a term into its
+        # ``Strong``/``Text`` pieces and count each as a block of its own.
+        if _carries_only_inline_text(child):
+            yield child
+            yield from _attached_captions(child)
+        else:
+            yield from _semantic_blocks(child)
     caption = getattr(node, "caption", None)
     if isinstance(caption, str) and caption.strip():
         # Containers (Figure) carry their caption after their content, matching where a
@@ -251,9 +295,6 @@ def project_ast(document: Document) -> PageProjection:
         if isinstance(block, Heading):
             block_kinds.append("title")
             text_blocks.append(_node_text(block))
-        elif isinstance(block, (Paragraph, CodeBlock)):
-            block_kinds.append("text_block")
-            text_blocks.append(_node_text(block))
         elif isinstance(block, Table):
             block_kinds.append("table")
             tables.append(_ast_table(block))
@@ -265,6 +306,13 @@ def project_ast(document: Document) -> PageProjection:
             block_kinds.append("equation_isolated")
             content, _ = block.get_preferred_representation("latex")
             formulas.append(FormulaProjection("block", content))
+        else:
+            # Paragraph, CodeBlock, and any inline-only container the walk admits (#443).
+            # A catch-all rather than a type list because the annotation side collapses
+            # every text-bearing category to ``text_block``: a block that reaches here
+            # carrying text belongs in the text stream whatever its node type is.
+            block_kinds.append("text_block")
+            text_blocks.append(_node_text(block))
 
         if not isinstance(block, MathBlock):
             formulas.extend(
