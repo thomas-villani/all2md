@@ -11,6 +11,7 @@ markdown into the same AST structure used for other formats.
 
 from __future__ import annotations
 
+import html
 import json
 import logging
 import re
@@ -352,6 +353,46 @@ def _plugin_table(md: Any) -> None:
 
     md.block.register("table", TABLE_PATTERN, _parse_table_lenient, before="paragraph")
     md.block.register("nptable", NP_TABLE_PATTERN, _parse_nptable_lenient, before="paragraph")
+
+
+_ENTITY = re.compile(r"&(?:#[0-9]{1,7};|#[Xx][0-9A-Fa-f]{1,6};|[A-Za-z][A-Za-z0-9]{1,31};)")
+
+
+def _decode_entities(raw: str) -> str:
+    """Decode HTML character references in a text run.
+
+    CommonMark treats ``&lt;`` and ``&#x3C;`` as ways of writing ``<``, but
+    mistune has no entity rule -- its inline SPECIFICATION goes straight from
+    ``escape`` to ``codespan`` -- so the reference survived into the AST as its
+    literal five characters. Anything reading the AST rather than a rendered
+    page then saw ``p &lt; 0.05`` where the document says ``p < 0.05``; #441
+    measured 382 such occurrences across 61 of 110 held-out articles in our own
+    output alone, and real-world markdown from other tools carries them too.
+
+    Only text runs are decoded. Code spans, code blocks and raw HTML keep their
+    references verbatim, which is what the spec requires and what makes a
+    documented ``&amp;`` still readable as ``&amp;``.
+
+    ``html.unescape`` is deliberately not applied to the whole run: it also
+    decodes references that lack the closing semicolon (``&ltx`` -> ``<x``),
+    which CommonMark leaves literal. Matching the spec's grammar first keeps
+    those untouched.
+
+    Parameters
+    ----------
+    raw : str
+        Raw text run from a mistune ``text`` token
+
+    Returns
+    -------
+    str
+        The run with well-formed character references replaced by the
+        characters they denote
+
+    """
+    if "&" not in raw:
+        return raw
+    return _ENTITY.sub(lambda m: html.unescape(m.group(0)), raw)
 
 
 class MarkdownToAstConverter(BaseParser):
@@ -1530,9 +1571,8 @@ class MarkdownToAstConverter(BaseParser):
         return match.group(2).lower(), bool(match.group(1))
 
     def _handle_text_token(self, token: dict[str, Any]) -> Text:
-        """Handle text token."""
-        content = token.get("raw", "")
-        return Text(content=content)
+        """Handle text token, decoding any character references it carries."""
+        return Text(content=_decode_entities(token.get("raw", "")))
 
     def _handle_strong_token(self, token: dict[str, Any]) -> Strong:
         """Handle strong token."""

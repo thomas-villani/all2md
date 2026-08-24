@@ -4,6 +4,8 @@ from utils import assert_markdown_valid
 
 from all2md import HtmlOptions
 from all2md import to_markdown as html_to_markdown
+from all2md.ast.utils import extract_text
+from all2md.parsers.markdown import markdown_to_ast
 
 
 class TestHtmlEntities:
@@ -226,7 +228,12 @@ class TestHtmlEntities:
         # Should decode entities in list context
         assert "* Item with & entity" in markdown or "- Item with & entity" in markdown
         assert "α + β = γ" in markdown
-        assert "Use <tag> for HTML" in markdown
+        # "\<tag>" and not a bare "<tag>": the entity decoded to a real "<", and
+        # the renderer escapes one that a re-parse would read as an HTML tag, so
+        # the list item still says "<tag>" when read back (#441). Emitting it raw
+        # is what used to make the text disappear on the next parse.
+        assert r"Use \<tag> for HTML" in markdown
+        assert "Use <tag> for HTML" in extract_text(markdown_to_ast(markdown), joiner="")
         assert "1. First: © copyright" in markdown
         assert "2. Second: ™ trademark" in markdown
 
