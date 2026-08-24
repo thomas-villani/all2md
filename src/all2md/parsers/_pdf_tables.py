@@ -183,6 +183,16 @@ MIN_ROTATED_WORD_ASPECT = 1.2
 # leading with jitter does not manufacture rows).
 ROW_GAP_JUMP_MIN_HEIGHT_SHARE = 0.10
 ROW_GAP_JUMP_MIN_RATIO = 1.8
+# A grouping whose rows are mostly half-empty has mistaken wrapping for rows: a real row
+# fills its columns, while a line left standing by a threshold set too low fills one. So
+# the first gap jump is no longer taken on faith -- jumps are tried in order and the first
+# whose grouping clears this bar wins. Measured on PMC7750019.1, the worst table on the
+# held-out corpus: a single -7.95pt gap sat below a cluster of 52 at -3.21pt, the first
+# jump peeled that outlier off, and the threshold landed beneath every real gap -- 97
+# printed lines became 89 rows, 77 of them half-empty, nothing merged at all. Distinct gap
+# values are the candidates, so without this a gap occurring once weighs exactly as much
+# as one occurring fifty times.
+ROW_GROUP_MAX_SPARSE_SHARE = 0.5
 # A cell is "mostly numeric" when digits dominate its alphanumerics. Two adjacent
 # lines that each hold two or more such cells are two data rows, not a wrapped cell:
 # no publisher wraps a numeric row. Any grouping that would fuse such a pair is
@@ -198,6 +208,22 @@ ROW_FUSE_MIN_NUMERIC_CELLS = 2
 # they imply survives the numeric-fusion guard above.
 ROW_ANCHOR_MIN_FILL = 0.2
 ROW_ANCHOR_TRUSTED_FILL = 0.6
+# A gap-derived group is a wrapped fragment of its neighbour, not a row of its own,
+# only when it fills at most this share of the columns that neighbour fills. A wrapped
+# continuation continues *one* cell while every other column stays empty; a line filling
+# half its neighbour's columns or more is carrying independent content. Measured on the
+# header that motivated #438 ("Maximum bite / force / (mean+-standard / deviation)"): the
+# two escaping fragments fill 1 of the 4 columns their row fills, while the data row the
+# same rule must not swallow fills 3 of 4 -- the separation is 0.25 against 0.75.
+ROW_FRAGMENT_MAX_COLUMN_SHARE = 0.5
+# How far above or below its row a wrapped fragment may sit, as a share of line height.
+# Successive lines of one wrapped cell nearly touch, but a spanning header tier prints with
+# its own leading, so this is deliberately looser than the jump floor it started out
+# reusing. Bounded by one leading rather than by the corpus: the held-out numbers keep
+# improving past 1.0 with no measured regression, but a fragment a full line height from
+# its row is separated by a blank line's worth of space and is a row, not a wrap -- the
+# continuation-row count cannot see that difference and would happily trade it away.
+ROW_FRAGMENT_MAX_GAP_HEIGHT_SHARE = 0.75
 # A column may hold at most this many separate filled runs inside one merged row.
 # A cell fills contiguous lines, so two runs is a hole (tolerated: one stray gap in a
 # ragged prose cell), while three or more is a stack of distinct cells -- the group is
@@ -1383,30 +1409,115 @@ def _gap_row_groups(line_rows: list[list[str]], line_extents: list[tuple[float, 
     if len(unique_gaps) < 2:
         return None
 
-    threshold: float | None = None
     for lower, upper in zip(unique_gaps, unique_gaps[1:], strict=False):
         if upper - lower < ROW_GAP_JUMP_MIN_HEIGHT_SHARE * median_height:
             continue
         if lower > 0 and upper / lower < ROW_GAP_JUMP_MIN_RATIO:
             continue
         threshold = (lower + upper) / 2
-        break
-    if threshold is None:
-        return None
 
-    groups: list[list[int]] = []
-    current = [0]
-    for index, gap in enumerate(gaps, start=1):
-        if gap > threshold:
-            groups.append(current)
-            current = [index]
-        else:
-            current.append(index)
-    groups.append(current)
-    if len(groups) < 2 or _groups_fuse_numeric_rows(line_rows, groups):
-        return None
-    if _groups_stack_column_cells(line_rows, groups):
-        return None
+        groups: list[list[int]] = []
+        current = [0]
+        for index, gap in enumerate(gaps, start=1):
+            if gap > threshold:
+                groups.append(current)
+                current = [index]
+            else:
+                current.append(index)
+        groups.append(current)
+        if len(groups) < 2 or _groups_fuse_numeric_rows(line_rows, groups):
+            return None
+        if _groups_stack_column_cells(line_rows, groups):
+            return None
+
+        folded = _fold_wrapped_fragments(line_rows, groups, gaps, median_height)
+        if _sparse_row_share(line_rows, folded) > ROW_GROUP_MAX_SPARSE_SHARE:
+            # This jump cut below the row population instead of between it and the
+            # wraps. Try the next one up before handing the table to the fill rules.
+            continue
+        return folded
+    return None
+
+
+def _sparse_row_share(line_rows: list[list[str]], groups: list[list[int]]) -> float:
+    """Share of grouped rows that fill at most half their columns.
+
+    The fingerprint of a threshold set below the row population: every wrapped line is
+    left standing as a row of its own, so the grid fills with half-empty rows holding one
+    cell's continuation each. all2md prints them on 33.2% of the articles where it loses a
+    table, against docling's 12.0% (#438).
+    """
+    if not groups:
+        return 0.0
+    width = max((len(line_rows[index]) for group in groups for index in group), default=0)
+    if width == 0:
+        return 0.0
+    sparse = sum(1 for group in groups if 0 < len(_filled_columns(line_rows, group)) * 2 <= width)
+    return sparse / len(groups)
+
+
+def _filled_columns(line_rows: list[list[str]], group: list[int]) -> set[int]:
+    return {column for index in group for column, cell in enumerate(line_rows[index]) if cell}
+
+
+def _fold_wrapped_fragments(
+    line_rows: list[list[str]],
+    groups: list[list[int]],
+    gaps: list[float],
+    median_height: float,
+) -> list[list[int]]:
+    """Fold a group that is one cell's wrap into the row it continues (#438).
+
+    The gap jump separates two populations, but a vertically centered multi-line cell
+    prints three: lines from different columns interlace and go *negative*, a tall cell's
+    own successive lines merely abut a fraction of a point apart, and real rows are
+    separated by padding. The jump lands between the first and the rest, so the top and
+    bottom lines of a tall header cell -- the ones with no interlacing neighbour to
+    overlap -- are left standing as rows of their own. Measured on PMC5250635.1, that
+    splits "Maximum bite force (mean+-standard deviation)" into three rows and displaces
+    the header labels down into the first body row.
+
+    A fragment is folded into whichever neighbour it abuts more closely, so the first
+    printed line of a table folds *downward* -- the case the anchor rule structurally
+    cannot reach, because it only ever continues a row that already started.
+
+    Three guards, in the order that makes a wrong fold impossible rather than unlikely:
+    the fragment's filled columns must be a proper subset of its neighbour's, so it adds
+    no content of its own; it must fill no more than ``ROW_FRAGMENT_MAX_COLUMN_SHARE`` of
+    them, which is what separates a wrapped cell from a data row that merely shares its
+    columns; and the merged grouping must still survive the numeric-fusion and
+    column-stack guards that police every other grouping here.
+    """
+    fragment_gap = ROW_FRAGMENT_MAX_GAP_HEIGHT_SHARE * median_height
+    changed = True
+    while changed and len(groups) > 1:
+        changed = False
+        for position, group in enumerate(groups):
+            columns = _filled_columns(line_rows, group)
+            if not columns:
+                continue
+            # Above and below, each with the gap that separates it from this group.
+            neighbours = []
+            if position > 0:
+                neighbours.append((gaps[groups[position - 1][-1]], position - 1))
+            if position + 1 < len(groups):
+                neighbours.append((gaps[group[-1]], position + 1))
+            for gap, target in sorted(neighbours):
+                if gap > fragment_gap:
+                    continue
+                host = _filled_columns(line_rows, groups[target])
+                if not columns < host or len(columns) > ROW_FRAGMENT_MAX_COLUMN_SHARE * len(host):
+                    continue
+                candidate = [list(existing) for existing in groups]
+                candidate[target] = sorted(candidate[target] + group)
+                del candidate[position]
+                if _groups_fuse_numeric_rows(line_rows, candidate) or _groups_stack_column_cells(line_rows, candidate):
+                    continue
+                groups = candidate
+                changed = True
+                break
+            if changed:
+                break
     return groups
 
 
