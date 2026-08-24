@@ -8,10 +8,16 @@ from hypothesis import strategies as st
 
 from all2md.ast.nodes import (
     CodeBlock,
+    Comment,
+    DefinitionDescription,
+    DefinitionList,
+    DefinitionTerm,
     Document,
+    Emphasis,
     Figure,
     Heading,
     Image,
+    ListItem,
     MathBlock,
     MathInline,
     Paragraph,
@@ -212,6 +218,93 @@ def test_a_caption_free_ast_projects_exactly_as_before() -> None:
 
     assert projection.text_blocks == ("Title", "Panel text", "")
     assert projection.block_kinds == ("title", "text_block", "text_block")
+
+
+def test_a_definition_terms_text_survives_projection() -> None:
+    """A definition term is page text, and used to vanish from measurement (#443).
+
+    ``DefinitionTerm`` holds inline content *directly*, with no ``Paragraph`` wrapper, so
+    a walk that recognises only block types descended straight past it into
+    ``Text``/``Emphasis`` and yielded nothing. Its sibling ``DefinitionDescription``
+    survived only because it happens to wrap its content in a ``Paragraph`` -- so half of
+    every definition list was scored as if it had never been emitted. On the held-out
+    110-article corpus that hid 130 words across 3 all2md files and 1 word of docling's.
+    """
+    document = Document(
+        children=[
+            DefinitionList(
+                items=[
+                    (
+                        DefinitionTerm(
+                            content=[
+                                Text(content="Bastin GN, Sparrow AD (1999)."),
+                                Emphasis(content=[Text(content="Rangeland Information System")]),
+                            ]
+                        ),
+                        [DefinitionDescription(content=[Paragraph(content=[Text(content="preparing for change.")])])],
+                    )
+                ]
+            )
+        ]
+    )
+
+    projection = project_ast(document)
+
+    # Two blocks, term before description: the term is admitted whole rather than shredded
+    # into its Text and Emphasis pieces, which would have counted one term as two blocks
+    # and moved the block-structure dimension for a change that adds no content.
+    assert projection.text_blocks == (
+        "Bastin GN, Sparrow AD (1999). Rangeland Information System",
+        "preparing for change.",
+    )
+    assert projection.block_kinds == ("text_block", "text_block")
+
+
+def test_any_container_of_inline_text_is_projected_whatever_its_type() -> None:
+    """The admission tests the *shape*, not a list of type names (#443).
+
+    ``DefinitionTerm`` is only the node that happened to expose this. Any container that
+    holds inline content with no block-level node inside it has the same blindness, so the
+    projection admits it by that property -- otherwise the next node type built to the same
+    shape reproduces the bug in silence, and an instrument that cannot see part of its
+    input is a bad instrument at any magnitude.
+    """
+    document = Document(
+        children=[
+            ListItem(children=[Text(content="An item that skipped its paragraph wrapper.")]),
+            ListItem(children=[Paragraph(content=[Text(content="An item that did not.")])]),
+        ]
+    )
+
+    projection = project_ast(document)
+
+    assert projection.text_blocks == (
+        "An item that skipped its paragraph wrapper.",
+        "An item that did not.",
+    )
+    assert projection.block_kinds == ("text_block", "text_block")
+
+
+def test_a_comment_is_never_page_text() -> None:
+    """Markup that never prints must stay invisible, or two baselines inflate (#443).
+
+    This is the boundary the shape rule has to respect: a comment carries text and holds no
+    block-level node, so admitting "anything with inline text" would sweep it in. On the
+    held-out corpus that would newly credit docling with 976 ``<!-- image -->`` markers
+    across 106 of 110 articles and pymupdf4llm with 359 -- text no reader ever sees,
+    counted against ground truth that never contains it.
+    """
+    document = Document(
+        children=[
+            Comment(content="image"),
+            Paragraph(content=[Text(content="Real page text.")]),
+        ]
+    )
+
+    projection = project_ast(document)
+
+    assert projection.text_blocks == ("Real page text.",)
+    assert projection.block_kinds == ("text_block",)
 
 
 def test_page_scores_have_exact_independent_dimension_semantics() -> None:

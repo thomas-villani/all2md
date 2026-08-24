@@ -31,6 +31,15 @@ SCHEMA_VERSION = 3
 #: figure vanished from measurement while an unbound one counted -- recall fell as
 #: binding improved (#406). The annotation side always counted captions as text blocks,
 #: so this removes an asymmetry rather than adding a credit.
+#:
+#: Still 6 after #443 widened ``_semantic_blocks`` to admit any container of inline text.
+#: This gate ratchets against a recorded ``baseline.json``, and the version must equal the
+#: one that baseline carries or the lane reports identity drift instead of a fidelity
+#: result -- so the number may only move together with a re-recorded baseline, which costs
+#: a 981-page OCR run. It is held back because the widening provably cannot reach this
+#: lane: it projects the PDF parser's AST, which emits no definition lists and wraps every
+#: list item in a ``Paragraph``, and 8 of 8 sampled corpus PDFs project byte-identically
+#: across the change. Bump to 7 with the next baseline re-record, whatever prompts it.
 ORACLE_SCHEMA_VERSION = 6
 
 
