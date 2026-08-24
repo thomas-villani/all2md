@@ -359,7 +359,7 @@
   
   ![System Architecture](architecture.png "System Architecture")
   
-  <hr />
+  \<hr />
   
   ## Conclusion
   
@@ -440,7 +440,7 @@
   
   ## Horizontal Rule
   
-  <hr />
+  \<hr />
   
   Content after horizontal rule.
   '''

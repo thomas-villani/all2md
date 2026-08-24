@@ -2531,12 +2531,16 @@ class PdfToAstConverter(BaseParser):
                 # running whitespace state.
                 inline_node: Node = Code(content=span_text)
             else:
-                # Regular text with optional formatting
-                # Replace special characters
+                # Regular text with optional formatting.
+                # Bullet glyphs become "-"; "<" and ">" are left as the page
+                # prints them. Writing "&lt;" here put the entity into the AST
+                # itself, so every consumer that reads nodes rather than a
+                # rendered page -- the reverse converters, the benchmark's
+                # normalization path -- saw "p &lt; 0.05" (#441). Escaping for
+                # markdown's sake belongs to the markdown renderer, which knows
+                # when a "<" would actually be read as a tag.
                 span_text = (
-                    span_text.replace("<", "&lt;")
-                    .replace(">", "&gt;")
-                    .replace(chr(0xF0B7), "-")
+                    span_text.replace(chr(0xF0B7), "-")
                     .replace(chr(0xB7), "-")
                     .replace(chr(8226), "-")
                     .replace(chr(9679), "-")

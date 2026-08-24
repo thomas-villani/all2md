@@ -102,6 +102,19 @@ _BLOCK_START_WORD = re.compile(r"^(?:[-+*>|=~#]|\d+[.)]|:)")
 # HTML, and math delimiters. A paragraph containing any of them is left alone.
 _UNWRAPPABLE_MARKERS = ("`", "](", "][", "<", "$")
 
+# A "<" only needs escaping when the re-parse would read what follows it as raw
+# HTML or an autolink: an open tag, a close tag, a comment/declaration, or a
+# processing instruction. An autolink's scheme starts with a letter, so the
+# letter case covers it too. This leaves the common scientific "p < 0.05"
+# untouched, which is the overwhelming majority of "<" in real prose.
+_HTML_OPENER = re.compile(r"[A-Za-z/!?]")
+
+# A bare "&" only needs escaping when it would itself parse as a character
+# reference -- otherwise CommonMark leaves it literal and round-tripping it
+# unescaped is lossless. Without this, "AT&amp;lt;" would decode to "AT&lt;",
+# render back unescaped, and decode a second time to "AT<".
+_ENTITY_AHEAD = re.compile(r"&(?:#[0-9]{1,7};|#[Xx][0-9A-Fa-f]{1,6};|[A-Za-z][A-Za-z0-9]{1,31};)")
+
 
 def _interrupts_paragraph(node: Node) -> bool:
     """Report whether an ordered list may not follow a paragraph line directly.
@@ -344,6 +357,15 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         - **Always escaped**: Backslash, backticks, asterisks, braces, brackets are
           always escaped as they have special meaning in all contexts.
 
+        - **Angle brackets (< >)**: A ``<`` is escaped only when the character after
+          it would make the re-parse read raw HTML or an autolink; a ``>`` only at the
+          start of a line, where it would open a block quote. Prose ``<`` and ``>``
+          with a space after them -- ``p < 0.05``, ``845G--> A`` -- are left alone.
+
+        - **Ampersands (&)**: Escaped only when the text after them would parse as a
+          character reference, so a literal ``&lt;`` in the source survives a
+          round trip instead of decoding into ``<`` on the way back in.
+
         """
         if not self.options.escape_special:
             return text
@@ -356,6 +378,22 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             if char in always_escape:
                 # Always escape these special characters
                 escaped_chars.append("\\")
+                escaped_chars.append(char)
+            elif char == "<":
+                # Only escape when a raw-HTML or autolink opener follows; a "<"
+                # in front of a space or digit is literal to every parser.
+                if _HTML_OPENER.match(text, i + 1):
+                    escaped_chars.append("\\")
+                escaped_chars.append(char)
+            elif char == ">":
+                # Only escape at the start of a line, where it opens a block quote.
+                if i == 0 or text[i - 1] == "\n":
+                    escaped_chars.append("\\")
+                escaped_chars.append(char)
+            elif char == "&":
+                # Only escape when this would parse back as a character reference.
+                if _ENTITY_AHEAD.match(text, i):
+                    escaped_chars.append("\\")
                 escaped_chars.append(char)
             elif char == "#":
                 # Only escape # at the start of text (where it could start a heading)
