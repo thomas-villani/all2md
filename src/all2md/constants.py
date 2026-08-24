@@ -792,6 +792,11 @@ PDF_COLUMN_SINGLE_COLUMN_WIDTH_RATIO = 0.6  # Width ratio threshold for single c
 PDF_COLUMN_CHANNEL_MIN_WIDTH = 8.0  # Points; measured gutters bottom out at 14.9
 PDF_COLUMN_CHANNEL_MIN_BLOCKS_PER_SIDE = 3  # Sides with fewer blocks cannot interleave much
 PDF_COLUMN_CHANNEL_MIN_Y_OVERLAP_RATIO = 0.3  # Of the smaller side's y-span
+# Points of clear vertical space that separate page furniture from the body (#440).
+# Body blocks tile with sub-point gaps; the six held-out corpus pages where a footer
+# erased a real channel separate at 40-312pt, and the page count this admits is flat
+# across 18-60pt, so the exact value is not load-bearing.
+PDF_COLUMN_CHANNEL_BAND_GAP = 24.0
 
 # Line-level resegmentation of gutter-merged blocks (#405). On 64 of 455 dev-corpus
 # pages PyMuPDF fuses both columns of a tight-gutter page into a single block, so no

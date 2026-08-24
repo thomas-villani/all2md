@@ -15,6 +15,7 @@ from collections import defaultdict
 
 from all2md.constants import (
     DEFAULT_COLUMN_GAP_THRESHOLD,
+    PDF_COLUMN_CHANNEL_BAND_GAP,
     PDF_COLUMN_CHANNEL_MIN_BLOCKS_PER_SIDE,
     PDF_COLUMN_CHANNEL_MIN_WIDTH,
     PDF_COLUMN_CHANNEL_MIN_Y_OVERLAP_RATIO,
@@ -273,6 +274,116 @@ def _detect_columns_by_whitespace(
     return whitespace_columns if len(whitespace_columns) > 1 else None
 
 
+def _dominant_y_band(boxes: list[tuple[float, float, float, float]]) -> list[tuple[float, float, float, float]]:
+    """Return the boxes in the page's densest horizontal band of text.
+
+    Running heads, page numbers and copyright lines sit in their own band,
+    separated from the body by far more vertical space than any two body blocks
+    are ever separated by. Sweeping the boxes in y and cutting wherever that
+    space exceeds ``PDF_COLUMN_CHANNEL_BAND_GAP`` therefore isolates the body
+    without needing the page rectangle, a margin ratio, or knowledge of what the
+    furniture says.
+
+    The band holding the most boxes wins, but only if everything it leaves behind
+    is too small to be a column of anything. A page whose body a figure has split
+    into two real bands is returned whole instead: choosing the larger half there
+    would be a guess about which half to read, not a trim.
+
+    Parameters
+    ----------
+    boxes : list of tuple
+        (x0, y0, x1, y1) for each block under consideration.
+
+    Returns
+    -------
+    list of tuple
+        The boxes of the most populous band, or ``boxes`` unchanged when what
+        that would discard is too substantial to be page furniture. A caller
+        that gets its input back has learned there is no furniture to strip.
+
+    """
+    if not boxes:
+        return []
+    bands: list[list[tuple[float, float, float, float]]] = []
+    reach = float("-inf")
+    for box in sorted(boxes, key=lambda b: b[1]):
+        if not bands or box[1] > reach + PDF_COLUMN_CHANNEL_BAND_GAP:
+            bands.append([])
+            reach = box[3]
+        else:
+            reach = max(reach, box[3])
+        bands[-1].append(box)
+
+    body = max(bands, key=len)
+    # Only furniture may be discarded. A band holding as many blocks as a column
+    # needs is not a running head; it is the other half of a body that a figure
+    # or a table split in two, and dropping it is a guess about which half to
+    # read. Measured on the 110-article held-out corpus: the six pages where a
+    # footer erases a real channel discard exactly two blocks each, while every
+    # page this rejects would have discarded 6, 17, 27 or 39 -- the separation is
+    # not close, so the bar is the detector's own idea of how few blocks cannot
+    # make a column.
+    if any(len(band) >= PDF_COLUMN_CHANNEL_MIN_BLOCKS_PER_SIDE for band in bands if band is not body):
+        return list(boxes)
+    return body
+
+
+def _channel_boundaries(kept: list[tuple[float, float, float, float]]) -> list[float]:
+    """Find x-positions no block in ``kept`` touches, with columns on both sides.
+
+    Parameters
+    ----------
+    kept : list of tuple
+        (x0, y0, x1, y1) for the blocks carrying interleaving evidence.
+
+    Returns
+    -------
+    list of float
+        Midpoints of every channel that passes the per-side guards. A page is
+        admitted as two-column only when this holds exactly one.
+
+    """
+    intervals = sorted((bbox[0], bbox[2]) for bbox in kept)
+    if len(intervals) < 2 * PDF_COLUMN_CHANNEL_MIN_BLOCKS_PER_SIDE:
+        return []
+
+    # Merge the x-intervals; the complement between merged runs is the channel space.
+    merged: list[tuple[float, float]] = [intervals[0]]
+    for x0, x1 in intervals[1:]:
+        last_x0, last_x1 = merged[-1]
+        if x0 <= last_x1 + PDF_COLUMN_CHANNEL_MIN_WIDTH:
+            merged[-1] = (last_x0, max(last_x1, x1))
+        else:
+            merged.append((x0, x1))
+    if len(merged) < 2:
+        return []
+
+    # y-extent of the evidence blocks on each side of each candidate channel.
+    def side_stats(lo: float, hi: float) -> tuple[int, float, float]:
+        count = 0
+        y0 = float("inf")
+        y1 = float("-inf")
+        for bbox in kept:
+            if bbox[0] >= lo and bbox[2] <= hi:
+                count += 1
+                y0 = min(y0, bbox[1])
+                y1 = max(y1, bbox[3])
+        return count, y0, y1
+
+    boundaries: list[float] = []
+    for (_, left_end), (right_start, _) in zip(merged, merged[1:], strict=False):
+        left_count, left_y0, left_y1 = side_stats(float("-inf"), left_end)
+        right_count, right_y0, right_y1 = side_stats(right_start, float("inf"))
+        if left_count < PDF_COLUMN_CHANNEL_MIN_BLOCKS_PER_SIDE or right_count < PDF_COLUMN_CHANNEL_MIN_BLOCKS_PER_SIDE:
+            continue
+        overlap = min(left_y1, right_y1) - max(left_y0, right_y0)
+        smaller_span = min(left_y1 - left_y0, right_y1 - right_y0)
+        if smaller_span <= 0 or overlap < PDF_COLUMN_CHANNEL_MIN_Y_OVERLAP_RATIO * smaller_span:
+            continue
+        boundaries.append((left_end + right_start) / 2)
+    return boundaries
+
+
 def _detect_columns_by_channel(
     blocks: list,
     block_ranges: list[tuple[float, float]],
@@ -295,6 +406,14 @@ def _detect_columns_by_channel(
     mutual y-overlap between the sides that a y-sort would provably interleave
     them. An indented quotation overlaps its body text in x, so it can never
     produce the channel in the first place.
+
+    Page furniture is held to the same standard but cannot meet it, so when the
+    whole page yields no channel the search is retried on the body band alone
+    (#440). A footer with two elements on one baseline -- a copyright line
+    crossing the gutter and a page number -- survives the isolation prune by
+    mutual vouching, and the copyright line then merges the two x-runs into one,
+    erasing a channel that twenty blocks a side support. Nothing above or below
+    the body can be interleaved with it by a y-sort, so nothing there gets a vote.
 
     Parameters
     ----------
@@ -327,51 +446,35 @@ def _detect_columns_by_channel(
     # y-overlaps no other block cannot be interleaved with anything by a y-sort, so it
     # carries no evidence either way; it is still assigned to a column by center below.
     kept = [a for a in narrow if any(min(a[3], b[3]) > max(a[1], b[1]) for b in narrow if b is not a)]
-    intervals = sorted((bbox[0], bbox[2]) for bbox in kept)
-    if len(intervals) < 2 * PDF_COLUMN_CHANNEL_MIN_BLOCKS_PER_SIDE:
-        return None
-
-    # Merge the x-intervals; the complement between merged runs is the channel space.
-    merged: list[tuple[float, float]] = [intervals[0]]
-    for x0, x1 in intervals[1:]:
-        last_x0, last_x1 = merged[-1]
-        if x0 <= last_x1 + PDF_COLUMN_CHANNEL_MIN_WIDTH:
-            merged[-1] = (last_x0, max(last_x1, x1))
-        else:
-            merged.append((x0, x1))
-    if len(merged) < 2:
-        return None
-
-    # y-extent of the evidence blocks on each side of each candidate channel.
-    def side_stats(lo: float, hi: float) -> tuple[int, float, float]:
-        count = 0
-        y0 = float("inf")
-        y1 = float("-inf")
-        for bbox in kept:
-            if bbox[0] >= lo and bbox[2] <= hi:
-                count += 1
-                y0 = min(y0, bbox[1])
-                y1 = max(y1, bbox[3])
-        return count, y0, y1
-
-    boundaries: list[float] = []
-    for (_, left_end), (right_start, _) in zip(merged, merged[1:], strict=False):
-        left_count, left_y0, left_y1 = side_stats(float("-inf"), left_end)
-        right_count, right_y0, right_y1 = side_stats(right_start, float("inf"))
-        if left_count < PDF_COLUMN_CHANNEL_MIN_BLOCKS_PER_SIDE or right_count < PDF_COLUMN_CHANNEL_MIN_BLOCKS_PER_SIDE:
-            continue
-        overlap = min(left_y1, right_y1) - max(left_y0, right_y0)
-        smaller_span = min(left_y1 - left_y0, right_y1 - right_y0)
-        if smaller_span <= 0 or overlap < PDF_COLUMN_CHANNEL_MIN_Y_OVERLAP_RATIO * smaller_span:
-            continue
-        boundaries.append((left_end + right_start) / 2)
 
     # Exactly one admitted gutter -- a two-column page. Every measured tight-gutter
     # page is two-column; layouts with more columns have wider gutters relative to
     # their column width and clear the ordinary threshold path. Several qualifying
     # channels on one page is the signature of an undetected table, not a layout.
+    boundaries = _channel_boundaries(kept)
+    furniture: set[tuple[float, float, float, float]] = set()
+
     if len(boundaries) != 1:
-        return None
+        # Retry on the body alone (#440). The prune above drops a block that
+        # y-overlaps *nothing*, which is enough for a lone stray page number but
+        # not for a footer with two elements on one baseline: a copyright line
+        # crossing the gutter and a page number vouch for each other, both
+        # survive, and the copyright line then merges the two x-runs into one
+        # and erases a channel that twenty blocks a side support. Furniture
+        # cannot be interleaved with the body by a y-sort whatever it overlaps,
+        # so it carries no evidence and does not get to veto.
+        #
+        # Restricted to a retry rather than applied outright: a page that
+        # already splits keeps splitting on exactly the evidence it always used.
+        body = _dominant_y_band(kept)
+        if len(body) == len(kept):
+            return None
+
+        boundaries = _channel_boundaries(body)
+        if len(boundaries) != 1:
+            return None
+        furniture = {tuple(bbox) for bbox in kept} - {tuple(bbox) for bbox in body}
+        kept = body
 
     content_top = min(bbox[1] for bbox in kept)
     content_bottom = max(bbox[3] for bbox in kept)
@@ -382,7 +485,15 @@ def _detect_columns_by_channel(
             columns[0].append(block)
             continue
         bbox = block["bbox"]
-        if (bbox[2] - bbox[0]) > spanning_width:
+        # The blocks the band trim identified as furniture are routed like a
+        # spanning block: in page order, not column order. Without this the
+        # copyright line, being narrow and centred a hair left of the boundary,
+        # lands at the end of the *left* column -- spliced between the two
+        # columns of the very page it was just stopped from vetoing (#440).
+        # Only those blocks: widening this to everything on a trimmed page also
+        # catches body blocks the isolation prune dropped, and re-interleaves
+        # the reference list it was supposed to repair.
+        if tuple(bbox) in furniture or (bbox[2] - bbox[0]) > spanning_width:
             # A spanning block reads in page order, not column order. Assigning it by
             # center drops it *between* the columns at emission time: an untrimmed
             # running header whose center fell a hair right of the boundary lands at
