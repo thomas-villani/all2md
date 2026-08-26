@@ -14,9 +14,14 @@ a copyright line crossing the gutter and a page number -- so each vouches for
 the other, both survive, and the copyright line erases a channel that twenty
 blocks a side support.
 
+What makes that footer discardable is not how far below the body it sits. The
+pages #445 was measured on separate the two by 40-312pt; ten more separate them
+by 8.6-11.5pt, tighter than the gap above many a table row. Height is the
+discriminator instead: furniture prints a line or two, the body prints the page.
+
 The geometry in these tests is the real thing, taken from page 13 of
-PMC7250011.1 in the held-out corpus: 260pt columns at x 28-288 and x 309-569, a
-20.7pt gutter, and a footer 312pt below the last line of text.
+PMC7250011.1 in the held-out corpus: 260pt columns at x 28-288 and x 309-569 and
+a 20.7pt gutter, with the footer printed at both distances.
 """
 
 import pytest
@@ -112,3 +117,62 @@ class TestOnlyFurnitureIsDiscarded:
         """Removing furniture must not manufacture a channel out of nothing."""
         body = [{"bbox": [28.3, 50.0 + i * 30.0, 520.0, 78.0 + i * 30.0]} for i in range(12)]
         assert len(detect_columns(body + _footer())) == 1
+
+
+def _tight_footer(rows: int = 13) -> list[dict]:
+    """The same footer, printed a single line below the last line of text.
+
+    PMC7250011.1 p6 and nine pages like it in the held-out corpus set their
+    footer 8.6-11.5pt below the body -- tighter than the gap above many a table
+    row, so no measure of clear space can tell the two apart.
+    """
+    body_bottom = 50.0 + (rows - 1) * 36.0 + 35.5
+    return [
+        {"bbox": [211.5, body_bottom + 11.5, 383.7, body_bottom + 23.0]},
+        {"bbox": [550.2, body_bottom + 10.1, 566.9, body_bottom + 24.1]},
+    ]
+
+
+class TestFurnitureIsMeasuredByHeightNotDistance:
+    """What makes a band furniture is that it prints a line, not that it sits far off."""
+
+    def test_a_footer_one_line_below_the_body_still_splits(self) -> None:
+        """The regression: a footer too close to the body to clear a gap threshold.
+
+        The trim that #445 shipped banded the page at 24pt of clear space, which
+        these pages never reach. Ten of them read line-by-line in y as a result,
+        seven in the two articles that between them own 44 of the reading's lost
+        blocks.
+        """
+        assert len(detect_columns(_two_columns() + _tight_footer())) == 2
+
+    def test_the_tight_footer_still_reads_after_both_columns(self) -> None:
+        """Trimming furniture from the evidence must not move it in the output."""
+        body, footer = _two_columns(), _tight_footer()
+        columns = detect_columns(body + footer)
+        assert len([block for column in columns for block in column]) == len(body) + len(footer)
+        for block in footer:
+            assert _column_of(columns, block) == len(columns) - 1
+
+    def test_a_tall_end_band_is_not_furniture(self) -> None:
+        """A band that prints paragraphs is body, however few blocks it holds.
+
+        PMC8250041.1 p0 prints a correspondence sidebar beside an abstract whose
+        narrower lines cross the gutter. An end trim does unlock a channel there,
+        but only by discarding 19.4% of the page's printed text; every trim on
+        the corpus that unlocks a *real* channel discards 1.4-2.3%. Counting
+        blocks cannot see the difference -- the band here holds two, fewer than
+        a column needs -- so the bar is height.
+        """
+        tight_left, tight_right = 290.0, 306.0  # a 16pt gutter: only the channel can admit it
+        intro = [
+            {"bbox": [44.8, 50.0, 188.4, 300.0]},  # the sidebar
+            {"bbox": [207.1, 50.0, 464.9, 300.0]},  # the abstract, crossing the gutter
+        ]
+        body = []
+        for i in range(4):
+            top = 400.0 + i * 36.0
+            body.append({"bbox": [28.3, top, tight_left, top + 35.5]})
+            body.append({"bbox": [tight_right, top, PAGE_RIGHT, top + 35.5]})
+        assert len(detect_columns(body)) == 2, "control: the body alone is a channel"
+        assert len(detect_columns(intro + body)) == 1
