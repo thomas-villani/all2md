@@ -797,3 +797,72 @@ class TestRotatedRegions:
                 words.append((x, y, x + 30.0, y + 34.0, f"word{column}{row}", 0, 0, 0))
 
         assert word_gutter_grid(words) is None
+
+
+class TestGriddedProse:
+    """A passage of prose the detector fenced is not a table (#451)."""
+
+    @staticmethod
+    def _keywords_beside_abstract() -> list[tuple]:
+        """A journal first page: ``A R T I C L E | A B S T R A C T`` over keywords and an abstract.
+
+        The whitespace between the two columns is a real gutter, so the grid a detector
+        builds is sound and only the content says the region is not a table. The header
+        sits a clear gap above a block of abutting body lines, which is the two gap
+        populations the row grouper splits on -- so the abstract's twelve wrapped lines
+        fold into one cell, exactly as a 350-word abstract does on the real page.
+
+        The header's letters are spaced apart on the page and so are separate words, which
+        is why the real regions carry a median cell length of 7 to 11 rather than 1.
+        """
+        words = []
+        for column, label in ((10.0, "ARTICLE"), (300.0, "ABSTRACT")):
+            x = column
+            for letter in label:
+                entry = _word(x, 10.0, letter)
+                words.append(entry)
+                x = entry[2] + 4.0
+        top = 40.0  # a 20pt gap below the header: the row break
+        for line, terms in enumerate(
+            (("Keywords:", "Asymptomatic", "Bacteriuria"), ("Antimicrobial", "resistance", "Pregnancy"))
+        ):
+            y = top + 10.5 * line
+            x = 10.0
+            for term in terms:
+                entry = _word(x, y, term)
+                words.append(entry)
+                x = entry[2] + 3.0
+        for line in range(12):
+            y = top + 10.5 * line  # 0.5pt gaps: wrapped lines of one cell, not rows
+            x = 300.0
+            for index in range(8):
+                # A terminator every third line, so the passage reads as four sentences.
+                text = f"word{index}." if index == 7 and line % 3 == 2 else f"word{index}"
+                entry = _word(x, y, text)
+                words.append(entry)
+                x = entry[2] + 3.0
+        return words
+
+    def test_an_abstract_beside_its_keywords_is_demoted_to_prose(self, converter):
+        page = _PositionedPage(self._keywords_beside_abstract())
+
+        node = converter._extract_table_from_layout_region(page, _rect(0, 0, 600, 200), page_num=0)
+
+        assert not isinstance(node, AstTable)
+        assert _rejection_reasons(converter) == ["gridded_prose"]
+
+    def test_the_abstract_keeps_its_text(self, converter):
+        """Rejection must demote the region, never delete it.
+
+        Text inside a table bbox is removed from the ordinary text blocks *before*
+        the table is validated, so a guard that returns ``None`` deletes the whole
+        region rather than falling back to prose.
+        """
+        page = _PositionedPage(self._keywords_beside_abstract())
+
+        node = converter._extract_table_from_layout_region(page, _rect(0, 0, 600, 200), page_num=0)
+
+        assert node is not None
+        emitted = " ".join(text.content for text in getattr(node, "content", []) if type(text).__name__ == "Text")
+        assert "Keywords:" in emitted
+        assert emitted.count("word0") == 12, "every line of the abstract survives"
