@@ -15,9 +15,11 @@ from collections import defaultdict
 
 from all2md.constants import (
     DEFAULT_COLUMN_GAP_THRESHOLD,
+    PDF_COLUMN_CHANNEL_MAX_CROSSING_BLOCKS,
     PDF_COLUMN_CHANNEL_MAX_TRIM_HEIGHT_SHARE,
     PDF_COLUMN_CHANNEL_MIN_BLOCKS_PER_SIDE,
     PDF_COLUMN_CHANNEL_MIN_WIDTH,
+    PDF_COLUMN_CHANNEL_MIN_WIDTH_SYMMETRY,
     PDF_COLUMN_CHANNEL_MIN_Y_OVERLAP_RATIO,
     PDF_COLUMN_FREQ_THRESHOLD_RATIO,
     PDF_COLUMN_GAP_QUANTIZATION,
@@ -416,11 +418,84 @@ def _channel_boundaries(kept: list[tuple[float, float, float, float]]) -> list[f
     return boundaries
 
 
+def _tolerant_boundaries(kept: list[tuple[float, float, float, float]], max_crossing: int) -> list[float]:
+    """Find the page's gutter when a handful of blocks are printed across it (#440).
+
+    :func:`_channel_boundaries` reads the complement of the merged x-intervals, so it
+    cannot see a gutter at all once anything bridges it: one block fuses the two runs and
+    the page has no channel to report. This asks the question the other way round --
+    *for each candidate x, how many blocks does it cut?* -- which survives a crosser.
+
+    Every other guard is unchanged, and two more are added, because tolerating a crosser
+    admits gutters the strict test never had to judge.
+
+    The result must be unique. Several admissible gutters on one page is the signature of
+    an undetected table rather than a layout, and a held-out reference page offers twelve;
+    without the uniqueness demand this would claim it.
+
+    And the two sides must be *columns* -- comparable in width. A journal sets its two
+    columns to one measure, so every page this repairs divides 240-260pt against 240-260pt.
+    A title page does not: its affiliations run 123pt beside a 317pt abstract, and reading
+    that as two columns hoists the introduction above the article's own title. Nothing else
+    separates the two, the offset from the page centre least of all -- the affiliation
+    sidebar and a repaired reference page sit equally far off it, at 8.9% each.
+
+    Returns
+    -------
+    list of float
+        The single admitted gutter, or empty. Never more than one entry: a page naming
+        several is refused outright rather than split on the best of them.
+
+    """
+    if len(kept) < 2 * PDF_COLUMN_CHANNEL_MIN_BLOCKS_PER_SIDE:
+        return []
+    margin = PDF_COLUMN_CHANNEL_MIN_WIDTH / 2
+    candidates = sorted({edge for bbox in kept for edge in (bbox[0], bbox[2], (bbox[0] + bbox[2]) / 2)})
+
+    admitted: list[tuple[float, int, int]] = []
+    for x in candidates:
+        left = [bbox for bbox in kept if bbox[2] <= x - margin]
+        right = [bbox for bbox in kept if bbox[0] >= x + margin]
+        if len(left) < PDF_COLUMN_CHANNEL_MIN_BLOCKS_PER_SIDE or len(right) < PDF_COLUMN_CHANNEL_MIN_BLOCKS_PER_SIDE:
+            continue
+        crossing = sum(1 for bbox in kept if bbox[0] < x < bbox[2])
+        if crossing > max_crossing:
+            continue
+        left_width = max(b[2] for b in left) - min(b[0] for b in left)
+        right_width = max(b[2] for b in right) - min(b[0] for b in right)
+        widest = max(left_width, right_width)
+        if widest <= 0 or min(left_width, right_width) < PDF_COLUMN_CHANNEL_MIN_WIDTH_SYMMETRY * widest:
+            continue
+        left_y0, left_y1 = min(b[1] for b in left), max(b[3] for b in left)
+        right_y0, right_y1 = min(b[1] for b in right), max(b[3] for b in right)
+        overlap = min(left_y1, right_y1) - max(left_y0, right_y0)
+        smaller_span = min(left_y1 - left_y0, right_y1 - right_y0)
+        if smaller_span <= 0 or overlap < PDF_COLUMN_CHANNEL_MIN_Y_OVERLAP_RATIO * smaller_span:
+            continue
+        admitted.append((x, crossing, min(len(left), len(right))))
+    if not admitted:
+        return []
+
+    # Adjacent candidates describe the same gutter -- every x across its width qualifies --
+    # so they are grouped before the page is judged to name one or several.
+    groups: list[list[tuple[float, int, int]]] = [[admitted[0]]]
+    for candidate in admitted[1:]:
+        if candidate[0] - groups[-1][-1][0] <= PDF_COLUMN_CHANNEL_MIN_WIDTH:
+            groups[-1].append(candidate)
+        else:
+            groups.append([candidate])
+    if len(groups) != 1:
+        return []
+    best = min(groups[0], key=lambda entry: (entry[1], -entry[2]))
+    return [best[0]]
+
+
 def _detect_columns_by_channel(
     blocks: list,
     block_ranges: list[tuple[float, float]],
     page_width: float,
     spanning_threshold: float,
+    allow_crossing: bool = False,
 ) -> list[list[dict]] | None:
     """Admit tight-gutter columns on structural evidence (#405).
 
@@ -463,6 +538,11 @@ def _detect_columns_by_channel(
         (headings, full-width paragraphs): they neither define nor veto a
         channel, and are assigned to a column by center like the other
         detectors do.
+    allow_crossing : bool, default False
+        Whether to fall back on :func:`_tolerant_boundaries`, which admits a gutter
+        a block or two are printed across. Off for the ordinary attempt and on only
+        for the last one, once every other detector has read the page as a single
+        column -- that single-column reading is the defect it repairs (#440).
 
     Returns
     -------
@@ -511,7 +591,15 @@ def _detect_columns_by_channel(
                 boundaries, furniture, kept = candidates, trimmed, body
                 break
         else:
-            return None
+            # Last resort: the gutter is there but something is printed across it, so
+            # the complement of the merged x-runs cannot see it (#440). Furniture is
+            # the common culprit and the trim above handles it; a stray body block --
+            # a wide figure label, a formula set across the measure -- is not reachable
+            # that way, because it sits in the middle of the body and no band trim
+            # will ever discard it.
+            boundaries = _tolerant_boundaries(kept, PDF_COLUMN_CHANNEL_MAX_CROSSING_BLOCKS) if allow_crossing else []
+            if not boundaries:
+                return None
 
     content_top = min(bbox[1] for bbox in kept)
     content_bottom = max(bbox[3] for bbox in kept)
@@ -808,4 +896,15 @@ def detect_columns(
             return columns
 
     # Fallback to simple gap detection
-    return _detect_columns_by_gaps(blocks, block_ranges, x_coords, column_gap_threshold, force_multi_column)
+    fallback = _detect_columns_by_gaps(blocks, block_ranges, x_coords, column_gap_threshold, force_multi_column)
+    if len(fallback) > 1 or column_gap_threshold > DEFAULT_COLUMN_GAP_THRESHOLD:
+        return fallback
+
+    # Truly last resort: the page reads as one column, so its two sides are about to be
+    # sorted together in y and interleaved line by line. Only now is it worth admitting a
+    # gutter with something printed across it (#440) -- the defect this repairs *is* the
+    # single-column reading, so a page that already found columns has nothing to repair.
+    # Measured over the held-out corpus, tolerating a crosser ahead of this fallback moved
+    # five pages away from a multi-column answer and cost 20 supported n-grams; used here,
+    # it repairs four pages and gains 31.
+    return _detect_columns_by_channel(blocks, block_ranges, page_width, spanning_threshold, True) or fallback

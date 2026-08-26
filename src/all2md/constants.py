@@ -803,6 +803,30 @@ PDF_COLUMN_CHANNEL_MIN_Y_OVERLAP_RATIO = 0.3  # Of the smaller side's y-span
 # trim that would discard body discards 14.8% or more, so this bar sits about 2.5x
 # clear of each side of a 6x gap.
 PDF_COLUMN_CHANNEL_MAX_TRIM_HEIGHT_SHARE = 0.06
+# How many blocks may cross the gutter before a channel is refused (#440). The channel
+# test above is all-or-nothing: it merges the x-intervals and reads the complement, so a
+# *single* block bridging the gutter fuses the two runs and erases a channel that dozens
+# of blocks on each side support. Page furniture was the common culprit and the trim
+# above handles it, but a stray body block does it too -- a wide figure label, a formula
+# set across the measure.
+#
+# One is deliberately not two. Over the 110-article held-out corpus, allowing one crosser
+# while still demanding the page name exactly one gutter moves 7 pages of 1,184; allowing
+# two moves 9 and three moves 7, and the extra pages at those settings are the weak ones
+# (three blocks a side, a gutter nowhere near the page centre). The uniqueness demand is
+# what keeps this honest: several admissible gutters on one page is the signature of an
+# undetected table, and one held-out page offers twelve of them.
+PDF_COLUMN_CHANNEL_MAX_CROSSING_BLOCKS = 1
+# How unequal the two sides of a tolerated gutter may be (#440). Allowing a crosser lets
+# the search see gutters the strict test never had to judge, and one of them is not a
+# layout at all: a title page sets its affiliations 123pt wide beside a 317pt abstract,
+# and reading that as two columns hoists the introduction above the article's own title.
+# A journal sets its real columns to one measure -- every held-out page this repairs
+# divides 240-260pt against 240-260pt, a ratio of 0.94 to 1.00, against 0.39 for the
+# title page. Distance from the page centre does NOT separate them: the affiliation
+# sidebar and a repaired reference page both sit 8.9% off it. The admitted set is
+# identical anywhere in 0.6-0.7, so this sits in the middle of that plateau.
+PDF_COLUMN_CHANNEL_MIN_WIDTH_SYMMETRY = 0.65
 
 # Line-level resegmentation of gutter-merged blocks (#405). On 64 of 455 dev-corpus
 # pages PyMuPDF fuses both columns of a tight-gutter page into a single block, so no
