@@ -488,24 +488,34 @@ _EXTENDED_PREFIX = "\\\\?\\"
 _EXTENDED_UNC_PREFIX = "\\\\?\\UNC\\"
 
 
-def _strip_extended_prefix(resolved: str) -> str:
-    r"""Rewrite an extended-length path back to its ordinary spelling.
+# Branched at module level, like `_acquire_lock` below, so a type checker analyses only
+# the branch that exists on the host rather than reporting the other one unreachable.
+if sys.platform == "win32":
 
-    Kept separate from :func:`_canonical`, and taking a string rather than a ``Path``,
-    because a ``Path`` built from the prefixed spelling is already lost: ``pathlib``
-    reads ``\\?\C:`` as a UNC root, so ``Path(r"\\?\C:\cache").resolve()`` does not
-    round-trip.  The rewrite has to happen on the text ``resolve()`` returned, before
-    anything parses it again.
-    """
-    if sys.platform != "win32":
-        # A backslash is an ordinary filename character elsewhere, and a POSIX file
-        # really named ``\\?\...`` must keep its name.
+    def _strip_extended_prefix(resolved: str) -> str:
+        r"""Rewrite an extended-length path back to its ordinary spelling.
+
+        Kept separate from :func:`_canonical`, and taking a string rather than a ``Path``,
+        because a ``Path`` built from the prefixed spelling is already lost: ``pathlib``
+        reads ``\\?\C:`` as a UNC root, so ``Path(r"\\?\C:\cache").resolve()`` does not
+        round-trip.  The rewrite has to happen on the text ``resolve()`` returned, before
+        anything parses it again.
+        """
+        if resolved.startswith(_EXTENDED_UNC_PREFIX):
+            return "\\\\" + resolved[len(_EXTENDED_UNC_PREFIX) :]
+        if resolved.startswith(_EXTENDED_PREFIX):
+            return resolved[len(_EXTENDED_PREFIX) :]
         return resolved
-    if resolved.startswith(_EXTENDED_UNC_PREFIX):
-        return "\\\\" + resolved[len(_EXTENDED_UNC_PREFIX) :]
-    if resolved.startswith(_EXTENDED_PREFIX):
-        return resolved[len(_EXTENDED_PREFIX) :]
-    return resolved
+
+else:
+
+    def _strip_extended_prefix(resolved: str) -> str:
+        r"""Return the path unchanged: only Win32 has an extended-length spelling.
+
+        A backslash is an ordinary filename character here, so a file really named
+        ``\\?\...`` must keep its name.
+        """
+        return resolved
 
 
 def _canonical(path: Path) -> Path:
