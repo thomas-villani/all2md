@@ -26,7 +26,8 @@ a 20.7pt gutter, with the footer printed at both distances.
 
 import pytest
 
-from all2md.parsers._pdf_columns import detect_columns
+from all2md.constants import PDF_COLUMN_CHANNEL_MAX_TRIM_HEIGHT_SHARE
+from all2md.parsers._pdf_columns import _furniture_trims, detect_columns
 
 pytestmark = [pytest.mark.unit, pytest.mark.pdf]
 
@@ -97,21 +98,44 @@ class TestFooterDoesNotVetoTheChannel:
 class TestOnlyFurnitureIsDiscarded:
     """A band big enough to be a column is body, and body never gets dropped."""
 
-    def test_a_figure_split_body_is_left_alone(self) -> None:
-        """Two substantial bands with a bridging block: no guess about which half.
-
-        Dropping the smaller band here would admit a channel on half a page's
-        evidence. Measured on the held-out corpus, every page this rejects would
-        have discarded 6, 17, 27 or 39 blocks, against exactly 2 for every page
-        it accepts.
-        """
+    @staticmethod
+    def _figure_split_body() -> list[dict]:
+        """Two substantial two-column bands with a block bridging the gutter."""
         upper = [{"bbox": [28.3, 50.0 + i * 30.0, GUTTER_LEFT, 78.0 + i * 30.0]} for i in range(4)]
         upper += [{"bbox": [GUTTER_RIGHT, 50.0 + i * 30.0, PAGE_RIGHT, 78.0 + i * 30.0]} for i in range(4)]
         lower = [{"bbox": [28.3, 400.0 + i * 30.0, GUTTER_LEFT, 428.0 + i * 30.0]} for i in range(4)]
         lower += [{"bbox": [GUTTER_RIGHT, 400.0 + i * 30.0, PAGE_RIGHT, 428.0 + i * 30.0]} for i in range(4)]
-        bridge = [{"bbox": [211.5, 404.0, 383.7, 415.0]}]
+        return upper + lower + [{"bbox": [211.5, 404.0, 383.7, 415.0]}]
 
-        assert len(detect_columns(upper + lower + bridge)) == 1
+    def test_no_trim_will_discard_a_band_big_enough_to_be_a_column(self) -> None:
+        """The guard itself: no guess about which half of the page is body.
+
+        Dropping the smaller band here would admit a channel on half a page's
+        evidence. Measured on the held-out corpus, every page this rejects would
+        have discarded 6, 17, 27 or 39 blocks, against exactly 2 for every page
+        it accepts. Asserted against the trims directly rather than through a
+        column count, because the two say different things about this page --
+        see the test below.
+        """
+        boxes = [tuple(block["bbox"]) for block in self._figure_split_body()]
+
+        assert _furniture_trims(boxes, PDF_COLUMN_CHANNEL_MAX_TRIM_HEIGHT_SHARE) == []
+
+    def test_the_page_still_splits_on_evidence_that_discards_nothing(self) -> None:
+        """It is a two-column page, and #440's crossing tolerance now reads it as one.
+
+        This assertion used to be ``== 1``. Nothing about the trim guard above has
+        weakened -- it still refuses this page outright. What changed is that a
+        *last resort* now runs after every other detector has read the page as a
+        single column: it tolerates the bridging block instead of discarding
+        anything, so all 17 blocks vote and the bridge is still emitted. The harm
+        the guard above exists to prevent -- admitting a channel on half a page's
+        evidence, the other half thrown away -- cannot arise on that path.
+        """
+        blocks = self._figure_split_body()
+
+        assert len(detect_columns(blocks)) == 2
+        assert all(any(block in column for column in detect_columns(blocks)) for block in blocks)
 
     def test_a_single_column_page_is_not_split_by_stripping_its_footer(self) -> None:
         """Removing furniture must not manufacture a channel out of nothing."""
