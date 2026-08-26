@@ -115,6 +115,7 @@ from all2md.parsers._pdf_tables import (
     detect_tables_by_ruling_lines,
     extract_loss_share,
     is_dot_leader_cell,
+    looks_like_gridded_prose,
     looks_like_numbered_bibliography,
     merge_continuation_lines,
     page_has_table_signals,
@@ -3501,6 +3502,13 @@ class PdfToAstConverter(BaseParser):
                 )
                 self._record_table_rejection("dot_leader_toc")
                 return self._region_text_as_paragraph(page, pymupdf.Rect(table.bbox), page_num)
+            # A passage of prose the detector fenced is not a table (#451). Demoted to a
+            # paragraph it reads as it is printed; left as a grid it reads as a cell, and
+            # where the region spans two columns they interleave line by line inside it.
+            if looks_like_gridded_prose(table_data):
+                logger.debug(f"Rejecting pymupdf table on page {page_num + 1}: one cell holds the region's prose")
+                self._record_table_rejection("gridded_prose")
+                return self._region_text_as_paragraph(page, pymupdf.Rect(table.bbox), page_num)
 
             # A find_tables() grid can shred wrapped cells the same way the
             # word-gutter grid did before #416: where the rulings only mark
@@ -3941,6 +3949,13 @@ class PdfToAstConverter(BaseParser):
         # titles their recall. Demoted to prose it reads exactly as it did before.
         if looks_like_numbered_bibliography(grid):
             self._record_table_rejection("numbered_bibliography")
+            return True, None
+        # The same fenced-prose guard the find_tables() path applies (#451). This is the
+        # path the journal keywords-box-beside-abstract shape arrives on: the whitespace
+        # between the two is a real gutter, so the grid is sound and only its content
+        # says it is not a table.
+        if looks_like_gridded_prose(grid):
+            self._record_table_rejection("gridded_prose")
             return True, None
         # A two-column grid rides on a single gutter -- the weakest geometry the sweep
         # accepts, and the one shape it shares with a chart, whose axis ticks and
