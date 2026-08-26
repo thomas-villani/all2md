@@ -4389,21 +4389,42 @@ class PdfToAstConverter(BaseParser):
         current_is_list = (current_metadata and current_metadata.get("is_list_item", False)) or is_list_item
         last_is_list = (last_metadata and last_metadata.get("is_list_item", False)) or last_was_list_item
 
-        # Don't merge list items with anything
-        if current_is_list or last_is_list:
+        # A list item never merges into what came before it: two items are two items,
+        # and an item opening under a paragraph starts its own block.
+        if current_is_list:
             return False
 
-        # If bbox information is missing, don't merge to be safe
+        # If bbox information is missing, don't merge to be safe -- and a continuation
+        # of a list item is admitted on its geometry alone, so without geometry it stays
+        # where the unconditional rule used to put it.
         if not current_bbox or last_bbox_bottom is None:
-            return not accumulated_content
+            return not accumulated_content and not last_is_list
 
         # Must have accumulated content and valid bbox info
         if not accumulated_content:
-            return True
+            return not last_is_list
 
         # Calculate vertical gap
         current_bbox_top = current_bbox[1]
         vertical_gap = current_bbox_top - last_bbox_bottom
+
+        # A list item's own wrapped lines are not new paragraphs (#442). The rule here
+        # used to refuse any merge touching a list item, which strands every line a long
+        # item wraps onto -- and a numbered bibliography is a list of long items, so a
+        # reference's title and journal arrive as separate blocks from its authors.
+        #
+        # Measured over 8,183 merge decisions on twelve dev-corpus articles, 151 of the
+        # 325 blocks that end mid-sentence are stranded this way, and 98% of them sit
+        # 0.5-3.8pt below the item -- the same geometry as the wraps this method already
+        # merges (median 1.98pt, 95th percentile 3.67pt). They are indistinguishable from
+        # an ordinary wrap except for the list item above them.
+        #
+        # What is NOT admitted is a negative gap. For ordinary prose a continuation above
+        # its predecessor is the foot of one column meeting the head of the next, and
+        # joining them is usually right; under a list item it is 8 cases of a page or
+        # column break -- one of them 287pt -- where "just below" means nothing.
+        if last_is_list:
+            return 0.0 <= vertical_gap < merge_threshold
 
         # Only merge if gap is small
         return vertical_gap < merge_threshold
