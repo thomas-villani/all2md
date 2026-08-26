@@ -85,6 +85,7 @@ from all2md.parsers._pdf_layout import (
     native_find_tables,
     predict_page_layout,
 )
+from all2md.parsers._pdf_math import is_equation_block, is_equation_line
 from all2md.parsers._pdf_numbering import parse_numbering_prefix
 from all2md.parsers._pdf_ocr import (
     dehyphenate_blocks,
@@ -2482,7 +2483,12 @@ class PdfToAstConverter(BaseParser):
         return None
 
     def _process_text_spans_to_inline(
-        self, spans: list[dict], links: list[dict], page_num: int, average_line_height: float | None = None
+        self,
+        spans: list[dict],
+        links: list[dict],
+        page_num: int,
+        average_line_height: float | None = None,
+        in_equation_block: bool = False,
     ) -> list[Node]:
         """Process text spans to inline AST nodes.
 
@@ -2496,6 +2502,10 @@ class PdfToAstConverter(BaseParser):
             Page number for source tracking
         average_line_height : float or None, optional
             Average line height for the page, used for link threshold auto-calibration
+        in_equation_block : bool, optional
+            Whether the block these spans came from is a display equation, in which
+            case its variables are italic because they are variables and must not be
+            emphasised one glyph at a time.
 
         Returns
         -------
@@ -2508,6 +2518,12 @@ class PdfToAstConverter(BaseParser):
         # with whitespace, so we can avoid creating multi-space runs at span
         # boundaries when collapse_excess_whitespace is enabled.
         prev_text_ends_ws = False
+        # A display equation is set glyph by glyph, and its variables are italic
+        # because they are variables (#456). Emphasising each one separately turns
+        # an equation into "*e* *c* *e* *S* *m* *R*" -- markup that says a dozen
+        # single letters are each stressed, which is not what the page means and
+        # not something a reader or a model can use.
+        in_equation = in_equation_block or is_equation_line(spans)
 
         for span in spans:
             span_text = span["text"]
@@ -2566,7 +2582,7 @@ class PdfToAstConverter(BaseParser):
                 # for whitespace-only spans, since "**  **" or "* *" carries
                 # no meaning and tends to confuse the inline-formatting
                 # consolidator into emitting redundant marker pairs.
-                if span_text.strip():
+                if span_text.strip() and not in_equation:
                     if bold:
                         inline_node = Strong(content=[inline_node])
                     if italic:
@@ -3045,13 +3061,16 @@ class PdfToAstConverter(BaseParser):
         state: _BlockProcessingState,
         page_num: int,
         average_line_height: float | None,
+        in_equation_block: bool = False,
     ) -> None:
         """Accumulate regular text line into paragraph state."""
         # Converted before the split test below rather than after it, because the conversion
         # is what turns a symbol-font bullet into a recognisable marker -- see
         # _leading_inline_text. The flush still has to happen before the empty-content
         # return, so that a line which converts to nothing keeps ending a paragraph on gap.
-        inline_content = self._process_text_spans_to_inline(spans, links, page_num, average_line_height)
+        inline_content = self._process_text_spans_to_inline(
+            spans, links, page_num, average_line_height, in_equation_block
+        )
 
         # A list item runs on across the vertical gaps that separate paragraphs -- the space
         # between two bullets is the same space that ends a paragraph -- so the gap rule is
@@ -3126,6 +3145,10 @@ class PdfToAstConverter(BaseParser):
         layout_label = block.get("_layout_label")
         state = _BlockProcessingState()
         paragraph_break_threshold = self._calculate_paragraph_break_threshold(block)
+        # Decided once for the whole block: an equation's variable-only lines carry no
+        # evidence of their own and are told apart from prose only by their neighbours
+        # (#456).
+        in_equation_block = is_equation_block(block)
 
         # Layout hint: if model says list-item, pre-set list state
         if layout_label == "list-item":
@@ -3167,7 +3190,15 @@ class PdfToAstConverter(BaseParser):
 
             # Regular paragraph text
             self._accumulate_paragraph_line(
-                line, spans, links, vertical_gap, paragraph_break_threshold, state, page_num, average_line_height
+                line,
+                spans,
+                links,
+                vertical_gap,
+                paragraph_break_threshold,
+                state,
+                page_num,
+                average_line_height,
+                in_equation_block,
             )
 
         # Finalize remaining content
