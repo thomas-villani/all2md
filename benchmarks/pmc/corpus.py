@@ -480,9 +480,49 @@ def _prepare_cache_dir(cache_dir: Path, manifest_sha256: str) -> Path:
     return corpus_dir
 
 
+# Win32's extended-length path spelling.  ``Path.resolve()`` normally strips it before
+# returning, but the strip is *verified* against the filesystem, and that verification
+# can fail transiently while another thread is creating a directory along the path --
+# which is exactly what the materialization workers below do to a cold cache.
+_EXTENDED_PREFIX = "\\\\?\\"
+_EXTENDED_UNC_PREFIX = "\\\\?\\UNC\\"
+
+
+def _strip_extended_prefix(resolved: str) -> str:
+    r"""Rewrite an extended-length path back to its ordinary spelling.
+
+    Kept separate from :func:`_canonical`, and taking a string rather than a ``Path``,
+    because a ``Path`` built from the prefixed spelling is already lost: ``pathlib``
+    reads ``\\?\C:`` as a UNC root, so ``Path(r"\\?\C:\cache").resolve()`` does not
+    round-trip.  The rewrite has to happen on the text ``resolve()`` returned, before
+    anything parses it again.
+    """
+    if sys.platform != "win32":
+        # A backslash is an ordinary filename character elsewhere, and a POSIX file
+        # really named ``\\?\...`` must keep its name.
+        return resolved
+    if resolved.startswith(_EXTENDED_UNC_PREFIX):
+        return "\\\\" + resolved[len(_EXTENDED_UNC_PREFIX) :]
+    if resolved.startswith(_EXTENDED_PREFIX):
+        return resolved[len(_EXTENDED_PREFIX) :]
+    return resolved
+
+
+def _canonical(path: Path) -> Path:
+    r"""Resolve to the one spelling a containment check can compare.
+
+    Two spellings of one directory are not equal to :meth:`Path.relative_to`, which
+    compares path *parts*: ``\\?\C:\cache\...`` begins with the part ``\\?\C:\`` while
+    ``C:\cache`` begins with ``C:\``.  So a containment check that resolved one side
+    while a sibling ``mkdir`` was in flight rejected a path plainly inside its own root,
+    and a cold cache materialized by more than one worker did that every time (#455).
+    """
+    return Path(_strip_extended_prefix(str(path.resolve())))
+
+
 def _require_contained(path: Path, root: Path) -> None:
     try:
-        path.resolve().relative_to(root.resolve())
+        _canonical(path).relative_to(_canonical(root))
     except ValueError as exc:
         raise CorpusCacheError(f"cache artifact escapes supplied directory: {path}") from exc
 

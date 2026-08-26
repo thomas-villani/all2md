@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -694,7 +695,7 @@ def test_jats_blocks_join_with_a_separator() -> None:
     from benchmarks.pmc.alignment import jats_blocks, normalize
 
     root = ElementTree.fromstring(
-        "<article><table-wrap><label>Table 2</label>" "<caption><p>Obtained values</p></caption></table-wrap></article>"
+        "<article><table-wrap><label>Table 2</label><caption><p>Obtained values</p></caption></table-wrap></article>"
     )
     table = next(text for kind, text in jats_blocks(root) if kind == "table-wrap")
 
@@ -872,3 +873,68 @@ def test_equal_scoring_pages_break_toward_the_earliest() -> None:
     placement = place_block(block, [_grams(text), _grams("filler"), _grams(text)])
 
     assert placement.page == 0
+
+
+_ON_WINDOWS = pytest.mark.skipif(sys.platform != "win32", reason="the extended-length prefix is Win32-only")
+
+
+class TestCacheContainmentAcrossPathSpellings:
+    r"""A cold cache materialized by more than one worker rejected its own paths (#455).
+
+    ``Path.resolve()`` normally strips Win32's ``\\?\`` extended-length prefix before
+    returning, but the strip is verified against the filesystem, and that verification
+    fails while another thread is creating a directory along the path.  The workers do
+    exactly that: each calls ``mkdir(parents=True)`` on ``articles/``, so on a cold cache
+    one thread resolves ``\\?\C:\cache\...\PMC1.1`` while the corpus root resolves to
+    plain ``C:\cache\...``.  ``relative_to`` compares path *parts*, and the prefixed
+    spelling begins with ``\\?\C:\`` rather than ``C:\``, so the check reported that a
+    directory had escaped the root it was plainly inside.
+
+    Only a cold cache, and only more than one article: ``_materialize`` runs a single
+    article on the calling thread, and once ``articles/`` exists there is no mkdir left
+    to race.  That is why it read as a flake for so long.
+    """
+
+    @_ON_WINDOWS
+    def test_the_extended_length_prefix_is_rewritten(self) -> None:
+        assert corpus._strip_extended_prefix(r"\\?\C:\cache\corpus\PMC1.1") == r"C:\cache\corpus\PMC1.1"
+
+    @_ON_WINDOWS
+    def test_a_unc_extended_path_keeps_its_share(self) -> None:
+        assert corpus._strip_extended_prefix(r"\\?\UNC\server\share\cache") == r"\\server\share\cache"
+
+    @_ON_WINDOWS
+    def test_the_two_spellings_compare_as_the_same_directory(self, tmp_path: Path) -> None:
+        """The comparison itself, with both spellings forced rather than raced."""
+        child = tmp_path / "corpus" / "articles" / "PMC1.1"
+        child.mkdir(parents=True)
+
+        prefixed = Path(corpus._strip_extended_prefix("\\\\?\\" + str(child)))
+
+        assert prefixed.relative_to(corpus._canonical(tmp_path / "corpus")) == Path("articles/PMC1.1")
+
+    def test_an_ordinary_path_is_left_alone(self) -> None:
+        assert corpus._strip_extended_prefix("/var/cache/corpus") == "/var/cache/corpus"
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="a backslash is an ordinary filename character on POSIX")
+    def test_a_posix_file_really_named_that_keeps_its_name(self) -> None:
+        assert corpus._strip_extended_prefix("\\\\?\\odd") == "\\\\?\\odd"
+
+    def test_a_path_outside_the_root_is_still_rejected(self, tmp_path: Path) -> None:
+        """Not a licence to skip the check -- an escaping path must still be refused."""
+        root = tmp_path / "corpus"
+        root.mkdir()
+
+        with pytest.raises(corpus.CorpusCacheError, match="escapes supplied directory"):
+            corpus._require_contained(root / ".." / ".." / "elsewhere", root)
+
+    def test_a_cold_cache_materializes_concurrently(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The regression itself: several workers, twelve articles, nothing on disk yet."""
+        article_ids = [f"PMC{2000000 + index}.1" for index in range(12)]
+        manifest_path = _write_manifest(tmp_path, _manifest_payload(article_ids))
+        _install_downloader(monkeypatch)
+
+        snapshot = corpus.load_corpus(tmp_path / "cache", manifest_path=manifest_path, workers=8)
+
+        assert [article.article_id for article in snapshot.articles] == article_ids
+        assert snapshot.complete is True
