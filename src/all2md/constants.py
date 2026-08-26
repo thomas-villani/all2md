@@ -792,11 +792,17 @@ PDF_COLUMN_SINGLE_COLUMN_WIDTH_RATIO = 0.6  # Width ratio threshold for single c
 PDF_COLUMN_CHANNEL_MIN_WIDTH = 8.0  # Points; measured gutters bottom out at 14.9
 PDF_COLUMN_CHANNEL_MIN_BLOCKS_PER_SIDE = 3  # Sides with fewer blocks cannot interleave much
 PDF_COLUMN_CHANNEL_MIN_Y_OVERLAP_RATIO = 0.3  # Of the smaller side's y-span
-# Points of clear vertical space that separate page furniture from the body (#440).
-# Body blocks tile with sub-point gaps; the six held-out corpus pages where a footer
-# erased a real channel separate at 40-312pt, and the page count this admits is flat
-# across 18-60pt, so the exact value is not load-bearing.
-PDF_COLUMN_CHANNEL_BAND_GAP = 24.0
+# How much of a page's printed text height a furniture trim may discard (#440).
+# When a footer crosses the gutter the channel search retries on the body alone, and
+# the question is what counts as body. A clear-space threshold cannot answer it: the
+# six pages #445 was measured on separate their footer from the body by 40-312pt, but
+# ten more separate it by 8.6-11.5pt -- tighter than the gap above many a table row --
+# so no distance tells furniture from text. Height does. Furniture prints a line or
+# two; the body prints the page. Across the 110-article held-out corpus every trim
+# that unlocks a real channel discards 1.4-2.3% of the page's text height and every
+# trim that would discard body discards 14.8% or more, so this bar sits about 2.5x
+# clear of each side of a 6x gap.
+PDF_COLUMN_CHANNEL_MAX_TRIM_HEIGHT_SHARE = 0.06
 
 # Line-level resegmentation of gutter-merged blocks (#405). On 64 of 455 dev-corpus
 # pages PyMuPDF fuses both columns of a tight-gutter page into a single block, so no

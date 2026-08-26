@@ -15,7 +15,7 @@ from collections import defaultdict
 
 from all2md.constants import (
     DEFAULT_COLUMN_GAP_THRESHOLD,
-    PDF_COLUMN_CHANNEL_BAND_GAP,
+    PDF_COLUMN_CHANNEL_MAX_TRIM_HEIGHT_SHARE,
     PDF_COLUMN_CHANNEL_MIN_BLOCKS_PER_SIDE,
     PDF_COLUMN_CHANNEL_MIN_WIDTH,
     PDF_COLUMN_CHANNEL_MIN_Y_OVERLAP_RATIO,
@@ -274,20 +274,10 @@ def _detect_columns_by_whitespace(
     return whitespace_columns if len(whitespace_columns) > 1 else None
 
 
-def _dominant_y_band(boxes: list[tuple[float, float, float, float]]) -> list[tuple[float, float, float, float]]:
-    """Return the boxes in the page's densest horizontal band of text.
-
-    Running heads, page numbers and copyright lines sit in their own band,
-    separated from the body by far more vertical space than any two body blocks
-    are ever separated by. Sweeping the boxes in y and cutting wherever that
-    space exceeds ``PDF_COLUMN_CHANNEL_BAND_GAP`` therefore isolates the body
-    without needing the page rectangle, a margin ratio, or knowledge of what the
-    furniture says.
-
-    The band holding the most boxes wins, but only if everything it leaves behind
-    is too small to be a column of anything. A page whose body a figure has split
-    into two real bands is returned whole instead: choosing the larger half there
-    would be a guess about which half to read, not a trim.
+def _clean_bands(
+    boxes: list[tuple[float, float, float, float]],
+) -> list[list[tuple[float, float, float, float]]]:
+    """Split ``boxes`` wherever a horizontal line crosses the page touching nothing.
 
     Parameters
     ----------
@@ -296,36 +286,78 @@ def _dominant_y_band(boxes: list[tuple[float, float, float, float]]) -> list[tup
 
     Returns
     -------
-    list of tuple
-        The boxes of the most populous band, or ``boxes`` unchanged when what
-        that would discard is too substantial to be page furniture. A caller
-        that gets its input back has learned there is no furniture to strip.
+    list of list of tuple
+        The bands, top to bottom. Two blocks land in different bands only when no
+        block anywhere on the page bridges the y-interval between them, so a band
+        boundary is a place the page can be cut without dividing anything printed.
 
     """
-    if not boxes:
-        return []
     bands: list[list[tuple[float, float, float, float]]] = []
     reach = float("-inf")
     for box in sorted(boxes, key=lambda b: b[1]):
-        if not bands or box[1] > reach + PDF_COLUMN_CHANNEL_BAND_GAP:
+        if not bands or box[1] > reach:
             bands.append([])
-            reach = box[3]
-        else:
-            reach = max(reach, box[3])
+        reach = max(reach, box[3])
         bands[-1].append(box)
+    return bands
 
-    body = max(bands, key=len)
-    # Only furniture may be discarded. A band holding as many blocks as a column
-    # needs is not a running head; it is the other half of a body that a figure
-    # or a table split in two, and dropping it is a guess about which half to
-    # read. Measured on the 110-article held-out corpus: the six pages where a
-    # footer erases a real channel discard exactly two blocks each, while every
-    # page this rejects would have discarded 6, 17, 27 or 39 -- the separation is
-    # not close, so the bar is the detector's own idea of how few blocks cannot
-    # make a column.
-    if any(len(band) >= PDF_COLUMN_CHANNEL_MIN_BLOCKS_PER_SIDE for band in bands if band is not body):
-        return list(boxes)
-    return body
+
+def _furniture_trims(
+    boxes: list[tuple[float, float, float, float]], max_share: float
+) -> list[tuple[list[tuple[float, float, float, float]], set[tuple[float, float, float, float]]]]:
+    """Ways to set page furniture aside, least discarded first.
+
+    Running heads, page numbers, copyright lines and DOI stamps sit in their own
+    bands at the top and bottom of the page. Trimming whole bands from the ends is
+    therefore enough to reach every one of them, and reaches nothing else: a body
+    block is never alone at an end of the page with clear space between it and the
+    text it belongs to.
+
+    What bounds the trim is height, not distance and not block count. Furniture
+    prints a line or two; the body prints the page (#440).
+
+    Parameters
+    ----------
+    boxes : list of tuple
+        (x0, y0, x1, y1) for each block carrying interleaving evidence.
+    max_share : float
+        Largest share of the page's printed text height a trim may discard.
+
+    Returns
+    -------
+    list of tuple
+        ``(body, furniture)`` for each admissible trim, smallest discard first.
+        Empty when the page has no band structure to trim.
+
+    """
+    bands = _clean_bands(boxes)
+    if len(bands) < 2:
+        return []
+    heights = [sum(box[3] - box[1] for box in band) for band in bands]
+    total = sum(heights)
+    if total <= 0:
+        return []
+
+    trims: list[tuple[float, list[tuple[float, float, float, float]], set[tuple[float, float, float, float]]]] = []
+    for head in range(len(bands)):
+        # Bands are trimmed in whole, so the share of a longer trim only grows:
+        # once the head alone is over the bar no tail can bring it back under.
+        if sum(heights[:head]) > max_share * total:
+            break
+        for tail in range(len(bands) - head):
+            if head + tail == 0:
+                continue
+            share = (sum(heights[:head]) + sum(heights[len(bands) - tail :])) / total
+            if share > max_share:
+                break
+            body = [box for band in bands[head : len(bands) - tail] for box in band]
+            if not body:
+                continue
+            gone = {box for band in bands[:head] for box in band}
+            gone |= {box for band in bands[len(bands) - tail :] for box in band}
+            trims.append((share, body, gone))
+    trims.sort(key=lambda trim: trim[0])
+    return [(body, gone) for _, body, gone in trims]
 
 
 def _channel_boundaries(kept: list[tuple[float, float, float, float]]) -> list[float]:
@@ -408,12 +440,15 @@ def _detect_columns_by_channel(
     produce the channel in the first place.
 
     Page furniture is held to the same standard but cannot meet it, so when the
-    whole page yields no channel the search is retried on the body band alone
-    (#440). A footer with two elements on one baseline -- a copyright line
-    crossing the gutter and a page number -- survives the isolation prune by
-    mutual vouching, and the copyright line then merges the two x-runs into one,
-    erasing a channel that twenty blocks a side support. Nothing above or below
-    the body can be interleaved with it by a y-sort, so nothing there gets a vote.
+    whole page yields no channel the search is retried with the furniture bands
+    trimmed off the ends (#440). A footer with two elements on one baseline -- a
+    copyright line crossing the gutter and a page number -- survives the isolation
+    prune by mutual vouching, and the copyright line then merges the two x-runs
+    into one, erasing a channel that twenty blocks a side support. Nothing above
+    or below the body can be interleaved with it by a y-sort, so nothing there
+    gets a vote. What bounds that trim is the height it discards, not the clear
+    space it crosses: journal footers print anywhere from 8.6 to 312pt below the
+    last line of text, so no distance separates them from the body.
 
     Parameters
     ----------
@@ -464,17 +499,19 @@ def _detect_columns_by_channel(
         # cannot be interleaved with the body by a y-sort whatever it overlaps,
         # so it carries no evidence and does not get to veto.
         #
+        # Every trim is tried, least discarded first, rather than one guess at
+        # where the body starts: what makes a trim right is that it reveals a
+        # channel, and the height bar is what keeps it from reaching the body.
+        #
         # Restricted to a retry rather than applied outright: a page that
         # already splits keeps splitting on exactly the evidence it always used.
-        body = _dominant_y_band(kept)
-        if len(body) == len(kept):
+        for body, trimmed in _furniture_trims(kept, PDF_COLUMN_CHANNEL_MAX_TRIM_HEIGHT_SHARE):
+            candidates = _channel_boundaries(body)
+            if len(candidates) == 1:
+                boundaries, furniture, kept = candidates, trimmed, body
+                break
+        else:
             return None
-
-        boundaries = _channel_boundaries(body)
-        if len(boundaries) != 1:
-            return None
-        furniture = {tuple(bbox) for bbox in kept} - {tuple(bbox) for bbox in body}
-        kept = body
 
     content_top = min(bbox[1] for bbox in kept)
     content_bottom = max(bbox[3] for bbox in kept)
