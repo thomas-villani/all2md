@@ -74,13 +74,13 @@ Did the text survive?
      - Value
      -
    * - Raw recall
-     - 62.1%
+     - 62.3%
      - of 8,905 ground-truth blocks
    * - Attainable ceiling
      - 62.4%
      - what the PDF's own text layer reproduces
    * - **Recall of what is attainable**
-     - **98.6%**
+     - **98.8%**
      - the number worth reading
    * - Control: the *wrong* article
      - 0.4%
@@ -98,11 +98,11 @@ The movement after that correction is the opposite kind: a parser fix (#405).
 Side-by-side regions with tight gutters — two-column reference lists above all — were
 read as one column and interleaved line-by-line, so every word survived while every
 adjacency died. Admitting those gutters on structural evidence and joining words
-hyphenated at block seams raised attainable recall from 95.4% to 98.3% (98.6% after
-the table repairs below), and the held-out corpus moved the same way it was never
-tuned against.
+hyphenated at block seams raised attainable recall from 95.4% to 98.3% (98.8% after
+the table repairs below and the furniture-trimmed column channel that followed), and
+the held-out corpus moved the same way it was never tuned against.
 
-Raw recall is 62.1%, and that figure is close to meaningless on its own. A large share of
+Raw recall is 62.3%, and that figure is close to meaningless on its own. A large share of
 any JATS article cannot be recovered by *any* parser, because the markup records words in an
 order the page never prints — author affiliation blocks, structured metadata, citation
 fields. Charging a PDF parser for failing to reproduce text the PDF does not contain
@@ -124,11 +124,11 @@ By block kind:
      - Share of attainable
    * - Text blocks
      - 3,160 of 6,356
-     - 3,125
-     - **98.9%**
+     - 3,139
+     - **99.3%**
    * - Titles
      - 2,291 of 2,426
-     - 2,265
+     - 2,266
      - **98.9%**
    * - Tables
      - 110 of 123
@@ -136,7 +136,7 @@ By block kind:
      - **82.7%**
 
 The middle column counts only blocks inside the ceiling, so each row's share is its own
-two counts divided. A few more blocks are recovered than that: 3,155 text blocks, 2,287
+two counts divided. A few more blocks are recovered than that: 3,170 text blocks, 2,288
 titles and 92 tables come out matching the ground truth, including some the PDF's own text
 layer does not reproduce. Those count as recovered and on neither side of the share, which
 is why the larger count is not the one printed here.
@@ -167,13 +167,13 @@ Unsupported output is therefore split in two:
      - Share
      - Meaning
    * - Supported
-     - **95.1%**
+     - **95.4%**
      - the n-gram appears in the document's text layer
    * - Resequenced
      - 4.1%
      - every word is in the document, in a new adjacency
    * - **Novel**
-     - **0.8%**
+     - **0.4%**
      - at least one word appears nowhere — the number worth reading
    * - Duplication
      - 0.4%
@@ -182,8 +182,8 @@ Unsupported output is therefore split in two:
      - 0.7%
      - wants to be ~0%
 
-Over 445,887 emitted n-grams, 3,614 are novel. Reporting the raw unsupported figure instead
-would have made the result roughly six times worse than the parser deserves.
+Over 445,456 emitted n-grams, 1,926 are novel. Reporting the raw unsupported figure instead
+would have made the result roughly ten times worse than the parser deserves.
 
 Duplication is counted apart from both, because it is invisible to either. Text emitted
 twice is an unchanged *set* and a doubled *multiset* — no set-based score can see it at all.
@@ -198,8 +198,15 @@ able to report it.
 It fell by two fifths again, 0.8% to 0.4%, on #435. That defect mostly *doubled* captions
 rather than inventing them — the clipped-away typesetting is the same words as the printed
 one — so duplication is where the bulk of it landed. Novel share moved by less than a
-twentieth of a point, 0.86% to 0.81%, which is enough to cross a rounding boundary in the
-table above and not much more.
+twentieth of a point, 0.86% to 0.81%, which was enough to cross a rounding boundary in the
+table as it then stood and not much more.
+
+It then very nearly halved, 0.81% to 0.43%, on #441 — the largest single movement this
+figure has recorded. The parser wrote ``&lt;`` and ``&gt;`` into the AST where the page
+prints ``<`` and ``>``, so every affected n-gram matched nothing in the text layer and
+counted as invented. The arithmetic is what identifies a correction rather than a deletion,
+and it is worth reusing: emitted n-grams fell by 431 while *supported* ones rose by 1,298.
+Text that is merely dropped cannot raise the supported count.
 
 Tables
 ~~~~~~
@@ -279,7 +286,7 @@ pages:
      - 0.291
      - **0.537**
    * - ``text_content_similarity``
-     - 0.681
+     - 0.682
      - 0.233
      - **0.448**
    * - ``table_content_similarity``
@@ -287,9 +294,9 @@ pages:
      - 0.039
      - **0.567**
    * - ``table_structure_similarity``
-     - 0.613
-     - 0.095
-     - **0.519**
+     - 0.617
+     - 0.093
+     - **0.523**
    * - ``block_structure_similarity``
      - 0.549
      - 0.444
