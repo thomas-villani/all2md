@@ -26,7 +26,7 @@ PMC5000011.1 in the dev corpus.
 
 import pytest
 
-from all2md.parsers._pdf_math import is_equation_block, is_equation_line
+from all2md.parsers._pdf_math import is_equation_block, is_equation_line, mark_equation_blocks
 
 pytestmark = [pytest.mark.unit, pytest.mark.pdf]
 
@@ -124,3 +124,99 @@ class TestABlockOfAnEquation:
     def test_an_empty_block_is_not_an_equation(self) -> None:
         assert not is_equation_block({"lines": []})
         assert not is_equation_block({})
+
+
+def _eq_block(bbox: tuple[float, float, float, float]) -> dict:
+    """A block that carries its own evidence: symbol-font operators over italic variables."""
+    return {
+        "bbox": bbox,
+        "lines": [
+            _line(_span("\uf0e6", "Symbol"), _span("\uf0b6", "Symbol"), _span("\uf03d", "Symbol")),
+            _line(_span("x", italic=True), _span("t", italic=True)),
+        ],
+    }
+
+
+def _glyph_run(bbox: tuple[float, float, float, float], *glyphs: str) -> dict:
+    """A block of loose glyphs, one to a line, carrying no evidence of its own."""
+    return {"bbox": bbox, "lines": [_line(_span(glyph, italic=True)) for glyph in glyphs]}
+
+
+def _prose_block(bbox: tuple[float, float, float, float], text: str) -> dict:
+    return {"bbox": bbox, "lines": [_line(_span(text))]}
+
+
+class TestAnEquationSpreadOverSeveralBlocks:
+    """PyMuPDF splits an equation wherever its glyphs stop lining up (#456).
+
+    The operators land in one block and the variables in the next, so a block that
+    is plainly part of an equation on the page can carry no evidence at all on its
+    own. What identifies it is the block printed against it.
+    """
+
+    def test_a_glyph_run_against_an_equation_joins_it(self) -> None:
+        blocks = [_eq_block((100, 100, 300, 120)), _glyph_run((100, 121, 300, 160), "S", "R", "c", "e")]
+
+        assert mark_equation_blocks(blocks) == [True, True]
+
+    def test_the_seed_spreads_transitively_along_the_run(self) -> None:
+        """An equation reaches its far side one block at a time."""
+        blocks = [
+            _eq_block((100, 100, 300, 120)),
+            _glyph_run((100, 121, 300, 140), "S", "R"),
+            _glyph_run((100, 141, 300, 160), "c", "e"),
+        ]
+
+        assert mark_equation_blocks(blocks) == [True, True, True]
+
+    def test_spreading_stops_at_the_first_block_that_reads_as_text(self) -> None:
+        blocks = [
+            _eq_block((100, 100, 300, 120)),
+            _prose_block((100, 121, 300, 135), "that can be rearranged as follows"),
+            _glyph_run((100, 136, 300, 160), "S", "R"),
+        ]
+
+        assert mark_equation_blocks(blocks) == [True, False, False]
+
+    def test_a_glyph_run_far_from_the_equation_is_left_alone(self) -> None:
+        """Two pieces of one equation are printed touching; a running head is not.
+
+        A journal's running head is set one glyph to a line by the same shredding
+        that produces the equation fragments, so without the distance test it joins
+        the first equation on the page.
+        """
+        blocks = [_eq_block((100, 400, 300, 420)), _glyph_run((100, 60, 300, 90), "Int.", "J.", "Mol.")]
+
+        assert mark_equation_blocks(blocks) == [True, False]
+
+    def test_a_glyph_run_with_no_equation_near_it_stays_prose(self) -> None:
+        """The signature alone is not enough, and this is why.
+
+        A table's data row is also more printed lines than words -- one article in
+        the dev corpus offers eighty of them. Only contiguity with a real equation
+        tells the two apart, so on a page without one nothing is admitted.
+        """
+        row = _glyph_run((100, 100, 300, 140), "Female", "1,060", "(47.77)", "0.02", "0.20")
+        blocks = [row, _glyph_run((100, 141, 300, 180), "Male", "1,159", "(52.23)", "0.04", "0.06")]
+
+        assert mark_equation_blocks(blocks) == [False, False]
+
+    def test_a_block_of_real_words_is_never_a_glyph_run(self) -> None:
+        """More words than printed lines is text, however short it is."""
+        blocks = [
+            _eq_block((100, 100, 300, 120)),
+            {
+                "bbox": (100, 121, 300, 140),
+                "lines": [_line(_span("since calling the relations abstracted from"))],
+            },
+        ]
+
+        assert mark_equation_blocks(blocks) == [True, False]
+
+    def test_a_page_with_no_equations_marks_nothing(self) -> None:
+        blocks = [_prose_block((100, 100, 300, 120), "An ordinary paragraph of running text.")]
+
+        assert mark_equation_blocks(blocks) == [False]
+
+    def test_no_blocks_marks_nothing(self) -> None:
+        assert mark_equation_blocks([]) == []

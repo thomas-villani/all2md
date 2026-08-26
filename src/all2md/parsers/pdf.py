@@ -85,7 +85,7 @@ from all2md.parsers._pdf_layout import (
     native_find_tables,
     predict_page_layout,
 )
-from all2md.parsers._pdf_math import is_equation_block, is_equation_line
+from all2md.parsers._pdf_math import is_equation_block, is_equation_line, mark_equation_blocks
 from all2md.parsers._pdf_numbering import parse_numbering_prefix
 from all2md.parsers._pdf_ocr import (
     dehyphenate_blocks,
@@ -2023,6 +2023,12 @@ class PdfToAstConverter(BaseParser):
                 )
             )
             pending = 0
+            # An equation is split across several blocks, so which blocks are part of one
+            # is a question about the column, not about any block in it (#456).
+            block_items = [data for kind, _, data in items if kind == "block"]
+            equation_blocks = {
+                id(block): flag for block, flag in zip(block_items, mark_equation_blocks(block_items), strict=True)
+            }
 
             for item_type, item_y, item_data in items:
                 # Everything printed above this item's top belongs before it.
@@ -2031,7 +2037,9 @@ class PdfToAstConverter(BaseParser):
                     placed.add(id(col_figures[pending]))
                     pending += 1
                 if item_type == "block":
-                    block_nodes = self._process_single_block_to_ast(item_data, links, page_num, average_line_height)
+                    block_nodes = self._process_single_block_to_ast(
+                        item_data, links, page_num, average_line_height, equation_blocks.get(id(item_data))
+                    )
                     nodes.extend(block_nodes)
                 elif item_type == "table":
                     table_node = self._process_table_item(item_data, page, page_num)
@@ -3118,7 +3126,12 @@ class PdfToAstConverter(BaseParser):
             )
 
     def _process_single_block_to_ast(
-        self, block: dict, links: list[dict], page_num: int, average_line_height: float | None = None
+        self,
+        block: dict,
+        links: list[dict],
+        page_num: int,
+        average_line_height: float | None = None,
+        is_equation: bool | None = None,
     ) -> list[Node]:
         """Process a single text block to AST nodes.
 
@@ -3132,6 +3145,10 @@ class PdfToAstConverter(BaseParser):
             Page number for source tracking
         average_line_height : float or None, optional
             Average line height for the page, used for link threshold auto-calibration
+        is_equation : bool or None, optional
+            Whether this block belongs to a display equation, decided for the column as a
+            whole by :func:`mark_equation_blocks`. ``None`` falls back to deciding from
+            this block alone, which is all a caller without the column can do.
 
         Returns
         -------
@@ -3147,8 +3164,9 @@ class PdfToAstConverter(BaseParser):
         paragraph_break_threshold = self._calculate_paragraph_break_threshold(block)
         # Decided once for the whole block: an equation's variable-only lines carry no
         # evidence of their own and are told apart from prose only by their neighbours
-        # (#456).
-        in_equation_block = is_equation_block(block)
+        # (#456). The caller decides it for the whole column where it can, because an
+        # equation's own blocks are told apart from prose only by *their* neighbours.
+        in_equation_block = is_equation_block(block) if is_equation is None else is_equation
 
         # Layout hint: if model says list-item, pre-set list state
         if layout_label == "list-item":

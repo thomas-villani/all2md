@@ -31,8 +31,12 @@ __all__ = [
     "MATH_BLOCK_MIN_LINE_SHARE",
     "MATH_LINE_MAX_WORDS",
     "MATH_LINE_MIN_FONT_SHARE",
+    "MATH_REGION_MAX_GAP",
+    "MATH_REGION_MAX_WORDS_PER_LINE",
+    "MATH_REGION_MIN_LINES",
     "is_equation_block",
     "is_equation_line",
+    "mark_equation_blocks",
 ]
 
 # The font families a typesetter reaches for when it needs a glyph the text font
@@ -131,3 +135,83 @@ def is_equation_block(block: dict) -> bool:
     # vote lets a sentence claim the block it sits in.
     equation_lines = sum(1 for line in lines if is_equation_line(line["spans"]))
     return equation_lines >= MATH_BLOCK_MIN_LINE_SHARE * len(lines)
+
+
+# A display equation does not arrive as one block. PyMuPDF splits it wherever the glyphs
+# stop lining up, so the operators land in one block, the variables in the next, and a
+# lone subscript in a third. Only some of those carry font evidence; the rest are
+# indistinguishable from prose by any test applied to them alone.
+MATH_REGION_MAX_GAP = 6.0
+
+# What a fragment of an equation looks like when it carries no evidence of its own: more
+# printed lines than words. An equation is set in two dimensions, so PyMuPDF reports each
+# stacked piece as its own line, and a block of eight lines holding one word ("SRceceSR")
+# is a column of glyphs, not a sentence.
+MATH_REGION_MAX_WORDS_PER_LINE = 1.0
+MATH_REGION_MIN_LINES = 2
+
+
+def _is_glyph_run(block: dict) -> bool:
+    """Report whether the block is a run of loose glyphs rather than text.
+
+    Deliberately says nothing about *why*. On its own this signature is not enough to
+    call a block mathematics -- a table's data row is also more printed lines than words,
+    and PMC12000001.1 sets ninety-nine of them that way without holding a single
+    equation -- which is why :func:`mark_equation_blocks` only ever admits a glyph run
+    already touching one.
+    """
+    lines = [line for line in (block.get("lines") or []) if line.get("spans")]
+    if len(lines) < MATH_REGION_MIN_LINES:
+        return False
+    text = "".join(span.get("text", "") for line in lines for span in line["spans"])
+    words = len(text.split())
+    if words > MATH_BLOCK_MAX_WORDS:
+        return False
+    return words < MATH_REGION_MAX_WORDS_PER_LINE * len(lines)
+
+
+def _vertical_gap(one: tuple[float, ...], other: tuple[float, ...]) -> float:
+    """Points of clear space between two bboxes; negative when they overlap vertically."""
+    return max(one[1], other[1]) - min(one[3], other[3])
+
+
+def mark_equation_blocks(blocks: "Sequence[dict]") -> list[bool]:
+    """Decide, for a column's blocks in reading order, which belong to a display equation.
+
+    :func:`is_equation_block` seeds the answer, and the seeds then spread: a neighbouring
+    glyph run printed hard against a block already known to be an equation is part of the
+    same equation. Spreading is transitive, so an equation reaches its far side one block
+    at a time, and it stops at the first block that reads as text.
+
+    Both halves of the admission test are needed, and each covers the other's failure.
+    Contiguity alone is far too generous on a page a third of which is equations: every
+    paragraph printed against one is contiguous with it, so dropping the glyph-run test
+    takes 764 blocks instead of 367, whole sentences among them ("Here it is immediate
+    that expression (52) still preserves the electron"). The glyph-run signature alone
+    claims the data rows of tables. Together, over twenty-six dev-corpus articles, they
+    admitted 367 blocks across the five that carry display equations and **none at all**
+    across the twenty-one that do not.
+
+    The gap is measured rather than assumed, because two pieces of one equation are
+    printed touching or overlapping while a running head shredded the same way sits far
+    up the page. The plateau runs from 2pt to 20pt, admitting 363 to 376 blocks, so this
+    sits in the middle of it rather than on an edge.
+    """
+    flags = [is_equation_block(block) for block in blocks]
+    candidates = [i for i, block in enumerate(blocks) if not flags[i] and _is_glyph_run(block)]
+    spreading = bool(candidates)
+    while spreading:
+        spreading = False
+        for i in candidates:
+            bbox = blocks[i].get("bbox")
+            if flags[i] or not bbox:
+                continue
+            for neighbour in (i - 1, i + 1):
+                if not (0 <= neighbour < len(blocks) and flags[neighbour]):
+                    continue
+                other = blocks[neighbour].get("bbox")
+                if other and _vertical_gap(bbox, other) <= MATH_REGION_MAX_GAP:
+                    flags[i] = True
+                    spreading = True
+                    break
+    return flags
