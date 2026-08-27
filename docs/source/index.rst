@@ -91,7 +91,7 @@ Supported Formats
   PDF, Word (DOCX), PowerPoint (PPTX), HTML/MHTML, Email (EML), EPUB, RTF, OpenDocument (ODT/ODP with bidirectional support)
 
 **Data & Other**
-  Excel (XLSX), CSV/TSV, Jupyter Notebooks (IPYNB), Archives (TAR/7Z/RAR/ZIP), Images (PNG/JPEG/GIF), 200+ text formats
+  Excel (XLSX), CSV/TSV, Jupyter Notebooks (IPYNB), Archives (TAR/7Z/RAR/ZIP), 200+ text formats
 
 **Markup**
   Markdown, reStructuredText, AsciiDoc, Org-Mode, MediaWiki, LaTeX, OpenAPI/Swagger, Textile

@@ -455,7 +455,7 @@ See the [MCP documentation](https://all2md.readthedocs.io/en/latest/mcp.html) an
 Most document tooling in CI answers *"did it run?"*. all2md ships a GitHub Action that answers *"is the output still as good as it was?"* — it scores every matched document and fails the build when fidelity degrades:
 
 ```yaml
-- uses: thomas-villani/all2md@v1.10.1
+- uses: thomas-villani/all2md@v1.13.0
   with:
     paths: docs/**/*.md
     roundtrip-fail-under: 97
@@ -487,7 +487,7 @@ all2md's conversion quality is measured, not asserted — against three independ
 
 Current figures, their controls, and — just as important — what each lane structurally *cannot* see are documented in [Conversion Fidelity](https://all2md.readthedocs.io/en/latest/benchmarks.html).
 
-**How does it compare to other converters?** A fourth lane ([`benchmarks/comparison/`](benchmarks/comparison/)) scores pymupdf4llm and Docling with the same instruments, on a held-out 110-article corpus the development work has never tuned against, with every tool's output re-parsed through one normalization path. The 2026-08 reading: all2md has by far the lowest invented-text rate (0.84%, vs 5.5% for pymupdf4llm — whose defaults now auto-OCR born-digital pages — and 2.9% for Docling) and is the fastest of the three, while pymupdf4llm leads raw text survival and Docling leads table cell preservation. Full results, ground rules, and the caveats that bound them are in that lane's [README](benchmarks/comparison/README.md) and dated `results-*.json` snapshots.
+**How does it compare to other converters?** A fourth lane ([`benchmarks/comparison/`](benchmarks/comparison/)) scores pymupdf4llm and Docling with the same instruments, on a 110-article corpus held out from the born-digital lane, with every tool's output re-parsed through one normalization path. In the reading of 2026-08-23, all2md has by far the lowest invented-text rate (0.62%, vs 5.64% for pymupdf4llm — whose defaults now auto-OCR born-digital pages — and 2.87% for Docling) and is the fastest of the three, while pymupdf4llm edges raw text survival and Docling leads table cell preservation. Two caveats bound that reading: it predates the column-layout fixes released since, and parts of that work were tuned against this corpus — so it is a dated snapshot, not a current held-out score. Refreshing the corpus behind a sealed holdout is the next step. Full results, ground rules, and the caveats that bound them are in that lane's [README](benchmarks/comparison/README.md) and dated `results-*.json` snapshots.
 
 ## Frequently asked questions
 
