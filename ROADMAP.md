@@ -248,6 +248,11 @@ obvious.
 - 🌱 **Token-budget conversion** — `llm-minify` (🚢 v1.3.0) and `--slice X/Y` paging
   (🚢 v1.7.1) exist; the open piece is "fit this 400-page PDF into 100k tokens" with
   section-aware elision/summarization rather than uniform minification.
+- 🌱 **Chunking workflow tutorial** — *docs gap, added 2026-08-21.* `all2md chunk` is
+  mentioned across ~10 reference pages but has no single walkthrough for the workflows
+  people actually run it for: chunk → embed → retrieve, choosing a strategy by document
+  shape, `--max-tokens`/`--overlap` tuning, and reading the provenance records back. One
+  `docs/source/chunking.rst` page with runnable examples; no library change.
 - 🚀 **Structured extraction** — *not started* (distinct from the shipped `--extract`
   selector, which pulls sections/tables/figures as Markdown). The ambition here is
   `all2md extract doc.pdf --schema invoice.json` → typed, schema-validated JSON
@@ -320,6 +325,36 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
   fidelity gate is re-recorded from 97 to 100 — which means **zero headroom**, so a
   regression there shows up immediately and an edit must be controlled against `main` before
   it is blamed.
+- 🌱 **"Omni-flavor" viewer** — *added 2026-08-21; probed, not started.* Make `all2md view`
+  and `all2md serve` maximally forgiving of whatever Markdown they are handed: accept and
+  *render* the union of flavor features, so the viewer is useful on any file regardless of
+  which dialect wrote it. The parser is already most of the way there — every mistune
+  plugin (tables, footnotes, math, task lists, definition lists, strikethrough, marks,
+  admonitions) is on by default regardless of `flavor` — so the work is the syntaxes
+  mistune has no plugin for, plus the viewer's own render policy. Verified gaps, each
+  currently rendered as literal text:
+  - **Raw HTML blocks are escaped in the viewer** — `<details>`/`<summary>` shows as
+    `&lt;details&gt;`. The Markdown renderer passes block HTML through (#178, above), but
+    the *HTML* renderer's default is `DEFAULT_HTML_PASSTHROUGH_MODE = "escape"` and
+    `view`/`serve` never override it. First fix and the biggest win: the viewer should
+    render under `sanitize` (allowlist `details/summary/kbd/sub/sup/abbr/...`) — the
+    security posture belongs at the parser, as the #178 note argues.
+  - GFM alerts `> [!NOTE]` come out as a plain blockquote with the marker left in.
+  - Heading attributes `# Title {#id}` are worse than ignored: the braces leak into the
+    heading text *and* the generated slug (`id="title-custom-id"`).
+  - Pandoc inline footnotes `^[...]`, fenced divs `::: warning`, grid tables; kramdown
+    IAL `{: .class}`; wikilinks `[[Page]]`; emoji shortcodes; abbreviations `*[HTML]: ...`;
+    MultiMarkdown table captions `[caption]` after a table.
+  - **Footnotes / endnotes** work structurally (a `#footnotes` section, `fnref`/`fn`
+    anchors, backlinks, themed CSS in all five themes) but are bare: the label is the raw
+    identifier (`[^a]` renders as `[A]`) rather than an ordinal; no hover preview; and no
+    footnote-vs-endnote distinction even though the DOCX parser emits both (PDF has no
+    structural footnote detection at all).
+
+  Shape: each missing syntax is a small mistune plugin in `parsers/markdown.py` landing
+  under the existing `parse_*` option pattern (and `benchmarks/roundtrip` catches any
+  spelling that doesn't invert); the viewer fixes are renderer/theme work and can ship
+  first. Distinct from the flavor-*output* work above, which is about what we emit.
 - 🚢 **DOCX round-trip: character styles** — *shipped (v1.9.0).* Run-level named
   character styles ("Quote Char", "Intense Reference") now ride on the inline node's
   `metadata['source_style']` and are re-applied when rendering to DOCX with a template,
@@ -341,8 +376,10 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
   The round-trip scorer that surfaced these now also scores code/math/HTML block content,
   so a regression in any of them shows up in `all2md roundtrip <file> --via docx` (or
   `--via html`).
-- 🌱 **`docx-plus` integration** — *evaluated 2026-08-04, no code written yet* (full writeup
-  in gitignored `design/docx-plus-evaluation.md`, [[docx_plus_evaluation]]). Verdict: adopt
+- 🌱 **`docx-plus` integration** — *evaluated 2026-08-04, re-scoped 2026-08-21, no code
+  written yet.* The original writeup was never committed (the gitignored
+  `design/docx-plus-evaluation.md` it cited is not on disk or in any ref), so this entry is
+  now the record of the evaluation; keep it self-sufficient. Verdict: adopt
   selectively, parser read-side first, behind an optional extra pinned
   `docx-plus>=0.6,<0.7`. It composes with `python-docx` rather than replacing it and needs
   only `python-docx>=1.0.0` + `lxml>=4.9` — both already required, so adoption adds no
@@ -357,9 +394,38 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
     before committing**, it is the one change here with a plausible corpus-gate regression
     path. Fields: one integration fixes both dropped hyperlink URLs and the `Figure :`
     caption bug.
+  - **Tier 1b — style-inherited numbering (added 2026-08-21).** Documents built on custom
+    templates "lose" their list numbering because `_detect_list_from_numbering_props`
+    (`src/all2md/parsers/docx.py:1680`) reads only the paragraph's *own* `w:numPr`; when the
+    template puts the `numPr` on the style (the normal corporate-template shape), we fall
+    through to `_detect_list_from_style_name`, which regex-matches the literal built-in names
+    `List Bullet`/`List Number`/`List Paragraph` and otherwise guesses from left indent plus
+    a `^\d+[.)]` text pattern. Two smaller holes on the same path: `_map_numbering_format`
+    drops any `numFmt` outside its two whitelists (`custom`, `decimalZero`, CJK counters all
+    return `None` and the list is lost), and `w:lvlOverride` start values are ignored.
+    `docx-plus` resolves `num_id`/`num_level` through the `basedOn` chain (each half
+    independently, so a level-only override keeps its style's list) and
+    `read_list_definitions` gives per-level `fmt`, `%1.%2` text pattern, `start` and
+    `start_overrides`. This rides the **same** `iter_resolved_paragraphs` pass as the
+    effective-formatting item above, so the two are one spike, and it carries the same
+    corpus-gate warning. The `numFmt` whitelist gap is a ~5-line fix we can land today
+    without the dependency.
+  - **Fields and bookmarks are not "partially handled" — the parser never looks.** A grep for
+    `fldChar|fldSimple|instrText|bookmark` in `parsers/docx.py` returns nothing. Observed
+    losses: `HYPERLINK` *fields* (older Word, mail-merge, Outlook pastes) keep their text
+    and drop the URL because we only handle `w:hyperlink` elements; `REF`/`PAGEREF`
+    cross-references keep the cached text and lose the target; `SEQ Figure` is the `Figure :`
+    caption bug; `w:bookmarkStart` is unknown XML, so `w:hyperlink w:anchor=` links have
+    nothing to land on. `read_fields` returns `FieldInfo(keyword, arguments, instruction,
+    result, paragraph_index, begin_element)` and `read_bookmarks` returns
+    `BookmarkInfo(name, anchored_text, paragraph_index)`; both index by paragraph, which maps
+    onto `_iter_block_items`, and `begin_element` lets us splice a `Link`/`Text` at the right
+    inline position rather than string-matching after the fact. Two limits to design around:
+    `read_fields` scans the body only (headers, footers and notes are separate parts — fine
+    for us), and nested fields fold into the outer one. Purely additive: nothing we emit
+    today changes.
   - **Tier 2 — real, narrower.** Table merges close the colspan/rowspan round-trip
-    asymmetry the renderer already half-supports (`_layout_table_grid`). Bookmarks let
-    internal anchor links survive instead of flattening to plain text. Footnote/endnote
+    asymmetry the renderer already half-supports (`_layout_table_grid`). Footnote/endnote
     reads could delete ~150 lines of hand-rolled XML (`_process_notes` and friends) — pure
     simplification, no behaviour change.
   - **Tier 3 — renderer, more speculative.** Real footnotes on render (today's
@@ -380,12 +446,76 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
     real Word output, because Word writes empty/absent `w:tag` on most controls and the
     library keys its result dict by tag. Filed upstream; does not change the Tier 1 call —
     revisions, styles, and fields all worked cleanly on the same real file.
-  - **Risk:** pre-1.0 and moving fast (seven releases in ~2.5 months), so pin the version
-    range and keep the parser degrading to today's behaviour when the extra is absent. Every
-    Tier 1 change also shifts default parser output, so golden snapshots move — scope each
-    item's snapshot/integration updates separately rather than batching all three.
-  - **Next step:** spike Tier 1 item 1 (tracked changes) alone; its fidelity-score delta
-    tells us whether the rest of the tier earns the dependency.
+  - **Risk:** pre-1.0 (seven releases in ~2.5 months to 0.6.0, then none through
+    2026-08-21 — the pace has cooled, which makes the `<0.7` pin comfortable), so pin the
+    version range and keep the parser degrading to today's behaviour when the extra is
+    absent. Tier 1 changes shift default parser output, so golden snapshots move — scope
+    each item's snapshot/integration updates separately rather than batching.
+  - **Sequencing (agreed 2026-08-21), three PRs:**
+    1. Tracked changes alone — smallest diff, no benchmark risk; its fidelity-score delta
+       tells us whether the rest earns the dependency.
+    2. Fields + bookmarks — additive, fixes the dropped-URL and `Figure :` defects, no
+       existing output changes.
+    3. Effective formatting **and** style-inherited numbering as one spike, corpus-gated —
+       this is the one that fixes the custom-template documents.
+    Independent of all three and worth doing first or alongside: the `w:sdt` block fix
+    (drops an author's name on a real white paper) and the `numFmt` whitelist gap.
+- 🌱 **DOCX ground truth via `wordlive`** — *added 2026-08-23, not started.* The "no good
+  public benchmark exists for Office" gap below has an instrument now: **`wordlive`**
+  (sister project, on PyPI) drives a live Word instance over COM, so a DOCX corpus can be
+  *scripted* — the script is the ground truth, exact and free, and **Word's own serializer
+  produces the .docx**, which is the PMC lane's design principle (ground truth produced by
+  the ecosystem being measured, not by us) applied to Office. The payoff is that the
+  authentic XML shapes the `docx-plus` batch targets — numbering on styles rather than
+  paragraphs, `w:ins`/`w:del` from real revisions, `HYPERLINK`/`REF`/`SEQ` fields from
+  Word's field machinery, SDT content controls, weight on styles — are exactly the shapes
+  hand-authored `python-docx` fixtures cannot fake. Design constraints, decided up front:
+  - **Generation is offline; CI replays, never regenerates.** Windows + licensed Word
+    cannot run in CI, so the corpus is generated locally and pinned by digest,
+    PMC-manifest style. This also freezes the Word-version variable that would otherwise
+    make readings incomparable across regenerations.
+  - **A scripted corpus is a sharp instrument, not a noisy one** — it measures what we
+    thought to script, like `benchmarks/roundtrip` is synthetic-by-design. Pair it with
+    the real-document counterpart (the two tracked white papers, a handful of EDGAR
+    filings) where truth is coarser but the shapes are unplanned.
+  - **Word is a second oracle, both directions.** `wordlive` reads back through Word's
+    object model — Word's own interpretation as an independent check on the script's
+    expectation (the `benchmarks/roundtrip` two-oracle shape). Pointed at our *renderer's*
+    output, "does Word open it and resolve styles/lists as intended" is an oracle for the
+    DOCX write side that nothing else here provides — the instrument the Theme 6
+    bidirectional-editing grail would eventually need anyway.
+  - The family generalizes: `pptlive`/`excellive` are the same trick for PPTX/XLSX
+    corpora when those formats get their fidelity turn.
+- 🚀 **PDF → DOCX fidelity** — *added 2026-08-23; raised alongside the wordlive lane,
+  not started, not probed.* The most-requested conversion in the wild ("make this PDF an
+  editable Word document") is a path we technically support and nothing measures:
+  `benchmarks/roundtrip --via docx` scores `md→docx→md` on synthetic documents, not
+  whether a parsed two-column paper with figures and tables becomes a *usable* Word
+  document. Its fidelity is the product of the PDF parse (just improved through the
+  comparison arc) and a DOCX-renderer half with no instrument. The instruments now
+  exist or are scheduled, cheapest first:
+  1. **Re-parse scoring** — convert PMC's PDFs to DOCX, parse the DOCX back with our own
+     parser, run the existing JATS oracle on that AST; the delta against the direct
+     PDF→AST reading isolates renderer loss with zero new ground truth. *Blocked on the
+     wordlive lane's parser fixes*: today the DOCX read side drops nested tables,
+     duplicates merged cells and skips SDTs, so the re-parse instrument would blame the
+     renderer for the parser's sins. Sequencing therefore falls out for free — this item
+     slots naturally after the DOCX fidelity batch (item 21).
+  2. **Word as the write-side oracle** — `wordlive` reads back the converted document
+     through Word's own object model: do styles resolve, do lists number, do tables
+     survive as tables. The probe verified this loop end-to-end.
+  3. **Visual A/B** — `wordlive export-pdf`/`snapshot` renders the converted DOCX
+     through Word; compare page images against the source PDF. Layout fidelity judged on
+     Word's actual rendering, not our own claims.
+  4. **The incumbent baseline** — Word itself opens PDFs (its built-in reflow importer),
+     drivable over the same COM channel. Scoring Word's own PDF import on instruments
+     1–3 gives the honest competitor column, on the comparison lane's terms: defaults,
+     dated readings, prepared to lose.
+  Known gaps to state up front rather than discover: the DOCX renderer's
+  section/column/floating-figure support is unprobed; and PDF has no structural footnote
+  detection (per the omni-flavor entry), so converted footnotes cannot be real Word
+  footnotes until the parser learns to find them — a Theme 8 Stage 4 dependency. Pairs
+  with the Theme 6 bidirectional grail: this is its one-way half.
 - 🚀 **Layout-aware PDF reconstruction** — *moved to **Theme 8**.* Correct reading order
   across columns, footnote/endnote linking, running header/footer stripping, caption↔figure
   association. Every one of those is a *geometry* problem, which is why it now sits with the
@@ -494,7 +624,9 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
     (~8M modern Common Crawl PDFs, malformed edge cases). Indexed via the
     [PDF Association corpora list](https://github.com/pdf-association/pdf-corpora).
   - **Format gaps we must fill ourselves:** no good public benchmark exists for Office /
-    email / HTML fidelity — hand-build a ~100-doc golden set. Sources: EDGAR filings
+    email / HTML fidelity — hand-build a ~100-doc golden set. *For DOCX this now has an
+    instrument: the `wordlive` scripted-corpus entry above (added 2026-08-23).* Sources:
+    EDGAR filings
     (financial DOCX/HTML/XBRL), the Enron corpus (mbox/eml threading torture-test),
     Wikipedia HTML dumps, and **arXiv source↔PDF pairs** (free round-trip *math* ground
     truth — pairs with the math-support work).
@@ -644,6 +776,19 @@ See the **Async Architecture Decision** below for the strategy. The shape:
   reverse-engineering diagrams from images. *Down-payment:* `view`/`serve` now **render**
   ```mermaid``` fences via mermaid.js and the HTML renderer has `render_mermaid`
   (🚢 v1.8.0) — rendering exists; parsing/round-tripping other diagram formats is the gap.
+- 🌱 **Scientific-document lint profile** — *added 2026-08-21; deferred when the linter
+  shipped.* The profile mechanism exists (`accessibility`, `prose`) and is waiting for
+  the net-new rules that would let a credible `--profile scientific` exist: figure/table
+  numbering, caption presence and cross-reference integrity ("Figure 3" must exist and
+  be referenced), abstract/references presence, IMRaD section ordering, acronym defined
+  on first use. Pairs naturally with the PMC/arXiv corpus work in Theme 2 — the same
+  documents that stress the PDF parser are the ones these rules are for.
+- 🌱 **Cloud input sources** — *added 2026-08-21.* Read documents directly from Google
+  Drive/Docs, S3 and Azure Blob (`all2md s3://bucket/key.pdf`, `gdrive:<id>`), reusing
+  the remote-input plumbing that HTTP(S) fetching already has. Not the Theme 1 loader
+  adapters — those are *output* adapters for RAG frameworks; this is *where the bytes come
+  from*. Each backend is an optional extra; Google Docs should export via the API rather
+  than the download-as-DOCX path so the format detection stays honest.
 
 ---
 
@@ -654,6 +799,13 @@ See the **Async Architecture Decision** below for the strategy. The shape:
 > The **Action shipped** (see below). Docker and the hosted API are unstarted; Docker was
 > considered and parked in the ratchet batch, and the Action no longer depends on it.
 
+- 🌱 **Rich `--help` by default** — *added 2026-08-21; deferred from the Fidelity & Trust
+  quick-wins track as bigger than a quick win.* The main command has a bespoke rich
+  renderer gated behind `--rich`; the ~25 subcommand parsers are plain argparse with only
+  two `formatter_class` overrides and no shared factory. The full version is
+  `rich-argparse` + one shared parser factory + `NO_COLOR`/non-TTY wiring, so every
+  `all2md <cmd> --help` is the same colour-grouped layout without a flag. Small, visible,
+  and a natural filler for a distribution-themed batch.
 - 🌱 **Docker image** — *scheduled in the ratchet batch.* `docker run all2md` as a one-line
   microservice / CI step. Also the building block for the GitHub Action and hosted API below —
   bake PyMuPDF/tesseract in once. It earns its place in an otherwise inward-facing batch by
@@ -979,6 +1131,14 @@ more than planned:
     figure batch on purpose: fix "figures don't appear" before inviting eyes. The push is
     mostly writing rather than engineering, so it can interleave with early Theme 8 work
     instead of occupying a batch alone.
+    **(2026-08-23) Promoted from interleave to the next batch outright.** Its own gating
+    criterion (#405) has been satisfied since 2026-08-20 and the comparison arc is closed,
+    so the announcement moment — "measured, honest, and just fixed its biggest known gap" —
+    is *now*, and it is perishable: the comparison readings are dated snapshots against
+    pinned competitor versions, and pymupdf4llm/Docling keep moving. Waiting further is the
+    ungated-by-inertia pattern this roadmap diagnosed for the PMC lane, in item form. The
+    Theme 1 loader adapters, the chunking tutorial and rich `--help` are the natural
+    interleave, since the push itself is mostly writing.
 14. 🚢 **Leg 1: make the oracle read what the AST carries** (Theme 2, small) — **landed
     2026-08-20 as [#412](https://github.com/thomas-villani/all2md/pull/412)**; #406 and
     #257 closed, #347 closed, #296 re-measured and re-parked, drift ledgered as #411.
@@ -1037,6 +1197,13 @@ more than planned:
     differentiator and the largest remaining bet on this roadmap. Both lanes can now measure
     it: the raster one exercises the OCR path directly, and the born-digital one is the
     control that says whether a geometry change broke the text-layer path.
+    **(2026-08-23) Re-sequenced behind the DOCX fidelity batch (item 21) — a decision, not
+    drift**, recorded the way the async facade's demotion was: three batches running, this
+    item has lost the leverage-per-effort contest to measurable defect streams, and that was
+    correct while the PDF stream was rich. The PDF residue is now named and small
+    (#419, #414, caption snapping), DOCX has an agreed spike sequence *and* a new
+    ground-truth instrument (`wordlive`, Theme 2), so DOCX goes first. Stages 2–3 are next
+    after it, and structured extraction (item 19) stays queued directly behind Stage 3.
 18. **Script coverage in the benchmarks** (Theme 2, cheap, blind spot). Every corpus here is
     English, so a change that deleted all CJK, Cyrillic and Arabic content would score
     perfectly on all three lanes. Until a non-Latin corpus exists, a character-level change
@@ -1053,11 +1220,54 @@ more than planned:
     formula pages are rasters, so recovering them is OCR-side maths recognition rather than
     parsing, and the PMC lane's JATS records maths as MathML the page does not print in that
     form. The arXiv source↔PDF pairs are the instrument that would actually measure it.
+21. **The DOCX fidelity batch** (Theme 2, added 2026-08-23) — the next *engineering* batch,
+    slotted between the outward push (13) and Theme 8 Stages 2–3 (17). DOCX is the next
+    fidelity frontier by the same logic that opened the PDF arc: real defects are already
+    named (tracked changes vanish silently, `HYPERLINK`/`REF`/`SEQ` fields never read,
+    style-inherited numbering lost on corporate templates, `w:sdt` blocks dropping an
+    author's name) and the instrument gap is now closable. Shape, in order:
+    - **The `wordlive` ground-truth lane first** — see the Theme 2 entry. The PDF arc
+      worked because the PMC lane produced a defect stream and a gate *before* the fixes;
+      walking into DOCX with only the self-referential `roundtrip` score would repeat the
+      pre-instrument era this roadmap spent v1.11–v1.12 climbing out of. A modest scripted
+      corpus plus the real-document counterpart is enough to start; it does not need the
+      PMC lane's scale to be a gate.
+    - **The two free-standing fixes** that need no dependency: the `w:sdt` block descent
+      and the `numFmt` whitelist gap.
+    - **The agreed `docx-plus` three-PR sequence** (2026-08-21): tracked changes, then
+      fields + bookmarks, then effective formatting + style-inherited numbering — the last
+      being the one with the flagged regression path, which is exactly what the new lane
+      exists to gate.
+
+    **The lane is designed (2026-08-23)** — full design + a live capability probe with
+    every recipe verified in the saved file's XML sit in `design/docx-corpus/`
+    (gitignored: the design doc becomes the lane's README at implementation, per the
+    lesson of the lost docx-plus writeup). Every family is generatable: raw
+    `HYPERLINK`/`REF`/`SEQ` fields, real `w:ins`/`w:del`, style-inherited numbering via
+    a `LinkToListTemplate` COM hatch (numPr on the style only, verified), content
+    controls with genuine `w:showingPlcHdr`, style-carried weight. Decisions taken:
+    **v1 is ~2–4 cases per family (≈25–30 documents)**, hand-reviewed before blessing,
+    scaled after the first defect stream (the PMC 12→66 pattern); **the lane publishes
+    per-family defect counts first** — a defect ledger, honest about being a new
+    instrument — with a scored headline number waiting until the docx-plus fixes give
+    it a story. Truth records carry Word-verified positional facts (paragraph index,
+    char span, laid-out page) from v1, informational until Theme 8 Stage 3 makes them
+    scoreable — at which point this corpus is the DOCX provenance oracle for free.
+    One measured limitation: wordlive's display equations write `m:oMath`, not
+    `m:oMathPara`, so scripted display math parses as `MathInline`; the truth records
+    say so rather than asserting a `MathBlock` the generator cannot produce. A side
+    finding for the ledger: OMML→LaTeX conversion already exists in the parser
+    (fractions/scripts/radicals/n-ary correct; matrices/delimiters/accents degrade),
+    so the "Math everywhere" entry's OMML→LaTeX clause is stale — the gap is coverage,
+    not existence. A follow-on is queued behind this batch on its own dependency:
+    **PDF → DOCX fidelity** (Theme 2 entry, 2026-08-23), whose cheapest instrument —
+    re-parse scoring through our own DOCX parser — is only trustworthy once this
+    batch's parser fixes land.
 
 **Smaller open items**, none blocking:
-**the `docx-plus` Tier 1 spike** (Theme 2, tracked changes first — see the roadmap entry
-above and `design/docx-plus-evaluation.md` for the full measurement) is evaluated but
-unscheduled; a natural opportunistic slot whenever DOCX fidelity is the batch's focus;
+**the `docx-plus` Tier 1 spike** (Theme 2, three-PR sequence agreed 2026-08-21, tracked
+changes first — the roadmap entry above is the full record; the design doc it once cited
+was never committed) is *scheduled as of 2026-08-23: item 21 is that batch*;
 [#257](https://github.com/thomas-villani/all2md/issues/257) (stratify the raster lane's
 score — demoted from the numbered list 2026-08-13; two of its three parts already resolved,
 and what remains costs an ~80-minute re-baseline, so batch it with the next oracle change
