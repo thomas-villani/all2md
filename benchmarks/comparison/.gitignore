@@ -5,3 +5,4 @@ comparison.json
 lost_blocks.json
 out/
 *.log
+out.retired-*/

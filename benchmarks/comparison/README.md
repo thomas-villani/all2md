@@ -153,8 +153,9 @@ The honest positioning, with each tool's structural advantage named:
 ## Running it
 
 ```bash
-# 1. Materialize the held-out corpus (project venv, digest-verified).
-.venv/Scripts/python.exe -m benchmarks.pmc load --manifest benchmarks/pmc/manifest-holdout.json
+# 1. Materialize the held-out corpus (project venv, digest-verified). The separate cache
+#    root is part of the seal -- see benchmarks/pmc/README.md.
+.venv/Scripts/python.exe -m benchmarks.pmc load --manifest benchmarks/pmc/manifest-holdout.json     --cache benchmarks/pmc/.cache-holdout
 
 # 2. Export the article list for the baselines venv.
 .venv/Scripts/python.exe benchmarks/comparison/export_articles.py
