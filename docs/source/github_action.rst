@@ -10,13 +10,13 @@ score falls below a threshold you set.
 
 .. code-block:: yaml
 
-   - uses: thomas-villani/all2md@v1.13.0
+   - uses: thomas-villani/all2md@v1.14.0
      with:
        paths: docs/**/*.md
        roundtrip-fail-under: 97
 
 The action lives in the ``all2md`` repository itself rather than a separate one,
-so ``@v1.13.0`` installs all2md 1.13.0. That matters more than it looks: the
+so ``@v1.14.0`` installs all2md 1.14.0. That matters more than it looks: the
 gate's verdict *is* the library's score, so if the action version could drift from
 the library version, your thresholds would quietly change meaning underneath you.
 
@@ -34,7 +34,7 @@ Quick Start
        runs-on: ubuntu-latest
        steps:
          - uses: actions/checkout@v5
-         - uses: thomas-villani/all2md@v1.13.0
+         - uses: thomas-villani/all2md@v1.14.0
            with:
              paths: |
                docs/**/*.md
@@ -47,7 +47,7 @@ step outputs so later steps can use them:
 
 .. code-block:: yaml
 
-         - uses: thomas-villani/all2md@v1.13.0
+         - uses: thomas-villani/all2md@v1.14.0
            id: gate
            with:
              paths: docs/**/*.md

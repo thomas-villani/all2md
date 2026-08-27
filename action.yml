@@ -37,7 +37,7 @@ inputs:
   all2md-version:
     description: >-
       Version to install. Empty (the default) matches the tag this action was
-      referenced by, so @v1.13.0 gates with all2md 1.13.0 -- the scores are the
+      referenced by, so @v1.14.0 gates with all2md 1.14.0 -- the scores are the
       library's, so pinning them together keeps your thresholds meaningful.
       Use "latest" to always take the newest release, or give an exact version.
     required: false
