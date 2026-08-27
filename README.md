@@ -455,7 +455,7 @@ See the [MCP documentation](https://all2md.readthedocs.io/en/latest/mcp.html) an
 Most document tooling in CI answers *"did it run?"*. all2md ships a GitHub Action that answers *"is the output still as good as it was?"* — it scores every matched document and fails the build when fidelity degrades:
 
 ```yaml
-- uses: thomas-villani/all2md@v1.13.0
+- uses: thomas-villani/all2md@v1.14.0
   with:
     paths: docs/**/*.md
     roundtrip-fail-under: 97

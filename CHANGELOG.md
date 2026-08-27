@@ -7,6 +7,298 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-08-27
+
+### Added
+
+- **OmniDocBench lane: per-data-source strata** (#257). The scanned-page payload now
+  reports every dimension per corpus stratum (newspapers, notes, slides, textbooks,
+  papers, …) alongside the whole-corpus mean, which could not say *where* a score was
+  earned or lost. Strata are evidence, not identity: the gate does not compare them and
+  a baseline never copies them.
+- **Third-party comparison lane** (`benchmarks/comparison/`): scores pymupdf4llm and
+  Docling with the PMC lane's own text-survival and invented-text instruments, on the
+  held-out 110-article corpus, with every tool's markdown re-parsed through one
+  normalization path. Ships the 2026-08-19 reading (`results-2026-08-19.json`), pinned
+  baseline versions, and a lost-block diff (`lost_blocks.py`) that names the truth
+  blocks a baseline recovers that all2md loses — the diff that produced #405 and #406.
+  Run by hand only; never in CI.
+
+### Changed
+
+- **benchmarks/omnidocbench: oracle schema version 6 → 7, with a re-recorded baseline.**
+  #443 widened `_semantic_blocks` to admit any container of inline text, which changes what
+  the AST-side projection can see. The version was deliberately held at 6 at the time,
+  because the widening provably cannot reach this lane — it projects the PDF parser's AST,
+  which emits no definition lists and wraps every list item in a `Paragraph`, and 8 of 8
+  sampled corpus PDFs projected byte-identically across the change. It moves now because a
+  baseline has been re-recorded alongside it, which is the only way it may move: the gate
+  compares this constant against the version its `baseline.json` carries, so changing one
+  without the other reports identity drift instead of a fidelity result.
+- **Born-digital lane re-recorded, and the fidelity page with it.**
+  `benchmarks/pmc/reference.json` now holds the CI reading taken at `a83600a`. Against the
+  reading v1.13.0 shipped with, on the same corpus pin and the same runner, so every
+  movement is the parser's: recall of what is attainable 94.7% → **98.9%**, tables 69.1% →
+  **82.7%**, titles 92.5% → **98.9%**, text blocks 97.2% → **99.4%**, supported share
+  92.9% → **95.5%**, and novel share 1.00% → **0.43%** — less than half the text invented
+  per emitted n-gram. Table recall moved on detection committing to borderless
+  *booktabs*-style grids and on the row-fold repair in #449; the recall and precision gains
+  are #405, #435, #441, #451 and the two column repairs in #445/#450 and #440. Every
+  published figure on `docs/source/benchmarks.rst` is updated against the new artifact,
+  including two the inventory does not gate.
+
+### Fixed
+
+- **PDF: side-by-side columns no longer interleave line-by-line** (#405). Journal
+  reference pages print two columns with a 15–18pt gutter — under the 20pt threshold —
+  so the split never fired and the y-sort shredded every entry into the other column.
+  Three fixes, each behind structural evidence: a *channel* detector admits a
+  sub-threshold gutter only when an x-interval untouched by any block separates enough
+  y-overlapping content on both sides; blocks PyMuPDF fused *across* the gutter are
+  resegmented line-band by line-band (an undetected table cannot split — its bands are
+  many and narrow); and a word hyphenated at a block seam ("transcrip- tion") is joined
+  when the paragraphs merge. On the PMC dev corpus: 254 → 97 missing attainable
+  blocks (titles 171 → 28), zero blocks newly missing, table blocks untouched.
+- **Benchmark oracle: bound captions count as text again** (#406). The shared AST
+  projection read children only, so a caption the parser correctly bound to
+  `Figure.caption`/`Table.caption`/`Image.caption` vanished from measurement — recall
+  *fell* as figure binding improved, and 101 of the 103 "lost" captions on the held-out
+  corpus were in the output the whole time. Captions now project as text blocks on both
+  lanes (PMC schema 6, OmniDocBench oracle schema 6), and both evidence artifacts are
+  re-recorded against the corrected instrument.
+- **PDF: wrapped table cells no longer shred into one row per printed line.** The
+  word-gutter grid emitted every printed line as a table row, so a cell wrapping to
+  a second line split mid-sentence — and the old repair (merge when the leftmost
+  well-filled column is empty) was blind to three measured shapes: middle-aligned
+  cells that fill every column on continuation lines, wraps living *in* the anchor
+  column itself, and row-label columns too sparse to qualify as the anchor. Rows are
+  now recovered from three guarded signals: a jump in the inter-line gaps names the
+  rows geometrically (abandoned whole when it would fuse adjacent numeric rows, or
+  stack three-plus separate cells into one column of a merged row); a line filling
+  exactly one column tighter than the table's median gap folds up as a wrap; and the
+  anchor column may be sparse (down to 20% fill) when the merge it implies survives
+  the same fusion guards and introduces no content in columns its row start left
+  empty. On the PMC dev corpus: 34 → 26 attainable table blocks below the recall
+  bar (table-block recall 69.1% → 76.4%), dense single-line tables byte-identical.
+- **PDF: `find_tables()` grids no longer trust `Table.extract()`'s text assembly
+  blindly.** Two damage classes measured on the PMC dev corpus, both inside grids
+  whose geometry the ruling lines corroborate: cell text clipped mid-character
+  ("Contro", "0.7" for 0.75 — much of it numeric, which the letters-only split-word
+  guard ignores by design), and wrapped cells shredded into one row per printed
+  line. Extracted grids are now checked both ways — for tokens the page does not
+  contain (the existing fragment test, run on every strategy) and for page words
+  the grid lost (a new digit-aware containment test) — and on failure the cell
+  text is rebuilt from the page's own word boxes, which cannot be cut by
+  construction; a rebuild that comes back lighter than the extract is discarded
+  (rotated pages put cell rects and word boxes in different coordinate frames).
+  Logical rows are then recovered with the same guarded continuation merge the
+  word-gutter path uses, with two find_tables-specific guards: overlapping row
+  bboxes (row spans) disable the merge outright, and — because find_tables row
+  boxes tile, leaving gap geometry inert — a line only folds upward when its
+  filled columns are a subset of those its row already fills, keeping two-tier
+  headers apart. On the PMC dev corpus: 26 → 25 attainable table blocks below the
+  recall bar (table-block recall 76.4% → 77.3%), mean per-table text survival
+  0.837 → 0.853, no table regressing across the bar.
+- **PDF tables: a stray gap no longer defines what counts as a row** (#438). Row grouping
+  separates wrapped lines from row boundaries by the jump in inter-line gaps, but a
+  vertically centred multi-line cell prints *three* gap populations, not two: lines from
+  different columns interlace and go negative, a tall cell's own successive lines merely
+  abut, and real rows are separated by padding. Worse, the jump candidates are *distinct*
+  gap values, so a single stray gap could sit below the whole population and take the
+  threshold with it — on the held-out corpus's largest table one −7.95pt gap below a
+  cluster of 52 at −3.21pt turned 97 printed lines into 89 rows with nothing merged at
+  all. Jumps are now tried in order and the first whose grouping is not mostly half-empty
+  rows wins: the grouping is judged by what it produces rather than by the gap statistics
+  that proposed it.
+- **PDF: a single block printed across the gutter no longer erases a two-column page**
+  (#440). The channel test merges the blocks' x-intervals and reads the complement as the
+  gutter, which is all-or-nothing: one block bridging it fuses the two runs, the page has
+  no channel at all, and it is read line by line in y — so both columns interleave and
+  every adjacency dies, even though dozens of blocks on each side agree where the gutter
+  is. #445 and #450 handled the common culprit, page *furniture*, by trimming bands off
+  the ends; a block in the middle of the body is not reachable that way, because no band
+  trim will ever discard it. A last-resort search now asks the question the other way
+  round — for each candidate x, how many blocks does it cut? — and tolerates one crosser.
+  Three guards keep it honest. The page must name exactly **one** gutter: several is the
+  signature of an undetected table rather than a layout, and one held-out page offers
+  twelve. The two sides must be **columns**, comparable in width: a title page sets its
+  affiliations 123pt wide beside a 317pt abstract, and reading that as two columns hoists
+  the introduction above the article's own title (distance from the page centre does *not*
+  separate the two — the sidebar and a genuinely repaired reference page sit 8.9% off it
+  each). And it runs only after every other detector has read the page as a **single
+  column**, because that single-column reading is the defect it repairs; run any earlier
+  it overrides the gap fallback on five pages and costs 20 supported n-grams. Across the
+  110-article held-out corpus it moves 4 pages of 1,184, all of them from one column to
+  two, for **+31 supported n-grams and one block's containment rising 0.93 → 1.00**, with
+  no article and no block worse. Nothing is discarded: the crossing block is still
+  emitted, and every block on the page still votes.
+- **PDF: a footer printed close to the body no longer vetoes the column split** (#440). The
+  trim that stopped page furniture erasing a tight-gutter column channel banded the page at
+  24pt of clear space. Ten held-out pages set their footer 8.6–11.5pt below the last line of
+  text — tighter than the gap above many a table row — so the trim could not see them and the
+  page was read line-by-line in y, interleaving both columns. No measure of clear space can
+  separate the two cases; height can. Furniture prints a line or two, the body prints the
+  page, so a trim is now admitted by the share of the page's printed text it discards, and
+  it must cut at a band boundary rather than between arbitrary blocks. Measured against JATS
+  ground truth on the 110-article held-out corpus: 10 pages split that did not, 14 lost
+  blocks come back (13 of them reference titles), no block's share falls, and 36 of the 43
+  re-converted articles project byte-identically.
+- **PDF: a list item keeps the lines it wraps onto** (#442). Paragraph assembly refused any
+  merge touching a list item. That is right for two *items*, but it also stranded every line
+  a long item wraps onto — and a numbered bibliography is a list of long items, so a
+  reference's title and journal arrived as separate blocks from its authors, and the
+  hyphenation repair that runs at a merged seam never got the chance to run. Measured over
+  8,183 merge decisions on twelve dev-corpus articles, 151 of the 325 blocks that end
+  mid-sentence are stranded this way, and 98% of them sit 0.5–3.8pt below the item — the
+  same geometry as the wraps already merged (median 1.98pt, 95th percentile 3.67pt). A
+  continuation now joins its item on that geometry; a new list item never merges, and
+  neither does a block starting *above* its predecessor, which under a list item is a page
+  or column break rather than a wrap. Across those twelve articles: blocks 1,262 → 1,066,
+  blocks ending mid-sentence 412 → 257 (32.6% → 24.1%), median words per block 15 → 23.
+- **Benchmark oracle: a container of inline text counts as text again** (#443). The shared
+  AST projection recognised block types by name and recursed through everything else, so a
+  node holding inline content *directly* — with no `Paragraph` wrapper — fell through the
+  walk and contributed nothing. `DefinitionTerm` is the shape that exposed it: the term
+  vanished while its sibling `DefinitionDescription` survived, and survived only because it
+  happens to wrap its own content in a `Paragraph`. The projection now admits any container
+  of inline text by that *shape* rather than by a list of type names, so the next node built
+  the same way cannot reproduce the bug in silence — while comments, which carry text but
+  never print, stay excluded. On the held-out 110-article corpus this recovers 130 words
+  across 3 all2md files and 1 word of docling's, and **5 of the 113 blocks the 2026-08-23
+  lost-block census attributed to conversion defects turn out to have been emitted
+  correctly all along** — 3 of them titles. Both PDF lanes are unaffected: the PDF parser
+  emits no definition lists and wraps every list item in a `Paragraph`.
+- **PDF tables: a section heading is no longer folded onto the row above it** (#448). The
+  first cut of #438 also folded any half-empty line group into a neighbour it abutted. A
+  heading row *inside* a table — "Gender", with the indented "Male"/"Female" rows beneath
+  it — fills one column and leaves the rest empty, which is exactly the shape of a wrapped
+  fragment, so it was swallowed: its label fused onto the previous row's data and every
+  value below it came out under the wrong heading. Silently mislabelled data is worse than
+  the shredding the fold was meant to repair, and geometry cannot separate the two cases —
+  one affected table prints a single body gap value, 1.56pt, for headings and data rows
+  alike. The fold is removed; the gap-jump selection it shipped alongside is kept. Measured
+  against JATS ground truth, removing it restores table content exactly on the born-digital
+  corpus (7 pages that regressed recover, none lose) and improves the held-out corpus the
+  fold was tuned on, where it had cost 5 table pages against 3 gained.
+- **PDF: a figure or a keywords box is no longer detected as a table that swallows the
+  prose beside it** (#451). A journal first page prints its keywords next to its abstract,
+  a peer-review page prints a reviewer's comments next to an author's response, and a
+  magazine prints a figure between two columns of body text. The whitespace separating
+  them is a real gutter, so the grid the detector builds is sound and only its *content*
+  says the region is not a table — the abstract arrived as a table cell, and where the
+  region spanned two columns they interleaved line by line inside that cell. Three signals
+  must now agree before a grid is condemned: one cell of 60+ words carrying three or more
+  sentence terminators, that cell holding 60% or more of the grid's text, and a median
+  filled cell of 5+ words. No two of them suffice. Censused over the 411 tables emitted
+  across the dev and held-out corpora, twelve grids hold a long prose cell, and *dominance
+  orders two of them backwards*: a real 6×5 data grid that absorbed a figure caption
+  dominates more (70%) than an abstract printed beside its author affiliations (69%). The
+  median cell length divides that pair — values are one word, an affiliation list is
+  forty-nine — and dominance divides both from a real clinical table whose three parallel
+  case descriptions leave no cell dominant. Together they take all ten defective regions
+  and none of the other 401 grids, and the verdict does not move across any of the 81
+  threshold combinations tried. Rejected regions are demoted to paragraphs, never dropped:
+  text inside a table's bbox is removed from the ordinary text blocks before the table is
+  validated, so a guard that returned nothing would delete the region rather than fall
+  back to prose. The guard runs on both the ``find_tables()`` and word-gutter paths, which
+  is where the two shapes respectively arrive.
+- **benchmarks/pmc: a cold corpus cache no longer rejects its own directories** (#455).
+  Materializing more than one article ran the workers concurrently, and each called
+  ``mkdir(parents=True)`` on the shared ``articles/`` parent. ``Path.resolve()`` normally
+  strips Win32's ``\?\`` extended-length prefix before returning, but that strip is
+  verified against the filesystem and the verification fails while a sibling directory is
+  being created — so one worker resolved ``\?\C:\cache\…\PMC1.1`` while the corpus root
+  resolved to plain ``C:\cache\…``. ``relative_to`` compares path *parts*, and the
+  prefixed spelling begins with ``\?\C:\`` rather than ``C:\``, so the containment check
+  reported that a directory had escaped the root it was plainly inside. The check now
+  compares one spelling of each path. It was only ever a cold cache and only ever more
+  than one article — a single article materializes on the calling thread, and once
+  ``articles/`` exists there is no ``mkdir`` left to race — which is why it read as a
+  Windows flake rather than a defect. Scoring any manifest subset on a cold cache failed
+  outright; ``test_a_withdrawn_article_does_not_disturb_the_others`` was intermittently
+  red for the same reason.
+- **PDF: a display equation's variables are no longer emphasised one glyph at a time**
+  (#456). An equation is typeset glyph by glyph — each variable, operator and bracket piece
+  its own span in its own font — and an italic variable is italic *because it is a
+  variable*. Wrapping each one separately produced ``*e* *c* *e* *S* *m* *R*``: markup
+  asserting that a dozen single letters are each stressed, which is neither what the page
+  means nor anything a reader or a model can use. A line is now recognised as part of a
+  display equation when two things hold together — it carries math evidence (30%+ of its
+  spans in a symbol or TeX math font, or a Private Use codepoint anywhere in it) and it is
+  at most six words. Either test alone claims real prose: 36 corpus lines of 11–24 words
+  carry a symbol span while being sentences merely *about* mathematics, and a page is full
+  of short italic lines. Because the evidence is not spread evenly down an equation — one
+  line carries the operators in a symbol font, the next only the variables in the ordinary
+  text italic — a block whose lines are half equation lines carries the rest with it.
+  Measured over 9,417 lines of three equation-heavy articles and two without: 99% of
+  evidence-bearing lines hold two words or fewer, the first prose line to carry evidence
+  holds ten, and every word cap between 3 and 8 admits the same lines and no prose at all.
+  Across the three articles this removes 1,154 emphasis markers; both control articles are
+  byte-identical, and prose that names its variables in italics — ``mass (*m*), velocity
+  (*v*), charge (*e*)`` — keeps them.
+- **PDF: an equation split across several blocks is now recognised as one equation**
+  (#456). PyMuPDF splits a display equation wherever its glyphs stop lining up, so the
+  operators land in one block, the variables in the next and a lone subscript in a third.
+  Only some of those blocks carry font evidence; the rest are indistinguishable from prose
+  by any test applied to them alone, so ``equation (19b)`` still arrived as
+  ``*e* *c* *e* *S* *m* *R*`` after the per-block fix. Which blocks belong to an equation
+  is now decided for the whole column: blocks that carry their own evidence seed the
+  answer, and the seeds spread to a neighbouring *glyph run* — a block of more printed
+  lines than words, which is what a column of stacked glyphs looks like — printed hard
+  against one. Spreading is transitive, so an equation reaches its far side one block at a
+  time, and it stops at the first block that reads as text. Both halves of the test are
+  needed: on a page a third of which is equations, contiguity alone takes 764 blocks
+  rather than 367 and whole sentences among them, while the glyph-run signature alone
+  admits table data rows — ninety-nine of them in a dev-corpus article with no equations.
+  Together, over twenty-six articles, they admit 367 blocks across the five that carry
+  display equations and none at all across the twenty-one that do not; the distance test
+  is what keeps a running head, shredded the same way, out of the first equation below it.
+  This removes a further 1,562 emphasis markers — PMC3000079.1's count more than halves,
+  2,828 to 1,490 — while three control articles are byte-identical and prose italics
+  (``*Int. J. Mol. Sci.*``, ``*zitterbewegung*``) are untouched.
+- **`SECURITY.md`'s hardening recipes now run.** Every one of the five "best
+  practices" examples failed on import or construction: `validate_file_path` does
+  not exist, `NetworkFetchOptions.enabled` is `allow_remote_fetch`,
+  `HtmlOptions.network_fetch` is `network`, `HtmlOptions.sanitize_html` is
+  `strip_dangerous_elements`, `BaseParserOptions.max_file_size` does not exist,
+  and `ArchiveOptions` has none of `check_zip_bomb`/`max_archive_size`/
+  `max_extracted_size`. A reader who copied the remote-fetch or sanitization
+  recipe got a `TypeError`, not the hardening they asked for. All five now use
+  the real API and are executed as written. The document also claimed a
+  configurable per-file size limit, which the library has never had — the real
+  cap is `max_asset_size_bytes` on extracted and fetched assets — and undercounted
+  the core dependencies at two.
+- **The documented GitHub Action pin moves with the release.** `README.md`,
+  `docs/source/github_action.rst` and `action.yml` all showed
+  `thomas-villani/all2md@v1.10.1`. The action resolves the library version from
+  the tag it was referenced by, so copying the documented snippet gated your
+  documents with all2md 1.10.1 — three releases behind — while the surrounding
+  prose explained that the pin is what keeps thresholds meaningful. The pin is now
+  a `bump-my-version` target, so it cannot fall behind again.
+- **Sphinx no longer advertises image input.** `docs/source/index.rst` listed
+  "Images (PNG/JPEG/GIF)" as a supported format. There is no image parser and
+  `image` is not a `DocumentFormat`; a PNG falls through to the plain-text
+  fallback and comes back as mojibake.
+- **The converter comparison in `README.md` is dated and caveated.** It quoted the
+  superseded 2026-08-19 reading (0.84% / 5.5% / 2.9%) as "the 2026-08 reading"
+  when the lane now holds two, and described the corpus as one "the development
+  work has never tuned against" — no longer true, since the column-layout work
+  released since was developed against it. The figures are now the 2026-08-23
+  reading, carrying both caveats.
+
+### Security
+
+- **The Semgrep gate now scans `benchmarks/` as well as `src/`** (#328). The first
+  working run of the gate (#325) scoped it to `src/` and parked 16 findings outside
+  shipped code for triage. Triaged: the two benchmark corpus fetchers already parse
+  third-party XML through `defusedxml`; their one remaining `urlopen` against a fixed
+  https host and the annotation-only `xml.etree` import carry per-line suppressions
+  with the reasoning beside them. `tests/` and `stubs/` are excluded in
+  `.semgrepignore` -- the findings there are audit-rule hits on localhost test
+  servers, fixture XML and a content-hash MD5, none of which ships or sees untrusted
+  input -- with the exclusion documented next to the entry rather than as eleven
+  inline comments. The scan is widened to the repository root and verified clean.
+
 ## [1.13.0] - 2026-08-19
 
 ### Added
@@ -3279,7 +3571,8 @@ surfaced one real conversion bug, which is the reason to take the release.
 - NumPy-style docstrings
 - Modular architecture with clear separation of concerns
 
-[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.13.0...HEAD
+[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.14.0...HEAD
+[1.14.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.14.0
 [1.13.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.13.0
 [1.12.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.12.0
 [1.11.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.11.0
