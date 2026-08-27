@@ -32,15 +32,20 @@ SCHEMA_VERSION = 3
 #: binding improved (#406). The annotation side always counted captions as text blocks,
 #: so this removes an asymmetry rather than adding a credit.
 #:
-#: Still 6 after #443 widened ``_semantic_blocks`` to admit any container of inline text.
-#: This gate ratchets against a recorded ``baseline.json``, and the version must equal the
-#: one that baseline carries or the lane reports identity drift instead of a fidelity
-#: result -- so the number may only move together with a re-recorded baseline, which costs
-#: a 981-page OCR run. It is held back because the widening provably cannot reach this
-#: lane: it projects the PDF parser's AST, which emits no definition lists and wraps every
-#: list item in a ``Paragraph``, and 8 of 8 sampled corpus PDFs project byte-identically
-#: across the change. Bump to 7 with the next baseline re-record, whatever prompts it.
-ORACLE_SCHEMA_VERSION = 6
+#: 7 carries #443's widening of ``_semantic_blocks`` to admit any container of inline
+#: text. The projection is not expected to move: this lane projects the PDF parser's AST,
+#: which emits no definition lists and wraps every list item in a ``Paragraph``, and 8 of
+#: 8 sampled corpus PDFs project byte-identically across that change. The number was held
+#: at 6 for exactly that reason, and moves now only because a baseline was re-recorded
+#: alongside it.
+#:
+#: **This constant may only change together with a re-recorded** ``baseline.json``. The
+#: gate ratchets against that file and compares this version to the one it carries; move
+#: one without the other and the lane reports identity drift instead of a fidelity result.
+#: The recording is a 981-page OCR run, dispatched from ``omnidocbench-gate.yml`` with
+#: ``record_baseline: true`` -- and it stamps whatever this constant says at the commit it
+#: runs on, so the bump has to be on the branch *before* the run, not after it.
+ORACLE_SCHEMA_VERSION = 7
 
 
 class DegradedConversionError(RuntimeError):

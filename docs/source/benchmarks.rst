@@ -349,13 +349,13 @@ The ``omnidocbench`` lane scores 981 scanned pages against human annotation, fro
      - Value
      -
    * - ``text_content_similarity``
-     - 0.504
+     - 0.505
      - over 981 pages
    * - ``reading_order_similarity``
      - 0.603
      - over 981 pages
    * - ``block_structure_similarity``
-     - 0.400
+     - 0.399
      - **not gated** — see below
 
 ``block_structure_similarity`` is recorded but excluded from the verdict. It compares

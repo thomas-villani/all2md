@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       record_baseline:
-        description: "Upload a reviewable baseline candidate instead of gating (use for the first run)"
+        description: "Record a reviewable baseline candidate instead of gating. The candidate stamps the oracle schema version from the code it runs on, so dispatch this from the branch carrying any pending bump, not from main."
         required: false
         default: false
         type: boolean
