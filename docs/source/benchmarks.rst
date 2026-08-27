@@ -80,7 +80,7 @@ Did the text survive?
      - 62.4%
      - what the PDF's own text layer reproduces
    * - **Recall of what is attainable**
-     - **98.8%**
+     - **98.9%**
      - the number worth reading
    * - Control: the *wrong* article
      - 0.4%
@@ -98,8 +98,9 @@ The movement after that correction is the opposite kind: a parser fix (#405).
 Side-by-side regions with tight gutters — two-column reference lists above all — were
 read as one column and interleaved line-by-line, so every word survived while every
 adjacency died. Admitting those gutters on structural evidence and joining words
-hyphenated at block seams raised attainable recall from 95.4% to 98.3% (98.8% after
-the table repairs below and the furniture-trimmed column channel that followed), and
+hyphenated at block seams raised attainable recall from 95.4% to 98.3% (98.9% after
+the table repairs below, the furniture-trimmed column channel and the crossing
+tolerance that followed), and
 the held-out corpus moved the same way it was never tuned against.
 
 Raw recall is 62.3%, and that figure is close to meaningless on its own. A large share of
@@ -124,8 +125,8 @@ By block kind:
      - Share of attainable
    * - Text blocks
      - 3,160 of 6,356
-     - 3,139
-     - **99.3%**
+     - 3,142
+     - **99.4%**
    * - Titles
      - 2,291 of 2,426
      - 2,266
@@ -136,7 +137,7 @@ By block kind:
      - **82.7%**
 
 The middle column counts only blocks inside the ceiling, so each row's share is its own
-two counts divided. A few more blocks are recovered than that: 3,170 text blocks, 2,288
+two counts divided. A few more blocks are recovered than that: 3,172 text blocks, 2,288
 titles and 92 tables come out matching the ground truth, including some the PDF's own text
 layer does not reproduce. Those count as recovered and on neither side of the share, which
 is why the larger count is not the one printed here.
@@ -167,7 +168,7 @@ Unsupported output is therefore split in two:
      - Share
      - Meaning
    * - Supported
-     - **95.4%**
+     - **95.5%**
      - the n-gram appears in the document's text layer
    * - Resequenced
      - 4.1%
@@ -182,7 +183,7 @@ Unsupported output is therefore split in two:
      - 0.7%
      - wants to be ~0%
 
-Over 445,456 emitted n-grams, 1,926 are novel. Reporting the raw unsupported figure instead
+Over 445,452 emitted n-grams, 1,911 are novel. Reporting the raw unsupported figure instead
 would have made the result roughly ten times worse than the parser deserves.
 
 Duplication is counted apart from both, because it is invisible to either. Text emitted
@@ -214,30 +215,30 @@ Tables
 The bottleneck has moved. An earlier recording under-emitted — 92 tables against 121
 expected, with detection refusing to commit on the borderless *booktabs*-style tables
 journals actually print — and after word-gutter grids and two-column regions were admitted
-behind measured guards, the artifact reads **164 emitted against 121
-expected**, with tables emitted on 120 pages
+behind measured guards, the artifact reads **162 emitted against 121
+expected**, with tables emitted on 119 pages
 against the 94 that carry one in the ground truth.
 
 The surplus is not invention, and that is now measured rather than asserted. Every table
-emitted on a page carrying more tables than the ground truth expects — **58** of them — is
+emitted on a page carrying more tables than the ground truth expects — **56** of them — is
 put to two questions. The first does not involve JATS at all: does the PDF's own text layer
 hold this table's words? Text in the layer was printed on the page, so a table failing here
-is the only kind that could have been invented. **58 of 58** pass. The second asks where
+is the only kind that could have been invented. **56 of 56** pass. The second asks where
 that text sits in the ground truth, and the verdict that would matter is prose committed to
-a grid — a parser turning running text into a table it invented. That is **0 of 58**.
+a grid — a parser turning running text into a table it invented. That is **0 of 56**.
 
-Only 41 of the 58 also match the *order* of the text layer, and that gap is a grid doing its
+Only 41 of the 56 also match the *order* of the text layer, and that gap is a grid doing its
 job rather than a fault: re-cutting a page's words into cells changes their adjacency, which
 is why the invention test is asked of the words and not of the 5-grams.
 
-What the surplus is instead is accounting, with two named causes. **16** of the 58 trace to a
+What the surplus is instead is accounting, with two named causes. **16** of the 56 trace to a
 JATS ``<table>`` that the expected count assigns to another page — a table continuing across
 a page break is one ``<table-wrap>`` and several printed tables, and the expected count does
 not credit continuations. And **19** ``<table-wrap>`` elements across five articles carry no
 ``<table>`` markup at all: those publishers deposited their tables as images, so the ground
 truth holds no cell text for them and the tables those pages print can never reach the
 expected side, however well they are extracted. Those five articles alone contribute 20 of
-the **42** tables the census files outside JATS.
+the **40** tables the census files outside JATS.
 
 The other 22 are in the page's own text layer and match no JATS block in order. The
 instrument stops there rather than guessing: it does not distinguish text JATS never
@@ -282,27 +283,27 @@ pages:
      - Wrong page
      - Gap
    * - ``reading_order_similarity``
-     - 0.828
+     - 0.829
      - 0.291
      - **0.537**
    * - ``text_content_similarity``
-     - 0.682
+     - 0.683
      - 0.233
-     - **0.448**
+     - **0.450**
    * - ``table_content_similarity``
-     - 0.606
+     - 0.611
      - 0.039
-     - **0.567**
+     - **0.572**
    * - ``table_structure_similarity``
-     - 0.617
-     - 0.093
-     - **0.523**
+     - 0.622
+     - 0.094
+     - **0.528**
    * - ``block_structure_similarity``
-     - 0.549
-     - 0.444
+     - 0.550
+     - 0.446
      - 0.104 — **not gated**
 
-The two table dimensions score only the 124 pages that carry a table on either side; the
+The two table dimensions score only the 123 pages that carry a table on either side; the
 other three score all 706.
 
 The middle column is each dimension scored against the *wrong* page of the same article, and
