@@ -50,7 +50,8 @@ all2md implements several security measures to protect against common vulnerabil
 
 - **File Format Validation**: Multi-stage format detection (extension, MIME type, magic bytes)
 - **Path Traversal Protection**: Validates file paths to prevent directory traversal attacks
-- **File Size Limits**: Configurable limits to prevent resource exhaustion
+- **Asset Size Limits**: Configurable caps on embedded and fetched assets
+  (`max_asset_size_bytes`) to prevent resource exhaustion
 
 ### 2. Network Security
 
@@ -68,14 +69,17 @@ all2md implements several security measures to protect against common vulnerabil
 
 ### 4. HTML/Document Security
 
-- **HTML Sanitization**: Optional HTML content sanitization using bleach
+- **HTML Sanitization**: Optional stripping of dangerous elements and attributes
+  (`strip_dangerous_elements`), using bleach when the `sanitizer` extra is installed
 - **JavaScript Removal**: Strips JavaScript from HTML documents
 - **Attribute Sanitization**: Removes dangerous HTML attributes
 - **Sandboxed Rendering**: HTML rendering uses security-conscious defaults
 
 ### 5. Dependency Security
 
-- **Minimal Core Dependencies**: Core library has only 2 dependencies (tomli-w, pyyaml)
+- **Minimal Core Dependencies**: Core library has three runtime dependencies
+  (tomli-w, pyyaml, platformdirs), plus tomli and typing_extensions as
+  backports on Python 3.10
 - **Optional Dependencies**: Install only what you need, reducing attack surface
 - **Regular Updates**: Dependencies are regularly updated via Dependabot
 - **Security Scanning**: Automated dependency vulnerability scanning
@@ -95,11 +99,26 @@ When using all2md, follow these best practices:
 
 ```python
 from all2md import to_markdown
-from all2md.utils.security import validate_file_path
+from all2md.utils.security import resolve_file_url_to_path, validate_local_file_access
 
-# Always validate file paths before processing
-file_path = validate_file_path(user_provided_path)
-markdown = to_markdown(file_path)
+# Decide explicitly whether a user-supplied file:// URL may be read
+if not validate_local_file_access(
+    user_provided_url,
+    allow_local_files=True,
+    local_file_allowlist=["/srv/uploads"],
+):
+    raise PermissionError(user_provided_url)
+
+markdown = to_markdown(resolve_file_url_to_path(user_provided_url))
+```
+
+When you write attachments out, validate the destination the same way:
+
+```python
+from all2md.utils.security import validate_safe_output_directory
+
+# Raises SecurityError on ../ traversal or a sensitive system directory
+output_dir = validate_safe_output_directory("./attachments")
 ```
 
 ### 2. Disable Remote Fetching in Production
@@ -108,11 +127,11 @@ markdown = to_markdown(file_path)
 from all2md import to_markdown, HtmlOptions
 from all2md.options.common import NetworkFetchOptions
 
-# Disable remote fetching for untrusted input
+# Remote fetching is already off by default; this states it explicitly
 network_opts = NetworkFetchOptions(
-    enabled=False,  # Disable all remote fetching
+    allow_remote_fetch=False,  # Disable all remote fetching
 )
-html_opts = HtmlOptions(network_fetch=network_opts)
+html_opts = HtmlOptions(network=network_opts)
 markdown = to_markdown('document.html', parser_options=html_opts)
 ```
 
@@ -122,33 +141,53 @@ markdown = to_markdown('document.html', parser_options=html_opts)
 from all2md import to_markdown, HtmlOptions
 
 # Enable HTML sanitization for untrusted HTML content
-opts = HtmlOptions(sanitize_html=True)
+opts = HtmlOptions(
+    strip_dangerous_elements=True,  # Remove script, style, event handlers
+    strip_comments=True,            # Drop comments (on by default)
+)
 markdown = to_markdown('untrusted.html', parser_options=opts)
 ```
 
-### 4. Set File Size Limits
+Add `strip_framework_attributes=True` when the converted output will be
+re-rendered in a browser running Alpine/Vue/Angular/HTMX. See
+[HTML sanitization](docs/source/security.rst) for the full element and
+attribute lists.
+
+### 4. Cap Asset Sizes
+
+all2md does not impose a limit on the size of the document you hand it — check
+that yourself before calling `to_markdown`. What it does cap is the size of any
+asset it extracts or fetches out of that document:
 
 ```python
-from all2md import to_markdown
-from all2md.options.base import BaseParserOptions
+from all2md import to_markdown, HtmlOptions
 
-# Set reasonable file size limits
-opts = BaseParserOptions(max_file_size=10 * 1024 * 1024)  # 10 MB
-markdown = to_markdown('document.pdf', parser_options=opts)
+# Refuse to pull in any single asset larger than 10 MB (default: 50 MB)
+opts = HtmlOptions(max_asset_size_bytes=10 * 1024 * 1024)
+markdown = to_markdown('document.html', parser_options=opts)
 ```
 
 ### 5. Validate Archive Contents
 
+Zip-bomb and path-traversal checks run automatically on every ZIP-backed
+format (`.zip`, `.docx`, `.pptx`, `.xlsx`, `.epub`). To tighten the thresholds,
+or to screen an archive before handing it over, call the validator directly:
+
 ```python
 from all2md import to_markdown
 from all2md.options.archive import ArchiveOptions
+from all2md.utils.security import validate_zip_archive
 
-# Enable security checks for archives
-opts = ArchiveOptions(
-    check_zip_bomb=True,
-    max_archive_size=100 * 1024 * 1024,  # 100 MB
-    max_extracted_size=500 * 1024 * 1024,  # 500 MB
+# Raises ZipFileSecurityError if the archive looks like a bomb
+validate_zip_archive(
+    'archive.zip',
+    max_compression_ratio=50.0,          # default 100.0
+    max_uncompressed_size=500 * 1024 * 1024,  # default 1 GB
+    max_entries=1000,                    # default 10000
 )
+
+# Limit how far nested archives are followed
+opts = ArchiveOptions(max_depth=2)
 markdown = to_markdown('archive.zip', parser_options=opts)
 ```
 
@@ -169,13 +208,13 @@ markdown = to_markdown('archive.zip', parser_options=opts)
 ### 3. HTML Documents
 
 - HTML can contain embedded scripts and external resources
-- Use `sanitize_html=True` for untrusted content
+- Use `strip_dangerous_elements=True` for untrusted content
 - External resources (images, CSS) are not fetched by default
 
 ### 4. Archive Formats
 
 - Nested archives can cause resource exhaustion
-- ZIP bombs are detected but configure appropriate limits
+- ZIP bombs are detected; use `validate_zip_archive` to tighten the limits
 - Always validate extracted file paths
 
 ### 5. MCP Server

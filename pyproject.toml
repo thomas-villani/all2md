@@ -541,6 +541,31 @@ filename = "mcpb/pyproject.toml"
 search = '>={current_version}'
 replace = '>={new_version}'
 
+# The composite action lives in this repository, so its documented pin has to
+# move with the release or users are gated at an old library version -- the pin
+# sat at v1.10.1 across three releases before this was automated. `default: ""`
+# in action.yml resolves the version from the tag the action was referenced by,
+# so these are documentation pins only; there is no separate version to bump.
+[[tool.bumpversion.files]]
+filename = "README.md"
+search = "all2md@v{current_version}"
+replace = "all2md@v{new_version}"
+
+[[tool.bumpversion.files]]
+filename = "docs/source/github_action.rst"
+search = "all2md@v{current_version}"
+replace = "all2md@v{new_version}"
+
+[[tool.bumpversion.files]]
+filename = "docs/source/github_action.rst"
+search = "``@v{current_version}`` installs all2md {current_version}"
+replace = "``@v{new_version}`` installs all2md {new_version}"
+
+[[tool.bumpversion.files]]
+filename = "action.yml"
+search = "@v{current_version} gates with all2md {current_version}"
+replace = "@v{new_version} gates with all2md {new_version}"
+
 # uv.lock records the project's own version. Anchor the match on the preceding
 # `name = "all2md"` line: a bare version search would also match any dependency
 # that happens to be pinned at the same version. Without this, a release tag
