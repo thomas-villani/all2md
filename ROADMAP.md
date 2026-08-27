@@ -6,6 +6,54 @@
 Legend: 🌱 natural next step · 🚀 ambitious · 🌙 moonshot · ✅ foundation already exists
 · 🚢 **shipped**
 
+**Status (2026-08-27).** The born-digital arc that began with the comparison lane is
+**closed, and ships as v1.14.0** — 40 commits since v1.13.0. On the development corpus,
+against the reading v1.13.0 shipped with (same corpus pin, same runner): attainable recall
+**94.7% → 98.9%**, tables **69.1% → 82.7%**, titles 92.5% → 98.9%, text blocks 97.2% →
+99.4%, supported share 92.9% → 95.5%, novel share **1.00% → 0.43%**. The table trade that
+v1.13.0 published honestly — cell extraction bought structure at the cost of text survival —
+is repaid: tables are no longer the worst dimension on this lane.
+
+The defect stream past leg 3 ran on geometry rather than tables. Column detection took three
+fixes, each a different way for one block to erase a page: a footer vetoing the channel it
+cannot interleave (#445), page furniture measured by *height* rather than distance from the
+body (#450 — the 24pt band could not see footers printed 8.6–11.5pt below it), and a
+proportional crossing tolerance (#460). Display equations took two (#457, #458): 2,716
+emphasis markers removed, controls byte-identical, all 149 scored fields unchanged both
+times. Plus clipped-textbox ghost text (#436 — `get_textbox()` ignores `TEXT_CLIP` and
+returns text the page erases), figures emitted where they are printed (#430), fenced prose
+no longer committed to a grid (#453), list items keeping the lines they wrap onto (#454),
+and a Windows corpus-cache bug that read as a flake for weeks and was deterministic (#459).
+Both lanes were re-recorded and the OmniDocBench oracle moved to schema 7.
+
+**Three results worth keeping because they are negative.** #442's over-segmentation is
+**not reachable by merge policy** — both directions were measured and rejected (merging
+across math needs semantics and is one document; refusing math/prose merges shatters blocks
+448 → 1193 and median words 19 → 3). The defect is *interleaving*, upstream of paragraph
+assembly, so do not raise `MERGE_THRESHOLD` at it. #448 showed a proxy metric that could not
+see its own worst outcome: the half-empty-row rate is *anti*-correlated with row-merge
+quality, because a section heading row is legitimately half-empty. And excluding rotated
+text from column detection moves 25 pages and recovers **zero** blocks.
+
+**The holdout is contaminated, and that is the most important fact on this page.** The
+110-article corpus this roadmap has repeatedly described as one "development never tunes
+against" no longer has that property: #445, #450 and #460 were all developed directly
+against its recorded geometry, its JATS ground truth and its `lost_blocks.json` to choose
+rules and thresholds. The table and equation work used the development corpus and is less
+affected — it is specifically the **column axis** that is compromised. Consequence: the
+2026-08-23 comparison reading is both stale (it predates seven merged fixes) and biased;
+quote it as a dated snapshot, never as a current held-out score. **The next instrument work
+is a corpus refresh behind a genuinely sealed holdout** — read once, after the refresh —
+and the layout should make contamination hard rather than merely discouraged, since today
+the dev and holdout caches sit side by side under `benchmarks/pmc/.cache/` with nothing
+between them.
+
+After that, **tables are the next quality target on evidence**: on the last comparison
+reading Docling still leads table-cell preservation (82.2% against 77.4%) and all2md emits
+238 tables against 166 expected — the worst over-emission of the three tools. The engineering
+batch order is unchanged: the outward push (13), then the DOCX fidelity batch (21), then
+Theme 8 Stages 2–3.
+
 **Status (2026-08-20).** Legs 1 and 2 of the comparison's defect stream are **landed**.
 Leg 1 ([#412](https://github.com/thomas-villani/all2md/pull/412)): the caption-blind oracle
 is fixed with both artifacts re-recorded, [#257](https://github.com/thomas-villani/all2md/issues/257)'s
@@ -32,6 +80,9 @@ holdout validation: table survival 69.9% → **76.0%** on the sealed 110-article
 (+6.1 against dev's +8.2 — same direction, no overfit signature; the gap to Docling's
 82.2% narrows from 12.3 to 6.2 points). The comparison arc is complete; the next table
 lever is [#419](https://github.com/thomas-villani/all2md/issues/419).
+*(Superseded — #419 landed as [#424](https://github.com/thomas-villani/all2md/pull/424) and
+is closed, as is #414. The next table lever is over-emission, not extraction; see the
+2026-08-27 status.)*
 
 **Status (2026-08-19).** Batch 12 — **Figures & the born-digital queue** — is complete and
 ships as **v1.13.0**: the figure pipeline ([#338](https://github.com/thomas-villani/all2md/issues/338),
@@ -48,7 +99,9 @@ extraction instead of flowing out as prose) — and the fidelity page states the
 than netting it.
 
 Two new instruments landed with the batch. A **held-out 110-article corpus**
-(`manifest-holdout.json`) that development never tunes against — its first validation run
+(`manifest-holdout.json`) that development never tunes against — *no longer true as of
+2026-08-27, see that status block; the column work was tuned against this corpus* — its
+first validation run
 landed within a point of the development corpus on every text instrument, so the v1.13
 numbers are not overfit. And the head-to-head comparison this roadmap once declared
 **not planned** got built anyway (`benchmarks/comparison/`), on exactly the terms the
@@ -154,7 +207,8 @@ batch's rule was to demonstrate every gate red before trusting it. The correctio
 applies to the gates *guarding the release*, not only to the ones measuring quality, and that
 a gate demonstrated red once can rot back to green when its dependencies move underneath it.
 
-Second, **skepticism needs measuring too.** Sequencing item 8 below used to carry a caveat
+Second, **skepticism needs measuring too.** The v1.12.0 PDF defect stream (sequencing,
+below) used to carry a caveat
 doubting the "OCR collapses a page to one block" blocker, on the grounds that the lane
 reported ~13 blocks per annotated region. [#279](https://github.com/thomas-villani/all2md/issues/279)
 checked it: `block_structure_similarity` is a *symmetric* granularity ratio, so 0.077
@@ -1019,68 +1073,33 @@ CPU core.
 
 ## Suggested sequencing
 
-**Shipped in the Fidelity & Trust batch** (**v1.9.0**, 2026-07-15): round-trip fidelity
-scoring 🚢, conversion confidence report 🚢, DOCX character-style round-trip 🚢, search-index /
-conversion-cache correctness 🚢, conversion optimizer 🚢 (the batch capstone), the DOCX/HTML
-round-trip asymmetries #70/#71/#72 🚢, and the Markdown round-trip losses 🚢 that the new
-`benchmarks/roundtrip` harness surfaced.
+**Shipped, items 1–10.** Five batches, each ledgered in `CHANGELOG.md` at more detail
+than belongs in a planning document: **v1.9.0** Fidelity & Trust (round-trip scoring,
+confidence report, conversion optimizer, the DOCX/HTML round-trip asymmetries) · **v1.10.1**
+Quality & Speed Ratchets (the three harnesses gating CI against committed baselines; startup
+230 → 162 ms) · **v1.11.0** External ground truth (the OmniDocBench lane and its baseline;
+the fuzzer backlog, `KNOWN_INVARIANT_GAPS` down to one) · **v1.12.0** Born-digital ground
+truth (the `benchmarks/pmc` lane, the ~dozen PDF fixes it found, Theme 8 Stage 1, and the
+published figures) · **v1.13.0** Figures & the born-digital queue (see item 12).
 
-**Shipped in the Quality & Speed Ratchets batch** (**v1.10.1**, 2026-07-27). Deliberately
-*invisible* — no API change, no new library feature — so it cut as a patch release:
+Two decisions from those batches are kept here because they are *constraints*, not history:
 
-1. 🚢 **The three harnesses now gate CI against committed baselines** — `corpus`,
-   `roundtrip`, `startup` (Theme 2). Regressions fail.
-2. 🚢 **Startup performance** — the scaling bug was real: `all2md.options` re-exports lazily
-   now, options modules 31 → 4, `import all2md` 230 → 162 ms and `--version` 246 → 178 ms on
-   CI. `performance.rst` is reconciled — the hand-authored tables are gone rather than
-   restated, and the startup work finally has a docs page.
-3. ⏸️ **Docker image — parked**, and worth recording why so it isn't revived by accident. Its
-   stated justification was to be the reproducible environment the ratchet compares in. That
-   turned out to be wrong: the corpus benchmark's reproducibility problem was its *manifest*
-   (arxiv queries live, POI tracks `trunk`), not the environment, so no amount of VM pinning
-   would have helped. It also cuts against the one-click `uv` install direction. **Do not
-   restart this without a fresh, container-specific justification.**
-4. 🚢 **GitHub Action, re-scoped** — shipped as a conversion-quality gate. Two deviations,
-   both forced by (3) being parked and both improvements: **composite, not Docker**
-   (`pip install all2md[all]` covers the deps that argued for a container), and **`action.yml`
-   at this repo's root, not a separate repo** — the gate's verdict *is* the library's score,
-   so an action that could version-drift from the library would silently redefine every
-   consumer's threshold. A Marketplace listing is a separate, public call and is **not** done.
-
-**Shipped in the External ground truth batch** (**v1.11.0**). Two halves, as planned:
-
-5. 🚢 **The OmniDocBench lane, with a recorded baseline** (Theme 2). The normalized result
-   records each aggregate, denominator, and sample variance; the gate rejects zero variance,
-   so a metric cannot pass merely because an evaluator path stayed constant. Two metric
-   defects were found and fixed *before* the baseline was recorded, both of which the run
-   reported as a pass.
-6. 🚢 **The fuzzer backlog** (#204's half). Seven crash classes and eleven invariant gaps
-   fixed across #206–#212 and #235–#240; `KNOWN_INVARIANT_GAPS` is down to one entry
-   (#237's markdown arm, which is a deliberate open question rather than a defect).
-
-**Shipped in the Born-digital ground truth batch** (**v1.12.0**). Four halves, which is one
-more than planned:
-
-7. 🚢 **The `benchmarks/pmc` lane** (Theme 2) — pinned publisher-PDF corpus, JATS ground
-   truth, content-only page alignment, controls on every figure, ungated on fidelity by
-   design. See the Theme 2 entry.
-8. 🚢 **The PDF defect stream it opened** — column ordering, dehyphenation of rescued table
-   text, list-item boundaries, symbol-font markers, wrapped headings, math-glyph headings,
-   styled-run line joins, auto-OCR firing on the scan shape rather than total image area, and
-   borderless table recovery from layout-predicted regions. Roughly a dozen fixes, each
-   found by measurement rather than by report.
-9. 🚢 **Theme 8 Stage 1** — OCR block segmentation and reading order
-   ([#280](https://github.com/thomas-villani/all2md/pull/280)). See Theme 8.
-10. 🚢 **The numbers, published** — `docs/source/benchmarks.rst` and a PDF conversion guide
-    (`docs/source/pdf.rst`), the first of which puts every figure beside its control and is
-    candid about tables being the worst area. Plus the gate repairs the batch turned up:
-    Semgrep, `report-fail-under`, the workflow losing an exit status to `tee`, and one shared
-    declaration of which dimensions may support a verdict.
+- ⏸️ **Docker — parked, and do not restart without a fresh, container-specific
+  justification.** Its stated purpose was to be the reproducible environment the ratchet
+  compares in. That was wrong: the corpus benchmark's reproducibility problem was its
+  *manifest* (arxiv queries live, POI tracks `trunk`), not the environment, so no amount of
+  VM pinning would have helped. It also cuts against the one-click `uv` install direction.
+- 🚢 **The GitHub Action is composite and lives at this repo's root, not in a separate
+  repo** — deliberately, because the gate's verdict *is* the library's score, so an action
+  that could version-drift from the library would silently redefine every consumer's
+  threshold. The documented pin is a `bump-my-version` target as of v1.14.0 for exactly that
+  reason. A Marketplace listing is a separate, public call and is **not** done — it is in
+  item 13's scope.
 
 **Remaining, ordered by leverage-per-effort.**
 
 11. 🚢 **Restore the PMC corpus to 66 articles** ([#332](https://github.com/thomas-villani/all2md/issues/332),
-    Theme 2) — *done post-v1.12.0, in `[Unreleased]`.* The replacement was drawn by
+    Theme 2) — *done post-v1.12.0; shipped in v1.13.0.* The replacement was drawn by
     re-walking the one seed through the committed stride and filter rather than hand-picked,
     the reference and the published figures moved **in the same change**, and the published
     page is now *checked* against the artifacts it cites — a stale figure there used to read
@@ -1201,7 +1220,9 @@ more than planned:
     drift**, recorded the way the async facade's demotion was: three batches running, this
     item has lost the leverage-per-effort contest to measurable defect streams, and that was
     correct while the PDF stream was rich. The PDF residue is now named and small
-    (#419, #414, caption snapping), DOCX has an agreed spike sequence *and* a new
+    (#419, #414, caption snapping — the first two closed since, leaving #440 and #442 open
+    and neither reachable by the levers already tried), DOCX has an agreed spike sequence
+    *and* a new
     ground-truth instrument (`wordlive`, Theme 2), so DOCX goes first. Stages 2–3 are next
     after it, and structured extraction (item 19) stays queued directly behind Stage 3.
 18. **Script coverage in the benchmarks** (Theme 2, cheap, blind spot). Every corpus here is
