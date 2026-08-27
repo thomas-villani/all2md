@@ -108,6 +108,9 @@ benchmarks/omnidocbench/.cache/
 # Born-digital ground truth: article bytes are fetched, never committed. The manifest
 # beside them IS committed -- it is what pins the corpus in place of a dataset revision.
 benchmarks/pmc/.cache/
+# The held-out corpus materializes under its own root, so reaching for it is a deliberate
+# act with a different path rather than an accident of the default cache.
+benchmarks/pmc/.cache-holdout/
 
 .claude/
 broken/

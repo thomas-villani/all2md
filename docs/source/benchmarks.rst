@@ -57,11 +57,19 @@ pinned by a committed manifest of per-file SHA-256 digests, revalidated on every
 The figures below are :file:`benchmarks/pmc/reference.json`, recorded on Linux with
 dependencies resolved from the lockfile. It covers **66 articles and 706 pages**.
 
-A second manifest, :file:`benchmarks/pmc/manifest-holdout.json`, pins a 110-article
+A second manifest, :file:`benchmarks/pmc/manifest-holdout.json`, pins a 103-article
 **held-out** corpus drawn from bucket regions the committed manifest never touched.
 Development tunes against the 66; the held-out set exists to be scored and never tuned
-against, so the figures here can be checked for overfitting. Its first validation run
-landed within a point of the development corpus on every text instrument.
+against, so the figures here can be checked for overfitting.
+
+That corpus was **redrawn on 2026-08-27**, because the previous one stopped being held
+out: column and table work had been tuned against it, and its article ids had reached six
+tracked files. It is retained as a second development corpus,
+:file:`benchmarks/pmc/manifest-tuned.json`, and every published comparison figure older
+than that date was measured on it and is in-sample. The fresh corpus materializes under
+its own cache root and a test now fails if any tracked file names one of its articles;
+:file:`benchmarks/pmc/README.md` carries the record. **It has not been scored yet** — the
+first reading of it will be the first genuinely held-out number since v1.13.0.
 
 Did the text survive?
 ~~~~~~~~~~~~~~~~~~~~~

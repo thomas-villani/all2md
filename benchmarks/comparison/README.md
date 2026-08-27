@@ -14,10 +14,18 @@ execute two third-party ML stacks and takes hours of CPU. Its job is to produce
 
 The numbers are only comparable because of four rules, all of which cost us something:
 
-1. **Held-out corpus only.** The 110 articles of
+1. **Held-out corpus only.** The 103 articles of
    `benchmarks/pmc/manifest-holdout.json` — the corpus development work has never tuned
-   against. Comparing on the 66-article development corpus would flatter all2md with
-   in-sample numbers.
+   against. Comparing on a development corpus would flatter all2md with in-sample numbers.
+   Materialize it under its own cache root: `python -m benchmarks.pmc load --manifest
+   benchmarks/pmc/manifest-holdout.json --cache benchmarks/pmc/.cache-holdout`.
+
+   **This corpus was redrawn on 2026-08-27, and every reading below predates it.** The
+   holdout those readings used is now `benchmarks/pmc/manifest-tuned.json`: it had been
+   tuned against — six tracked files name its articles, five of them source or tests — so
+   its numbers are in-sample and are labeled that way here. `benchmarks/pmc/README.md`
+   carries the full burn record. Nothing below has been re-measured against the fresh
+   corpus yet, so read every figure in this file as a **dated, in-sample** reading.
 2. **Baselines run at their defaults.** The comparison is against what a user of each
    tool gets without tuning. all2md runs the PMC lane's parser policy (layout analysis
    enabled, OCR auto) — its own measured configuration, disclosed rather than hidden.
@@ -41,9 +49,10 @@ tools — and text survival alone structurally favors low-structure converters: 
 highest-recall converter imaginable dumps the raw text layer with no structure at all.
 Quote these numbers with that asymmetry attached.
 
-## Reading, 2026-08-23 (`results-2026-08-23.json`)
+## Reading, 2026-08-23 (`results-2026-08-23.json`) — in-sample, superseded corpus
 
-110 of 110 articles converted by every tool; zero conversion failures anywhere.
+110 of 110 articles converted by every tool; zero conversion failures anywhere. Measured
+on what is now `manifest-tuned.json`; see ground rule 1.
 
 | | all2md @ 073e4da | pymupdf4llm 1.28.2 | docling 2.120.3 |
 | --- | --- | --- | --- |
