@@ -42,11 +42,21 @@ against its recorded geometry, its JATS ground truth and its `lost_blocks.json` 
 rules and thresholds. The table and equation work used the development corpus and is less
 affected — it is specifically the **column axis** that is compromised. Consequence: the
 2026-08-23 comparison reading is both stale (it predates seven merged fixes) and biased;
-quote it as a dated snapshot, never as a current held-out score. **The next instrument work
-is a corpus refresh behind a genuinely sealed holdout** — read once, after the refresh —
-and the layout should make contamination hard rather than merely discouraged, since today
-the dev and holdout caches sit side by side under `benchmarks/pmc/.cache/` with nothing
-between them.
+quote it as a dated snapshot, never as a current held-out score.
+
+**Done 2026-08-27: the corpus has been refreshed behind a sealed holdout.** The burned
+110-article set is retained as a second development corpus (`manifest-tuned.json`) — its
+exemplars are real and the tests citing them are good tests — and a fresh **103-article**
+holdout was drawn at `--seed-offset 125000`, disjoint from both. The audit that motivated
+it found the contamination was **wider than the column axis this page claimed**: six
+tracked files named held-out articles, and two of them are table work
+(`test_pdf_wrapped_cell_rows.py` transcribes a holdout table verbatim; `_pdf_tables.py`
+cites another in a comment). So the table figures were in-sample too. The seal is
+mechanical rather than advisory: a separate cache root, and
+`tests/unit/test_pmc_holdout_seal.py`, which fails if any tracked file names a held-out
+article — run against the retired corpus it catches all six historical leaks. **The fresh
+holdout has not been scored yet**; that first reading is the next instrument step and will
+be the first genuinely held-out number since v1.13.0.
 
 After that, **tables are the next quality target on evidence**: on the last comparison
 reading Docling still leads table-cell preservation (82.2% against 77.4%) and all2md emits

@@ -6,7 +6,11 @@ separate venv that has pymupdf4llm/docling but not this repository, so they read
 ``articles.json`` this writes instead of importing anything from here.
 
 The corpus must already be materialized: ``python -m benchmarks.pmc load --manifest
-benchmarks/pmc/manifest-holdout.json``.
+benchmarks/pmc/manifest-holdout.json --cache benchmarks/pmc/.cache-holdout``.
+
+The holdout has its own cache root on purpose.  Sharing the default `.cache` with the
+development corpus is how the previous holdout was burned: both sat side by side, and
+reaching into the wrong one took no deliberate act.  Naming a different path does.
 """
 
 from __future__ import annotations
@@ -22,7 +26,7 @@ sys.path.insert(0, str(REPO))
 from benchmarks.pmc import corpus  # noqa: E402
 
 snapshot = corpus.load_corpus(
-    REPO / "benchmarks" / "pmc" / ".cache",
+    REPO / "benchmarks" / "pmc" / ".cache-holdout",
     manifest_path=REPO / "benchmarks" / "pmc" / "manifest-holdout.json",
 )
 rows = [

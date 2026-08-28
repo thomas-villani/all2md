@@ -132,29 +132,82 @@ than committing a manifest that a bad link quietly thinned out.
 
 ## The held-out corpus
 
-`manifest-holdout.json` pins a **second, disjoint corpus of 110 articles** that the
-development work has never been tuned against. The 66-article corpus above has been the
-instrument for every table, heading and OCR change on the born-digital path — which makes
-it a development set, and makes any number measured on it alone an in-sample number.
+`manifest-holdout.json` pins a **third corpus of 103 articles, disjoint from both corpora
+above**, that development work has never been tuned against. The 66-article
+`manifest.json` has been the instrument for every table, heading and OCR change on the
+born-digital path — which makes it a development set, and makes any number measured on it
+alone an in-sample number.
 
 The held-out set is drawn by the same selection rules from **offset seed anchors**
-(`build --seed-offset 250000 --per-seed 5`): each build's walk consumes only a few hundred
-prefixes past its anchors, so anchors shifted by 250k list bucket regions the committed
-manifest's walk never touched. Expected disjointness is still verified, not assumed —
-**zero article overlap** with the committed manifest, checked at build time.
+(`build --seed-offset 125000 --per-seed 5 --cache .cache-holdout`): each build's walk
+consumes only a few hundred prefixes past its anchors, so shifted anchors list bucket
+regions the other walks never touched. The offset makes disjointness *expected*; the test
+below makes it *evidence*.
 
-Build ledger (2026-08-18): 184 candidates, 110 accepted, 45 rejected `no_paragraphs`
-(the scanned back-catalogue filter, same as the main build), 29 `pdf_missing`
-(XML-only deposits), 0 network losses.
+Build ledger (2026-08-27): 238 candidates, 103 accepted, 113 rejected
+`no_vector_drawings`, 18 `pdf_missing` (XML-only deposits), 4 `no_paragraphs`, 0 network
+losses.
+
+**Twenty of the 22 era-seeds returned a full 5; two returned 0 and 3.** Both barren seeds
+burned their whole 60-candidate budget on `no_vector_drawings`, and the quota was *not*
+forced by walking further, because walking further into a barren run means drawing five
+articles from the one publisher's template that made it barren — the monoculture `stride`
+exists to prevent. 103 across 20 eras is the honest draw; 110 across 22 would have been a
+manufactured one.
+
+The two regions were probed rather than assumed, and they are not the same failure:
+
+- `PMC2125xxx` deposits **rasterized pages that still carry a text layer and JATS
+  paragraphs** — one image and zero drawings per page, 2,000+ characters of text. Here the
+  vector-drawings arm is doing exactly its documented job: catching the scan that the
+  `<p>` test could not see.
+- `PMC9625xxx` deposits **short born-digital pieces with no graphics at all** — two pages,
+  a real text layer, zero images and zero drawings. These are born-digital by every
+  meaning the corpus intends, and the filter rejects them anyway.
+
+So the second arm is **not only a backstop**, and the earlier builds could not have shown
+it: `manifest.json` and `manifest-tuned.json` both record `no_vector_drawings: 0`, so the
+arm had never once fired before this build. It is left exactly as it is here — changing
+the filter between corpora would buy a few short articles at the cost of the thing that
+makes the three sets comparable — but it is now a known, quantified bias: **the corpora
+under-represent short graphics-free articles**, and that is a selection property to
+disclose, not a result.
 
 Rules for keeping it held-out:
 
 - **Score against it; do not tune against it.** A guard threshold or strategy choice read
   off this corpus moves it into the development set, and the next held-out set has to be
   drawn from fresh anchors.
-- Use it through the same commands with `--manifest benchmarks/pmc/manifest-holdout.json`.
-- Published comparisons (against other converters, or in the docs) quote this corpus;
-  the 66-article corpus's numbers are development figures and are labeled as such.
+- Use it through the same commands with `--manifest benchmarks/pmc/manifest-holdout.json
+  --cache benchmarks/pmc/.cache-holdout`. **The separate cache root is part of the seal**:
+  the previous holdout sat beside the development corpus under one `.cache`, where
+  reaching into the wrong one took no deliberate act.
+- Published comparisons (against other converters, or in the docs) quote this corpus; the
+  66-article corpus's numbers are development figures and are labeled as such.
+- `tests/unit/test_pmc_holdout_seal.py` **enforces the first rule instead of stating it**:
+  it fails if any tracked source, test, doc or config file names a held-out article.
+
+## `manifest-tuned.json` — the corpus that was held out, and was burned
+
+`manifest-tuned.json` is the 110-article set drawn at `--seed-offset 250000` on
+2026-08-18 and used as the holdout through v1.14.0. It is **no longer held out**, because
+the rule above was broken: by the time anyone checked, its article ids had reached six
+tracked files, five of them source or tests —
+
+| file | articles | what was read off them |
+| --- | --- | --- |
+| `tests/unit/formats/pdf/test_pdf_column_crossing_tolerance.py` | `PMC7250022`, `PMC8250095` | the column-crossing tolerance and its symmetry guard |
+| `tests/unit/formats/pdf/test_pdf_column_channel_footer.py` | `PMC7250011`, `PMC8250041` | the footer height-share band |
+| `tests/unit/formats/pdf/test_pdf_gridded_prose.py` | 4 articles | the gridded-prose dominance bar |
+| `tests/unit/formats/pdf/test_pdf_wrapped_cell_rows.py` | `PMC5250635`, `PMC7750019` | a table transcribed verbatim as a fixture |
+| `src/all2md/parsers/_pdf_tables.py` | `PMC7750019` | cited in a comment as "the worst table on the corpus" |
+
+Every one of those is a threshold or a strategy chosen against held-out data. That is
+what a development set is for, and it is what a held-out set stops being once it happens.
+The corpus is kept rather than deleted, precisely because those exemplars are real and the
+tests that cite them are good tests — it is a *second development corpus* now, and the
+figures it produced are in-sample figures. Anything published from it before 2026-08-27
+should be read that way.
 
 ## What comes next, and what must not be assumed
 
