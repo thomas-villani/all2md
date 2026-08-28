@@ -231,6 +231,37 @@ ROW_ANCHOR_TRUSTED_FILL = 0.6
 # whose only gap jump was its header seam fused 64 lines into one row past the numeric
 # guard (its cells are prose), while its row-label column showed 15 separate runs.
 ROW_GROUP_MAX_COLUMN_RUNS = 2
+# A row-marker column is filled exactly once per logical row, so a table that wraps has
+# several of them naming the same lines -- Gender, Age, Blood cultures and Brucella
+# serology all fire on the seven row starts of a case-report table whose Reference column
+# wraps across 15 of its 19 printed lines and therefore names nothing. A single such column
+# is not evidence: a sparse *data* column looks identical, and believing one is how a
+# province column fused nine yak breeds into a single column-major row.
+#
+# Four is not a round number, it is where the collateral stops. Measured over the 225 truth
+# tables of both development corpora: at two, +0.0188 with 20 tables better and *four*
+# worse; at four, +0.0197 with 20 better and two worse; at five, +0.0186 with 18 better.
+# Two columns coinciding is chance in a narrow table, and the tables it then merges are
+# ones whose labels are set centered -- the marker line is the row's *second* line, so
+# every group lands one line late and the merge is worse than no merge at all.
+#
+# The columns need only agree *nearly*, and that is not a softening: under exact equality
+# this rule found nothing on the case-report table it was built from. Its four markers
+# agree on all seven row starts and differ only over which header line each column's own
+# label sits on, so equality counted four distinct sets and the table merged nothing
+# (0.44). Clustering at 0.7 Jaccard overlap and taking the lines every member shares reads
+# it correctly (0.96). Measured across both corpora, clustering beats equality on both
+# counts at once: +0.0197 with two tables worse, against +0.0172 with six.
+#
+# A column filled on more than half a wrapping table's printed lines cannot be marking its
+# rows at all -- at 0.85 the rule regressed four dev-corpus tables, at 0.5 none.
+MIN_AGREEING_ROW_MARKERS = 4
+MIN_ROW_MARKER_LINES = 3
+MAX_ROW_MARKER_FILL_SHARE = 0.5
+MIN_ROW_MARKER_TABLE_LINES = 4
+# How alike two columns' filled-line sets must be, as Jaccard overlap, to count as
+# naming the same rows.
+ROW_MARKER_AGREEMENT_MIN = 0.7
 
 # Row bboxes may overlap by at most this much before the merge distrusts them as
 # line geometry. Printed lines never overlap beyond font-box slop; find_tables()
@@ -1473,6 +1504,106 @@ def _rows_from_groups(line_rows: list[list[str]], groups: list[list[int]]) -> li
     return merged
 
 
+def _row_marker_groups(line_rows: list[list[str]]) -> list[list[int]] | None:
+    """Group printed lines by the columns filled exactly once per logical row.
+
+    The anchor rule picks one column and asks whether it is filled. That fails whenever
+    the column naming the rows is itself the one that wraps -- a reference column printing
+    "Suleiman", "et al.", "[8]" on three lines is filled on all of them, so no line reads
+    as a continuation and every wrap is left standing as a row. The columns that *do* mark
+    the rows are visible instead by agreement: several of them are filled on nearly the
+    same lines, because each holds one short value per row.
+
+    *Nearly*, not exactly. Requiring identical line sets is brittle for a reason that has
+    nothing to do with the body: a multi-line header perturbs each marker by whichever of
+    its lines that column's own label happens to sit on, so four columns agreeing on every
+    data row can still hold four distinct sets. The case-report table above is exactly
+    that -- its four markers agree on all seven row starts and differ only over header
+    lines 1 and 2 -- and under equality it fell one short of the bar and merged nothing.
+    Columns are therefore clustered by overlap, and the lines every member of the cluster
+    fills are the row starts.
+
+    Returns ``None`` -- leaving the fill rules to decide -- unless at least
+    `MIN_AGREEING_ROW_MARKERS` columns agree, and the grouping that implies survives the
+    numeric-fusion and column-stacking guards.
+    """
+    line_count = len(line_rows)
+    if line_count < MIN_ROW_MARKER_TABLE_LINES:
+        return None
+    column_count = max(len(row) for row in line_rows)
+    candidates: list[frozenset[int]] = []
+    for column in range(column_count):
+        lines = frozenset(index for index, row in enumerate(line_rows) if column < len(row) and row[column])
+        if len(lines) < MIN_ROW_MARKER_LINES or len(lines) > MAX_ROW_MARKER_FILL_SHARE * line_count:
+            continue
+        candidates.append(lines)
+    marked: frozenset[int] | None = None
+    best_size = 0
+    for seed in candidates:
+        cluster = [lines for lines in candidates if len(lines & seed) / len(lines | seed) >= ROW_MARKER_AGREEMENT_MIN]
+        if len(cluster) < MIN_AGREEING_ROW_MARKERS or len(cluster) < best_size:
+            continue
+        shared = frozenset.intersection(*cluster)
+        if len(shared) < MIN_ROW_MARKER_LINES:
+            continue
+        if len(cluster) > best_size or marked is None or len(shared) > len(marked):
+            marked, best_size = shared, len(cluster)
+    if marked is None:
+        return None
+    # A blank printed line inside a grid separates rows; it never continues a cell.
+    blanks = [index for index, row in enumerate(line_rows) if not any(row)]
+    starts = sorted(set(marked) | {0} | set(blanks) | {index + 1 for index in blanks if index + 1 < line_count})
+    groups = [list(range(start, end)) for start, end in zip(starts, starts[1:] + [line_count], strict=False)]
+    groups = [group for group in groups if any(any(line_rows[index]) for index in group)]
+    if len(groups) < 2:
+        return None
+    if _groups_fuse_numeric_rows(line_rows, groups) or _groups_stack_column_cells(line_rows, groups):
+        return None
+    return groups
+
+
+def _header_fold(line_rows: list[list[str]]) -> int:
+    """How many leading printed lines are one multi-line header row.
+
+    A header cell that wraps is set at whatever height its own column needs, so a header's
+    printed lines fill *disjoint* column sets: "Microcrystalline" on one line, "TPS (wt%)"
+    and "Acronym" on the next, "Cellulose (C) (wt%)" below that. A data row does the
+    opposite -- it fills the columns the row above it just filled. Chaining while each line
+    is disjoint from the last non-empty one therefore ends exactly where the body begins,
+    and ends immediately on a dense grid whose first two lines both fill every column, so
+    nothing folds there.
+
+    Blank lines are crossed rather than believed: the vertical space between header lines
+    set at different heights carries no cell, and stopping on it left the widest header in
+    the dev corpus half folded.
+    """
+    line_count = len(line_rows)
+    end = 1
+    previous = {column for column, cell in enumerate(line_rows[0]) if cell}
+    while end < line_count:
+        row = line_rows[end]
+        if not any(row):
+            end += 1
+            continue
+        columns = {column for column, cell in enumerate(row) if cell}
+        if columns & previous:
+            break
+        previous = columns
+        end += 1
+    # Disjoint fills alone do not mean a header wrapped. A two-tier header whose top tier
+    # spans column pairs leaves exactly the columns its sub-header fills -- geometrically
+    # identical, semantically the opposite, and folding it interleaves both tiers' grams
+    # (measured: 0.87 -> 0.79). The tiers are told apart by what wrapping must leave
+    # behind: a cell continued onto another line fills its column *twice*, while every
+    # column of a tiered header is filled once.
+    if not any(
+        sum(1 for index in range(end) if column < len(line_rows[index]) and line_rows[index][column]) > 1
+        for column in range(max(len(row) for row in line_rows[:end]))
+    ):
+        return 1
+    return end
+
+
 def merge_continuation_lines(
     line_rows: list[list[str]],
     line_extents: list[tuple[float, float]] | None = None,
@@ -1484,17 +1615,23 @@ def merge_continuation_lines(
     One printed line is not one table row: a cell holding more than a line of text wraps,
     and emitting each printed line as a row splits every wrapped cell -- including through
     hyphenated words, which the whole-word guarantee is supposed to make impossible.
-    Three signals decide, each measured on the PMC corpus and each guarded:
+    Five signals decide, each measured on the PMC corpora and each guarded:
 
     1. **Gap grouping** (`_gap_row_groups`): when inter-line gaps separate into a wrap
        population and a row population, the rows are geometric fact and the fill-based
        rules below never run. Abandoned whole when it would fuse adjacent numeric rows
        (the header-seam trap).
-    2. **Single-column wraps**: a line filling exactly one column of a 3+-column grid,
+    2. **The header fold** (`_header_fold`): a header whose cells wrap sets each of them
+       at its own height, so its printed lines fill disjoint columns. Chaining while that
+       holds folds the whole header into one row and stops where the body starts.
+    3. **Row-marker columns** (`_row_marker_groups`): where several columns are filled on
+       exactly the same lines, those lines are the row starts -- the signal that survives
+       when the column naming the rows is itself the one that wraps.
+    4. **Single-column wraps**: a line filling exactly one column of a 3+-column grid,
        sitting closer to the previous line than this table's median gap, is a wrapped
        fragment -- the shape the anchor rule cannot see, because the wrap lives *in*
        the anchor column while every other column is empty.
-    3. **The anchor rule**: the leftmost column filled on at least 60% of lines names
+    5. **The anchor rule**: the leftmost column filled on at least 60% of lines names
        the rows; a line with that cell empty continues the row above. A sparser anchor
        (down to the 20% floor) is believed only when the merge it implies survives the
        numeric-fusion guard -- a row-label column in a heavily wrapped table is filled
@@ -1524,6 +1661,21 @@ def merge_continuation_lines(
         groups = _gap_row_groups(line_rows, line_extents)
         if groups is not None:
             return _rows_from_groups(line_rows, groups)
+
+    if len(line_rows) > 2:
+        fold = _header_fold(line_rows)
+        if fold >= len(line_rows):
+            fold = len(line_rows) - 1  # a whole grid is not one header row
+        if fold > 1:
+            return _rows_from_groups(line_rows, [list(range(fold))]) + merge_continuation_lines(
+                line_rows[fold:],
+                None if line_extents is None else line_extents[fold:],
+                continuation_within_start_columns=continuation_within_start_columns,
+            )
+
+    marker_groups = _row_marker_groups(line_rows)
+    if marker_groups is not None:
+        return _rows_from_groups(line_rows, marker_groups)
 
     gaps: list[float] | None = None
     median_gap = 0.0
@@ -1573,6 +1725,7 @@ def merge_continuation_lines(
             anchor = sparse_anchor
 
     merged: list[list[str]] = []
+    broken = False
     for index, row in enumerate(line_rows):
         filled_columns = [column for column, cell in enumerate(row) if cell]
         single_column_wrap = (
@@ -1586,7 +1739,13 @@ def merge_continuation_lines(
         if anchor_continuation and continuation_within_start_columns:
             row_columns = {column for column, cell in enumerate(merged[-1]) if cell}
             anchor_continuation = all(column in row_columns for column in filled_columns)
-        if not (single_column_wrap or anchor_continuation):
+        if not any(row):
+            # A blank printed line inside a grid separates rows -- whatever follows starts
+            # a new one -- but it holds no cell, so it is a boundary rather than a row.
+            broken = True
+            continue
+        if broken or not (single_column_wrap or anchor_continuation):
+            broken = False
             merged.append(list(row))
             continue
         target = merged[-1]
