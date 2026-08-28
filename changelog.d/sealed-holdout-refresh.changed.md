@@ -28,3 +28,19 @@
   the quota was not forced by walking further into a barren run — that would draw five
   articles from the one publisher's template that made it barren. 103 articles across 20
   eras is the honest draw.
+
+- **benchmarks/comparison: first reading of the sealed holdout, and the table gap is three
+  times wider than the tuned corpus showed.** 103 of 103 articles converted by all three
+  tools with zero conversion or parse failures. all2md keeps the invented-text lead that
+  the lane exists to measure — **0.55% novel share** against Docling's 2.05% and
+  pymupdf4llm's 6.26%, barely moved from the in-sample 0.62%, which is what an honest
+  number does when the corpus changes underneath it — and leads raw precision at 93.9%.
+  Recall is a three-way tie inside 0.65 points. The cost of the seal: **table-text survival
+  reads 69.7% against Docling's 86.4%, a 16.7-point gap where the burned corpus showed
+  4.8.** Both tools moved, so this is not a regression; it is the old gap having been
+  measured against data the table work was developed on. Two claims are retired with it:
+  all2md is no longer the worst table over-emitter (226/164, against pymupdf4llm's 276 and
+  Docling's 206), and the reading's speed column is not comparable across readings — every
+  tool measured 1.8-2.5x slower than its own record in the session, while a v1.13.0
+  worktree measured within 2% of HEAD, so it is ambient machine state and should be read as
+  an ordering only.
