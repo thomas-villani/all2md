@@ -21,6 +21,5 @@
   a perfect fix for tables the detector fuses side by side -- is worth 0.004 and 0.013
   on the same corpora, so the artifact was larger than the defect it was hiding. About
   3% of the ground truth's prose 5-grams are affected too. `benchmarks/pmc/reference.json`
-  was recorded against the old projection and must be re-recorded before its figures are
-  read again; the lane does not run on per-PR CI, so nothing is gated on it in the
-  meantime.
+  and every published figure drawn from it are re-recorded against the corrected
+  projection in the same release.
