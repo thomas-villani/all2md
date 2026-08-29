@@ -262,6 +262,30 @@ MIN_ROW_MARKER_TABLE_LINES = 4
 # How alike two columns' filled-line sets must be, as Jaccard overlap, to count as
 # naming the same rows.
 ROW_MARKER_AGREEMENT_MIN = 0.7
+# A run only marks a distinct cell when the line that starts it is a *row*. Vertically
+# centred cells make that qualification necessary: when the cells of one logical row
+# differ in height the extractor emits a line per distinct baseline, so a single wrapped
+# cell's lines alternate with its taller neighbours' and that one cell shows up as
+# several runs. A placenta comparison table sets "Inflammatory gene / expression / [52]"
+# on lines 1, 3 and 5 of one logical row -- three runs, one cell -- so the run count
+# condemned a correct grouping and the table kept 0.15 of its text where its own printed
+# lines allow all of it.
+#
+# What separates the two shapes is what the run *starts* on. A fragment fills one or two
+# of the grid's columns; a row fills nearly all of them. The table this guard exists to
+# protect is a miRNA table whose every printed line fills five or six of six columns,
+# eliding only a repeated name -- so gating the count on line fill keeps it (its bad
+# grouping still shows far more than two dense runs) while releasing the centred ones.
+# Four fifths, because a real row does leave a column empty where a value repeats, and
+# the bar has to sit under that.
+#
+# The ungated count was the clearest case of a rule fitted to the corpus it was written
+# against. It fires on both development corpora -- 30 groupings across 10 articles -- but
+# on the corpus it was measured on it never changes an outcome, while on the corpus drawn
+# afterwards it costs 0.0289 mean containment across eight tables, three of which the gate
+# takes to the best score their printed lines permit. The gate itself is a plateau and not
+# a peak: every fill share from 0.7 to 1.0 scores identically.
+ROW_STACK_MIN_LINE_FILL = 0.8
 
 # Row bboxes may overlap by at most this much before the merge distrusts them as
 # line geometry. Printed lines never overlap beyond font-box slop; find_tables()
@@ -1380,6 +1404,15 @@ def _numeric_cell_count(row: list[str]) -> int:
     return sum(1 for cell in row if cell and _mostly_numeric_cell(cell))
 
 
+def _line_fills_a_row(row: list[str], width: int) -> bool:
+    """Whether a printed line holds enough of the grid's columns to be a row of it.
+
+    A line filling one or two columns of a wide grid is a wrapped fragment; a line
+    filling nearly all of them is a row, whatever the lines around it do.
+    """
+    return width > 0 and sum(1 for cell in row if cell) / width >= ROW_STACK_MIN_LINE_FILL
+
+
 def _groups_stack_column_cells(line_rows: list[list[str]], groups: list[list[int]]) -> bool:
     """Whether any group holds a column with three-plus separate filled runs.
 
@@ -1387,7 +1420,13 @@ def _groups_stack_column_cells(line_rows: list[list[str]], groups: list[list[int
     (two tolerated -- a ragged prose cell can leave one hole). Three or more runs is a
     stack of distinct cells: the group is fusing rows, however plausible its gap
     structure looked, and the grouping that proposed it cannot be trusted.
+
+    Only runs that begin on a *row* are counted. A grid line holding one or two of the
+    grid's columns is a fragment, and centred cells scatter one cell's fragments down a
+    column: the run count alone cannot tell that from a stack, and reading it as a stack
+    throws away correct groupings on every table that centres its cells.
     """
+    width = max(len(row) for row in line_rows)
     for group in groups:
         columns = max(len(line_rows[index]) for index in group)
         for column in range(columns):
@@ -1396,7 +1435,7 @@ def _groups_stack_column_cells(line_rows: list[list[str]], groups: list[list[int
             for index in group:
                 row = line_rows[index]
                 filled = column < len(row) and bool(row[column])
-                if filled and not previous_filled:
+                if filled and not previous_filled and _line_fills_a_row(row, width):
                     runs += 1
                 previous_filled = filled
             if runs > ROW_GROUP_MAX_COLUMN_RUNS:
