@@ -48,7 +48,7 @@ def test_a_table_nested_in_a_paragraph_is_its_own_block() -> None:
     assert tables[0].table is not None
     assert tables[0].table.rows == 2
     # The paragraph keeps its own words and the cross-reference, and none of the table's.
-    assert prose[0].text == "Results appear in Table 1 ."
+    assert prose[0].text == "Results appear in Table 1."
     assert "Characteristics" not in prose[0].text
     assert "Control" not in prose[0].text
     # Caption and cell text reach the text stream as separate page objects.
@@ -195,10 +195,36 @@ def test_the_verdicts_reported_are_exactly_the_ones_the_payload_publishes() -> N
     assert sum(verdicts.values()) == 2
 
 
-def test_element_text_is_joined_not_concatenated() -> None:
+def test_a_structural_boundary_keeps_its_space() -> None:
     """Concatenation fused ``<label>Table 2</label>`` onto its caption as one bogus token."""
-    blocks, _ = oracles.project_jats(_jats("<p><italic>Table 2</italic>obtained results</p>"))
-    assert "2obtained" not in blocks[0].text
+    _, projection = oracles.project_jats(
+        _jats(
+            "<table-wrap><label>Table 2</label><caption><p>Obtained results</p></caption>"
+            "<table><tr><th>Group</th></tr><tr><td>Control</td></tr></table></table-wrap>"
+        )
+    )
+    assert "Table 2 Obtained results" in projection.text_blocks
+
+
+def test_an_inline_boundary_does_not_get_a_space_the_page_never_prints() -> None:
+    """JATS marks up part of a word constantly, and a space there is a word the page lacks.
+
+    A space at every element boundary spelled "bla<sub>CTX-M</sub>" as two words where the
+    page prints ``blaCTX-M``, and did the same to units, footnote markers and superscript
+    citations. Measured on the table replay over both development corpora it put 3.2% (dev)
+    and 4.3% (tuned) of a table's ground-truth 5-grams permanently out of reach.
+    """
+    cell = ElementTree.fromstring("<td>bla<sub>CTX-M</sub></td>")
+    assert oracles._all_text(cell) == "blaCTX-M"
+
+    footnote = ElementTree.fromstring("<td>Bonnet et al.<sup>12</sup></td>")
+    assert oracles._all_text(footnote) == "Bonnet et al.12"
+
+
+def test_the_source_decides_the_space_around_an_inline_run() -> None:
+    """Inline elements are not always fused: the XML's own whitespace still governs."""
+    blocks, _ = oracles.project_jats(_jats("<p>Isolates of <italic>E. coli</italic> were typed.</p>"))
+    assert blocks[0].text == "Isolates of E. coli were typed."
 
 
 def test_coverage_reports_ground_truth_against_the_page_rather_than_assuming_it() -> None:

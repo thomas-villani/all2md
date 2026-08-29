@@ -151,54 +151,99 @@ def _tag(element: Any) -> str:
     return element.tag.rsplit("}", 1)[-1] if isinstance(element.tag, str) else ""
 
 
-def _all_text(element: Any) -> str:
-    """Return every rendered character under an element, joined by spaces.
+#: Elements the page prints inside a line of text, contributing no space of their own. A
+#: structural boundary needs a space -- ``<label>Table 2</label>`` must not fuse onto the
+#: caption after it -- but an inline one must not have one, because the page does not print
+#: it: "bla<sub>CTX-M</sub>" is printed ``blaCTX-M`` and "T<sub>a</sub>" is printed ``Ta``.
+#:
+#: Measured over the two development corpora rather than assumed. Across every table cell,
+#: paragraph, title and caption, these are the tags whose text most often abuts a neighbour
+#: with no whitespace between them in the source -- ``xref`` 22,934 times, ``italic`` 6,397,
+#: ``sup`` 4,035, ``sub`` 3,662, ``bold`` 3,290, and the rest in the tens. Block and
+#: container elements abut just as often (``disp-formula`` 244, ``fig`` 80, ``list`` 22) and
+#: are deliberately absent: they begin their own line on the page, so their space is real.
+#: Anything unrecognised keeps its space, which is the safe direction -- a missing space
+#: fuses two words into a token nothing can match, a spurious one only splits them.
+INLINE = frozenset(
+    {
+        "bold",
+        "email",
+        "ext-link",
+        "inline-formula",
+        "italic",
+        "monospace",
+        "named-content",
+        "overline",
+        "roman",
+        "sans-serif",
+        "sc",
+        "strike",
+        "styled-content",
+        "sub",
+        "sup",
+        "underline",
+        "uri",
+        "xref",
+    }
+)
 
-    Joined, never concatenated: concatenation fuses ``<label>Table 2</label>`` onto the
-    caption that follows it into a single bogus token, corrupting a token boundary at every
-    element boundary. Tables have the most boundaries, so an earlier version of the
-    alignment probe made them look unlocatable when they are not.
-    """
-    parts: list[str] = []
 
-    def visit(node: Any) -> None:
-        if _tag(node) in SKIPPED:
-            return
-        if node.text and node.text.strip():
-            parts.append(node.text.strip())
-        for child in node:
-            visit(child)
-            if child.tail and child.tail.strip():
-                parts.append(child.tail.strip())
+def _rendered(element: Any, *, own: bool) -> str:
+    """Return every rendered character under an element, spaced as the page prints it.
 
-    visit(element)
-    return " ".join(parts)
+    Structural boundaries are joined by a space and inline ones are not, so the result is
+    the line of text a reader sees. The alternative -- a space at every element boundary --
+    corrupts a token wherever JATS marks up part of a word, and JATS marks up part of a word
+    constantly: units, gene names, footnote markers and superscript citations all sit inside
+    a printed word. Measured on the table replay over both development corpora, the
+    unconditional space put 3.2% (dev) and 4.3% (tuned) of a table's ground-truth 5-grams
+    permanently out of reach of any converter, and cost the recorded grids 0.029 and 0.035
+    mean containment against a truth they in fact reproduced.
 
+    Parameters
+    ----------
+    element : Any
+        The JATS element to render.
+    own : bool
+        Stop at nested elements that are blocks in their own right. JATS nests block
+        material inside prose -- a ``<table-wrap>`` or ``<disp-formula>`` sits inside the
+        ``<p>`` that introduces it -- and taking the paragraph's full text swallowed the
+        table's caption and every cell into the paragraph, which fused three page objects
+        into one string, deleted the table from the ground truth entirely, and -- because
+        the fused block straddled the paragraph's page and the table's page -- placed it on
+        the wrong one.
 
-def _own_text(element: Any) -> str:
-    """Return an element's text *excluding* nested elements that are blocks in their own right.
-
-    JATS nests block material inside prose: a ``<table-wrap>`` or ``<disp-formula>`` sits
-    inside the ``<p>`` that introduces it. Taking the paragraph's full text swallowed the
-    table's caption and every cell into the paragraph, which fused three page objects into
-    one string, deleted the table from the ground truth entirely, and -- because the fused
-    block straddled the paragraph's page and the table's page -- placed it on the wrong one.
     """
     parts: list[str] = []
 
     def visit(node: Any, *, root: bool) -> None:
         tag = _tag(node)
-        if tag in SKIPPED or (not root and tag in BLOCKS):
+        if tag in SKIPPED or (own and not root and tag in BLOCKS):
             return
-        if node.text and node.text.strip():
-            parts.append(node.text.strip())
+        structural = not root and tag not in INLINE
+        if structural:
+            parts.append(" ")
+        if node.text:
+            parts.append(node.text)
         for child in node:
             visit(child, root=False)
-            if child.tail and child.tail.strip():
-                parts.append(child.tail.strip())
+            if child.tail:
+                parts.append(child.tail)
+        if structural:
+            parts.append(" ")
 
     visit(element, root=True)
-    return " ".join(parts)
+    return " ".join("".join(parts).split())
+
+
+def _all_text(element: Any) -> str:
+    """Return every rendered character under an element, as the page prints it."""
+    return _rendered(element, own=False)
+
+
+def _own_text(element: Any) -> str:
+    """Return an element's text *excluding* nested elements that are blocks in their own right."""
+    return _rendered(element, own=True)
 
 
 def _nested_blocks(element: Any) -> list[Any]:
