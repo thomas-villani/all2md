@@ -55,12 +55,36 @@ cites another in a comment). So the table figures were in-sample too. The seal i
 mechanical rather than advisory: a separate cache root, and
 `tests/unit/test_pmc_holdout_seal.py`, which fails if any tracked file names a held-out
 article — run against the retired corpus it catches all six historical leaks. **The fresh
-holdout has not been scored yet**; that first reading is the next instrument step and will
-be the first genuinely held-out number since v1.13.0.
+holdout was then read once, on 2026-08-28** — the first genuinely held-out number since
+v1.13.0. 103/103 articles for all three tools, zero failures.
 
-After that, **tables are the next quality target on evidence**: on the last comparison
-reading Docling still leads table-cell preservation (82.2% against 77.4%) and all2md emits
-238 tables against 166 expected — the worst over-emission of the three tools. The engineering
+**The table gap to Docling is 16.7 points, not 4.8.** On the burned corpus all2md read
+77.4% table survival against Docling's 82.2%; on the sealed one it is **69.7% against
+86.4%**. Both tools moved, so this is not a regression — it is the old gap having been
+measured against data the table work was developed on, which hid about two-thirds of the
+true distance. **This is the strongest evidence yet that tables are the right next
+target, and it also means the table baseline is lower than this page has been claiming.**
+
+What survived the seal: **novel share, 0.55%** against Docling's 2.05% and pymupdf4llm's
+6.26% — barely moved from the in-sample 0.62%, which is what an honest number does when
+the corpus changes underneath it. all2md also leads raw precision (93.9%) and is the
+fastest of the three. Recall is a three-way tie inside 0.65 points.
+
+**Correction to this page:** all2md is *no longer* the worst table over-emitter. It emits
+226 tables against 164 expected (1.38x); pymupdf4llm emits 276 (1.68x) and Docling 206
+(1.26x). The "worst over-emission of the three" claim came from the in-sample reading and
+is now false.
+
+The speed column of that reading is **not comparable** to earlier ones — all three tools
+measured 1.8-2.5x slower than their own records in the same session, and a v1.13.0
+worktree measured within 2% of HEAD, so it is ambient machine state rather than a
+regression. Read it as an ordering only.
+
+After that, **tables are the next quality target on evidence**, and the sealed reading
+sharpens the case rather than softening it: Docling leads table-cell preservation
+**86.4% against 69.7%**, a 16.7-point gap. The over-emission framing is retired — at
+226/164 all2md sits between Docling (206) and pymupdf4llm (276), so the lever is cell
+recovery, not emission count. The engineering
 batch order is unchanged: the outward push (13), then the DOCX fidelity batch (21), then
 Theme 8 Stages 2–3.
 

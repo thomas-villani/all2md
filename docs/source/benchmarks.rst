@@ -68,8 +68,16 @@ tracked files. It is retained as a second development corpus,
 :file:`benchmarks/pmc/manifest-tuned.json`, and every published comparison figure older
 than that date was measured on it and is in-sample. The fresh corpus materializes under
 its own cache root and a test now fails if any tracked file names one of its articles;
-:file:`benchmarks/pmc/README.md` carries the record. **It has not been scored yet** — the
-first reading of it will be the first genuinely held-out number since v1.13.0.
+:file:`benchmarks/pmc/README.md` carries the record.
+
+It was read once, on 2026-08-28 — the first genuinely held-out comparison since v1.13.0.
+The headline: all2md's invented-text rate holds at **0.55%**, against 2.05% for Docling and
+6.26% for pymupdf4llm, and recall is a three-way tie inside 0.65 points. The cost of the
+seal is that **the table gap to Docling is 16.7 points, not the 4.8 the tuned corpus
+showed** (69.7% against 86.4%) — the table work had been developed against the old holdout,
+so that gap had been measured on its own training data. See
+:file:`benchmarks/comparison/README.md` for the full reading and the reasons its speed
+column is not comparable across readings.
 
 Did the text survive?
 ~~~~~~~~~~~~~~~~~~~~~
