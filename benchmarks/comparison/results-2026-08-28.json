@@ -1,0 +1,1669 @@
+{
+  "provenance": {
+    "recorded": "2026-08-28",
+    "corpus": "benchmarks/pmc/manifest-holdout.json (103 sealed held-out articles, 1,115 pages)",
+    "corpus_pin": "948d192bd1c8f7dd1d80eaffd4cb43d319879ede2efcee6099028a06c83e93a5",
+    "all2md_commit": "689ca1a",
+    "platform": "Windows 11, Intel i7-1355U (2 P-cores + 8 E-cores, 12 logical), CPU only, UNPINNED -- deliberately not the 8-core affinity the 2026-08-23 reading used; see the speed caveat below.",
+    "note": "The FIRST reading of the redrawn, sealed holdout, and the first genuinely held-out number since v1.13.0. all2md ran the PMC lane parser policy (layout analysis enabled, OCR auto); baselines ran their defaults at the versions baselines.txt pins -- unchanged from the two previous readings, so the baseline side is held fixed and the corpus is what moved. Every tool's markdown was re-parsed through all2md's markdown parser before scoring, so all three share one normalization path; reparse_word_ratio is 0.99/1.04/0.96, so the re-parse is not eating any tool's content. Tesseract is installed on this box but not on PATH; that is moot and measured rather than assumed -- 0 of the corpus's 1,115 pages carry a text layer under 20 characters, so all2md's auto-OCR has nothing to fire on. It fired 0 times; pymupdf4llm fired 432.",
+    "speed_caveat": "seconds_per_article_mean is NOT comparable to the 2026-08-23 reading and should not be quoted against it. All three tools measured 1.8-2.5x slower than their own records in this session. That is not a regression: all2md v1.13.0, built from its tag in a worktree, measured within 2% of HEAD on the same nine articles in the same session. Two unrelated third-party tools drifting the same direction points at ambient machine state -- the earlier reading ran overnight on an idle laptop, this one shared the box -- and a 15W U-series part throttles under sustained ONNX load. The RELATIVE ordering is robust and is what this column is good for: all2md remains the fastest of the three by 1.7x over pymupdf4llm and 3.0x over docling. Absolute values are a property of the machine that day. Note also that pinning to logical cores 0-7 on this hybrid CPU costs a further 2.3x on the ONNX layout path.",
+    "control": "The false-positive control holds for every tool: control_recall is 0.0042 / 0.0049 / 0.0044 against attainable recall near 0.97, so the instrument is not crediting text that is not there. No conversion failures and no parse failures for any tool.",
+    "in_sample_warning": "The 2026-08-19 and 2026-08-23 readings in this directory were measured on what is now benchmarks/pmc/manifest-tuned.json, which had been tuned against. They are in-sample. Movement between them and this reading confounds a corpus change with a code change and must not be read as progress or regression."
+  },
+  "tools": {
+    "all2md": {
+      "versions": {
+        "all2md": "1.14.0"
+      },
+      "articles_scored": 103,
+      "articles_missing": 0,
+      "parse_failures": {},
+      "conversion_failures": [],
+      "attainable_recall": 0.9745916515426497,
+      "recall_raw": 0.6029679770892996,
+      "ceiling": 0.6096719604269721,
+      "by_kind": {
+        "table": {
+          "attainable_recall": 0.696969696969697,
+          "attainable": 132
+        },
+        "text_block": {
+          "attainable_recall": 0.9840201850294366,
+          "attainable": 4756
+        },
+        "title": {
+          "attainable_recall": 0.9727617771824068,
+          "attainable": 4479
+        }
+      },
+      "control_recall": 0.004230669096589429,
+      "novel_share": 0.0055492525314606266,
+      "precision_raw": 0.938451998622633,
+      "duplication": 0.0028012983713321267,
+      "tables_emitted": 226,
+      "tables_expected": 164,
+      "seconds_per_article_mean": 31.56955392039788,
+      "reparse_word_ratio": 0.991310176623083,
+      "per_article": {
+        "PMC10125014.2": {
+          "attainable_recall": 0.9767441860465116,
+          "tables_emitted": 4,
+          "tables_expected": 4
+        },
+        "PMC10125045.1": {
+          "attainable_recall": 0.972972972972973,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC10125057.1": {
+          "attainable_recall": 0.9937888198757764,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC10125068.1": {
+          "attainable_recall": 0.9714285714285714,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC10125079.1": {
+          "attainable_recall": 0.987012987012987,
+          "tables_emitted": 6,
+          "tables_expected": 3
+        },
+        "PMC10625000.1": {
+          "attainable_recall": 0.9811320754716981,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC10625011.1": {
+          "attainable_recall": 0.9629629629629629,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC10625022.1": {
+          "attainable_recall": 0.9908256880733946,
+          "tables_emitted": 13,
+          "tables_expected": 3
+        },
+        "PMC10625055.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC10625066.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 4,
+          "tables_expected": 5
+        },
+        "PMC11125000.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 2,
+          "tables_expected": 2
+        },
+        "PMC11125011.1": {
+          "attainable_recall": 0.9585253456221198,
+          "tables_emitted": 5,
+          "tables_expected": 7
+        },
+        "PMC11125022.1": {
+          "attainable_recall": 0.9759036144578314,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC11125033.1": {
+          "attainable_recall": 0.987012987012987,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC11125044.1": {
+          "attainable_recall": 0.9811320754716981,
+          "tables_emitted": 4,
+          "tables_expected": 4
+        },
+        "PMC11625022.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC11625051.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC11625062.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 4,
+          "tables_expected": 3
+        },
+        "PMC11625073.1": {
+          "attainable_recall": 0.9777777777777777,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC11625084.1": {
+          "attainable_recall": 0.9767441860465116,
+          "tables_emitted": 4,
+          "tables_expected": 4
+        },
+        "PMC12125000.1": {
+          "attainable_recall": 0.9846153846153847,
+          "tables_emitted": 2,
+          "tables_expected": 2
+        },
+        "PMC12125022.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC12125033.1": {
+          "attainable_recall": 0.8529411764705882,
+          "tables_emitted": 10,
+          "tables_expected": 5
+        },
+        "PMC12125044.1": {
+          "attainable_recall": 0.945054945054945,
+          "tables_emitted": 3,
+          "tables_expected": 3
+        },
+        "PMC12125055.1": {
+          "attainable_recall": 0.9745762711864406,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC1626071.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 2,
+          "tables_expected": 2
+        },
+        "PMC1626082.1": {
+          "attainable_recall": 0.9875,
+          "tables_emitted": 4,
+          "tables_expected": 4
+        },
+        "PMC1626093.1": {
+          "attainable_recall": 0.9791666666666666,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC1626106.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 1,
+          "tables_expected": 0
+        },
+        "PMC1626401.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC2625338.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC2625349.1": {
+          "attainable_recall": 0.9887640449438202,
+          "tables_emitted": 6,
+          "tables_expected": 4
+        },
+        "PMC2625360.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC2625371.1": {
+          "attainable_recall": 0.9672131147540983,
+          "tables_emitted": 3,
+          "tables_expected": 3
+        },
+        "PMC2625440.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 1
+        },
+        "PMC3125000.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 1,
+          "tables_expected": 0
+        },
+        "PMC3125011.1": {
+          "attainable_recall": 0.994413407821229,
+          "tables_emitted": 7,
+          "tables_expected": 0
+        },
+        "PMC3125023.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 5,
+          "tables_expected": 0
+        },
+        "PMC3125034.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 1,
+          "tables_expected": 0
+        },
+        "PMC3125045.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 1,
+          "tables_expected": 0
+        },
+        "PMC3625000.1": {
+          "attainable_recall": 0.9459459459459459,
+          "tables_emitted": 2,
+          "tables_expected": 0
+        },
+        "PMC3625011.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC3625108.1": {
+          "attainable_recall": 0.9523809523809523,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC3625148.1": {
+          "attainable_recall": 0.9880952380952381,
+          "tables_emitted": 2,
+          "tables_expected": 2
+        },
+        "PMC3625159.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC4125000.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 3,
+          "tables_expected": 4
+        },
+        "PMC4125011.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC4125023.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC4125045.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC4125056.1": {
+          "attainable_recall": 0.9733333333333334,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC4625000.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC4625011.1": {
+          "attainable_recall": 0.8243243243243243,
+          "tables_emitted": 3,
+          "tables_expected": 2
+        },
+        "PMC4625022.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 4,
+          "tables_expected": 4
+        },
+        "PMC4625033.1": {
+          "attainable_recall": 0.9759036144578314,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC4625044.1": {
+          "attainable_recall": 0.9928057553956835,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC5125000.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC5125010.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC5125023.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 10,
+          "tables_expected": 3
+        },
+        "PMC5125033.1": {
+          "attainable_recall": 0.9855072463768116,
+          "tables_emitted": 2,
+          "tables_expected": 1
+        },
+        "PMC5125044.1": {
+          "attainable_recall": 0.9926470588235294,
+          "tables_emitted": 3,
+          "tables_expected": 1
+        },
+        "PMC5625000.1": {
+          "attainable_recall": 0.9807692307692307,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC5625011.1": {
+          "attainable_recall": 0.9886363636363636,
+          "tables_emitted": 3,
+          "tables_expected": 3
+        },
+        "PMC5625023.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 2,
+          "tables_expected": 2
+        },
+        "PMC5625047.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 2,
+          "tables_expected": 0
+        },
+        "PMC5625115.1": {
+          "attainable_recall": 0.96875,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC6125013.1": {
+          "attainable_recall": 0.9782608695652174,
+          "tables_emitted": 8,
+          "tables_expected": 4
+        },
+        "PMC6125050.1": {
+          "attainable_recall": 0.989247311827957,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC6125114.1": {
+          "attainable_recall": 0.9833333333333333,
+          "tables_emitted": 1,
+          "tables_expected": 0
+        },
+        "PMC6125125.1": {
+          "attainable_recall": 0.9945652173913043,
+          "tables_emitted": 6,
+          "tables_expected": 2
+        },
+        "PMC6125136.1": {
+          "attainable_recall": 0.9917355371900827,
+          "tables_emitted": 10,
+          "tables_expected": 10
+        },
+        "PMC6625000.1": {
+          "attainable_recall": 0.9411764705882353,
+          "tables_emitted": 1,
+          "tables_expected": 0
+        },
+        "PMC6625014.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 2,
+          "tables_expected": 2
+        },
+        "PMC6625025.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC6625036.1": {
+          "attainable_recall": 0.9846153846153847,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC6625047.1": {
+          "attainable_recall": 0.9821428571428571,
+          "tables_emitted": 2,
+          "tables_expected": 3
+        },
+        "PMC7125043.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 3,
+          "tables_expected": 3
+        },
+        "PMC7125053.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC7125063.1": {
+          "attainable_recall": 0.875,
+          "tables_emitted": 8,
+          "tables_expected": 7
+        },
+        "PMC7125073.1": {
+          "attainable_recall": 0.9824561403508771,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC7125084.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 1,
+          "tables_expected": 2
+        },
+        "PMC7640351.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC7640361.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC7640372.1": {
+          "attainable_recall": 0.9907407407407407,
+          "tables_emitted": 3,
+          "tables_expected": 3
+        },
+        "PMC7640384.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC7640395.1": {
+          "attainable_recall": 0.9876543209876543,
+          "tables_emitted": 4,
+          "tables_expected": 4
+        },
+        "PMC8125000.1": {
+          "attainable_recall": 0.9459459459459459,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC8125011.1": {
+          "attainable_recall": 0.9327731092436975,
+          "tables_emitted": 5,
+          "tables_expected": 5
+        },
+        "PMC8125022.1": {
+          "attainable_recall": 0.989247311827957,
+          "tables_emitted": 9,
+          "tables_expected": 6
+        },
+        "PMC8125033.1": {
+          "attainable_recall": 0.9818181818181818,
+          "tables_emitted": 2,
+          "tables_expected": 2
+        },
+        "PMC8125044.1": {
+          "attainable_recall": 0.96,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC8625000.1": {
+          "attainable_recall": 0.9939759036144579,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC8625011.1": {
+          "attainable_recall": 0.9710144927536232,
+          "tables_emitted": 6,
+          "tables_expected": 5
+        },
+        "PMC8625022.1": {
+          "attainable_recall": 0.9847328244274809,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC8625033.1": {
+          "attainable_recall": 0.8148148148148148,
+          "tables_emitted": 2,
+          "tables_expected": 1
+        },
+        "PMC8625044.1": {
+          "attainable_recall": 0.98989898989899,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC9125000.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 3,
+          "tables_expected": 3
+        },
+        "PMC9125010.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC9125017.2": {
+          "attainable_recall": 0.9819277108433735,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC9125026.1": {
+          "attainable_recall": 0.9776119402985075,
+          "tables_emitted": 4,
+          "tables_expected": 4
+        },
+        "PMC9125037.1": {
+          "attainable_recall": 0.9830508474576272,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC9625011.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 2,
+          "tables_expected": 2
+        },
+        "PMC9625077.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC9625112.1": {
+          "attainable_recall": 0.98,
+          "tables_emitted": 2,
+          "tables_expected": 1
+        }
+      }
+    },
+    "docling": {
+      "versions": {
+        "docling": "2.120.3"
+      },
+      "articles_scored": 103,
+      "articles_missing": 0,
+      "parse_failures": {},
+      "conversion_failures": [],
+      "attainable_recall": 0.9717091918437066,
+      "recall_raw": 0.6096719604269721,
+      "ceiling": 0.6096719604269721,
+      "by_kind": {
+        "table": {
+          "attainable_recall": 0.8636363636363636,
+          "attainable": 132
+        },
+        "text_block": {
+          "attainable_recall": 0.9735071488645921,
+          "attainable": 4756
+        },
+        "title": {
+          "attainable_recall": 0.9729850413038624,
+          "attainable": 4479
+        }
+      },
+      "control_recall": 0.004360843530330643,
+      "novel_share": 0.020526971469546452,
+      "precision_raw": 0.9178418918183683,
+      "duplication": 0.017210925298683316,
+      "tables_emitted": 206,
+      "tables_expected": 164,
+      "seconds_per_article_mean": 95.75038801069435,
+      "reparse_word_ratio": 0.9637985497168968,
+      "per_article": {
+        "PMC10125014.2": {
+          "attainable_recall": 0.9883720930232558,
+          "tables_emitted": 4,
+          "tables_expected": 4
+        },
+        "PMC10125045.1": {
+          "attainable_recall": 0.9459459459459459,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC10125057.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC10125068.1": {
+          "attainable_recall": 0.9714285714285714,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC10125079.1": {
+          "attainable_recall": 0.9956709956709957,
+          "tables_emitted": 6,
+          "tables_expected": 3
+        },
+        "PMC10625000.1": {
+          "attainable_recall": 0.8490566037735849,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC10625011.1": {
+          "attainable_recall": 0.9629629629629629,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC10625022.1": {
+          "attainable_recall": 0.944954128440367,
+          "tables_emitted": 3,
+          "tables_expected": 3
+        },
+        "PMC10625055.1": {
+          "attainable_recall": 0.975,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC10625066.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 5,
+          "tables_expected": 5
+        },
+        "PMC11125000.1": {
+          "attainable_recall": 0.9826086956521739,
+          "tables_emitted": 2,
+          "tables_expected": 2
+        },
+        "PMC11125011.1": {
+          "attainable_recall": 0.967741935483871,
+          "tables_emitted": 7,
+          "tables_expected": 7
+        },
+        "PMC11125022.1": {
+          "attainable_recall": 0.9879518072289156,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC11125033.1": {
+          "attainable_recall": 0.9935064935064936,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC11125044.1": {
+          "attainable_recall": 0.9811320754716981,
+          "tables_emitted": 4,
+          "tables_expected": 4
+        },
+        "PMC11625022.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC11625051.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC11625062.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 3,
+          "tables_expected": 3
+        },
+        "PMC11625073.1": {
+          "attainable_recall": 0.9777777777777777,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC11625084.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 4,
+          "tables_expected": 4
+        },
+        "PMC12125000.1": {
+          "attainable_recall": 0.9692307692307692,
+          "tables_emitted": 1,
+          "tables_expected": 2
+        },
+        "PMC12125022.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC12125033.1": {
+          "attainable_recall": 0.9215686274509803,
+          "tables_emitted": 10,
+          "tables_expected": 5
+        },
+        "PMC12125044.1": {
+          "attainable_recall": 0.989010989010989,
+          "tables_emitted": 3,
+          "tables_expected": 3
+        },
+        "PMC12125055.1": {
+          "attainable_recall": 0.9915254237288136,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC1626071.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 5,
+          "tables_expected": 2
+        },
+        "PMC1626082.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 4,
+          "tables_expected": 4
+        },
+        "PMC1626093.1": {
+          "attainable_recall": 0.9791666666666666,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC1626106.1": {
+          "attainable_recall": 0.9805825242718447,
+          "tables_emitted": 1,
+          "tables_expected": 0
+        },
+        "PMC1626401.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC2625338.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC2625349.1": {
+          "attainable_recall": 0.9887640449438202,
+          "tables_emitted": 4,
+          "tables_expected": 4
+        },
+        "PMC2625360.1": {
+          "attainable_recall": 0.9914529914529915,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC2625371.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 3,
+          "tables_expected": 3
+        },
+        "PMC2625440.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC3125000.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC3125011.1": {
+          "attainable_recall": 0.994413407821229,
+          "tables_emitted": 5,
+          "tables_expected": 0
+        },
+        "PMC3125023.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 4,
+          "tables_expected": 0
+        },
+        "PMC3125034.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC3125045.1": {
+          "attainable_recall": 0.95,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC3625000.1": {
+          "attainable_recall": 0.972972972972973,
+          "tables_emitted": 2,
+          "tables_expected": 0
+        },
+        "PMC3625011.1": {
+          "attainable_recall": 0.9166666666666666,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC3625108.1": {
+          "attainable_recall": 0.9761904761904762,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC3625148.1": {
+          "attainable_recall": 0.9880952380952381,
+          "tables_emitted": 2,
+          "tables_expected": 2
+        },
+        "PMC3625159.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC4125000.1": {
+          "attainable_recall": 0.9857142857142858,
+          "tables_emitted": 4,
+          "tables_expected": 4
+        },
+        "PMC4125011.1": {
+          "attainable_recall": 0.9,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC4125023.1": {
+          "attainable_recall": 0.7777777777777778,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC4125045.1": {
+          "attainable_recall": 0.8947368421052632,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC4125056.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC4625000.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC4625011.1": {
+          "attainable_recall": 0.9092664092664092,
+          "tables_emitted": 3,
+          "tables_expected": 2
+        },
+        "PMC4625022.1": {
+          "attainable_recall": 0.9873417721518988,
+          "tables_emitted": 4,
+          "tables_expected": 4
+        },
+        "PMC4625033.1": {
+          "attainable_recall": 0.9879518072289156,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC4625044.1": {
+          "attainable_recall": 0.9712230215827338,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC5125000.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC5125010.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC5125023.1": {
+          "attainable_recall": 0.9943181818181818,
+          "tables_emitted": 11,
+          "tables_expected": 3
+        },
+        "PMC5125033.1": {
+          "attainable_recall": 0.927536231884058,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC5125044.1": {
+          "attainable_recall": 0.9889705882352942,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC5625000.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC5625011.1": {
+          "attainable_recall": 0.9886363636363636,
+          "tables_emitted": 3,
+          "tables_expected": 3
+        },
+        "PMC5625023.1": {
+          "attainable_recall": 0.9820359281437125,
+          "tables_emitted": 2,
+          "tables_expected": 2
+        },
+        "PMC5625047.1": {
+          "attainable_recall": 0.9358974358974359,
+          "tables_emitted": 1,
+          "tables_expected": 0
+        },
+        "PMC5625115.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC6125013.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 5,
+          "tables_expected": 4
+        },
+        "PMC6125050.1": {
+          "attainable_recall": 0.967741935483871,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC6125114.1": {
+          "attainable_recall": 0.9833333333333333,
+          "tables_emitted": 1,
+          "tables_expected": 0
+        },
+        "PMC6125125.1": {
+          "attainable_recall": 0.9945652173913043,
+          "tables_emitted": 6,
+          "tables_expected": 2
+        },
+        "PMC6125136.1": {
+          "attainable_recall": 0.9917355371900827,
+          "tables_emitted": 10,
+          "tables_expected": 10
+        },
+        "PMC6625000.1": {
+          "attainable_recall": 0.8823529411764706,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC6625014.1": {
+          "attainable_recall": 0.9838709677419355,
+          "tables_emitted": 2,
+          "tables_expected": 2
+        },
+        "PMC6625025.1": {
+          "attainable_recall": 0.9696969696969697,
+          "tables_emitted": 1,
+          "tables_expected": 0
+        },
+        "PMC6625036.1": {
+          "attainable_recall": 0.9692307692307692,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC6625047.1": {
+          "attainable_recall": 0.9732142857142857,
+          "tables_emitted": 2,
+          "tables_expected": 3
+        },
+        "PMC7125043.1": {
+          "attainable_recall": 0.9504950495049505,
+          "tables_emitted": 3,
+          "tables_expected": 3
+        },
+        "PMC7125053.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC7125063.1": {
+          "attainable_recall": 0.9861111111111112,
+          "tables_emitted": 9,
+          "tables_expected": 7
+        },
+        "PMC7125073.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC7125084.1": {
+          "attainable_recall": 0.896551724137931,
+          "tables_emitted": 2,
+          "tables_expected": 2
+        },
+        "PMC7640351.1": {
+          "attainable_recall": 0.9904761904761905,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC7640361.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC7640372.1": {
+          "attainable_recall": 0.9907407407407407,
+          "tables_emitted": 3,
+          "tables_expected": 3
+        },
+        "PMC7640384.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC7640395.1": {
+          "attainable_recall": 0.9876543209876543,
+          "tables_emitted": 4,
+          "tables_expected": 4
+        },
+        "PMC8125000.1": {
+          "attainable_recall": 0.972972972972973,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC8125011.1": {
+          "attainable_recall": 0.9411764705882353,
+          "tables_emitted": 5,
+          "tables_expected": 5
+        },
+        "PMC8125022.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 6,
+          "tables_expected": 6
+        },
+        "PMC8125033.1": {
+          "attainable_recall": 0.9954545454545455,
+          "tables_emitted": 2,
+          "tables_expected": 2
+        },
+        "PMC8125044.1": {
+          "attainable_recall": 0.832,
+          "tables_emitted": 2,
+          "tables_expected": 1
+        },
+        "PMC8625000.1": {
+          "attainable_recall": 0.9939759036144579,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC8625011.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 6,
+          "tables_expected": 5
+        },
+        "PMC8625022.1": {
+          "attainable_recall": 0.9923664122137404,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC8625033.1": {
+          "attainable_recall": 0.8271604938271605,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC8625044.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC9125000.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 3,
+          "tables_expected": 3
+        },
+        "PMC9125010.1": {
+          "attainable_recall": 0.9772727272727273,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC9125017.2": {
+          "attainable_recall": 0.8313253012048193,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC9125026.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 4,
+          "tables_expected": 4
+        },
+        "PMC9125037.1": {
+          "attainable_recall": 0.9661016949152542,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC9625011.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 2,
+          "tables_expected": 2
+        },
+        "PMC9625077.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC9625112.1": {
+          "attainable_recall": 0.84,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        }
+      }
+    },
+    "pymupdf4llm": {
+      "versions": {
+        "pymupdf4llm": "1.28.2",
+        "pymupdf": "PyMuPDF 1.28.2: Python bindings for the MuPDF 1.28.2 library.\nPython 3.13 running on win32 (64-bit).\n"
+      },
+      "articles_scored": 103,
+      "articles_missing": 0,
+      "parse_failures": {},
+      "conversion_failures": [],
+      "attainable_recall": 0.978114657841358,
+      "recall_raw": 0.6066779484509243,
+      "ceiling": 0.6096719604269721,
+      "by_kind": {
+        "table": {
+          "attainable_recall": 0.6287878787878788,
+          "attainable": 132
+        },
+        "text_block": {
+          "attainable_recall": 0.9798149705634988,
+          "attainable": 4756
+        },
+        "title": {
+          "attainable_recall": 0.9866041527126591,
+          "attainable": 4479
+        }
+      },
+      "control_recall": 0.004881541265295496,
+      "novel_share": 0.06264923103089613,
+      "precision_raw": 0.8723583245566408,
+      "duplication": 0.0012711352433650686,
+      "tables_emitted": 276,
+      "tables_expected": 164,
+      "seconds_per_article_mean": 54.8074650359114,
+      "reparse_word_ratio": 1.0379752707110865,
+      "per_article": {
+        "PMC10125014.2": {
+          "attainable_recall": 0.9767441860465116,
+          "tables_emitted": 4,
+          "tables_expected": 4
+        },
+        "PMC10125045.1": {
+          "attainable_recall": 0.972972972972973,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC10125057.1": {
+          "attainable_recall": 0.9937888198757764,
+          "tables_emitted": 1,
+          "tables_expected": 0
+        },
+        "PMC10125068.1": {
+          "attainable_recall": 0.9714285714285714,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC10125079.1": {
+          "attainable_recall": 0.9913419913419913,
+          "tables_emitted": 6,
+          "tables_expected": 3
+        },
+        "PMC10625000.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC10625011.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC10625022.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 3,
+          "tables_expected": 3
+        },
+        "PMC10625055.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 1,
+          "tables_expected": 0
+        },
+        "PMC10625066.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 5,
+          "tables_expected": 5
+        },
+        "PMC11125000.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 2,
+          "tables_expected": 2
+        },
+        "PMC11125011.1": {
+          "attainable_recall": 0.9493087557603687,
+          "tables_emitted": 7,
+          "tables_expected": 7
+        },
+        "PMC11125022.1": {
+          "attainable_recall": 0.9879518072289156,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC11125033.1": {
+          "attainable_recall": 0.987012987012987,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC11125044.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 4,
+          "tables_expected": 4
+        },
+        "PMC11625022.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC11625051.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC11625062.1": {
+          "attainable_recall": 0.9836065573770492,
+          "tables_emitted": 4,
+          "tables_expected": 3
+        },
+        "PMC11625073.1": {
+          "attainable_recall": 0.9777777777777777,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC11625084.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 4,
+          "tables_expected": 4
+        },
+        "PMC12125000.1": {
+          "attainable_recall": 0.9846153846153847,
+          "tables_emitted": 1,
+          "tables_expected": 2
+        },
+        "PMC12125022.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC12125033.1": {
+          "attainable_recall": 0.9117647058823529,
+          "tables_emitted": 10,
+          "tables_expected": 5
+        },
+        "PMC12125044.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 3,
+          "tables_expected": 3
+        },
+        "PMC12125055.1": {
+          "attainable_recall": 0.9915254237288136,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC1626071.1": {
+          "attainable_recall": 0.9863013698630136,
+          "tables_emitted": 2,
+          "tables_expected": 2
+        },
+        "PMC1626082.1": {
+          "attainable_recall": 0.9875,
+          "tables_emitted": 4,
+          "tables_expected": 4
+        },
+        "PMC1626093.1": {
+          "attainable_recall": 0.9791666666666666,
+          "tables_emitted": 2,
+          "tables_expected": 1
+        },
+        "PMC1626106.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 1,
+          "tables_expected": 0
+        },
+        "PMC1626401.1": {
+          "attainable_recall": 0.9459459459459459,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC2625338.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC2625349.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 4,
+          "tables_expected": 4
+        },
+        "PMC2625360.1": {
+          "attainable_recall": 0.9914529914529915,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC2625371.1": {
+          "attainable_recall": 0.9672131147540983,
+          "tables_emitted": 3,
+          "tables_expected": 3
+        },
+        "PMC2625440.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC3125000.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC3125011.1": {
+          "attainable_recall": 0.9888268156424581,
+          "tables_emitted": 8,
+          "tables_expected": 0
+        },
+        "PMC3125023.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 5,
+          "tables_expected": 0
+        },
+        "PMC3125034.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC3125045.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC3625000.1": {
+          "attainable_recall": 0.7837837837837838,
+          "tables_emitted": 3,
+          "tables_expected": 0
+        },
+        "PMC3625011.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC3625108.1": {
+          "attainable_recall": 0.0,
+          "tables_emitted": 63,
+          "tables_expected": 0
+        },
+        "PMC3625148.1": {
+          "attainable_recall": 0.9880952380952381,
+          "tables_emitted": 2,
+          "tables_expected": 2
+        },
+        "PMC3625159.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC4125000.1": {
+          "attainable_recall": 0.9857142857142858,
+          "tables_emitted": 3,
+          "tables_expected": 4
+        },
+        "PMC4125011.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC4125023.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC4125045.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC4125056.1": {
+          "attainable_recall": 0.9733333333333334,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC4625000.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC4625011.1": {
+          "attainable_recall": 0.9362934362934363,
+          "tables_emitted": 3,
+          "tables_expected": 2
+        },
+        "PMC4625022.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 4,
+          "tables_expected": 4
+        },
+        "PMC4625033.1": {
+          "attainable_recall": 0.9759036144578314,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC4625044.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC5125000.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC5125010.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC5125023.1": {
+          "attainable_recall": 0.9943181818181818,
+          "tables_emitted": 11,
+          "tables_expected": 3
+        },
+        "PMC5125033.1": {
+          "attainable_recall": 0.9710144927536232,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC5125044.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 3,
+          "tables_expected": 1
+        },
+        "PMC5625000.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC5625011.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 3,
+          "tables_expected": 3
+        },
+        "PMC5625023.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 2,
+          "tables_expected": 2
+        },
+        "PMC5625047.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC5625115.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC6125013.1": {
+          "attainable_recall": 0.9565217391304348,
+          "tables_emitted": 5,
+          "tables_expected": 4
+        },
+        "PMC6125050.1": {
+          "attainable_recall": 0.989247311827957,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC6125114.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 1,
+          "tables_expected": 0
+        },
+        "PMC6125125.1": {
+          "attainable_recall": 0.9891304347826086,
+          "tables_emitted": 6,
+          "tables_expected": 2
+        },
+        "PMC6125136.1": {
+          "attainable_recall": 0.9586776859504132,
+          "tables_emitted": 12,
+          "tables_expected": 10
+        },
+        "PMC6625000.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC6625014.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 2,
+          "tables_expected": 2
+        },
+        "PMC6625025.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC6625036.1": {
+          "attainable_recall": 0.9846153846153847,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC6625047.1": {
+          "attainable_recall": 0.9910714285714286,
+          "tables_emitted": 3,
+          "tables_expected": 3
+        },
+        "PMC7125043.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 3,
+          "tables_expected": 3
+        },
+        "PMC7125053.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC7125063.1": {
+          "attainable_recall": 0.9305555555555556,
+          "tables_emitted": 8,
+          "tables_expected": 7
+        },
+        "PMC7125073.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC7125084.1": {
+          "attainable_recall": 0.9913793103448276,
+          "tables_emitted": 2,
+          "tables_expected": 2
+        },
+        "PMC7640351.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC7640361.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC7640372.1": {
+          "attainable_recall": 0.9907407407407407,
+          "tables_emitted": 3,
+          "tables_expected": 3
+        },
+        "PMC7640384.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC7640395.1": {
+          "attainable_recall": 0.9876543209876543,
+          "tables_emitted": 4,
+          "tables_expected": 4
+        },
+        "PMC8125000.1": {
+          "attainable_recall": 0.972972972972973,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC8125011.1": {
+          "attainable_recall": 0.9495798319327731,
+          "tables_emitted": 5,
+          "tables_expected": 5
+        },
+        "PMC8125022.1": {
+          "attainable_recall": 0.978494623655914,
+          "tables_emitted": 6,
+          "tables_expected": 6
+        },
+        "PMC8125033.1": {
+          "attainable_recall": 0.9863636363636363,
+          "tables_emitted": 2,
+          "tables_expected": 2
+        },
+        "PMC8125044.1": {
+          "attainable_recall": 0.968,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC8625000.1": {
+          "attainable_recall": 0.9969879518072289,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC8625011.1": {
+          "attainable_recall": 0.927536231884058,
+          "tables_emitted": 6,
+          "tables_expected": 5
+        },
+        "PMC8625022.1": {
+          "attainable_recall": 0.9923664122137404,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC8625033.1": {
+          "attainable_recall": 0.8271604938271605,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC8625044.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC9125000.1": {
+          "attainable_recall": 0.9016393442622951,
+          "tables_emitted": 4,
+          "tables_expected": 3
+        },
+        "PMC9125010.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC9125017.2": {
+          "attainable_recall": 0.9939759036144579,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC9125026.1": {
+          "attainable_recall": 0.9925373134328358,
+          "tables_emitted": 4,
+          "tables_expected": 4
+        },
+        "PMC9125037.1": {
+          "attainable_recall": 0.9830508474576272,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        },
+        "PMC9625011.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 2,
+          "tables_expected": 2
+        },
+        "PMC9625077.1": {
+          "attainable_recall": 1.0,
+          "tables_emitted": 0,
+          "tables_expected": 0
+        },
+        "PMC9625112.1": {
+          "attainable_recall": 0.98,
+          "tables_emitted": 1,
+          "tables_expected": 1
+        }
+      }
+    }
+  }
+}
