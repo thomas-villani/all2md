@@ -49,6 +49,71 @@ tools — and text survival alone structurally favors low-structure converters: 
 highest-recall converter imaginable dumps the raw text layer with no structure at all.
 Quote these numbers with that asymmetry attached.
 
+## Reading, 2026-08-29 (`results-2026-08-29.json`) — the sealed holdout, corrected truth
+
+**Re-read after two corrections.** The ground truth changed under everyone (#470), and
+all2md's outputs were regenerated at `2925f5c`, which carries the row-grouping fixes #468
+and #469 that the 2026-08-28 outputs predate. The baselines were deliberately **not** re-run:
+docling's and pymupdf4llm's markdown is byte-identical to the previous reading, re-scored
+against the corrected truth, so the baseline side is held fixed and the movement is
+attributable.
+
+| | all2md @ 2925f5c | pymupdf4llm 1.28.2 | docling 2.120.3 |
+| --- | --- | --- | --- |
+| Recall of attainable | **97.3%** | 97.1% | 96.2% |
+| — text blocks | **98.1%** | 97.0% | 96.0% |
+| — titles | 97.2% | **98.5%** | 97.0% |
+| — table text | 73.1% | 60.7% | **79.3%** |
+| **Novel (invented) share** | **0.55%** | 6.26% | 2.05% |
+| Precision (raw) | **93.9%** | 87.2% | 91.8% |
+| Duplication | 0.28% | **0.13%** | 1.72% |
+| Tables emitted / expected | 226 / 164 | 276 / 164 | **206 / 164** |
+| OCR firings over the corpus | **0** | 432 | sparse |
+
+**The control comes first.** `control_recall` is 0.0042 / 0.0049 / 0.0044 against attainable
+recall near 0.97. And this reading carries a second control the others could not: **every
+precision-side figure — novel share, raw precision, duplication, the mismatch control —
+reproduced to every recorded digit** when the same cached outputs were re-scored against the
+corrected truth. Those instruments never touch JATS, so they must not move; they did not.
+That is what licenses reading the recall movement as real.
+
+### The table gap to docling is 6.2 points, not 16.7
+
+Of the 10.5 points closed, **7.1 are the truth correction and 4.1 are #468 + #469.**
+
+The truth half is not all2md gaining, and the obvious reading of it is wrong. On the 132
+tables attainable under **both** truths, no tool's recovery changed at all — all2md 92,
+docling 114, pymupdf4llm 83, before and after. The entire movement is **13 tables that became
+attainable**, and none stopped being. Of those 13, **all2md recovers 8, pymupdf4llm 5 and
+docling 1.**
+
+Those 13 are the tables dense in glued inline markup: `X1`/`X2` design factors, `M1/M2`,
+`RRHF`, `ITotal`, footnote markers welded to values (`0.552a`, `NSCLCb`, `P-valuea`),
+superscript citations (`Willis43`). The old truth spelled them `X 1` and `0.552 a`, which the
+PDF's own text layer does not contain, so they sat outside the ceiling **for every tool**. So
+the correct statement is not "the broken truth flattered docling" — it is that the broken
+truth hid a whole class of table, and docling is much weaker on that class than we could see.
+Checked on exemplars rather than inferred from the delta: inside a table cell docling prints
+`X 1 (W)` where all2md prints `X1 (W)`, and `0.552 a` where all2md prints `0.552a`
+(pymupdf4llm drops the marker). Both tools get `X1` right in *prose* — it is docling's table
+pipeline, not its text extraction.
+
+### What else moved
+
+**all2md now leads recall of attainable outright** (97.3% against 97.1% and 96.2%), where the
+previous reading had it mid-pack in a three-way tie. The corrected truth is what changed;
+all2md's text-block and title figures are otherwise untouched by #468/#469, as designed —
+those were table-only changes and `tables_emitted` is unchanged at 226, so they moved grouping
+and not detection.
+
+**Novel share is unmoved at 0.55%** against docling's 2.05% and pymupdf4llm's 6.26%. It has now
+survived a corpus reseal *and* a ground-truth correction without shifting, which is the
+strongest thing this lane can say about a number.
+
+**The speed column is carried over unchanged for the baselines** and is not comparable across
+readings; see the caveat under the 2026-08-28 reading. all2md re-measured at 33.2 s/article
+against 31.6 in the previous session, on a box that was not otherwise idle.
+
 ## Reading, 2026-08-28 (`results-2026-08-28.json`) — the sealed holdout
 
 **The first genuinely held-out reading since v1.13.0.** 103 of 103 articles converted by
@@ -73,6 +138,12 @@ crediting text that is not there. `reparse_word_ratio` is 0.99 / 1.04 / 0.96, so
 normalization path is not eating any tool's content.
 
 ### What the seal cost us to learn
+
+> **Superseded by the 2026-08-29 reading.** The table figures in this section were measured
+> against a ground truth that printed a space at every JATS element boundary (#470). The gap
+> stated below is 16.7 points; on the corrected truth the same outputs read 10.3, and with
+> #468/#469 it is 6.2. The *reasoning* about in-sample measurement still stands — the seal
+> did cost us a real number — but do not quote the 16.7.
 
 **The table gap to docling is 16.7 points, not 4.8.** That is the finding. On the burned
 corpus all2md read 77.4% against docling's 82.2%; on a corpus neither of us tuned against,

@@ -70,12 +70,20 @@ than that date was measured on it and is in-sample. The fresh corpus materialize
 its own cache root and a test now fails if any tracked file names one of its articles;
 :file:`benchmarks/pmc/README.md` carries the record.
 
-It was read once, on 2026-08-28 — the first genuinely held-out comparison since v1.13.0.
-The headline: all2md's invented-text rate holds at **0.55%**, against 2.05% for Docling and
-6.26% for pymupdf4llm, and recall is a three-way tie inside 0.65 points. The cost of the
-seal is that **the table gap to Docling is 16.7 points, not the 4.8 the tuned corpus
-showed** (69.7% against 86.4%) — the table work had been developed against the old holdout,
-so that gap had been measured on its own training data. See
+It was first read on 2026-08-28 and re-read on 2026-08-29, after the ground-truth
+correction described above. The headline: all2md's invented-text rate holds at **0.55%**,
+against 2.05% for Docling and 6.26% for pymupdf4llm, and all2md leads recall of attainable
+at 97.3% against 97.1% and 96.2%. **The table gap to Docling is 6.2 points** — 73.1%
+against 79.3%.
+
+That figure has moved twice, and both moves are worth reading. The first held-out reading
+put it at 16.7 points, against 4.8 on the corpus the table work had been developed on: the
+old gap had been measured on its own training data. Correcting the ground truth then took
+16.7 to 10.3, and the row-grouping fixes took 10.3 to 6.2. The truth correction is not
+all2md gaining — on the tables attainable under both truths, *no* tool's recovery changed
+at all. It made 13 more tables attainable, ones dense in markup the old truth spelled with
+spaces the page never prints, and Docling recovers 1 of those 13 where all2md recovers 8.
+The baselines were not re-run for the second reading, so their side is held fixed. See
 :file:`benchmarks/comparison/README.md` for the full reading and the reasons its speed
 column is not comparable across readings.
 
