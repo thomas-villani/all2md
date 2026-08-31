@@ -99,7 +99,7 @@ Did the text survive?
      -
    * - Raw recall
      - 63.8%
-     - of 8,903 ground-truth blocks
+     - of 8,907 ground-truth blocks
    * - Attainable ceiling
      - 63.9%
      - what the PDF's own text layer reproduces
@@ -122,6 +122,16 @@ boundary (#470) — moves raw recall from 62.3% to 63.8% and table attainable-re
 82.7% to 84.9% with the parser untouched. Recall of *attainable* blocks does not move at
 all: the correction puts more of the ground truth inside the ceiling and recovers it in the
 same proportion, which is the behaviour a ceiling is for.
+
+A second correction of the same kind followed, and it moves the table figure the other way.
+A wide table is often typeset as two ``<table>`` elements under one ``<table-wrap>`` — the
+same rows, the left columns and then the right — and the projection read only the first, so
+5.3% of this corpus's table text sat in halves no converter was ever asked to match. Adding
+them puts four more tables on the expected side, three of which are already recovered, and
+table attainable-recall reads **84.6%**. A correction that lowers a published figure is
+worth as much as one that raises it: the number was measured against a truth that was
+missing, and both directions are the instrument getting more honest rather than the parser
+moving.
 
 An earlier movement was the same kind of thing: the shared oracle was blind to captions the
 parser had correctly bound to their figures — the text left the paragraph stream for a
@@ -168,13 +178,13 @@ By block kind:
      - 2,291
      - **98.9%**
    * - Tables
-     - 119 of 123
-     - 101
-     - **84.9%**
+     - 123 of 127
+     - 104
+     - **84.6%**
 
 The middle column counts only blocks inside the ceiling, so each row's share is its own
 two counts divided. A few more blocks are recovered than that: 3,264 text blocks, 2,313
-titles and 101 tables come out matching the ground truth, including some the PDF's own text
+titles and 104 tables come out matching the ground truth, including some the PDF's own text
 layer does not reproduce. Those count as recovered and on neither side of the share, which
 is why the larger count is not the one printed here.
 
@@ -207,7 +217,7 @@ Unsupported output is therefore split in two:
      - **95.6%**
      - the n-gram appears in the document's text layer
    * - Resequenced
-     - 4.0%
+     - 3.9%
      - every word is in the document, in a new adjacency
    * - **Novel**
      - **0.4%**
@@ -219,7 +229,7 @@ Unsupported output is therefore split in two:
      - 0.7%
      - wants to be ~0%
 
-Over 445,447 emitted n-grams, 1,898 are novel. Reporting the raw unsupported figure instead
+Over 445,442 emitted n-grams, 1,898 are novel. Reporting the raw unsupported figure instead
 would have made the result roughly ten times worse than the parser deserves.
 
 Duplication is counted apart from both, because it is invisible to either. Text emitted
@@ -251,32 +261,32 @@ Tables
 The bottleneck has moved. An earlier recording under-emitted — 92 tables against 121
 expected, with detection refusing to commit on the borderless *booktabs*-style tables
 journals actually print — and after word-gutter grids and two-column regions were admitted
-behind measured guards, the artifact reads **162 emitted against 122
+behind measured guards, the artifact reads **162 emitted against 127
 expected**, with tables emitted on 119 pages
-against the 95 that carry one in the ground truth.
+against the 96 that carry one in the ground truth.
 
 The surplus is not invention, and that is now measured rather than asserted. Every table
-emitted on a page carrying more tables than the ground truth expects — **55** of them — is
+emitted on a page carrying more tables than the ground truth expects — **47** of them — is
 put to two questions. The first does not involve JATS at all: does the PDF's own text layer
 hold this table's words? Text in the layer was printed on the page, so a table failing here
-is the only kind that could have been invented. **55 of 55** pass. The second asks where
+is the only kind that could have been invented. **47 of 47** pass. The second asks where
 that text sits in the ground truth, and the verdict that would matter is prose committed to
-a grid — a parser turning running text into a table it invented. That is **0 of 55**.
+a grid — a parser turning running text into a table it invented. That is **0 of 47**.
 
-Only 40 of the 55 also match the *order* of the text layer, and that gap is a grid doing its
+Only 35 of the 47 also match the *order* of the text layer, and that gap is a grid doing its
 job rather than a fault: re-cutting a page's words into cells changes their adjacency, which
 is why the invention test is asked of the words and not of the 5-grams.
 
-What the surplus is instead is accounting, with two named causes. **15** of the 55 trace to a
+What the surplus is instead is accounting, with two named causes. **13** of the 47 trace to a
 JATS ``<table>`` that the expected count assigns to another page — a table continuing across
 a page break is one ``<table-wrap>`` and several printed tables, and the expected count does
 not credit continuations. And **19** ``<table-wrap>`` elements across five articles carry no
 ``<table>`` markup at all: those publishers deposited their tables as images, so the ground
 truth holds no cell text for them and the tables those pages print can never reach the
 expected side, however well they are extracted. Those five articles alone contribute 20 of
-the **40** tables the census files outside JATS.
+the **34** tables the census files outside JATS.
 
-The other 20 are in the page's own text layer and match no JATS block in order. The
+The other 14 are in the page's own text layer and match no JATS block in order. The
 instrument stops there rather than guessing: it does not distinguish text JATS never
 recorded from a table re-cut into cells in an order JATS does not declare. Unordered token
 containment would answer neither, because an article's tables and its prose share a
@@ -297,7 +307,8 @@ measured, fixed behind guards (#416, #417), and the figure recovered to 77.3%. A
 mechanism followed the same route: ``find_tables()`` drew column boundaries and bbox edges
 straight through cell content, cutting values mid-word where neither guard could see it —
 dissolving those boundaries on structural evidence and healing the cut values in place
-(#419) took the figure to 82.7%, and the ground-truth correction above to **84.9%**.
+(#419) took the figure to 82.7%, the inline-markup correction above to 84.9%, and
+projecting every table a ``<table-wrap>`` carries to **84.6%**.
 The trade still stands with eyes open — a table
 recovered *as a table* is what downstream consumers need — but it is a trade, and the
 artifact says so rather than netting the two effects into one flattering number.
@@ -320,25 +331,25 @@ pages:
      - Wrong page
      - Gap
    * - ``reading_order_similarity``
-     - 0.830
+     - 0.832
      - 0.293
-     - **0.537**
+     - **0.538**
    * - ``text_content_similarity``
-     - 0.690
+     - 0.692
      - 0.234
-     - **0.456**
+     - **0.458**
    * - ``table_content_similarity``
-     - 0.629
-     - 0.039
-     - **0.590**
+     - 0.646
+     - 0.043
+     - **0.603**
    * - ``table_structure_similarity``
-     - 0.636
-     - 0.094
-     - **0.542**
+     - 0.654
+     - 0.098
+     - **0.555**
    * - ``block_structure_similarity``
-     - 0.550
-     - 0.446
-     - 0.104 — **not gated**
+     - 0.552
+     - 0.447
+     - 0.105 — **not gated**
 
 The two table dimensions score only the 123 pages that carry a table on either side; the
 other three score all 706.

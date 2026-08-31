@@ -70,7 +70,16 @@ from benchmarks.pmc.pages import ASSIGNMENTS, assign_pages, index_pages
 #: attribute the oracle never read, so recall *fell* as figure binding improved -- 101 of
 #: the 103 "lost" captions on the held-out corpus were in the output the whole time (#406).
 #: No payload key changes shape; the measurement underneath every recall figure does.
-SCHEMA_VERSION = 6
+#: 7 projects every ``<table>`` a ``<table-wrap>`` carries. Under 6 only the first was read,
+#: so a wide table the publisher split for the page contributed half its columns to the
+#: ground truth and the other half went unasked-for -- 5.3% of this corpus's table text,
+#: and every tool that did extract it was charged with emitting text nothing could match.
+#: Rows nested inside a cell's own table are no longer counted twice either. A ground-truth
+#: change must bump this even though no payload key moves: the artifact is only meaningful
+#: against the truth that produced it, and `test_the_reference_was_produced_by_the_current_payload_shape`
+#: is what stops a projection edit from landing while the recorded figures quietly describe
+#: an older one.
+SCHEMA_VERSION = 7
 #: 3 = the shared projection admits any container of inline text, by shape rather than by
 #: type name, so a node holding inline content with no ``Paragraph`` wrapper is no longer
 #: invisible to measurement (#443). ``SCHEMA_VERSION`` deliberately does *not* move with
