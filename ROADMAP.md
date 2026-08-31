@@ -1288,16 +1288,23 @@ Two decisions from those batches are kept here because they are *constraints*, n
       corpus plus the real-document counterpart is enough to start; it does not need the
       PMC lane's scale to be a gate.
     - **The two free-standing fixes** that need no dependency: the `w:sdt` block descent
-      and the `numFmt` whitelist gap.
+      and the `numFmt` whitelist gap. The second is now **sized** (2026-08-31,
+      `benchmarks/docx/generate/numfmt-map.json`): Word writes 46 distinct `w:numFmt`
+      values and `_map_numbering_format` recognises five, so the other 41 leave an
+      ordered list undetected as ordered — and that set is almost entirely CJK, Hebrew
+      and Arabic numbering, which makes it item 18's script blind spot showing up in the
+      parser rather than only in the corpora.
     - **The agreed `docx-plus` three-PR sequence** (2026-08-21): tracked changes, then
       fields + bookmarks, then effective formatting + style-inherited numbering — the last
       being the one with the flagged regression path, which is exactly what the new lane
       exists to gate.
 
-    **The lane is designed (2026-08-23)** — full design + a live capability probe with
-    every recipe verified in the saved file's XML sit in `design/docx-corpus/`
-    (gitignored: the design doc becomes the lane's README at implementation, per the
-    lesson of the lost docx-plus writeup). Every family is generatable: raw
+    **The lane is designed (2026-08-23), and step 1 has landed (2026-08-31)** — the
+    design is now `benchmarks/docx/README.md` and the live-probed generation machinery,
+    every recipe verified in the saved file's XML, is `benchmarks/docx/generate/`. It was
+    written under `design/` first and moved in-tree before any code depended on it, per
+    the lesson of the lost docx-plus writeup: `design/` is gitignored. Every family is
+    generatable: raw
     `HYPERLINK`/`REF`/`SEQ` fields, real `w:ins`/`w:del`, style-inherited numbering via
     a `LinkToListTemplate` COM hatch (numPr on the style only, verified), content
     controls with genuine `w:showingPlcHdr`, style-carried weight. Decisions taken:
