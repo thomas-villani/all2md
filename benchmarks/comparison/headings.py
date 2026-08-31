@@ -10,6 +10,15 @@ heading counts as recovered only when the tool emitted a heading whose text is t
 That rule needs no threshold, no floor, and no page attribution, so unlike reading order
 and table structure it scores third-party output as readily as our own.
 
+A section number is stripped from both sides before matching.  JATS keeps it in a
+``<label>`` sibling of ``<title>``, which ``_own_text`` does not read, so truth says
+``Discussion`` where the page -- and every tool that reads the page faithfully -- says
+``4 Discussion``.  Scored literally that is a miss for printing exactly what is there, and
+it is not a small correction: it was 8.4% of the development corpus's headings, and both
+baselines emit numbered headings at a similar rate.  Stripping the same run of tokens from
+both sides is symmetric, so a heading that genuinely opens with a number loses it on both
+sides and still matches.
+
 Two figures are reported because the whole-corpus one has a weak control by construction:
 section headings come from a small shared vocabulary (``Introduction``, ``Discussion``,
 ``Funding``), so scoring an article against the wrong output still matches some.  The
@@ -54,6 +63,14 @@ NOT_A_HEADING = frozenset({"ref", "ref-list", "fig", "table-wrap", "front", "art
 COMMON_HEADING_ARTICLES = 5
 
 
+def _unnumbered(heading: str) -> str:
+    """Return a normalized heading without its leading section number, if it has one."""
+    tokens = heading.split()
+    while tokens and all(character.isdigit() or character == "." for character in tokens[0]):
+        tokens = tokens[1:]
+    return " ".join(tokens)
+
+
 def _headings(node: object, ancestors: frozenset[str] = frozenset()) -> list[str]:
     """Return the normalized text of every section heading under a JATS node."""
     tag = oracles._tag(node)
@@ -62,7 +79,7 @@ def _headings(node: object, ancestors: frozenset[str] = frozenset()) -> list[str
     if oracles.BLOCKS.get(tag) == "title":
         if NOT_A_HEADING & ancestors:
             return []
-        text = " ".join(normalize(oracles._own_text(node)))
+        text = _unnumbered(" ".join(normalize(oracles._own_text(node))))
         return [text] if text else []
     found: list[str] = []
     for child in node:  # type: ignore[attr-defined]
@@ -72,7 +89,7 @@ def _headings(node: object, ancestors: frozenset[str] = frozenset()) -> list[str
 
 def _emitted(markdown: str) -> set[str]:
     """Return the normalized text of every ATX heading in a tool's markdown."""
-    return {" ".join(normalize(match.group(2))) for match in ATX.finditer(markdown)} - {""}
+    return {_unnumbered(" ".join(normalize(match.group(2)))) for match in ATX.finditer(markdown)} - {""}
 
 
 def main(argv: list[str] | None = None) -> int:

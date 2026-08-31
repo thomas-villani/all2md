@@ -67,21 +67,30 @@ python benchmarks/comparison/headings.py
 ```
 
 It prints rather than writing to `results-*.json`, so the reading is recorded here.
-**2026-08-29 outputs, sealed holdout, 1,795 section headings.** The figure is the share of
+**2026-08-29 outputs, sealed holdout, 1,790 section headings.** The figure is the share of
 headings *the page actually printed* that were emitted as headings:
 
 | tool | printed headings recovered as headings |
 |---|---|
-| all2md | 76.4% |
-| docling | 77.4% |
-| pymupdf4llm | 76.6% |
+| all2md | 79.0% |
+| docling | 80.3% |
+| pymupdf4llm | 79.2% |
 
-**Every tool loses about a quarter of section headings into the prose stream**, and the
-three are within a point of each other — this is a shared blind spot of the whole field,
+**Every tool loses about a fifth of section headings into the prose stream**, and the three
+are within about a point of each other — this is a shared blind spot of the whole field,
 not a place all2md trails. Two controls are reported because the shared vocabulary of
-`Introduction`/`Discussion`/`Funding` keeps the whole-corpus control off zero at 13.7%;
-restricted to headings appearing in fewer than five articles it falls to 1.5%, and that is
+`Introduction`/`Discussion`/`Funding` keeps the whole-corpus control off zero at 15.6%;
+restricted to headings appearing in fewer than five articles it falls to 1.4%, and that is
 the sharper number.
+
+**These replace a first reading of 76.4 / 77.4 / 76.6, which charged every tool with losing
+headings it had printed correctly.** JATS keeps a section number in a `<label>` sibling of
+`<title>` and the projection reads only the title, so truth said `Discussion` where the page
+— and any tool faithful to it — said `4 Discussion`. The number is now stripped from both
+sides before matching. On the development corpus it was 8.4% of all headings: of 99 numbered
+headings all2md was charged with losing, **97 had been emitted correctly, number and all**.
+It moved all three tools by a similar amount, so the ordering and the shared-blind-spot
+reading are unchanged; what changes is that a fifth of the reported loss was the measure's.
 
 A depth-agreement metric is deliberately absent. Aligning each article's best offset makes
 it gameable by a converter that emits every heading at one level, and in probing, a flat

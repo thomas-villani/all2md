@@ -7,10 +7,10 @@
   sentence now says only that.
 
   Its first reading was recorded in a commit message and nowhere a reader would look, so it
-  now sits with the lane's other readings: on the sealed holdout's 1,795 section headings,
-  **all2md 76.4%, Docling 77.4%, pymupdf4llm 76.6%** of the headings the page actually
-  printed. **Every tool loses about a quarter of them into the prose stream** and the three
-  sit within a point of each other — a blind spot of the field rather than a place all2md
+  now sits with the lane's other readings: on the sealed holdout's 1,790 section headings,
+  **all2md 79.0%, Docling 80.3%, pymupdf4llm 79.2%** of the headings the page actually
+  printed. **Every tool loses about a fifth of them into the prose stream** and the three sit
+  within about a point of each other — a blind spot of the field rather than a place all2md
   trails. Two controls are quoted with it, because the shared vocabulary of
-  `Introduction`/`Discussion`/`Funding` holds the whole-corpus control at 13.7%; on headings
-  appearing in fewer than five articles it falls to 1.5%.
+  `Introduction`/`Discussion`/`Funding` holds the whole-corpus control at 15.6%; on headings
+  appearing in fewer than five articles it falls to 1.4%.
