@@ -518,6 +518,54 @@ candidate. What exposed it was the payload's own `ocr_articles` field listing 2 
 a true baseline must list 11. Patch the *function* the option feeds, and confirm an arm is the
 arm from a field recording what the parser did, never from the score it produced.
 
+## Auditing the oracle: `benchmarks.pmc.audit`
+
+Every figure this lane publishes rests on the JATS projection being a faithful account of
+what the page prints. That assumption went unexamined for months and was wrong: the
+projection joined every element's text with a space, so the truth read `bla CTX-M` where the
+page prints `blaCTX-M`. Correcting it moved table containment on the development corpora by
+several times what a *perfect* column splitter was worth, and moved the published table
+figure 82.7% -> 84.9% with the parser untouched (#470).
+
+So the oracle now gets audited by running something rather than by noticing. Each check
+reads only the cached corpus -- JATS and the PDF's own text layer -- so none of them convert
+anything, and each takes about a minute:
+
+```bash
+python -m benchmarks.pmc.audit ceiling       # where blocks sit against the 0.80 attainable bar
+python -m benchmarks.pmc.audit unscored      # what the MIN_NGRAMS floor removes, per kind
+python -m benchmarks.pmc.audit titles        # section heading? reference entry? float label?
+python -m benchmarks.pmc.audit duplicates    # blocks repeating another block's exact text
+python -m benchmarks.pmc.audit unprintable   # projected words the text layer never holds
+```
+
+`--manifest` and `--cache` default to the development corpus. **Do not point them at the
+sealed holdout while developing** — reading it is a scoring act, not a development one.
+
+What the first run (2026-08-29) found, on the 66-article development corpus:
+
+- **The 0.80 bar is not a knife edge.** Containment against the text layer is sharply
+  bimodal on both development corpora — 78% of tables and 94.5% of titles sit at exactly
+  1.0, and 4.1% of text blocks fall within ±0.05 of the bar. The published attainable-recall
+  figures do not turn on the threshold.
+- **Duplicates are benign.** 0.19% of scored blocks repeat another block's exact text (a
+  reference cited twice, a shared affiliation). Set containment gives both copies the same
+  verdict, so it double-weights rather than distorts.
+- **Unprintable words are handled by the ceiling.** 2.6% of projected words never appear in
+  the text layer — ORCID digits, institution identifiers, licence URLs, 55% of them bare
+  numbers — and they sit in blocks that fail the ceiling anyway.
+- **The floor is a real blind spot, and the `title` row is not what it looks like.**
+  `MIN_NGRAMS = 4` never scores **22.6%** of ground-truth blocks, including **41% of
+  titles**. Of the title blocks that are scored, **2,208 are reference-list entries and 148
+  are section headings** — 86.7% of section headings are under the floor, because
+  `Introduction` and `Discussion` are two words. Tables are unaffected at 0%.
+
+  Lowering the floor cannot fix that: `Introduction` appears in any article's prose, so a
+  containment test would read near 100% for every converter. A heading measure needs
+  *structure* — see `benchmarks/comparison/headings.py`, which matches a truth heading only
+  against a heading the tool actually emitted, and which needs no page attribution and so
+  scores third-party output too.
+
 ## Licences
 
 The OA subset is not uniformly licensed. Each article's licence is read out of its own
