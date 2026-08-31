@@ -41,13 +41,52 @@ The numbers are only comparable because of four rules, all of which cost us some
    committed `results-*.json` was recorded against. A new reading against new versions
    is a new dated file, never an edit to an old one.
 
-**What this lane measures is deliberately narrow: article-level text survival and
-invented text.** Those are the two instruments with published false-positive controls
-that third-party output can enter. The page-level instruments (reading order, table
-*structure*, heading fidelity) require all2md's page attribution and cannot score other
-tools — and text survival alone structurally favors low-structure converters: the
-highest-recall converter imaginable dumps the raw text layer with no structure at all.
-Quote these numbers with that asymmetry attached.
+**What this lane measures is deliberately narrow: article-level text survival, invented
+text, and section headings.** Those are the instruments with published false-positive
+controls that third-party output can enter. The remaining page-level instruments (reading
+order, table *structure*) require all2md's page attribution and cannot score other tools.
+
+Text survival alone structurally favors low-structure converters — the highest-recall
+converter imaginable dumps the raw text layer with no structure at all — and that is the
+asymmetry the heading measure counterweights. Quote the recall numbers with it attached.
+
+## Section headings (`headings.py`)
+
+`score.py` cannot see a heading: `MIN_NGRAMS = 4` drops any block under about eight words,
+which removes 87% of section headings, and lowering the floor does not rescue them because
+`Introduction` appears in any article's prose and containment would read near 100% for
+everyone. So headings are scored by *structure* instead — a truth heading counts as
+recovered only when the tool emitted a heading with the same text. That rule needs no
+threshold and no page attribution, which is why it scores third-party output as readily as
+our own.
+
+Run it after the converters, against the same `out/` tree `score.py` reads:
+
+```
+python benchmarks/comparison/headings.py
+```
+
+It prints rather than writing to `results-*.json`, so the reading is recorded here.
+**2026-08-29 outputs, sealed holdout, 1,795 section headings.** The figure is the share of
+headings *the page actually printed* that were emitted as headings:
+
+| tool | printed headings recovered as headings |
+|---|---|
+| all2md | 76.4% |
+| docling | 77.4% |
+| pymupdf4llm | 76.6% |
+
+**Every tool loses about a quarter of section headings into the prose stream**, and the
+three are within a point of each other — this is a shared blind spot of the whole field,
+not a place all2md trails. Two controls are reported because the shared vocabulary of
+`Introduction`/`Discussion`/`Funding` keeps the whole-corpus control off zero at 13.7%;
+restricted to headings appearing in fewer than five articles it falls to 1.5%, and that is
+the sharper number.
+
+A depth-agreement metric is deliberately absent. Aligning each article's best offset makes
+it gameable by a converter that emits every heading at one level, and in probing, a flat
+emitter led on it. The sound version is pairwise relative depth, and it lands with the
+measure rather than as a script.
 
 ## Reading, 2026-08-29 (`results-2026-08-29.json`) — the sealed holdout, corrected truth
 
