@@ -41,8 +41,6 @@ class Finding:
 
 #: Markdown ordered-list marker at the start of a line.
 _ORDERED = re.compile(r"^\s*\d+[.)]\s+", re.MULTILINE)
-#: Any markdown list marker.
-_BULLET = re.compile(r"^\s*[-*+]\s+", re.MULTILINE)
 
 
 def _present(needle: str, haystack: str) -> bool:
