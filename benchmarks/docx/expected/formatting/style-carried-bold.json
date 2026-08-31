@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "case_id": "formatting/style-carried-bold",
+  "family": "formatting",
+  "description": "A run whose only character property is rStyle; the boldness lives in the style definition. Effective formatting differs from direct formatting.",
+  "control": false,
+  "facts": {
+    "runs": [
+      {
+        "text": "LABEL",
+        "direct_bold": false,
+        "effective_bold": true,
+        "character_style": "StrongLabel"
+      }
+    ]
+  },
+  "positional": [
+    {
+      "index": 1,
+      "anchor_id": "para:1",
+      "start": 0,
+      "end": 21,
+      "style": "Heading 1",
+      "range_text": "Effective Formatting"
+    },
+    {
+      "index": 2,
+      "anchor_id": "para:2",
+      "start": 21,
+      "end": 55,
+      "style": "Normal",
+      "range_text": "Body with a LABEL word inside it."
+    }
+  ]
+}

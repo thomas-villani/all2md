@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "case_id": "sdt/block-content-control",
+  "family": "sdt",
+  "description": "A block-level content control wrapping a real paragraph -- the shape a template uses for an author name. Its content sits inside w:sdtContent, one level below where a direct-child walk looks.",
+  "control": false,
+  "facts": {
+    "sdt": [
+      {
+        "kind": "block",
+        "title": "AuthorName",
+        "is_placeholder": false,
+        "text": "Author name goes here."
+      }
+    ]
+  },
+  "positional": [
+    {
+      "index": 1,
+      "anchor_id": "para:1",
+      "start": 0,
+      "end": 16,
+      "style": "Heading 1",
+      "range_text": "Content Control"
+    },
+    {
+      "index": 2,
+      "anchor_id": "para:2",
+      "start": 16,
+      "end": 33,
+      "style": "Normal",
+      "range_text": "Intro paragraph."
+    },
+    {
+      "index": 3,
+      "anchor_id": "para:3",
+      "start": 33,
+      "end": 58,
+      "style": "Normal",
+      "range_text": "Author name goes here."
+    }
+  ]
+}

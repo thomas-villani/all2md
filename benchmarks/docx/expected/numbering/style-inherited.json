@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "case_id": "numbering/style-inherited",
+  "family": "numbering",
+  "description": "The corporate-template shape: w:numPr lives on the paragraph STYLE, the paragraphs carry only w:pStyle. Numbering is reachable only through styles.xml.",
+  "control": false,
+  "facts": {
+    "list": {
+      "ordered": true,
+      "numfmt": "decimal",
+      "start": 1,
+      "numpr_on": "style",
+      "items": [
+        "Alpha item",
+        "Beta item",
+        "Gamma item"
+      ]
+    }
+  },
+  "positional": [
+    {
+      "index": 1,
+      "anchor_id": "para:1",
+      "start": 0,
+      "end": 16,
+      "style": "Heading 1",
+      "range_text": "Style Numbering"
+    },
+    {
+      "index": 2,
+      "anchor_id": "para:2",
+      "start": 16,
+      "end": 33,
+      "style": "Normal",
+      "range_text": "Intro paragraph."
+    },
+    {
+      "index": 3,
+      "anchor_id": "para:3",
+      "start": 33,
+      "end": 44,
+      "style": "CorpList",
+      "range_text": "Alpha item"
+    },
+    {
+      "index": 4,
+      "anchor_id": "para:4",
+      "start": 44,
+      "end": 54,
+      "style": "CorpList",
+      "range_text": "Beta item"
+    },
+    {
+      "index": 5,
+      "anchor_id": "para:5",
+      "start": 54,
+      "end": 65,
+      "style": "CorpList",
+      "range_text": "Gamma item"
+    }
+  ]
+}

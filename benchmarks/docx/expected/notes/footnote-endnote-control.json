@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "case_id": "notes/footnote-endnote-control",
+  "family": "notes",
+  "description": "CONTROL: a footnote and an endnote. Both work today via hand-rolled XML handling.",
+  "control": true,
+  "facts": {
+    "notes": [
+      {
+        "type": "footnote",
+        "text": "A footnote body."
+      },
+      {
+        "type": "endnote",
+        "text": "An endnote body."
+      }
+    ]
+  },
+  "positional": [
+    {
+      "index": 1,
+      "anchor_id": "para:1",
+      "start": 0,
+      "end": 6,
+      "style": "Heading 1",
+      "range_text": "Notes"
+    },
+    {
+      "index": 2,
+      "anchor_id": "para:2",
+      "start": 6,
+      "end": 31,
+      "style": "Normal",
+      "range_text": "Footnote host paragraph."
+    },
+    {
+      "index": 3,
+      "anchor_id": "para:3",
+      "start": 31,
+      "end": 56,
+      "style": "Normal",
+      "range_text": "\u0002Endnote host paragraph."
+    },
+    {
+      "index": 4,
+      "anchor_id": "para:4",
+      "start": 56,
+      "end": 77,
+      "style": "Normal",
+      "range_text": "\u0002Trailing paragraph."
+    }
+  ]
+}

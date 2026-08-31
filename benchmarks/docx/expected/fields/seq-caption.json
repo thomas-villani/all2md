@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "case_id": "fields/seq-caption",
+  "family": "fields",
+  "description": "An auto-numbered caption, which Word writes as a SEQ field. The printed text is 'Figure 1: ...'; the number lives in the field's cached result.",
+  "control": false,
+  "facts": {
+    "caption": {
+      "label": "Figure",
+      "number": 1,
+      "expected_text": "Figure 1: A probe figure"
+    }
+  },
+  "positional": [
+    {
+      "index": 1,
+      "anchor_id": "para:1",
+      "start": 0,
+      "end": 8,
+      "style": "Heading 1",
+      "range_text": "Caption"
+    },
+    {
+      "index": 2,
+      "anchor_id": "para:2",
+      "start": 8,
+      "end": 25,
+      "style": "Normal",
+      "range_text": "Intro paragraph."
+    },
+    {
+      "index": 3,
+      "anchor_id": "para:3",
+      "start": 25,
+      "end": 97,
+      "style": "Caption",
+      "range_text": "Figure host paragraph.Figure 1: A probe figure"
+    },
+    {
+      "index": 4,
+      "anchor_id": "para:4",
+      "start": 97,
+      "end": 98,
+      "style": "Normal",
+      "range_text": ""
+    }
+  ]
+}

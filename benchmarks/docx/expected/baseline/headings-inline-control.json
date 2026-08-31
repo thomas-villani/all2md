@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "case_id": "baseline/headings-inline-control",
+  "family": "baseline",
+  "description": "CONTROL: headings and inline formatting, the things that have always worked. A run that reports these broken is reporting a bug in the lane.",
+  "control": true,
+  "facts": {
+    "headings": [
+      {
+        "level": 1,
+        "text": "Title One"
+      },
+      {
+        "level": 2,
+        "text": "Section Two"
+      },
+      {
+        "level": 3,
+        "text": "Section Three"
+      }
+    ],
+    "inline": [
+      {
+        "text": "bold",
+        "bold": true
+      },
+      {
+        "text": "italic",
+        "italic": true
+      }
+    ],
+    "monospace_not_code": {
+      "text": "code",
+      "written_as": "rFonts Consolas, no character style",
+      "note": "deliberately not expected as a markdown code span: a font is presentation, not semantics"
+    }
+  },
+  "positional": [
+    {
+      "index": 1,
+      "anchor_id": "para:1",
+      "start": 0,
+      "end": 10,
+      "style": "Heading 1",
+      "range_text": "Title One"
+    },
+    {
+      "index": 2,
+      "anchor_id": "para:2",
+      "start": 10,
+      "end": 32,
+      "style": "Normal",
+      "range_text": "Plain body paragraph."
+    },
+    {
+      "index": 3,
+      "anchor_id": "para:3",
+      "start": 32,
+      "end": 44,
+      "style": "Heading 2",
+      "range_text": "Section Two"
+    },
+    {
+      "index": 4,
+      "anchor_id": "para:4",
+      "start": 44,
+      "end": 87,
+      "style": "Normal",
+      "range_text": "Body with bold and italic and code inside."
+    },
+    {
+      "index": 5,
+      "anchor_id": "para:5",
+      "start": 87,
+      "end": 101,
+      "style": "Heading 3",
+      "range_text": "Section Three"
+    },
+    {
+      "index": 6,
+      "anchor_id": "para:6",
+      "start": 101,
+      "end": 118,
+      "style": "Normal",
+      "range_text": "Final paragraph."
+    }
+  ]
+}

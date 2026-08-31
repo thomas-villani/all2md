@@ -1,0 +1,69 @@
+{
+  "description": "CONTROL: an ordinary numbered list applied directly to the paragraphs. Works today; a run that reports this broken is reporting a bug in the lane.",
+  "steps": [
+    {
+      "kind": "wl",
+      "args": [
+        "insert-markdown",
+        "--anchor-id",
+        "start",
+        "--markdown",
+        "-"
+      ],
+      "stdin": "# Direct List\n\nIntro paragraph.\n\nOne item\n\nTwo item\n\nThree item\n"
+    },
+    {
+      "kind": "wl",
+      "args": [
+        "list",
+        "apply",
+        "--anchor-id",
+        "para:3",
+        "--type",
+        "numbered"
+      ]
+    },
+    {
+      "kind": "wl",
+      "args": [
+        "list",
+        "apply",
+        "--anchor-id",
+        "para:4",
+        "--type",
+        "numbered"
+      ]
+    },
+    {
+      "kind": "wl",
+      "args": [
+        "list",
+        "apply",
+        "--anchor-id",
+        "para:5",
+        "--type",
+        "numbered"
+      ]
+    }
+  ],
+  "verify": [
+    {
+      "part": "word/document.xml",
+      "pattern": "<w:numPr>",
+      "min": 3
+    }
+  ],
+  "facts": {
+    "list": {
+      "ordered": true,
+      "numpr_on": "paragraph",
+      "items": [
+        "One item",
+        "Two item",
+        "Three item"
+      ]
+    }
+  },
+  "family": "numbering",
+  "control": true
+}

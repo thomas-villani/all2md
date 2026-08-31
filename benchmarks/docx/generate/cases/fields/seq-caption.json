@@ -1,0 +1,44 @@
+{
+  "description": "An auto-numbered caption, which Word writes as a SEQ field. The printed text is 'Figure 1: ...'; the number lives in the field's cached result.",
+  "steps": [
+    {
+      "kind": "wl",
+      "args": [
+        "insert-markdown",
+        "--anchor-id",
+        "start",
+        "--markdown",
+        "-"
+      ],
+      "stdin": "# Caption\n\nIntro paragraph.\n\nFigure host paragraph.\n"
+    },
+    {
+      "kind": "wl",
+      "args": [
+        "caption",
+        "--anchor-id",
+        "para:3",
+        "--label",
+        "Figure",
+        "--text",
+        ": A probe figure"
+      ]
+    }
+  ],
+  "verify": [
+    {
+      "part": "word/document.xml",
+      "pattern": "SEQ",
+      "min": 1
+    }
+  ],
+  "facts": {
+    "caption": {
+      "label": "Figure",
+      "number": 1,
+      "expected_text": "Figure 1: A probe figure"
+    }
+  },
+  "family": "fields",
+  "control": false
+}

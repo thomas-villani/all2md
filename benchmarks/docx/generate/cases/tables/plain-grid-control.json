@@ -1,0 +1,65 @@
+{
+  "description": "CONTROL: an unmerged 3x3 table. Works today.",
+  "steps": [
+    {
+      "kind": "wl",
+      "args": [
+        "insert-markdown",
+        "--anchor-id",
+        "start",
+        "--markdown",
+        "-"
+      ],
+      "stdin": "# Plain Table\n\nIntro paragraph.\n"
+    },
+    {
+      "kind": "wl",
+      "args": [
+        "table",
+        "create",
+        "--anchor-id",
+        "para:2",
+        "--rows",
+        "3",
+        "--cols",
+        "3",
+        "--header",
+        "--data",
+        "-"
+      ],
+      "stdin": "[[\"H1\",\"H2\",\"H3\"],[\"a\",\"b\",\"c\"],[\"d\",\"e\",\"f\"]]"
+    }
+  ],
+  "verify": [
+    {
+      "part": "word/document.xml",
+      "pattern": "<w:tbl>",
+      "min": 1
+    }
+  ],
+  "facts": {
+    "table": {
+      "grid_columns": 3,
+      "rows": 3,
+      "header_row": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "cells": [
+        [
+          "a",
+          "b",
+          "c"
+        ],
+        [
+          "d",
+          "e",
+          "f"
+        ]
+      ]
+    }
+  },
+  "family": "tables",
+  "control": true
+}

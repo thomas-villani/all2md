@@ -1,0 +1,62 @@
+{
+  "family": "notes",
+  "description": "CONTROL: a footnote and an endnote. Both work today via hand-rolled XML handling.",
+  "steps": [
+    {
+      "kind": "wl",
+      "args": [
+        "insert-markdown",
+        "--anchor-id",
+        "start",
+        "--markdown",
+        "-"
+      ],
+      "stdin": "# Notes\n\nFootnote host paragraph.\n\nEndnote host paragraph.\n\nTrailing paragraph.\n"
+    },
+    {
+      "kind": "wl",
+      "args": [
+        "insert-endnote",
+        "--anchor-id",
+        "para:3",
+        "--text",
+        "An endnote body."
+      ]
+    },
+    {
+      "kind": "wl",
+      "args": [
+        "insert-footnote",
+        "--anchor-id",
+        "para:2",
+        "--text",
+        "A footnote body."
+      ]
+    }
+  ],
+  "verify": [
+    {
+      "part": "word/document.xml",
+      "pattern": "<w:footnoteReference",
+      "min": 1
+    },
+    {
+      "part": "word/document.xml",
+      "pattern": "<w:endnoteReference",
+      "min": 1
+    }
+  ],
+  "facts": {
+    "notes": [
+      {
+        "type": "footnote",
+        "text": "A footnote body."
+      },
+      {
+        "type": "endnote",
+        "text": "An endnote body."
+      }
+    ]
+  },
+  "control": true
+}

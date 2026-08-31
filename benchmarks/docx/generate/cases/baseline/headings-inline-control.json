@@ -1,0 +1,56 @@
+{
+  "description": "CONTROL: headings and inline formatting, the things that have always worked. A run that reports these broken is reporting a bug in the lane.",
+  "steps": [
+    {
+      "kind": "wl",
+      "args": [
+        "insert-markdown",
+        "--anchor-id",
+        "start",
+        "--markdown",
+        "-"
+      ],
+      "stdin": "# Title One\n\nPlain body paragraph.\n\n## Section Two\n\nBody with **bold** and *italic* and `code` inside.\n\n### Section Three\n\nFinal paragraph.\n"
+    }
+  ],
+  "verify": [
+    {
+      "part": "word/document.xml",
+      "pattern": "<w:pStyle w:val=\"Heading1\"",
+      "min": 1
+    }
+  ],
+  "facts": {
+    "headings": [
+      {
+        "level": 1,
+        "text": "Title One"
+      },
+      {
+        "level": 2,
+        "text": "Section Two"
+      },
+      {
+        "level": 3,
+        "text": "Section Three"
+      }
+    ],
+    "inline": [
+      {
+        "text": "bold",
+        "bold": true
+      },
+      {
+        "text": "italic",
+        "italic": true
+      }
+    ],
+    "monospace_not_code": {
+      "text": "code",
+      "written_as": "rFonts Consolas, no character style",
+      "note": "deliberately not expected as a markdown code span: a font is presentation, not semantics"
+    }
+  },
+  "family": "baseline",
+  "control": true
+}

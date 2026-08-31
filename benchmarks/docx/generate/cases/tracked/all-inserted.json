@@ -1,0 +1,58 @@
+{
+  "description": "A paragraph whose entire content is a tracked insertion. Word shows it; anything reading only direct w:r children of w:p sees an empty paragraph (#480).",
+  "steps": [
+    {
+      "kind": "wl",
+      "args": [
+        "insert-markdown",
+        "--anchor-id",
+        "start",
+        "--markdown",
+        "-"
+      ],
+      "stdin": "# All Inserted\n\nOriginal body paragraph.\n"
+    },
+    {
+      "kind": "ops",
+      "label": "insert whole paragraph tracked",
+      "tracked": true,
+      "ops": [
+        {
+          "op": "append",
+          "text": "Every word of this paragraph is an insertion."
+        }
+      ]
+    }
+  ],
+  "verify": [
+    {
+      "part": "word/document.xml",
+      "pattern": "<w:ins ",
+      "min": 1
+    },
+    {
+      "part": "word/document.xml",
+      "pattern": "w:author=\"all2md corpus\"",
+      "min": 1
+    }
+  ],
+  "facts": {
+    "revisions": [
+      {
+        "type": "insert",
+        "text": "Every word of this paragraph is an insertion."
+      }
+    ],
+    "accepted_text": [
+      "All Inserted",
+      "Original body paragraph.",
+      "Every word of this paragraph is an insertion."
+    ],
+    "rejected_text": [
+      "All Inserted",
+      "Original body paragraph."
+    ]
+  },
+  "family": "tracked",
+  "control": false
+}

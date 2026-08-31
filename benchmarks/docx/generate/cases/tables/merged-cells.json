@@ -1,0 +1,74 @@
+{
+  "description": "A table with a horizontally merged cell (w:gridSpan). The merged content belongs to the table once; the parser duplicates it across every spanned column.",
+  "steps": [
+    {
+      "kind": "wl",
+      "args": [
+        "insert-markdown",
+        "--anchor-id",
+        "start",
+        "--markdown",
+        "-"
+      ],
+      "stdin": "# Merged Table\n\nIntro paragraph.\n"
+    },
+    {
+      "kind": "wl",
+      "args": [
+        "table",
+        "create",
+        "--anchor-id",
+        "para:2",
+        "--rows",
+        "3",
+        "--cols",
+        "3",
+        "--header",
+        "--data",
+        "-"
+      ],
+      "stdin": "[[\"H1\",\"H2\",\"H3\"],[\"spanned\",\"\",\"c\"],[\"d\",\"e\",\"f\"]]"
+    },
+    {
+      "kind": "wl",
+      "args": [
+        "table",
+        "merge-cells",
+        "--table",
+        "1",
+        "--from",
+        "2:1",
+        "--to",
+        "2:2"
+      ]
+    }
+  ],
+  "verify": [
+    {
+      "part": "word/document.xml",
+      "pattern": "<w:gridSpan",
+      "min": 1
+    }
+  ],
+  "facts": {
+    "table": {
+      "grid_columns": 3,
+      "rows": 3,
+      "header_row": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "merged": [
+        {
+          "row": 2,
+          "col": 1,
+          "colspan": 2,
+          "text": "spanned"
+        }
+      ]
+    }
+  },
+  "family": "tables",
+  "control": false
+}

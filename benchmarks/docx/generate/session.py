@@ -52,18 +52,42 @@ CALL_TIMEOUT = 180
 class WordSession:
     """One live Word application, driven document by document."""
 
-    def __init__(self, outdir: str, user_name: str | None = None) -> None:
+    def __init__(self, outdir: str) -> None:
         self.outdir = os.path.abspath(outdir)
         os.makedirs(self.outdir, exist_ok=True)
         self.app = win32.GetActiveObject("Word.Application")
         self.app.DisplayAlerts = WD_ALERTS_NONE
-        if user_name is not None:
-            # Tracked-change authorship is written from Word's identity, so an
-            # unpinned name would put whoever generated the corpus into the truth
-            # records and make them unreproducible on another machine.
-            self.app.UserName = user_name
         self.env = dict(os.environ, WORDLIVE_SAVE_DIRS=self.outdir)
         self.doc_name: str | None = None
+        self._identity: tuple[str, bool] | None = None
+
+    # --- authorship -----------------------------------------------------
+    def pin_author(self, name: str) -> None:
+        """Pin the identity Word writes into ``w:ins``/``w:del``.
+
+        **Setting ``UserName`` alone is not enough**, and it fails silently. When the
+        user is signed in to Office -- the common case -- Word ignores ``UserName``
+        for revision authorship and uses the Office account identity instead, unless
+        ``Options.UseLocalUserInfo`` is on (the "Always use these values regardless of
+        sign in to Office" checkbox). The assignment appears to succeed, the property
+        reads back as the new value, and the revisions still carry the account name.
+
+        That is exactly the failure the pin exists to prevent -- the machine's own
+        identity leaking into committed truth records -- so both are set here, and
+        :meth:`restore_author` puts both back.
+        """
+        self._identity = (str(self.app.UserName), bool(self.app.Options.UseLocalUserInfo))
+        self.app.Options.UseLocalUserInfo = True
+        self.app.UserName = name
+
+    def restore_author(self) -> None:
+        """Undo :meth:`pin_author`. This touches the user's own Word settings."""
+        if self._identity is None:
+            return
+        name, use_local = self._identity
+        self.app.UserName = name
+        self.app.Options.UseLocalUserInfo = use_local
+        self._identity = None
 
     # --- lifecycle ------------------------------------------------------
     def new(self) -> str:

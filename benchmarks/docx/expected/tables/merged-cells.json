@@ -1,0 +1,148 @@
+{
+  "schema_version": 1,
+  "case_id": "tables/merged-cells",
+  "family": "tables",
+  "description": "A table with a horizontally merged cell (w:gridSpan). The merged content belongs to the table once; the parser duplicates it across every spanned column.",
+  "control": false,
+  "facts": {
+    "table": {
+      "grid_columns": 3,
+      "rows": 3,
+      "header_row": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "merged": [
+        {
+          "row": 2,
+          "col": 1,
+          "colspan": 2,
+          "text": "spanned"
+        }
+      ]
+    }
+  },
+  "positional": [
+    {
+      "index": 1,
+      "anchor_id": "para:1",
+      "start": 0,
+      "end": 13,
+      "style": "Heading 1",
+      "range_text": "Merged Table"
+    },
+    {
+      "index": 2,
+      "anchor_id": "para:2",
+      "start": 13,
+      "end": 30,
+      "style": "Normal",
+      "range_text": "Intro paragraph."
+    },
+    {
+      "index": 3,
+      "anchor_id": "para:3",
+      "start": 30,
+      "end": 33,
+      "style": "Table Grid",
+      "range_text": "H1"
+    },
+    {
+      "index": 4,
+      "anchor_id": "para:4",
+      "start": 33,
+      "end": 36,
+      "style": "Table Grid",
+      "range_text": "H2"
+    },
+    {
+      "index": 5,
+      "anchor_id": "para:5",
+      "start": 36,
+      "end": 39,
+      "style": "Table Grid",
+      "range_text": "H3"
+    },
+    {
+      "index": 6,
+      "anchor_id": "para:6",
+      "start": 39,
+      "end": 40,
+      "style": "Table Grid",
+      "range_text": ""
+    },
+    {
+      "index": 7,
+      "anchor_id": "para:7",
+      "start": 40,
+      "end": 48,
+      "style": "Table Grid",
+      "range_text": "spanned"
+    },
+    {
+      "index": 8,
+      "anchor_id": "para:8",
+      "start": 48,
+      "end": 50,
+      "style": "Table Grid",
+      "range_text": "c"
+    },
+    {
+      "index": 9,
+      "anchor_id": "para:9",
+      "start": 50,
+      "end": 51,
+      "style": "Table Grid",
+      "range_text": ""
+    },
+    {
+      "index": 10,
+      "anchor_id": "para:10",
+      "start": 51,
+      "end": 53,
+      "style": "Table Grid",
+      "range_text": "d"
+    },
+    {
+      "index": 11,
+      "anchor_id": "para:11",
+      "start": 53,
+      "end": 55,
+      "style": "Table Grid",
+      "range_text": "e"
+    },
+    {
+      "index": 12,
+      "anchor_id": "para:12",
+      "start": 55,
+      "end": 57,
+      "style": "Table Grid",
+      "range_text": "f"
+    },
+    {
+      "index": 13,
+      "anchor_id": "para:13",
+      "start": 57,
+      "end": 58,
+      "style": "Table Grid",
+      "range_text": ""
+    },
+    {
+      "index": 14,
+      "anchor_id": "para:14",
+      "start": 58,
+      "end": 59,
+      "style": "Normal",
+      "range_text": ""
+    },
+    {
+      "index": 15,
+      "anchor_id": "para:15",
+      "start": 59,
+      "end": 60,
+      "style": "Normal",
+      "range_text": ""
+    }
+  ]
+}

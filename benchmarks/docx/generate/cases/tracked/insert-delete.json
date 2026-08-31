@@ -1,0 +1,105 @@
+{
+  "family": "tracked",
+  "description": "A document left with Track Changes on: one word replaced, one paragraph deleted, one paragraph added. The ordinary state of anything under review.",
+  "steps": [
+    {
+      "kind": "wl",
+      "args": [
+        "insert-markdown",
+        "--anchor-id",
+        "start",
+        "--markdown",
+        "-"
+      ],
+      "stdin": "# Tracked Probe\n\nThe quick brown fox jumps.\n\nDelete this sentence entirely.\n\nTail paragraph.\n"
+    },
+    {
+      "kind": "ops",
+      "label": "tracked edits",
+      "tracked": true,
+      "ops": [
+        {
+          "op": "find_replace",
+          "find": "brown",
+          "text": "crimson"
+        },
+        {
+          "op": "find_replace",
+          "find": "Tail",
+          "text": "Final"
+        },
+        {
+          "op": "append",
+          "text": "Inserted while tracking."
+        },
+        {
+          "op": "delete_paragraph",
+          "anchor_id": "para:3"
+        }
+      ]
+    }
+  ],
+  "verify": [
+    {
+      "part": "word/document.xml",
+      "pattern": "<w:ins ",
+      "min": 3
+    },
+    {
+      "part": "word/document.xml",
+      "pattern": "<w:del ",
+      "min": 2
+    },
+    {
+      "part": "word/document.xml",
+      "pattern": "<w:delText",
+      "min": 2
+    },
+    {
+      "part": "word/document.xml",
+      "pattern": "w:author=\"all2md corpus\"",
+      "min": 4
+    }
+  ],
+  "facts": {
+    "revisions": [
+      {
+        "type": "insert",
+        "text": "crimson"
+      },
+      {
+        "type": "delete",
+        "text": "brown"
+      },
+      {
+        "type": "insert",
+        "text": "Final"
+      },
+      {
+        "type": "delete",
+        "text": "Tail"
+      },
+      {
+        "type": "insert",
+        "text": "Inserted while tracking."
+      },
+      {
+        "type": "delete",
+        "text": "Delete this sentence entirely."
+      }
+    ],
+    "accepted_text": [
+      "Tracked Probe",
+      "The quick crimson fox jumps.",
+      "Final paragraph.",
+      "Inserted while tracking."
+    ],
+    "rejected_text": [
+      "Tracked Probe",
+      "The quick brown fox jumps.",
+      "Delete this sentence entirely.",
+      "Tail paragraph."
+    ]
+  },
+  "control": false
+}
