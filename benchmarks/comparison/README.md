@@ -43,8 +43,13 @@ The numbers are only comparable because of four rules, all of which cost us some
 
 **What this lane measures is deliberately narrow: article-level text survival, invented
 text, and section headings.** Those are the instruments with published false-positive
-controls that third-party output can enter. The remaining page-level instruments (reading
-order, table *structure*) require all2md's page attribution and cannot score other tools.
+controls that third-party output can enter. Reading order, and table structure *as the
+main lane scores it*, require all2md's page attribution and cannot score other tools.
+
+One piece of table structure does cross the line and is scored for every tool, because it
+needs no page attribution: how many rows each tool cuts a table into, against the truth
+table's own row count. That, and the order-free companion to the table figure, are
+`tablediag.py` below.
 
 Text survival alone structurally favors low-structure converters — the highest-recall
 converter imaginable dumps the raw text layer with no structure at all — and that is the
@@ -96,6 +101,118 @@ A depth-agreement metric is deliberately absent. Aligning each article's best of
 it gameable by a converter that emits every heading at one level, and in probing, a flat
 emitter led on it. The sound version is pairwise relative depth, and it lands with the
 measure rather than as a script.
+
+## Where the table gap is (`tablediag.py`)
+
+The table figure above is n-gram containment, and the scoring audit established what that
+actually measures on tables: the median cell is two words, and 69–83% of a truth table's
+5-grams cross a cell boundary. So it is overwhelmingly a measure of *cell adjacency and
+reading order*, not of cell content — and quoted alone it reads as "share of table content
+recovered", which it is not.
+
+`tablediag.py` scores every attainable truth table twice against the same output.
+**Multiset token containment** ignores order entirely and says how many of the table's words
+reached the output at all. **N-gram containment** is the published measure. The difference
+is the order tax, and the pair is the point: a tool can only be charged for losing order
+once it is shown to have the words.
+
+### The 2026-08-31 reading: the whole gap is order, and none of it is content
+
+Run on the 2026-08-29 cached outputs against the current ground truth, 146 attainable truth
+tables.
+
+| | n-gram | **token** | order tax |
+| --- | --- | --- | --- |
+| all2md | 0.838 | **0.998** | +0.160 |
+| docling | 0.865 | 0.991 | +0.126 |
+| pymupdf4llm | 0.762 | 0.993 | +0.231 |
+
+**all2md holds 99.8% of every truth table's words** — the best of the three, and at ceiling.
+There is no content deficit to close. Whatever separates these tools on tables is
+arrangement, and this is the number to quote whenever the table figure is read as content
+recovery.
+
+These are unweighted per-table means under this script's own attainability filter, so they
+are not the corpus-aggregate table-text figures in the reading tables above and must not be
+diffed against them.
+
+### It is a row-count defect, and the disagreement is symmetric
+
+At a 10-point margin, **docling wins 35 tables and all2md wins 29**, with 82 ties. The mean
+deficit is the small net of two large opposing populations, not a uniform shortfall. And
+**97% of docling's wins are the same words in a different order** — exactly one of the 35
+involves words all2md did not extract.
+
+What separates them is how many rows each tool cuts the table into:
+
+| rows against the truth's own count | right | over-merged | over-split | no grid |
+| --- | --- | --- | --- | --- |
+| all2md | 54% | 23% | 18% | 5% |
+| docling | **81%** | 12% | 5% | 3% |
+| pymupdf4llm | 73% | 10% | 14% | 3% |
+
+On the tables docling wins, all2md's row count is right only 9 times in 35; on the tables
+all2md wins, 16 in 29. But the pymupdf4llm row is the guard against over-reading this: it
+gets more row counts right than all2md and still scores worst of the three, because a row
+count can be right while the cells inside it are cut wrongly. Row grouping is what separates
+*these two* tools on *this* corpus, not a general ranking.
+
+Note also that all2md over-merges and over-splits at comparable rates. "all2md over-merges"
+is too simple a summary: on this corpus the larger excess over docling is on the over-split
+side.
+
+### The disagreement is article-level, and nothing measured explains it
+
+Within-article agreement of the win direction is **64.1% against a 31.6% permutation null
+(p = 0.004)** — the null matters, because a few articles carrying many tables would
+manufacture apparent clustering on their own. So the cause lives at the document level.
+
+Every document-level variable probed came back flat: ruling density on table pages (8.0 vs
+6.8 rules per page), rules drawn as thin rectangles rather than line items (a real blind
+spot in `_extract_ruling_lines`, but 7 of 40 articles), journal identity (the corpus draw
+spread publishers, so almost none repeat), two-column layout (median widest rule spans 0.86
+against 0.83 of page width, and tables confined to one column lean the *other* way),
+landscape pages (none), and table shape — rows, columns, cell slots, words — where the two
+sets are indistinguishable.
+
+One limit this cannot resolve: the clustering may be partly truth-side, since an article's
+tables share a JATS structure and so could score alike for reasons belonging to neither
+parser.
+
+### One mechanism looked decisive and priced out at nothing
+
+`_table_row_extents` takes row boxes from PyMuPDF's `find_tables()`. On a ruled table those
+boxes share edges exactly, so **51% of recorded grids arrive with no vertical gap between
+any two lines** — and on those the merge rule's strongest signal, the inter-line gap, is
+constant zero. Measured against a grouping oracle on the development corpora, merge recall
+collapses from **79.5% on grids with real gaps to 29.2% on tiled ones**, at unchanged
+precision: those grids are not merged wrongly, they are not merged at all.
+
+It is worth almost nothing. Priced in containment against a perfect-grouping ceiling, tiled
+grids carry **+0.017 / +0.032** of headroom (dev / tuned) against **+0.054 / +0.101** for
+gapped ones. Tiled grids are already correctly rowed — that is *why* they tile, the rulings
+having marked the real rows — so they want 1.7 merges each against 8.7, and the ones missed
+barely touch a gram. Recorded here because the reverse mistake is easy: a merge-recall
+number can look catastrophic and be worthless, and a grouping lead must be priced in
+containment before it is chased.
+
+### Verdict: the residue is a model-class difference, not a missing rule
+
+Perfect row grouping is worth **+0.055** across the development corpora; the per-table gap
+to docling is 0.027. The whole deficit fits inside the row-grouping ceiling, and docling
+captures about half of a headroom all2md does not.
+
+But that headroom sits on grids where the rule already has full geometry and already makes
+79.5% of the available merges. Buying the last fifth costs ten points of precision, and a
+wrong merge interleaves two real rows and destroys the grams in both, where a missed merge
+costs only the grams spanning the wrap. Every other avenue is measured closed: new features
+at the detection seam, recombining the existing ones, column splitting, both merge
+directions, and the section-heading fold.
+
+docling runs a learned table-structure model over the page image; all2md runs geometry rules
+over extracted words. On this evidence the remainder is that difference, and no further
+heuristic is expected to close it. The table work stops here rather than continuing to fit
+rules to a corpus.
 
 ## Reading, 2026-08-29 (`results-2026-08-29.json`) — the sealed holdout, corrected truth
 
@@ -354,6 +471,11 @@ C:/Users/<you>/AppData/Local/Temp/a2mbl/Scripts/python.exe benchmarks/comparison
 
 # 6. Diff: what does a baseline keep that we lose?
 .venv/Scripts/python.exe benchmarks/comparison/lost_blocks.py pymupdf4llm
+
+# 7. Headings, and the table content/order split. Both read the same out/ tree as
+#    score.py, so they need no conversion of their own.
+.venv/Scripts/python.exe benchmarks/comparison/headings.py
+.venv/Scripts/python.exe benchmarks/comparison/tablediag.py
 ```
 
 **Do not put the baselines venv under `%TEMP%`.** It was there until 2026-08-27, and
