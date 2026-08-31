@@ -7,9 +7,11 @@
   "facts": {
     "math": {
       "unicodemath": "x=(-b±√(b^2-4ac))/(2a)",
+      "expected_latex": "x=\\frac{-b±\\sqrt{b^{2}-4ac}}{2a}",
       "encoding": "bare m:oMath child of w:p",
       "oMathPara": false,
-      "note": "wordlive writes m:oMath, never m:oMathPara; see benchmarks/docx/README.md"
+      "display": true,
+      "note": "wordlive writes m:oMath, never m:oMathPara; a bare oMath alone in its paragraph is a display equation"
     }
   },
   "positional": [

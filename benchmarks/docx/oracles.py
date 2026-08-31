@@ -254,8 +254,6 @@ def check_baseline(case: Case, out: str) -> list[Finding]:
             )
     math = facts.get("math")
     if math:
-        # The equation is present if anything mathematical survived at all. Kept
-        # deliberately weak: a weak check that fails is a strong signal.
         emitted = bool(re.search(r"\$|\\frac|\\sqrt|\\pm|√", out))
         findings.append(
             Finding(
@@ -263,9 +261,38 @@ def check_baseline(case: Case, out: str) -> list[Finding]:
                 case.family,
                 "equation emitted",
                 emitted,
-                "some math survived" if emitted else "nothing math-like in the output at all",
+                "math survived" if emitted else "nothing math-like in the output at all",
             )
         )
+        # Presence is not correctness. A radical whose radicand silently resolved to
+        # nothing still leaves `\frac{...}{...}` behind and still looks like maths --
+        # so the expected LaTeX is compared in full, or the check would pass on a
+        # formula that had quietly lost half of itself.
+        expected = math.get("expected_latex")
+        if expected:
+            findings.append(
+                Finding(
+                    case.case_id,
+                    case.family,
+                    "equation latex correct",
+                    _present(expected, out),
+                    f"wanted {expected!r}",
+                )
+            )
+        if math.get("display"):
+            findings.append(
+                Finding(
+                    case.case_id,
+                    case.family,
+                    "equation is a block",
+                    "$$" in out,
+                    (
+                        "emitted as a display block"
+                        if "$$" in out
+                        else "not a block; a standalone oMath is displayed maths"
+                    ),
+                )
+            )
     return findings
 
 

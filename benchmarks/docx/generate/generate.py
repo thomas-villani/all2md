@@ -253,6 +253,17 @@ def main() -> int:
     wordlive_version = subprocess.run(
         ["wordlive", "--version"], capture_output=True, text=True, check=False
     ).stdout.strip()
+    # A partial run (`--only`) must MERGE into the manifest, not replace it. Writing
+    # only what this run produced would silently drop every case it did not touch, and
+    # the corpus would still load cleanly -- just smaller, with no sign anything went
+    # missing. Regenerating one case is the normal way to fix one case's truth record.
+    existing: dict[str, dict[str, Any]] = {}
+    if MANIFEST.exists():
+        previous = json.loads(MANIFEST.read_text(encoding="utf-8"))
+        existing = {case["case_id"]: case for case in previous.get("cases", [])}
+    for entry in entries:
+        existing[entry["case_id"]] = entry
+
     manifest = {
         "schema_version": MANIFEST_SCHEMA_VERSION,
         "provenance": {
@@ -262,7 +273,7 @@ def main() -> int:
             "word_user_name": CORPUS_AUTHOR,
             "generated_utc": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         },
-        "cases": entries,
+        "cases": [existing[key] for key in sorted(existing)],
     }
     with MANIFEST.open("w", encoding="utf-8", newline="\n") as handle:
         json.dump(manifest, handle, indent=2, ensure_ascii=False)
