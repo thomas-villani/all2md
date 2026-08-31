@@ -3,6 +3,7 @@
   "case_id": "fields/field-codes",
   "family": "fields",
   "description": "Raw field codes as Word writes them: a HYPERLINK field and a REF field pointing at a bookmark, both as fldChar/instrText rather than as elements the parser recognises.",
+  "control": false,
   "facts": {
     "fields": [
       {

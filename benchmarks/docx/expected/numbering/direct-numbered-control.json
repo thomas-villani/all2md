@@ -3,6 +3,7 @@
   "case_id": "numbering/direct-numbered-control",
   "family": "numbering",
   "description": "CONTROL: an ordinary numbered list applied directly to the paragraphs. Works today; a run that reports this broken is reporting a bug in the lane.",
+  "control": true,
   "facts": {
     "list": {
       "ordered": true,

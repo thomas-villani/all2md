@@ -86,5 +86,6 @@
         "covers_text": "Ref target text."
       }
     ]
-  }
+  },
+  "control": false
 }

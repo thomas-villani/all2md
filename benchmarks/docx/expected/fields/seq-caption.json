@@ -3,6 +3,7 @@
   "case_id": "fields/seq-caption",
   "family": "fields",
   "description": "An auto-numbered caption, which Word writes as a SEQ field. The printed text is 'Figure 1: ...'; the number lives in the field's cached result.",
+  "control": false,
   "facts": {
     "caption": {
       "label": "Figure",

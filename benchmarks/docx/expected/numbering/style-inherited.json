@@ -3,6 +3,7 @@
   "case_id": "numbering/style-inherited",
   "family": "numbering",
   "description": "The corporate-template shape: w:numPr lives on the paragraph STYLE, the paragraphs carry only w:pStyle. Numbering is reachable only through styles.xml.",
+  "control": false,
   "facts": {
     "list": {
       "ordered": true,

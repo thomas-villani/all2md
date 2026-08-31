@@ -39,5 +39,6 @@
       "expected_text": "Figure 1: A probe figure"
     }
   },
-  "family": "fields"
+  "family": "fields",
+  "control": false
 }

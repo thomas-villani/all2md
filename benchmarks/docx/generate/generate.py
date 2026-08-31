@@ -194,6 +194,7 @@ def generate_case(session: WordSession, spec_path: Path) -> dict[str, Any]:
         "case_id": case_id,
         "family": family,
         "description": spec["description"],
+        "control": bool(spec.get("control", False)),
         "facts": spec.get("facts", {}),
         "positional": paragraphs,
     }

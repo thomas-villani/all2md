@@ -3,6 +3,7 @@
   "case_id": "tables/merged-cells",
   "family": "tables",
   "description": "A table with a horizontally merged cell (w:gridSpan). The merged content belongs to the table once; the parser duplicates it across every spanned column.",
+  "control": false,
   "facts": {
     "table": {
       "grid_columns": 3,

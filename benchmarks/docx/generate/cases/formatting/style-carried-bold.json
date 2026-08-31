@@ -54,5 +54,6 @@
       }
     ]
   },
-  "family": "formatting"
+  "family": "formatting",
+  "control": false
 }

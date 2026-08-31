@@ -3,6 +3,7 @@
   "case_id": "tracked/all-inserted",
   "family": "tracked",
   "description": "A paragraph whose entire content is a tracked insertion. Word shows it; anything reading only direct w:r children of w:p sees an empty paragraph (#480).",
+  "control": false,
   "facts": {
     "revisions": [
       {

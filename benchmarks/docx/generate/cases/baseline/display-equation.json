@@ -39,5 +39,6 @@
       "note": "wordlive writes m:oMath, never m:oMathPara; see benchmarks/docx/README.md"
     }
   },
-  "family": "baseline"
+  "family": "baseline",
+  "control": false
 }

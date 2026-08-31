@@ -3,6 +3,7 @@
   "case_id": "tables/plain-grid-control",
   "family": "tables",
   "description": "CONTROL: an unmerged 3x3 table. Works today.",
+  "control": true,
   "facts": {
     "table": {
       "grid_columns": 3,

@@ -60,5 +60,6 @@
       ]
     }
   },
-  "family": "tables"
+  "family": "tables",
+  "control": true
 }

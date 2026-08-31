@@ -42,5 +42,6 @@
       }
     ]
   },
-  "family": "sdt"
+  "family": "sdt",
+  "control": false
 }

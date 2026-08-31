@@ -95,5 +95,6 @@
       ]
     }
   },
-  "family": "numbering"
+  "family": "numbering",
+  "control": false
 }

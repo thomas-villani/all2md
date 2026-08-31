@@ -3,6 +3,7 @@
   "case_id": "formatting/direct-bold-control",
   "family": "formatting",
   "description": "CONTROL: the same word made bold directly on the run. Works today.",
+  "control": true,
   "facts": {
     "runs": [
       {

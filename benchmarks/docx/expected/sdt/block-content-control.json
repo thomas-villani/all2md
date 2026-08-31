@@ -3,6 +3,7 @@
   "case_id": "sdt/block-content-control",
   "family": "sdt",
   "description": "A block-level content control wrapping a real paragraph -- the shape a template uses for an author name. Its content sits inside w:sdtContent, one level below where a direct-child walk looks.",
+  "control": false,
   "facts": {
     "sdt": [
       {

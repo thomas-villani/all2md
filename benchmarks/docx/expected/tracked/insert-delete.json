@@ -3,6 +3,7 @@
   "case_id": "tracked/insert-delete",
   "family": "tracked",
   "description": "A document left with Track Changes on: one word replaced, one paragraph deleted, one paragraph added. The ordinary state of anything under review.",
+  "control": false,
   "facts": {
     "revisions": [
       {

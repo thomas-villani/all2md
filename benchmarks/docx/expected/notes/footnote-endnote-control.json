@@ -3,6 +3,7 @@
   "case_id": "notes/footnote-endnote-control",
   "family": "notes",
   "description": "CONTROL: a footnote and an endnote. Both work today via hand-rolled XML handling.",
+  "control": true,
   "facts": {
     "notes": [
       {

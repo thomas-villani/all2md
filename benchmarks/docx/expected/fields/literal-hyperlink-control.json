@@ -3,6 +3,7 @@
   "case_id": "fields/literal-hyperlink-control",
   "family": "fields",
   "description": "CONTROL: the same link as a real w:hyperlink element. Works today, and is the contrast case that proves hyperlink-field's failure is about field codes and not about links.",
+  "control": true,
   "facts": {
     "link": {
       "text": "the target",

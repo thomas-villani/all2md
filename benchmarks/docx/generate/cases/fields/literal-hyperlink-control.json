@@ -39,5 +39,6 @@
       "encoding": "w:hyperlink"
     }
   },
-  "family": "fields"
+  "family": "fields",
+  "control": true
 }

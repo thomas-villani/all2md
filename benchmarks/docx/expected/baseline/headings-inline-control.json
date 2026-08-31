@@ -3,6 +3,7 @@
   "case_id": "baseline/headings-inline-control",
   "family": "baseline",
   "description": "CONTROL: headings and inline formatting, the things that have always worked. A run that reports these broken is reporting a bug in the lane.",
+  "control": true,
   "facts": {
     "headings": [
       {
@@ -26,12 +27,13 @@
       {
         "text": "italic",
         "italic": true
-      },
-      {
-        "text": "code",
-        "code": true
       }
-    ]
+    ],
+    "monospace_not_code": {
+      "text": "code",
+      "written_as": "rFonts Consolas, no character style",
+      "note": "deliberately not expected as a markdown code span: a font is presentation, not semantics"
+    }
   },
   "positional": [
     {

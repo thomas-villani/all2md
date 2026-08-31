@@ -64,5 +64,6 @@
       ]
     }
   },
-  "family": "numbering"
+  "family": "numbering",
+  "control": true
 }

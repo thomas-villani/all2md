@@ -3,6 +3,7 @@
   "case_id": "formatting/style-carried-bold",
   "family": "formatting",
   "description": "A run whose only character property is rStyle; the boldness lives in the style definition. Effective formatting differs from direct formatting.",
+  "control": false,
   "facts": {
     "runs": [
       {

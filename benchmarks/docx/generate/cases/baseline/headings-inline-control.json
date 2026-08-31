@@ -43,12 +43,14 @@
       {
         "text": "italic",
         "italic": true
-      },
-      {
-        "text": "code",
-        "code": true
       }
-    ]
+    ],
+    "monospace_not_code": {
+      "text": "code",
+      "written_as": "rFonts Consolas, no character style",
+      "note": "deliberately not expected as a markdown code span: a font is presentation, not semantics"
+    }
   },
-  "family": "baseline"
+  "family": "baseline",
+  "control": true
 }

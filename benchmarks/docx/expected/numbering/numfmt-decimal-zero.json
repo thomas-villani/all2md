@@ -3,6 +3,7 @@
   "case_id": "numbering/numfmt-decimal-zero",
   "family": "numbering",
   "description": "An ordered list whose numFmt is decimalZero with StartAt 3 -- one of the 41 numFmt values the parser does not recognise, so the list is not detected as ordered at all.",
+  "control": false,
   "facts": {
     "list": {
       "ordered": true,

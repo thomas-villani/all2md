@@ -3,6 +3,7 @@
   "case_id": "baseline/display-equation",
   "family": "baseline",
   "description": "A standalone display equation. Word writes a bare m:oMath as a direct child of w:p -- not m:oMathPara, and not inside a run -- which falls between both of the parser's extraction paths (#481).",
+  "control": false,
   "facts": {
     "math": {
       "unicodemath": "x=(-b±√(b^2-4ac))/(2a)",
