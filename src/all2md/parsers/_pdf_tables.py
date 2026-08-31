@@ -1529,6 +1529,32 @@ def _filled_columns(line_rows: list[list[str]], group: list[int]) -> set[int]:
     return {column for index in group for column, cell in enumerate(line_rows[index]) if cell}
 
 
+# Below this a gap is not a measurement but a tiling artefact: the find_tables() path
+# emits row bboxes that abut exactly, so every gap it produces is zero, and any rule
+# reading leading is inert there.
+_GEOMETRY_EPSILON = 1e-6
+# A printed line that sits at wrap leading, does not start with a capital, and fills only
+# part of the grid is a wrapped continuation the five rules above can miss. All three are
+# needed: tight leading alone folds the dense numeric rows of a table with no row padding;
+# lower case alone folds a genuine row whose first cell is a unit or a gene name; partial
+# fill alone folds every half-empty row, which is the mistake #438 already made.
+#
+# The gap is read against this table's own median line height, never in points: a rule
+# trained on absolute gaps scored 93% on the corpus it came from and below the majority
+# baseline on a held-out one, and cost 0.216 of containment there.
+#
+# Both values are taken from the middle of a joint plateau rather than an argmax. Sweeping
+# them over both PMC development corpora (dev 101 truth tables, tuned 125, the latter
+# held out for every table rule written before 2026-08-27): the fill share is flat from
+# 0.50 to 0.65 on both, and 0.75 splits them -- tuned gains but dev loses a table. The gap
+# share is flat from 0.17 to 0.45 on dev, plateaus at 0.22-0.35 on tuned, and falls off a
+# cliff at 0.45. Together: dev +0.0040 (2 tables better, none worse), tuned +0.0034 (8
+# better, 3 worse). The rule is a post-pass, so it can only fold a boundary the rules above
+# chose to leave standing; it never overrides a merge one of them made.
+WRAPPED_CONTINUATION_MAX_GAP_HEIGHT_SHARE = 0.28
+WRAPPED_CONTINUATION_MAX_FILL_SHARE = 0.55
+
+
 def _rows_from_groups(line_rows: list[list[str]], groups: list[list[int]]) -> list[list[str]]:
     """Assemble merged rows from line groups, joining cell fragments with newlines."""
     merged: list[list[str]] = []
@@ -1676,6 +1702,13 @@ def merge_continuation_lines(
        numeric-fusion guard -- a row-label column in a heavily wrapped table is filled
        only on row starts, but a sparse *data* column must not be mistaken for one.
 
+    6. **The wrapped-continuation fold** (`_fold_wrapped_continuations`): a post-pass over
+       whatever the five rules above decided. Measured against the best grouping any rule
+       could reach, they merge at ~90% precision but find only two thirds of the merges
+       available, so this recovers a slice of the rest -- a line at wrap leading that
+       neither starts with a capital nor fills the row. It only ever folds a boundary the
+       rules above left standing; it cannot undo a merge one of them made.
+
     Fully-dense numeric tables have uniform gaps, no single-column lines, and every
     anchor cell filled, so nothing merges and the per-line rows stand.
 
@@ -1694,27 +1727,95 @@ def merge_continuation_lines(
     Cell fragments join with a newline rather than a space so the caller can run its
     hyphenation repair across the join, exactly as the paragraph path does.
     """
+    groups = _continuation_groups(
+        line_rows, line_extents, continuation_within_start_columns=continuation_within_start_columns
+    )
+    return _rows_from_groups(line_rows, _fold_wrapped_continuations(line_rows, line_extents, groups))
+
+
+def _fold_wrapped_continuations(
+    line_rows: list[list[str]],
+    line_extents: list[tuple[float, float]] | None,
+    groups: list[list[int]],
+) -> list[list[int]]:
+    """Fold a group whose first line is plainly a wrapped continuation into the one above.
+
+    The five grouping rules are precise and incomplete: measured against the best grouping
+    any rule could reach, they make ~90% of their merges correctly but find only two thirds
+    of the merges available. This recovers part of the rest, and only where all three
+    signals agree -- wrap leading, no leading capital, and a partly filled line.
+
+    Runs only where the extents carry real vertical geometry. The ``find_tables()`` path
+    tiles its row bboxes, so every gap there is exactly zero and the first test would pass
+    on every boundary in the grid.
+    """
+    if line_extents is None or len(line_extents) != len(line_rows) or len(groups) < 2:
+        return groups
+    gaps = [line_extents[index][0] - line_extents[index - 1][1] for index in range(1, len(line_extents))]
+    if not any(abs(gap) > _GEOMETRY_EPSILON for gap in gaps):
+        return groups
+    heights = sorted(top - bottom for bottom, top in line_extents)
+    median_height = heights[len(heights) // 2]
+    if median_height <= 0:
+        return groups
+    column_count = max(len(row) for row in line_rows)
+
+    folded: list[list[int]] = [groups[0]]
+    for group in groups[1:]:
+        start = group[0]
+        row = line_rows[start]
+        filled = [cell for cell in row if cell.strip()]
+        first = next((cell.strip() for cell in row if cell.strip()), "")
+        if (
+            start > 0
+            and gaps[start - 1] <= WRAPPED_CONTINUATION_MAX_GAP_HEIGHT_SHARE * median_height
+            and len(filled) <= WRAPPED_CONTINUATION_MAX_FILL_SHARE * column_count
+            and first
+            and not first[0].isupper()
+        ):
+            folded[-1] = folded[-1] + group
+            continue
+        folded.append(group)
+    return folded
+
+
+def _continuation_groups(
+    line_rows: list[list[str]],
+    line_extents: list[tuple[float, float]] | None = None,
+    *,
+    continuation_within_start_columns: bool = False,
+) -> list[list[int]]:
+    """Group printed lines into logical rows, as line indices.
+
+    The signals documented on `merge_continuation_lines` decide, in the order set out
+    there. Returning groups rather than assembled rows lets one post-pass see whichever
+    path answered -- gap, header fold, row markers or anchor -- and lets the benchmark
+    harness read the grouping a change actually produced.
+
+    Blank printed lines are boundaries rather than rows and belong to no group.
+    """
     column_count = max(len(row) for row in line_rows)
 
     if line_extents is not None:
         groups = _gap_row_groups(line_rows, line_extents)
         if groups is not None:
-            return _rows_from_groups(line_rows, groups)
+            return groups
 
     if len(line_rows) > 2:
         fold = _header_fold(line_rows)
         if fold >= len(line_rows):
             fold = len(line_rows) - 1  # a whole grid is not one header row
         if fold > 1:
-            return _rows_from_groups(line_rows, [list(range(fold))]) + merge_continuation_lines(
+            tail = _continuation_groups(
                 line_rows[fold:],
                 None if line_extents is None else line_extents[fold:],
                 continuation_within_start_columns=continuation_within_start_columns,
             )
+            return [list(range(fold))] + [[index + fold for index in group] for group in tail]
 
     marker_groups = _row_marker_groups(line_rows)
     if marker_groups is not None:
-        return _rows_from_groups(line_rows, marker_groups)
+        return marker_groups
 
     gaps: list[float] | None = None
     median_gap = 0.0
@@ -1763,20 +1864,20 @@ def merge_continuation_lines(
         ):
             anchor = sparse_anchor
 
-    merged: list[list[str]] = []
+    groups = []
     broken = False
     for index, row in enumerate(line_rows):
         filled_columns = [column for column, cell in enumerate(row) if cell]
         single_column_wrap = (
             gaps is not None
-            and merged
+            and groups
             and column_count >= 3
             and len(filled_columns) == 1
             and gaps[index - 1] < median_gap
         )
-        anchor_continuation = merged and not (anchor < len(row) and row[anchor])
+        anchor_continuation = bool(groups) and not (anchor < len(row) and row[anchor])
         if anchor_continuation and continuation_within_start_columns:
-            row_columns = {column for column, cell in enumerate(merged[-1]) if cell}
+            row_columns = {column for line in groups[-1] for column, cell in enumerate(line_rows[line]) if cell}
             anchor_continuation = all(column in row_columns for column in filled_columns)
         if not any(row):
             # A blank printed line inside a grid separates rows -- whatever follows starts
@@ -1785,14 +1886,10 @@ def merge_continuation_lines(
             continue
         if broken or not (single_column_wrap or anchor_continuation):
             broken = False
-            merged.append(list(row))
+            groups.append([index])
             continue
-        target = merged[-1]
-        for column, fragment in enumerate(row):
-            if not fragment:
-                continue
-            target[column] = f"{target[column]}\n{fragment}" if target[column] else fragment
-    return merged
+        groups[-1].append(index)
+    return groups
 
 
 # The integer forms a bibliography numbers its entries with: ``42.``, ``42``, ``[42]``,
