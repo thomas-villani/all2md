@@ -272,6 +272,29 @@ def _positive_span(value: str | None) -> int:
     return max(1, span)
 
 
+def _own_rows(table: Any) -> list[Any]:
+    """Return a table's own ``<tr>`` elements, not those of a table nested in one of its cells.
+
+    ``iter()`` is recursive, so a nested table used to contribute its rows to the outer
+    table's count *and* its text twice -- once through the enclosing cell's rendered text,
+    which is correct because the page prints it there, and again as rows of its own.
+    """
+    found: list[Any] = []
+
+    def visit(node: Any) -> None:
+        for child in node:
+            tag = _tag(child)
+            if tag == "table":
+                continue
+            if tag == "tr":
+                found.append(child)
+            else:
+                visit(child)
+
+    visit(table)
+    return found
+
+
 def _jats_table(table: Any) -> TableProjection:
     """Project a JATS ``<table>`` with the same counting rules the HTML side uses.
 
@@ -285,9 +308,7 @@ def _jats_table(table: Any) -> TableProjection:
     columns = 0
     cell_slots = 0
     cells: list[str] = []
-    for row in table.iter():
-        if _tag(row) != "tr":
-            continue
+    for row in _own_rows(table):
         rows += 1
         row_columns = 0
         for cell in row:
@@ -307,22 +328,63 @@ def _caption_of(element: Any) -> str:
     return " ".join(parts)
 
 
-def _table_wrap(element: Any) -> JatsBlock:
-    table = next((child for child in element.iter() if _tag(child) == "table"), None)
-    projection = _jats_table(table) if table is not None else None
+def _wrapped_tables(element: Any) -> list[Any]:
+    """Return the ``<table>`` elements a wrap carries, excluding any nested inside a cell.
+
+    Descending into a table would return a table nested in one of its own cells as a
+    sibling, and its text is already inside the outer table's cell text -- it would be
+    counted twice.
+    """
+    found: list[Any] = []
+
+    def visit(node: Any) -> None:
+        for child in node:
+            if _tag(child) == "table":
+                found.append(child)
+            else:
+                visit(child)
+
+    visit(element)
+    return found
+
+
+def _table_wrap(element: Any) -> Iterator[JatsBlock]:
+    """Yield one block per table a ``<table-wrap>`` carries.
+
+    A publisher splitting a wide table for the page puts each half in its own ``<table>``
+    under one wrap -- same rows, different columns. Reading only the first discarded the
+    rest of the truth silently: 5.3% of the development corpus's table text sat in the
+    halves nobody was asked to match, which flattered nothing and penalised every tool
+    that extracted them, since emitted text with no truth behind it scores as novel.
+
+    Each ``<table>`` becomes its own block rather than one merged block, because merging
+    would have to guess whether the parts are stacked (sum the rows) or side by side (sum
+    the columns), and the structure figures would inherit the guess.
+    """
+    tables = _wrapped_tables(element)
     # Footnotes under the table are rendered beneath it, so they belong to the caption
     # stream rather than to the cell text, which is compared against Table nodes.
     foot = " ".join(_all_text(child) for child in element if _tag(child) == "table-wrap-foot")
     caption = " ".join(part for part in (_caption_of(element), foot) if part)
-    if projection is None:
+    if not tables:
         # A table-wrap with no table renders as a graphic plus its caption: real page
         # content, but nothing a Table node could match. Scoring it as an empty table would
         # punish a parser for the absence of something that was never there. Flagged rather
         # than merely absorbed, so the count can be reported beside the table totals: the
         # page prints a table the parser extracts from the text layer, and it lands in
         # `tables_emitted` with nothing on the expected side to answer it.
-        return JatsBlock(kind="text_block", text=caption, caption="", image_table=True)
-    return JatsBlock(kind="table", text=projection.text, caption=caption, table=projection)
+        yield JatsBlock(kind="text_block", text=caption, caption="", image_table=True)
+        return
+    for index, table in enumerate(tables):
+        projection = _jats_table(table)
+        # One caption is printed above the whole wrap, so it belongs to the first part
+        # alone; repeating it would score the same printed line once per part.
+        yield JatsBlock(
+            kind="table",
+            text=projection.text,
+            caption=caption if index == 0 else "",
+            table=projection,
+        )
 
 
 def walk(root: Any) -> Iterator[JatsBlock]:
@@ -344,7 +406,7 @@ def walk(root: Any) -> Iterator[JatsBlock]:
         return
     kind = BLOCKS.get(tag)
     if kind == "table":
-        yield _table_wrap(root)
+        yield from _table_wrap(root)
         return
     if tag == "fig":
         caption = _caption_of(root)

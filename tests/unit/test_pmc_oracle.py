@@ -122,6 +122,78 @@ def test_a_table_with_markup_is_not_counted_as_deposited_as_an_image() -> None:
     assert [(block.kind, block.image_table) for block in blocks] == [("table", False)]
 
 
+def test_every_table_a_wrap_carries_is_projected_not_only_the_first() -> None:
+    """A wide table split for the page puts each half in its own ``<table>``, one wrap.
+
+    Reading only the first discarded the rest of the truth silently. Measured on the
+    development corpus: four wraps in one article, holding **5.3% of that corpus's entire
+    table text**, in halves nobody was ever asked to match -- so every tool that did
+    extract them was charged for text with no truth behind it.
+    """
+    blocks, projection = oracles.project_jats(
+        _jats(
+            "<table-wrap><label>Table 2</label><caption><p>Split across the page</p></caption>"
+            "<table><tr><th>Left</th></tr><tr><td>alpha</td></tr></table>"
+            "<table><tr><th>Right</th></tr><tr><td>omega</td></tr></table>"
+            "</table-wrap>"
+        )
+    )
+    tables = [block for block in blocks if block.kind == "table"]
+    assert len(tables) == 2, "the second half of a split table must not be discarded"
+    assert "alpha" in tables[0].text and "omega" in tables[1].text
+    assert len(projection.tables) == 2
+
+
+def test_a_split_wrap_prints_its_caption_once_so_only_the_first_part_carries_it() -> None:
+    """The page prints one caption above the whole wrap, not one above each half."""
+    blocks, _ = oracles.project_jats(
+        _jats(
+            "<table-wrap><label>Table 2</label><caption><p>Printed once</p></caption>"
+            "<table><tr><td>alpha</td></tr></table>"
+            "<table><tr><td>omega</td></tr></table>"
+            "</table-wrap>"
+        )
+    )
+    captions = [block.caption for block in blocks if block.kind == "table"]
+    assert "Printed once" in captions[0]
+    assert captions[1] == "", "repeating the caption would score one printed line twice"
+
+
+def test_a_table_nested_in_a_cell_is_not_projected_as_a_second_table() -> None:
+    """Its text is already inside the outer table's cell text; yielding it counts it twice."""
+    blocks, _ = oracles.project_jats(
+        _jats(
+            "<table-wrap><caption><p>Outer</p></caption>"
+            "<table><tr><td>outer cell"
+            "<table><tr><td>inner</td></tr></table>"
+            "</td></tr></table></table-wrap>"
+        )
+    )
+    tables = [block for block in blocks if block.kind == "table"]
+    assert len(tables) == 1
+    assert tables[0].text.count("inner") == 1
+
+
+def test_table_footnotes_are_scored_as_caption_rather_than_as_cell_text() -> None:
+    """They render beneath the table, and a Table node's cells are not where they land.
+
+    About 7% of a table's printed text is its footnotes on both development corpora, so
+    this is not a rounding decision -- it is why a table's cell text and what the page
+    prints under the table are not the same measurement.
+    """
+    blocks, _ = oracles.project_jats(
+        _jats(
+            "<table-wrap><caption><p>Head</p></caption>"
+            "<table><tr><td>cell</td></tr></table>"
+            "<table-wrap-foot><p>Values are means.</p></table-wrap-foot>"
+            "</table-wrap>"
+        )
+    )
+    table = next(block for block in blocks if block.kind == "table")
+    assert "Values are means" in table.caption
+    assert "Values are means" not in table.text
+
+
 # ---------------------------------------------------------------------------
 # What the surplus tables are
 # ---------------------------------------------------------------------------
