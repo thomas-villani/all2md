@@ -70,12 +70,20 @@ than that date was measured on it and is in-sample. The fresh corpus materialize
 its own cache root and a test now fails if any tracked file names one of its articles;
 :file:`benchmarks/pmc/README.md` carries the record.
 
-It was read once, on 2026-08-28 — the first genuinely held-out comparison since v1.13.0.
-The headline: all2md's invented-text rate holds at **0.55%**, against 2.05% for Docling and
-6.26% for pymupdf4llm, and recall is a three-way tie inside 0.65 points. The cost of the
-seal is that **the table gap to Docling is 16.7 points, not the 4.8 the tuned corpus
-showed** (69.7% against 86.4%) — the table work had been developed against the old holdout,
-so that gap had been measured on its own training data. See
+It was first read on 2026-08-28 and re-read on 2026-08-29, after the ground-truth
+correction described above. The headline: all2md's invented-text rate holds at **0.55%**,
+against 2.05% for Docling and 6.26% for pymupdf4llm, and all2md leads recall of attainable
+at 97.3% against 97.1% and 96.2%. **The table gap to Docling is 6.2 points** — 73.1%
+against 79.3%.
+
+That figure has moved twice, and both moves are worth reading. The first held-out reading
+put it at 16.7 points, against 4.8 on the corpus the table work had been developed on: the
+old gap had been measured on its own training data. Correcting the ground truth then took
+16.7 to 10.3, and the row-grouping fixes took 10.3 to 6.2. The truth correction is not
+all2md gaining — on the tables attainable under both truths, *no* tool's recovery changed
+at all. It made 13 more tables attainable, ones dense in markup the old truth spelled with
+spaces the page never prints, and Docling recovers 1 of those 13 where all2md recovers 8.
+The baselines were not re-run for the second reading, so their side is held fixed. See
 :file:`benchmarks/comparison/README.md` for the full reading and the reasons its speed
 column is not comparable across readings.
 
@@ -90,10 +98,10 @@ Did the text survive?
      - Value
      -
    * - Raw recall
-     - 62.3%
-     - of 8,905 ground-truth blocks
+     - 63.8%
+     - of 8,903 ground-truth blocks
    * - Attainable ceiling
-     - 62.4%
+     - 63.9%
      - what the PDF's own text layer reproduces
    * - **Recall of what is attainable**
      - **98.9%**
@@ -102,8 +110,20 @@ Did the text survive?
      - 0.4%
      - wants to be ~0%
 
-Part of the most recent movement in these figures is a *measurement* correction, not a
-parser change, and it is flagged as such: the shared oracle was blind to captions the
+The most recent movement in these figures is a *measurement* correction rather than a
+parser change, and it is flagged as such. The projection joined every JATS element's text
+with a space, so that ``<label>Table 2</label>`` could not fuse onto the caption after it.
+Structural boundaries do need that space; inline ones do not, and JATS marks up part of a
+word constantly — ``bla<sub>CTX-M</sub>`` is printed ``blaCTX-M``, ``et al.<sup>12</sup>``
+is ``et al.12``. Every such boundary put five n-grams of ground truth beyond the reach of
+any converter, and the tables carried the most of them. Rendering an element as the page
+prints it — the source's own whitespace inside a line, a space only at a structural
+boundary (#470) — moves raw recall from 62.3% to 63.8% and table attainable-recall from
+82.7% to 84.9% with the parser untouched. Recall of *attainable* blocks does not move at
+all: the correction puts more of the ground truth inside the ceiling and recovers it in the
+same proportion, which is the behaviour a ceiling is for.
+
+An earlier movement was the same kind of thing: the shared oracle was blind to captions the
 parser had correctly bound to their figures — the text left the paragraph stream for a
 ``caption`` attribute the projection never read, so recall *fell* as figure binding
 improved. On the held-out corpus, 101 of the 103 caption blocks the instruments called
@@ -119,7 +139,7 @@ the table repairs below, the furniture-trimmed column channel and the crossing
 tolerance that followed), and
 the held-out corpus moved the same way it was never tuned against.
 
-Raw recall is 62.3%, and that figure is close to meaningless on its own. A large share of
+Raw recall is 63.8%, and that figure is close to meaningless on its own. A large share of
 any JATS article cannot be recovered by *any* parser, because the markup records words in an
 order the page never prints — author affiliation blocks, structured metadata, citation
 fields. Charging a PDF parser for failing to reproduce text the PDF does not contain
@@ -140,21 +160,21 @@ By block kind:
      - Recovered of those
      - Share of attainable
    * - Text blocks
-     - 3,160 of 6,356
-     - 3,142
+     - 3,256 of 6,355
+     - 3,236
      - **99.4%**
    * - Titles
-     - 2,291 of 2,426
-     - 2,266
+     - 2,316 of 2,425
+     - 2,291
      - **98.9%**
    * - Tables
-     - 110 of 123
-     - 91
-     - **82.7%**
+     - 119 of 123
+     - 101
+     - **84.9%**
 
 The middle column counts only blocks inside the ceiling, so each row's share is its own
-two counts divided. A few more blocks are recovered than that: 3,172 text blocks, 2,288
-titles and 92 tables come out matching the ground truth, including some the PDF's own text
+two counts divided. A few more blocks are recovered than that: 3,264 text blocks, 2,313
+titles and 101 tables come out matching the ground truth, including some the PDF's own text
 layer does not reproduce. Those count as recovered and on neither side of the share, which
 is why the larger count is not the one printed here.
 
@@ -184,10 +204,10 @@ Unsupported output is therefore split in two:
      - Share
      - Meaning
    * - Supported
-     - **95.5%**
+     - **95.6%**
      - the n-gram appears in the document's text layer
    * - Resequenced
-     - 4.1%
+     - 4.0%
      - every word is in the document, in a new adjacency
    * - **Novel**
      - **0.4%**
@@ -199,7 +219,7 @@ Unsupported output is therefore split in two:
      - 0.7%
      - wants to be ~0%
 
-Over 445,452 emitted n-grams, 1,911 are novel. Reporting the raw unsupported figure instead
+Over 445,447 emitted n-grams, 1,898 are novel. Reporting the raw unsupported figure instead
 would have made the result roughly ten times worse than the parser deserves.
 
 Duplication is counted apart from both, because it is invisible to either. Text emitted
@@ -231,23 +251,23 @@ Tables
 The bottleneck has moved. An earlier recording under-emitted — 92 tables against 121
 expected, with detection refusing to commit on the borderless *booktabs*-style tables
 journals actually print — and after word-gutter grids and two-column regions were admitted
-behind measured guards, the artifact reads **162 emitted against 121
+behind measured guards, the artifact reads **162 emitted against 122
 expected**, with tables emitted on 119 pages
-against the 94 that carry one in the ground truth.
+against the 95 that carry one in the ground truth.
 
 The surplus is not invention, and that is now measured rather than asserted. Every table
-emitted on a page carrying more tables than the ground truth expects — **56** of them — is
+emitted on a page carrying more tables than the ground truth expects — **55** of them — is
 put to two questions. The first does not involve JATS at all: does the PDF's own text layer
 hold this table's words? Text in the layer was printed on the page, so a table failing here
-is the only kind that could have been invented. **56 of 56** pass. The second asks where
+is the only kind that could have been invented. **55 of 55** pass. The second asks where
 that text sits in the ground truth, and the verdict that would matter is prose committed to
-a grid — a parser turning running text into a table it invented. That is **0 of 56**.
+a grid — a parser turning running text into a table it invented. That is **0 of 55**.
 
-Only 41 of the 56 also match the *order* of the text layer, and that gap is a grid doing its
+Only 40 of the 55 also match the *order* of the text layer, and that gap is a grid doing its
 job rather than a fault: re-cutting a page's words into cells changes their adjacency, which
 is why the invention test is asked of the words and not of the 5-grams.
 
-What the surplus is instead is accounting, with two named causes. **16** of the 56 trace to a
+What the surplus is instead is accounting, with two named causes. **15** of the 55 trace to a
 JATS ``<table>`` that the expected count assigns to another page — a table continuing across
 a page break is one ``<table-wrap>`` and several printed tables, and the expected count does
 not credit continuations. And **19** ``<table-wrap>`` elements across five articles carry no
@@ -256,7 +276,7 @@ truth holds no cell text for them and the tables those pages print can never rea
 expected side, however well they are extracted. Those five articles alone contribute 20 of
 the **40** tables the census files outside JATS.
 
-The other 22 are in the page's own text layer and match no JATS block in order. The
+The other 20 are in the page's own text layer and match no JATS block in order. The
 instrument stops there rather than guessing: it does not distinguish text JATS never
 recorded from a table re-cut into cells in an order JATS does not declare. Unordered token
 containment would answer neither, because an article's tables and its prose share a
@@ -277,7 +297,8 @@ measured, fixed behind guards (#416, #417), and the figure recovered to 77.3%. A
 mechanism followed the same route: ``find_tables()`` drew column boundaries and bbox edges
 straight through cell content, cutting values mid-word where neither guard could see it —
 dissolving those boundaries on structural evidence and healing the cut values in place
-(#419) took the figure to **82.7%**. The trade still stands with eyes open — a table
+(#419) took the figure to 82.7%, and the ground-truth correction above to **84.9%**.
+The trade still stands with eyes open — a table
 recovered *as a table* is what downstream consumers need — but it is a trade, and the
 artifact says so rather than netting the two effects into one flattering number.
 
@@ -299,21 +320,21 @@ pages:
      - Wrong page
      - Gap
    * - ``reading_order_similarity``
-     - 0.829
-     - 0.291
+     - 0.830
+     - 0.293
      - **0.537**
    * - ``text_content_similarity``
-     - 0.683
-     - 0.233
-     - **0.450**
+     - 0.690
+     - 0.234
+     - **0.456**
    * - ``table_content_similarity``
-     - 0.611
+     - 0.629
      - 0.039
-     - **0.572**
+     - **0.590**
    * - ``table_structure_similarity``
-     - 0.622
+     - 0.636
      - 0.094
-     - **0.528**
+     - **0.542**
    * - ``block_structure_similarity``
      - 0.550
      - 0.446
