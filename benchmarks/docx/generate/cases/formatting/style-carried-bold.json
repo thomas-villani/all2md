@@ -1,0 +1,58 @@
+{
+  "description": "A run whose only character property is rStyle; the boldness lives in the style definition. Effective formatting differs from direct formatting.",
+  "steps": [
+    {
+      "kind": "wl",
+      "args": [
+        "insert-markdown",
+        "--anchor-id",
+        "start",
+        "--markdown",
+        "-"
+      ],
+      "stdin": "# Effective Formatting\n\nBody with a LABEL word inside it.\n"
+    },
+    {
+      "kind": "wl",
+      "args": [
+        "style",
+        "add",
+        "StrongLabel",
+        "--type",
+        "character"
+      ]
+    },
+    {
+      "kind": "wl",
+      "args": [
+        "style",
+        "set",
+        "StrongLabel",
+        "--bold"
+      ]
+    },
+    {
+      "kind": "find_style",
+      "find": "LABEL",
+      "style": "StrongLabel"
+    }
+  ],
+  "verify": [
+    {
+      "part": "word/styles.xml",
+      "pattern": "StrongLabel",
+      "min": 1
+    }
+  ],
+  "facts": {
+    "runs": [
+      {
+        "text": "LABEL",
+        "direct_bold": false,
+        "effective_bold": true,
+        "character_style": "StrongLabel"
+      }
+    ]
+  },
+  "family": "formatting"
+}

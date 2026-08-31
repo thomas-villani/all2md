@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "case_id": "numbering/direct-numbered-control",
+  "family": "numbering",
+  "description": "CONTROL: an ordinary numbered list applied directly to the paragraphs. Works today; a run that reports this broken is reporting a bug in the lane.",
+  "facts": {
+    "list": {
+      "ordered": true,
+      "numpr_on": "paragraph",
+      "items": [
+        "One item",
+        "Two item",
+        "Three item"
+      ]
+    }
+  },
+  "positional": [
+    {
+      "index": 1,
+      "anchor_id": "para:1",
+      "start": 0,
+      "end": 12,
+      "style": "Heading 1",
+      "range_text": "Direct List"
+    },
+    {
+      "index": 2,
+      "anchor_id": "para:2",
+      "start": 12,
+      "end": 29,
+      "style": "Normal",
+      "range_text": "Intro paragraph."
+    },
+    {
+      "index": 3,
+      "anchor_id": "para:3",
+      "start": 29,
+      "end": 38,
+      "style": "List Paragraph",
+      "range_text": "One item"
+    },
+    {
+      "index": 4,
+      "anchor_id": "para:4",
+      "start": 38,
+      "end": 47,
+      "style": "List Paragraph",
+      "range_text": "Two item"
+    },
+    {
+      "index": 5,
+      "anchor_id": "para:5",
+      "start": 47,
+      "end": 58,
+      "style": "List Paragraph",
+      "range_text": "Three item"
+    }
+  ]
+}

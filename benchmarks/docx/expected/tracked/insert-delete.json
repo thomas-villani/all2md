@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "case_id": "tracked/insert-delete",
+  "family": "tracked",
+  "description": "A document left with Track Changes on: one word replaced, one paragraph deleted, one paragraph added. The ordinary state of anything under review.",
+  "facts": {
+    "revisions": [
+      {
+        "type": "insert",
+        "text": "crimson"
+      },
+      {
+        "type": "delete",
+        "text": "brown"
+      },
+      {
+        "type": "insert",
+        "text": "Final"
+      },
+      {
+        "type": "delete",
+        "text": "Tail"
+      },
+      {
+        "type": "insert",
+        "text": "Inserted while tracking."
+      },
+      {
+        "type": "delete",
+        "text": "Delete this sentence entirely."
+      }
+    ],
+    "accepted_text": [
+      "Tracked Probe",
+      "The quick crimson fox jumps.",
+      "Final paragraph.",
+      "Inserted while tracking."
+    ],
+    "rejected_text": [
+      "Tracked Probe",
+      "The quick brown fox jumps.",
+      "Delete this sentence entirely.",
+      "Tail paragraph."
+    ]
+  },
+  "positional": [
+    {
+      "index": 1,
+      "anchor_id": "para:1",
+      "start": 0,
+      "end": 14,
+      "style": "Heading 1",
+      "range_text": "Tracked Probe"
+    },
+    {
+      "index": 2,
+      "anchor_id": "para:2",
+      "start": 14,
+      "end": 48,
+      "style": "Normal",
+      "range_text": "The quick crimsonbrown fox jumps."
+    },
+    {
+      "index": 3,
+      "anchor_id": "para:3",
+      "start": 48,
+      "end": 79,
+      "style": "Normal",
+      "range_text": "Delete this sentence entirely."
+    },
+    {
+      "index": 4,
+      "anchor_id": "para:4",
+      "start": 79,
+      "end": 100,
+      "style": "Normal",
+      "range_text": "FinalTail paragraph."
+    },
+    {
+      "index": 5,
+      "anchor_id": "para:5",
+      "start": 100,
+      "end": 125,
+      "style": "Normal",
+      "range_text": "Inserted while tracking."
+    }
+  ]
+}

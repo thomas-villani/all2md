@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "case_id": "tracked/all-inserted",
+  "family": "tracked",
+  "description": "A paragraph whose entire content is a tracked insertion. Word shows it; anything reading only direct w:r children of w:p sees an empty paragraph (#480).",
+  "facts": {
+    "revisions": [
+      {
+        "type": "insert",
+        "text": "Every word of this paragraph is an insertion."
+      }
+    ],
+    "accepted_text": [
+      "All Inserted",
+      "Original body paragraph.",
+      "Every word of this paragraph is an insertion."
+    ],
+    "rejected_text": [
+      "All Inserted",
+      "Original body paragraph."
+    ]
+  },
+  "positional": [
+    {
+      "index": 1,
+      "anchor_id": "para:1",
+      "start": 0,
+      "end": 13,
+      "style": "Heading 1",
+      "range_text": "All Inserted"
+    },
+    {
+      "index": 2,
+      "anchor_id": "para:2",
+      "start": 13,
+      "end": 38,
+      "style": "Normal",
+      "range_text": "Original body paragraph."
+    },
+    {
+      "index": 3,
+      "anchor_id": "para:3",
+      "start": 38,
+      "end": 84,
+      "style": "Normal",
+      "range_text": "Every word of this paragraph is an insertion."
+    }
+  ]
+}

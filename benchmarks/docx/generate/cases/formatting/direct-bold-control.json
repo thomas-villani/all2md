@@ -1,0 +1,34 @@
+{
+  "description": "CONTROL: the same word made bold directly on the run. Works today.",
+  "steps": [
+    {
+      "kind": "wl",
+      "args": [
+        "insert-markdown",
+        "--anchor-id",
+        "start",
+        "--markdown",
+        "-"
+      ],
+      "stdin": "# Direct Formatting\n\nBody with a **LABEL** word inside it.\n"
+    }
+  ],
+  "verify": [
+    {
+      "part": "word/document.xml",
+      "pattern": "<w:b/>",
+      "min": 1
+    }
+  ],
+  "facts": {
+    "runs": [
+      {
+        "text": "LABEL",
+        "direct_bold": true,
+        "effective_bold": true,
+        "character_style": null
+      }
+    ]
+  },
+  "family": "formatting"
+}

@@ -1,0 +1,99 @@
+{
+  "description": "The corporate-template shape: w:numPr lives on the paragraph STYLE, the paragraphs carry only w:pStyle. Numbering is reachable only through styles.xml.",
+  "steps": [
+    {
+      "kind": "wl",
+      "args": [
+        "insert-markdown",
+        "--anchor-id",
+        "start",
+        "--markdown",
+        "-"
+      ],
+      "stdin": "# Style Numbering\n\nIntro paragraph.\n\nAlpha item\n\nBeta item\n\nGamma item\n"
+    },
+    {
+      "kind": "style_add",
+      "name": "CorpList",
+      "based_on": "List Paragraph",
+      "park_at": "para:2"
+    },
+    {
+      "kind": "link_list_style",
+      "style": "CorpList",
+      "number_style": 0,
+      "format": "%1.",
+      "start": 1
+    },
+    {
+      "kind": "wl",
+      "args": [
+        "style",
+        "apply",
+        "--anchor-id",
+        "para:3",
+        "--name",
+        "CorpList"
+      ]
+    },
+    {
+      "kind": "wl",
+      "args": [
+        "style",
+        "apply",
+        "--anchor-id",
+        "para:4",
+        "--name",
+        "CorpList"
+      ]
+    },
+    {
+      "kind": "wl",
+      "args": [
+        "style",
+        "apply",
+        "--anchor-id",
+        "para:5",
+        "--name",
+        "CorpList"
+      ]
+    }
+  ],
+  "verify": [
+    {
+      "part": "word/styles.xml",
+      "pattern": "<w:numPr>",
+      "min": 1
+    },
+    {
+      "part": "word/numbering.xml",
+      "pattern": "<w:pStyle w:val=\"CorpList\"",
+      "min": 1
+    },
+    {
+      "part": "word/document.xml",
+      "pattern": "<w:pStyle w:val=\"CorpList\"",
+      "min": 3
+    },
+    {
+      "part": "word/document.xml",
+      "pattern": "<w:numPr>",
+      "min": 0,
+      "max": 0
+    }
+  ],
+  "facts": {
+    "list": {
+      "ordered": true,
+      "numfmt": "decimal",
+      "start": 1,
+      "numpr_on": "style",
+      "items": [
+        "Alpha item",
+        "Beta item",
+        "Gamma item"
+      ]
+    }
+  },
+  "family": "numbering"
+}

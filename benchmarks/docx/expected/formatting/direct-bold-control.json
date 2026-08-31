@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "case_id": "formatting/direct-bold-control",
+  "family": "formatting",
+  "description": "CONTROL: the same word made bold directly on the run. Works today.",
+  "facts": {
+    "runs": [
+      {
+        "text": "LABEL",
+        "direct_bold": true,
+        "effective_bold": true,
+        "character_style": null
+      }
+    ]
+  },
+  "positional": [
+    {
+      "index": 1,
+      "anchor_id": "para:1",
+      "start": 0,
+      "end": 18,
+      "style": "Heading 1",
+      "range_text": "Direct Formatting"
+    },
+    {
+      "index": 2,
+      "anchor_id": "para:2",
+      "start": 18,
+      "end": 52,
+      "style": "Normal",
+      "range_text": "Body with a LABEL word inside it."
+    }
+  ]
+}

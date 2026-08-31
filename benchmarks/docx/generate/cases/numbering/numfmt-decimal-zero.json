@@ -1,0 +1,93 @@
+{
+  "description": "An ordered list whose numFmt is decimalZero with StartAt 3 -- one of the 41 numFmt values the parser does not recognise, so the list is not detected as ordered at all.",
+  "steps": [
+    {
+      "kind": "wl",
+      "args": [
+        "insert-markdown",
+        "--anchor-id",
+        "start",
+        "--markdown",
+        "-"
+      ],
+      "stdin": "# Zero Padded\n\nIntro paragraph.\n\nFirst item\n\nSecond item\n\nThird item\n"
+    },
+    {
+      "kind": "style_add",
+      "name": "ZeroList",
+      "based_on": "List Paragraph",
+      "park_at": "para:2"
+    },
+    {
+      "kind": "link_list_style",
+      "style": "ZeroList",
+      "number_style": 22,
+      "format": "%1)",
+      "start": 3
+    },
+    {
+      "kind": "wl",
+      "args": [
+        "style",
+        "apply",
+        "--anchor-id",
+        "para:3",
+        "--name",
+        "ZeroList"
+      ]
+    },
+    {
+      "kind": "wl",
+      "args": [
+        "style",
+        "apply",
+        "--anchor-id",
+        "para:4",
+        "--name",
+        "ZeroList"
+      ]
+    },
+    {
+      "kind": "wl",
+      "args": [
+        "style",
+        "apply",
+        "--anchor-id",
+        "para:5",
+        "--name",
+        "ZeroList"
+      ]
+    }
+  ],
+  "verify": [
+    {
+      "part": "word/numbering.xml",
+      "pattern": "<w:numFmt w:val=\"decimalZero\"",
+      "min": 1
+    },
+    {
+      "part": "word/numbering.xml",
+      "pattern": "<w:start w:val=\"3\"",
+      "min": 1
+    }
+  ],
+  "facts": {
+    "list": {
+      "ordered": true,
+      "numfmt": "decimalZero",
+      "start": 3,
+      "numpr_on": "style",
+      "items": [
+        "First item",
+        "Second item",
+        "Third item"
+      ],
+      "rendered_markers": [
+        "03)",
+        "04)",
+        "05)"
+      ]
+    }
+  },
+  "family": "numbering"
+}

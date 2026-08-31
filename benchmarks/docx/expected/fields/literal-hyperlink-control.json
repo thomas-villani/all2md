@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "case_id": "fields/literal-hyperlink-control",
+  "family": "fields",
+  "description": "CONTROL: the same link as a real w:hyperlink element. Works today, and is the contrast case that proves hyperlink-field's failure is about field codes and not about links.",
+  "facts": {
+    "link": {
+      "text": "the target",
+      "url": "https://example.com/target",
+      "encoding": "w:hyperlink"
+    }
+  },
+  "positional": [
+    {
+      "index": 1,
+      "anchor_id": "para:1",
+      "start": 0,
+      "end": 18,
+      "style": "Heading 1",
+      "range_text": "Literal Hyperlink"
+    },
+    {
+      "index": 2,
+      "anchor_id": "para:2",
+      "start": 18,
+      "end": 35,
+      "style": "Normal",
+      "range_text": "Intro paragraph."
+    },
+    {
+      "index": 3,
+      "anchor_id": "para:3",
+      "start": 35,
+      "end": 108,
+      "style": "Normal",
+      "range_text": "Link host paragraph.the target"
+    }
+  ]
+}

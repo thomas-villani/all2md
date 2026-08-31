@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "case_id": "numbering/numfmt-decimal-zero",
+  "family": "numbering",
+  "description": "An ordered list whose numFmt is decimalZero with StartAt 3 -- one of the 41 numFmt values the parser does not recognise, so the list is not detected as ordered at all.",
+  "facts": {
+    "list": {
+      "ordered": true,
+      "numfmt": "decimalZero",
+      "start": 3,
+      "numpr_on": "style",
+      "items": [
+        "First item",
+        "Second item",
+        "Third item"
+      ],
+      "rendered_markers": [
+        "03)",
+        "04)",
+        "05)"
+      ]
+    }
+  },
+  "positional": [
+    {
+      "index": 1,
+      "anchor_id": "para:1",
+      "start": 0,
+      "end": 12,
+      "style": "Heading 1",
+      "range_text": "Zero Padded"
+    },
+    {
+      "index": 2,
+      "anchor_id": "para:2",
+      "start": 12,
+      "end": 29,
+      "style": "Normal",
+      "range_text": "Intro paragraph."
+    },
+    {
+      "index": 3,
+      "anchor_id": "para:3",
+      "start": 29,
+      "end": 40,
+      "style": "ZeroList",
+      "range_text": "First item"
+    },
+    {
+      "index": 4,
+      "anchor_id": "para:4",
+      "start": 40,
+      "end": 52,
+      "style": "ZeroList",
+      "range_text": "Second item"
+    },
+    {
+      "index": 5,
+      "anchor_id": "para:5",
+      "start": 52,
+      "end": 63,
+      "style": "ZeroList",
+      "range_text": "Third item"
+    }
+  ]
+}

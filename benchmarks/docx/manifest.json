@@ -1,0 +1,188 @@
+{
+  "schema_version": 1,
+  "provenance": {
+    "word_build": "16.0.20326",
+    "word_version": "16.0",
+    "wordlive_version": "wordlive 0.19.0",
+    "word_user_name": "all2md corpus",
+    "generated_utc": "2026-08-31T21:52:41+00:00"
+  },
+  "cases": [
+    {
+      "case_id": "baseline/display-equation",
+      "family": "baseline",
+      "path": "corpus/baseline/display-equation.docx",
+      "sha256": "6322de427932511ac53c21774080149c6c0fe559874c972e5bcba3d83cb64cf4",
+      "size_bytes": 13687,
+      "generator": "cases/baseline/display-equation.json",
+      "expected_sha256": "0bf2b0b1a3de2054b8fdfd60feec760543c5b91d07c096448b891b8ce24e81cc",
+      "resave_stable": true,
+      "resave_failures": []
+    },
+    {
+      "case_id": "baseline/headings-inline-control",
+      "family": "baseline",
+      "path": "corpus/baseline/headings-inline-control.docx",
+      "sha256": "c2f6662e3fc81b994fc6b393d963120dc4f4700a90f767e65338018e6685a24e",
+      "size_bytes": 13576,
+      "generator": "cases/baseline/headings-inline-control.json",
+      "expected_sha256": "3982caeec9b0a6330189d0ea17b15a2bc2f0a0ef9b169559f0862b26b9beda67",
+      "resave_stable": true,
+      "resave_failures": []
+    },
+    {
+      "case_id": "fields/field-codes",
+      "family": "fields",
+      "path": "corpus/fields/field-codes.docx",
+      "sha256": "b6f1cb196235c877df152b5adb70a3dd67c80e719e94a194bcd8619731a456fb",
+      "size_bytes": 13776,
+      "generator": "cases/fields/field-codes.json",
+      "expected_sha256": "b22b748a7a604ba0acbc55bbeb4c15a940e36368f9ae07de5f17475e7f1d5f10",
+      "resave_stable": true,
+      "resave_failures": []
+    },
+    {
+      "case_id": "fields/literal-hyperlink-control",
+      "family": "fields",
+      "path": "corpus/fields/literal-hyperlink-control.docx",
+      "sha256": "04a4636b1ca398af88623c22c0d353a12b9b4a6d11ab5dd798c0b4c1894a6357",
+      "size_bytes": 13620,
+      "generator": "cases/fields/literal-hyperlink-control.json",
+      "expected_sha256": "70e157f81d26782ead56f2df058d664300717efa696c2f8a098daff4bcb891c4",
+      "resave_stable": true,
+      "resave_failures": []
+    },
+    {
+      "case_id": "fields/seq-caption",
+      "family": "fields",
+      "path": "corpus/fields/seq-caption.docx",
+      "sha256": "f3b1aa8a7f26af8956def6e91805bead333513f99782a263b91b5d73115f2726",
+      "size_bytes": 13577,
+      "generator": "cases/fields/seq-caption.json",
+      "expected_sha256": "5e88ba1cda53cdc0059c4b64369501a86e1a513fb2fc316ed9e235b80b66306b",
+      "resave_stable": true,
+      "resave_failures": []
+    },
+    {
+      "case_id": "formatting/direct-bold-control",
+      "family": "formatting",
+      "path": "corpus/formatting/direct-bold-control.docx",
+      "sha256": "7cfd9146ab691690b776625b2ea25c5736631daa2ec247f3fca91906346bebb6",
+      "size_bytes": 13409,
+      "generator": "cases/formatting/direct-bold-control.json",
+      "expected_sha256": "d5f0292cbf95c1296ac06ca79f8777fe0ddbacf598d53fa3889d801a3007aa85",
+      "resave_stable": true,
+      "resave_failures": []
+    },
+    {
+      "case_id": "formatting/style-carried-bold",
+      "family": "formatting",
+      "path": "corpus/formatting/style-carried-bold.docx",
+      "sha256": "b22efd2ed538da0f1cb736788b7371d409b88ea44371ad1bc86188bf0d434ee0",
+      "size_bytes": 13448,
+      "generator": "cases/formatting/style-carried-bold.json",
+      "expected_sha256": "3d8ba81c27881f81f8093dd523789ac0a3dfd2a97ee43efac33dc4ca80934b18",
+      "resave_stable": true,
+      "resave_failures": []
+    },
+    {
+      "case_id": "notes/footnote-endnote-control",
+      "family": "notes",
+      "path": "corpus/notes/footnote-endnote-control.docx",
+      "sha256": "9e0c5187a845a6258d4c5d195658c072850f96b815c80d6d20cca9c327d25c15",
+      "size_bytes": 15570,
+      "generator": "cases/notes/footnote-endnote-control.json",
+      "expected_sha256": "bfd419181479b1626fa0263ed6d131043de339ced1e7a23f4b1f652d906d53b7",
+      "resave_stable": true,
+      "resave_failures": []
+    },
+    {
+      "case_id": "numbering/direct-numbered-control",
+      "family": "numbering",
+      "path": "corpus/numbering/direct-numbered-control.docx",
+      "sha256": "66daef4685552fee51f399fe45101f8931edb5b7140a415a10a5d0edffe334c3",
+      "size_bytes": 14742,
+      "generator": "cases/numbering/direct-numbered-control.json",
+      "expected_sha256": "bfb0352b7cd145e3a31a0f4a492b133fad4af6ede9088cfae5690902ee449121",
+      "resave_stable": true,
+      "resave_failures": []
+    },
+    {
+      "case_id": "numbering/numfmt-decimal-zero",
+      "family": "numbering",
+      "path": "corpus/numbering/numfmt-decimal-zero.docx",
+      "sha256": "00602a00250eb7d8809bae9ad1599880681f7d186a9d0f2290315dfb14c2dbd3",
+      "size_bytes": 14677,
+      "generator": "cases/numbering/numfmt-decimal-zero.json",
+      "expected_sha256": "e6d33944ebf486fa19ee16f19c5784dc62db1d9ff544cd1ece24913e3dc819fb",
+      "resave_stable": true,
+      "resave_failures": []
+    },
+    {
+      "case_id": "numbering/style-inherited",
+      "family": "numbering",
+      "path": "corpus/numbering/style-inherited.docx",
+      "sha256": "d5fc59e37eeb3ee1f44c4ee1dd1ef7367d10ff89f1ecce61e8d3502a67406c52",
+      "size_bytes": 14668,
+      "generator": "cases/numbering/style-inherited.json",
+      "expected_sha256": "77cd5b06a660d1e0af70938209ec13eab71a8e1e9fc6abe52c06df33229870be",
+      "resave_stable": true,
+      "resave_failures": []
+    },
+    {
+      "case_id": "sdt/block-content-control",
+      "family": "sdt",
+      "path": "corpus/sdt/block-content-control.docx",
+      "sha256": "d96e3e06c30d8e06368b365cdde70727af2a006aedc660c35ec3746ce4570e74",
+      "size_bytes": 20384,
+      "generator": "cases/sdt/block-content-control.json",
+      "expected_sha256": "7b218f9be4d4e58149087c66fc8d1fe1e876a9e612dc656932d21aed5a16b2d9",
+      "resave_stable": true,
+      "resave_failures": []
+    },
+    {
+      "case_id": "tables/merged-cells",
+      "family": "tables",
+      "path": "corpus/tables/merged-cells.docx",
+      "sha256": "faa322bd18cdfa7cddfe57b37cb5b5c7b5f9bebb59e37dd17f1004d7bfee67cf",
+      "size_bytes": 13910,
+      "generator": "cases/tables/merged-cells.json",
+      "expected_sha256": "c945b19facd70862a2e29878efaba2ee6b9d69c8684c1a5b414f030912a36cee",
+      "resave_stable": true,
+      "resave_failures": []
+    },
+    {
+      "case_id": "tables/plain-grid-control",
+      "family": "tables",
+      "path": "corpus/tables/plain-grid-control.docx",
+      "sha256": "f0bf730753934357b494bb0f61ac85b7844855bfb7472282af058ac5a28d50b0",
+      "size_bytes": 13910,
+      "generator": "cases/tables/plain-grid-control.json",
+      "expected_sha256": "1c1ddda70519b931a1ef400f06d6f1e9d40b8aa251fabfd8791c0e581b63b707",
+      "resave_stable": true,
+      "resave_failures": []
+    },
+    {
+      "case_id": "tracked/all-inserted",
+      "family": "tracked",
+      "path": "corpus/tracked/all-inserted.docx",
+      "sha256": "3bb422cda623a1c25e1d9b66cc73d4ebd56ef2fb8ab60444f8c9b0819e64a650",
+      "size_bytes": 14289,
+      "generator": "cases/tracked/all-inserted.json",
+      "expected_sha256": "8ff161f6a5babe3a127c44ea0f624b0a5eea3e365eff402609e902d82937c8d2",
+      "resave_stable": true,
+      "resave_failures": []
+    },
+    {
+      "case_id": "tracked/insert-delete",
+      "family": "tracked",
+      "path": "corpus/tracked/insert-delete.docx",
+      "sha256": "25b45fedf901ad68172883333cdd8360e6ff592d9eca31d14c734d8885084740",
+      "size_bytes": 14483,
+      "generator": "cases/tracked/insert-delete.json",
+      "expected_sha256": "b5580f05ac91c8770ab87b3543f72cb9a94f7014b6db923b2117dbe4cc05c176",
+      "resave_stable": true,
+      "resave_failures": []
+    }
+  ]
+}

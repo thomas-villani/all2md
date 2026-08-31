@@ -1,0 +1,43 @@
+{
+  "description": "CONTROL: the same link as a real w:hyperlink element. Works today, and is the contrast case that proves hyperlink-field's failure is about field codes and not about links.",
+  "steps": [
+    {
+      "kind": "wl",
+      "args": [
+        "insert-markdown",
+        "--anchor-id",
+        "start",
+        "--markdown",
+        "-"
+      ],
+      "stdin": "# Literal Hyperlink\n\nIntro paragraph.\n\nLink host paragraph.\n"
+    },
+    {
+      "kind": "wl",
+      "args": [
+        "link",
+        "--anchor-id",
+        "para:3",
+        "--url",
+        "https://example.com/target",
+        "--text",
+        "the target"
+      ]
+    }
+  ],
+  "verify": [
+    {
+      "part": "word/document.xml",
+      "pattern": "<w:hyperlink",
+      "min": 1
+    }
+  ],
+  "facts": {
+    "link": {
+      "text": "the target",
+      "url": "https://example.com/target",
+      "encoding": "w:hyperlink"
+    }
+  },
+  "family": "fields"
+}

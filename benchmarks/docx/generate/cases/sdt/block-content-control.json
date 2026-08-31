@@ -1,0 +1,46 @@
+{
+  "description": "A block-level content control wrapping a real paragraph -- the shape a template uses for an author name. Its content sits inside w:sdtContent, one level below where a direct-child walk looks.",
+  "steps": [
+    {
+      "kind": "wl",
+      "args": [
+        "insert-markdown",
+        "--anchor-id",
+        "start",
+        "--markdown",
+        "-"
+      ],
+      "stdin": "# Content Control\n\nIntro paragraph.\n\nAuthor name goes here.\n"
+    },
+    {
+      "kind": "wl",
+      "args": [
+        "create-content-control",
+        "--anchor-id",
+        "para:3",
+        "--kind",
+        "rich_text",
+        "--title",
+        "AuthorName"
+      ]
+    }
+  ],
+  "verify": [
+    {
+      "part": "word/document.xml",
+      "pattern": "<w:sdt>",
+      "min": 1
+    }
+  ],
+  "facts": {
+    "sdt": [
+      {
+        "kind": "block",
+        "title": "AuthorName",
+        "is_placeholder": false,
+        "text": "Author name goes here."
+      }
+    ]
+  },
+  "family": "sdt"
+}

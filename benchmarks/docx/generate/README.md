@@ -48,9 +48,14 @@ Every item here was learned by hitting it during the 2026-08-23 capability probe
   use the new name.
 - **`WORDLIVE_SAVE_DIRS` must contain the output directory** or `save-as` exits 1.
 - **Keep one document open** or Word quits out from under the session.
-- **Pin the author** via COM `Application.UserName` before generating tracked
-  changes, or `w:ins`/`w:del` carry whoever ran the script and the truth records stop
-  being reproducible.
+- **Pinning the author takes two settings, and getting it wrong fails silently.**
+  Setting `Application.UserName` is *not* enough: when the user is signed in to Office
+  — the common case — Word ignores it for revision authorship and uses the Office
+  account identity instead, unless `Application.Options.UseLocalUserInfo` is on (the
+  "Always use these values regardless of sign in to Office" checkbox). The assignment
+  appears to work, the property reads back as the new value, and `w:ins` still carries
+  the account name. `session.pin_author()` sets both and `restore_author()` puts both
+  back — it touches the user's own Word settings, so it always restores them.
 - **`style add --type paragraph` seeds the new style's `rPr` from the cursor's
   paragraph.** Create a style while sitting in a bold heading and you silently get a
   bold style. It also auto-creates a linked character style, which the formatting
@@ -82,6 +87,85 @@ it `MathInline`. Truth records for wordlive-generated display equations must exp
 `MathInline`. Producing a real `m:oMathPara` needs an XML-insertion hatch; until one
 exists, the corpus does not get to assert a `MathBlock` it cannot produce.
 
+## What the corpus generation run added (2026-08-31)
+
+Sixteen cases, generated, XML-verified and re-save checked in one session. Three
+things surfaced that the capability probe had not:
+
+**Word rewrites a `HYPERLINK` field into a `w:hyperlink` element on save.** The field
+is genuinely there in the live document (`Document.Fields.Count` is 1), and the saved
+`document.xml` has no `fldChar` and no `instrText` at all — just a plain hyperlink.
+That matters enormously here, because the entire point of the `fields` family is to
+exercise the *field-code* path: silently normalized, the case becomes a copy of its own
+control and still passes anything that only checks the document parses.
+
+It is generatable, but the recipe is narrow. Measured:
+
+| what was inserted | saved as |
+|---|---|
+| bookmark + `REF` + `HYPERLINK`, one `exec` batch | **raw field** (`fldChar`/`instrText`) |
+| `REF` + `HYPERLINK`, one batch | `w:hyperlink` |
+| `HYPERLINK` alone, batched | `w:hyperlink` |
+| `HYPERLINK` alone, via the CLI | `w:hyperlink` |
+
+So the probe's exact three-op shape survives and near-variants do not. The mechanism is
+Word-internal and not worth guessing at; what matters is that **the case pins the
+verified recipe and asserts `<w:hyperlink>` appears zero times**, so any future drift
+back to the normalized form fails the run instead of quietly weakening the corpus.
+
+This is the clearest argument for the mandatory XML verify. A generation step that
+succeeds, saves, and produces a well-formed document can still have produced the wrong
+document, and only the bytes will say so.
+
+**Notes cannot anchor the document's final paragraph.** `insert-footnote` and
+`insert-endnote` both fail with `Value out of range — HRESULT 0x80020009` when the
+anchor is the last paragraph, at any document length; a middle paragraph is fine and
+`--anchor-id end` is fine. Filed upstream as
+[wordlive#102](https://github.com/thomas-villani/wordlive/issues/102). Cases keep a
+spare trailing paragraph, which the probe already advised for fields anyway.
+
+**`--latex` needs an optional extra; `--unicodemath` does not.** The equation case uses
+UnicodeMath so a fresh machine can regenerate the corpus without installing anything
+beyond wordlive itself.
+
+## Case files
+
+A case is one JSON file at `cases/<family>/<case>.json`:
+
+```json
+{
+  "family": "tracked",
+  "description": "why this document exists",
+  "steps":  [ ... ],
+  "verify": [ {"part": "word/document.xml", "pattern": "<w:ins ", "min": 1} ],
+  "facts":  { ... the structural truth the script knows ... }
+}
+```
+
+`steps` run in order. A step is a `wordlive` invocation (`{"kind": "wl", "args": [...],
+"stdin": "..."}`), an `exec` batch (`{"kind": "ops", "ops": [...], "tracked": true}`),
+or one of the driver hatches for what `wordlive` has no verb for: `style_add`,
+`link_list_style`, `find_style`.
+
+`verify` is **not optional**. Each rule counts regex matches in one part of the *saved*
+file and fails the case outside `min`/`max`. It is the reason a truth record can be
+believed: a case claiming to produce `w:ins` proves it in the bytes rather than in its
+own description, and — as the `HYPERLINK` finding above shows — a case can otherwise
+produce something quite different from what it says while looking entirely healthy.
+
+`facts` is only what the generating script knows because it put it there. It carries no
+claim about how all2md parses the document; today's behaviour is measured by the scoring
+side and recorded as a ledger. Two predictions written into the design from a code
+survey both turned out wrong (#480, #481), in the same direction — a silent total loss
+where the design imagined graceful degradation — so nothing here is written from
+reasoning about the parser.
+
+Every generated document also carries **positional truth**: Word's own per-paragraph
+character offsets and styles, from `wordlive paragraphs`. Informational until the DOCX
+parser emits `source_location`. Note its `range_text` is markup space — on a tracked
+document it shows the insertion and the deletion run together (`"crimsonbrown"`) — so it
+is provenance, never expected output text.
+
 ## `numfmt-map.json`
 
 `WdListNumberStyle` constant → the `w:numFmt` Word actually writes, measured across
@@ -103,7 +187,9 @@ corpora, showing up here in the parser itself.
 
 | | |
 |---|---|
-| `session.py` | `WordSession`: lifecycle, `wordlive` invocation, the COM hatches. The basis for the per-case generators. |
+| `generate.py` | The driver: runs cases, verifies the saved XML, re-saves through Word and re-verifies, writes the truth records and the manifest. |
+| `cases/` | One JSON per case — the generation source. |
+| `session.py` | `WordSession`: lifecycle, `wordlive` invocation, author pinning, the COM hatches. |
 | `worddoc.py` | Document lifecycle as a CLI, for when a run dies half way and Word is left holding documents. |
 | `numfmt_map.py` | Regenerates `numfmt-map.json`. |
 | `dumpx.py` | Dump or grep a part of a `.docx`. The XML post-verification workhorse — needs no Word. |
