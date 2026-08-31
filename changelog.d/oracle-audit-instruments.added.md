@@ -22,9 +22,9 @@
   — structure rather than containment, which is what makes it immune to the floor problem
   above and to `Introduction` appearing in every article's prose. It needs no page
   attribution, so unlike reading order and table structure it scores third-party output as
-  readily as our own. On the sealed holdout's 1,795 section headings, **every tool loses
-  about a quarter of them into the prose stream**: all2md recovers 76.4% of printed
-  headings, Docling 77.4%, pymupdf4llm 76.6%. Two controls are reported, because scoring an
-  article against the wrong output still matches 13.7% on a shared vocabulary of
+  readily as our own. On the sealed holdout's 1,790 section headings, **every tool loses
+  about a fifth of them into the prose stream**: all2md recovers 79.0% of printed headings,
+  Docling 80.3%, pymupdf4llm 79.2%. Two controls are reported, because scoring an article
+  against the wrong output still matches 15.6% on a shared vocabulary of
   `Introduction`/`Discussion`/`Funding`; restricted to headings appearing in fewer than five
-  articles the control is 1.5% and all2md reads 77.1%.
+  articles the control is 1.4% and all2md reads 79.0%.
