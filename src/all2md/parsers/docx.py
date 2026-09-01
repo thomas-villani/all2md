@@ -70,6 +70,7 @@ from all2md.ast.transforms import extract_nodes
 from all2md.converter_metadata import ConverterMetadata
 from all2md.options.docx import DocxOptions
 from all2md.parsers.base import BaseParser
+from all2md.parsers.docx_fields import document_has_fields, field_target, resolve_fields
 from all2md.parsers.docx_revisions import document_has_revisions, resolve_revisions, run_revision
 from all2md.parsers.docx_sdt import document_has_content_controls, unwrap_content_controls
 from all2md.progress import ProgressCallback
@@ -500,7 +501,7 @@ class DocxToAstConverter(BaseParser):
         and can be revised or hold a control.
         """
         root = getattr(doc, "element", None)
-        if not (document_has_revisions(root) or document_has_content_controls(root)):
+        if not (document_has_revisions(root) or document_has_content_controls(root) or document_has_fields(root)):
             return doc
 
         if not self._doc_is_ours:
@@ -513,11 +514,15 @@ class DocxToAstConverter(BaseParser):
         for target in (root, *self._note_roots(doc)):
             if target is None:
                 continue
-            # Unwrapping first means a revision spanning a control boundary -- a
-            # deleted paragraph mark either side of it, say -- is resolved on the
-            # flattened tree, where the two halves are finally siblings.
+            # Order matters both times. Unwrapping first means a revision spanning a
+            # control boundary -- a deleted paragraph mark either side of it, say --
+            # is resolved on the flattened tree, where the two halves are finally
+            # siblings. Fields come last so their begin/separate/end markers are
+            # already in one document order, with rejected or accepted revisions
+            # settled, by the time the field walk counts them.
             unwrap_content_controls(target)
             resolve_revisions(target, policy)
+            resolve_fields(target)
         return doc
 
     def _note_roots(self, doc: "docx.document.Document") -> list[Any]:
@@ -1387,7 +1392,10 @@ class DocxToAstConverter(BaseParser):
 
         if isinstance(run, Hyperlink):
             return run.address, run
-        return None, run
+        # A HYPERLINK field leaves its target stamped on the runs it displayed (see
+        # docx_fields). Asking the run rather than the markup means this path does not
+        # have to know which of the two encodings produced the link.
+        return field_target(getattr(run, "_element", None)), run
 
     def _get_run_formatting_key(self, run: Any, is_hyperlink: bool) -> tuple[bool, bool, bool, bool, bool, bool, bool]:
         """Get formatting key for a run.
