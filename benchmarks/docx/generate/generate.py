@@ -108,6 +108,15 @@ def run_step(session: WordSession, step: dict[str, Any]) -> Any:
         occurrence = step.get("occurrence", 0)
         anchor = hits[occurrence]["anchor_id"]
         return session.wl("style", "apply", "--anchor-id", anchor, "--name", step["style"])
+    if kind == "list_style_add":
+        return session.add_list_style(
+            step["name"],
+            first=step["first"],
+            last=step["last"],
+            number_style=step.get("number_style", 0),
+            fmt=step.get("format", "%1."),
+            start=step.get("start", 1),
+        )
     if kind == "link_list_style":
         return session.link_list_style(
             step["style"],

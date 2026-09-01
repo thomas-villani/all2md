@@ -175,10 +175,11 @@ def check_numbering(case: Case, out: str) -> list[Finding]:
                 + (
                     ""
                     if markers >= wanted
-                    # Report the two facts, not a cause: the same failing check
-                    # covers numbering the parser cannot reach and numbering it
-                    # reaches but cannot name.
+                    # Report the facts, not a cause: the same failing check covers
+                    # numbering the parser cannot reach, numbering it reaches but
+                    # cannot name, and a definition that defers to somewhere else.
                     else f"; numFmt={spec.get('numfmt')}, numPr on the {spec.get('numpr_on')}"
+                    + (f", defined via {spec['defined_via']}" if spec.get("defined_via") else "")
                 ),
             )
         )

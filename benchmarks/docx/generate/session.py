@@ -45,6 +45,12 @@ WD_DO_NOT_SAVE = 0
 WD_ALERTS_NONE = 0
 #: ``wdTrailingTab``.
 WD_TRAILING_TAB = 0
+#: ``wdStyleTypeList`` -- a *list* style, which is not a paragraph style.
+WD_STYLE_TYPE_LIST = 4
+#: ``wdListApplyToWholeList``.
+WD_LIST_APPLY_TO_WHOLE_LIST = 0
+#: ``wdWord10ListBehavior`` -- the modern behaviour; the legacy ones number differently.
+WD_WORD10_LIST_BEHAVIOR = 2
 #: A generated document should never take this long; a hang means a modal is up.
 CALL_TIMEOUT = 180
 
@@ -169,6 +175,59 @@ class WordSession:
         if template_name is not None:
             template.Name = template_name  # becomes a w:abstractNum w:name
         document.Styles(style).LinkToListTemplate(ListTemplate=template, ListLevelNumber=1)
+
+    def add_list_style(
+        self,
+        name: str,
+        first: int,
+        last: int,
+        number_style: int = 0,
+        fmt: str = "%1.",
+        start: int = 1,
+        indent: float = 18.0,
+    ) -> None:
+        """Create a Word **list style** and number paragraphs ``first``..``last`` with it.
+
+        This is the ``w:numStyleLink`` shape, which no other recipe here produces and
+        which ``wordlive`` has no verb for (wordlive#104). Word writes it as a pair:
+        one ``w:abstractNum`` holds the nine levels and carries ``w:styleLink`` naming
+        the style, and a *second* one holds **no levels at all** and carries
+        ``w:numStyleLink`` pointing back at that style. The paragraphs' ``w:numId``
+        resolves to the empty one, so a reader that stops there finds no levels and
+        cannot name the format.
+
+        **How the range is numbered decides whether Word writes the indirection**, and
+        this was measured rather than assumed. Setting ``Range.Style`` to the list
+        style makes Word point the paragraphs straight at the nine-level abstract and
+        no ``w:numStyleLink`` is written at all. Applying the style's *template* to the
+        range is what produces the pair. Linking a *paragraph* style to the same
+        template produces a third abstract and no indirection either.
+
+        ``first`` and ``last`` are 1-based Word paragraph indices, which line up with
+        ``wordlive``'s ``para:N`` anchors. A case that gets them wrong fails its own
+        ``verify`` rules rather than shipping quietly.
+        """
+        document = self.doc()
+        template = document.ListTemplates.Add(OutlineNumbered=True)
+        level = template.ListLevels(1)
+        level.NumberStyle = number_style
+        level.NumberFormat = fmt
+        level.StartAt = start
+        level.TrailingCharacter = WD_TRAILING_TAB
+        level.NumberPosition = indent
+        level.TextPosition = indent + 18
+        level.TabPosition = indent + 18
+
+        style = document.Styles.Add(name, WD_STYLE_TYPE_LIST)
+        style.LinkToListTemplate(ListTemplate=template, ListLevelNumber=1)
+
+        target = document.Range(document.Paragraphs(first).Range.Start, document.Paragraphs(last).Range.End)
+        target.ListFormat.ApplyListTemplateWithLevel(
+            ListTemplate=style.ListTemplate,
+            ContinuePreviousList=False,
+            ApplyTo=WD_LIST_APPLY_TO_WHOLE_LIST,
+            DefaultListBehavior=WD_WORD10_LIST_BEHAVIOR,
+        )
 
     def add_paragraph_style(self, name: str, based_on: str, park_at: str = "para:1") -> None:
         """Create a paragraph style, parking the cursor first.

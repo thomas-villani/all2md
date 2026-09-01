@@ -1798,8 +1798,24 @@ def _map_numbering_format(fmt_val: str | None) -> str | None:
 
 
 def _collect_abstract_numbering_defs(numbering_xml: Any) -> dict[str, dict[str, str]]:
-    """Collect abstract numbering definitions from XML."""
+    """Collect abstract numbering definitions from XML.
+
+    Word pairs a *numbering style* with its definition across two ``w:abstractNum``
+    elements: one holds the nine levels and carries ``w:styleLink`` naming the style,
+    and a second holds **no levels at all** and carries ``w:numStyleLink`` pointing back
+    at the same style. Paragraphs point at the empty one, so reading levels off it alone
+    finds nothing and the list demotes to bullets.
+
+    ECMA-376 routes that indirection through ``styles.xml`` -- ``w:numStyleLink`` names a
+    style whose own ``w:numPr`` names the real ``w:numId``. It lands on the abstract that
+    declares ``w:styleLink`` for that style, which is why the two can simply be paired
+    here by the style they name, with no second part to read.
+    """
     abstract_nums: dict[str, dict[str, str]] = {}
+    #: style named by ``w:styleLink`` -> the abstract that actually holds the levels.
+    defines_style: dict[str, str] = {}
+    #: abstract with no levels -> the style its ``w:numStyleLink`` defers to.
+    defers_to_style: dict[str, str] = {}
 
     for elem in numbering_xml.iter():
         if not elem.tag.endswith("abstractNum"):
@@ -1812,8 +1828,31 @@ def _collect_abstract_numbering_defs(numbering_xml: Any) -> dict[str, dict[str, 
         levels = _extract_level_formats(elem)
         if levels:
             abstract_nums[abstract_num_id] = levels
+            if style := _linked_style_name(elem, "styleLink"):
+                defines_style.setdefault(style, abstract_num_id)
+        elif style := _linked_style_name(elem, "numStyleLink"):
+            defers_to_style[abstract_num_id] = style
+
+    # A second pass, because the pair is written in either order.
+    for abstract_num_id, style in defers_to_style.items():
+        target = defines_style.get(style)
+        if target is not None:
+            abstract_nums[abstract_num_id] = abstract_nums[target]
 
     return abstract_nums
+
+
+def _linked_style_name(abstract_num_elem: Any, tag: str) -> str | None:
+    """Read ``w:styleLink`` or ``w:numStyleLink`` off an ``w:abstractNum``.
+
+    A direct child, deliberately: both elements also appear inside ``w:lvl`` overrides
+    in some documents, and a descendant search would read one of those as the abstract's
+    own link.
+    """
+    element = abstract_num_elem.find(f"{_WORD_NS}{tag}")
+    if element is None:
+        return None
+    return element.get(f"{_WORD_NS}val") or None
 
 
 def _extract_level_formats(abstract_num_elem: Any) -> dict[str, str]:
