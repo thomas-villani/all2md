@@ -1354,7 +1354,15 @@ Two decisions from those batches are kept here because they are *constraints*, n
     - **The agreed `docx-plus` three-PR sequence** (2026-08-21): tracked changes, then
       fields + bookmarks, then effective formatting + style-inherited numbering — the last
       being the one with the flagged regression path, which is exactly what the new lane
-      exists to gate. **The first is DONE**
+      exists to gate. **The second is DONE too (2026-09-01), and without `docx-plus`** —
+      the corpus settled it: a `SEQ` caption keeps its result in child runs of
+      `w:fldSimple`, a grandchild `python-docx` never yields, and a `HYPERLINK` field's
+      result was already visible but not a link. Both are read off the **cached result
+      Word already computed**, so no field-evaluation engine is involved and the
+      dependency this bullet assumed was never needed. That leaves effective formatting
+      as the only remaining item with a real case for adopting `docx-plus`, which makes
+      the adoption question narrower than when this sequence was agreed. **The first is
+      DONE**
       ([#480](https://github.com/thomas-villani/all2md/issues/480), 2026-09-01): revision
       markup is resolved away on the element tree before any reader touches the document,
       under a `revisions` option of `accept` (default) / `reject` / `mark`. Resolving at
@@ -1373,9 +1381,10 @@ Two decisions from those batches are kept here because they are *constraints*, n
       not a list), and a level inherited from a style cannot express nesting, so
       indentation still nests where `ilvl` is not set on the paragraph itself.
 
-    **The lane is designed (2026-08-23), step 1 landed (2026-08-31), and the first six
+    **The lane is designed (2026-08-23), step 1 landed (2026-08-31), and the first seven
     fixes it found have shipped (#481, #480, style-inherited numbering, the `numFmt`
-    whitelist, content controls, `w:numStyleLink`)** — the
+    whitelist, content controls, `w:numStyleLink`, field codes), with its gate now running
+    per pull request** — the
     design is now `benchmarks/docx/README.md` and the live-probed generation machinery,
     every recipe verified in the saved file's XML, is `benchmarks/docx/generate/`. It was
     written under `design/` first and moved in-tree before any code depended on it, per
