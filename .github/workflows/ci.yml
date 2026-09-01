@@ -7,10 +7,18 @@ on:
       - 'release/**'
     tags:
       - 'v*'
+  # Deliberately unfiltered, unlike `push:` above. A `branches:` list here matches the
+  # PR's *base*, so restricting it to `main` meant a stacked pull request -- one opened
+  # against another feature branch while the change below it is still in review -- ran
+  # no CI at all. Not pending, not failing: `gh pr checks` returned an empty list, which
+  # reads the same as "nothing has reported yet" and is easy to mistake for green. Two
+  # such PRs sat unchecked before this was noticed.
+  #
+  # The cost is that a stack runs CI once per link rather than once at the top, which is
+  # the point: each link is a commit that lands on `main` and each one should be tested
+  # before it does. Superseded runs are still cancelled -- see the concurrency note
+  # below, which keys on `refs/pull/<n>/merge` and so covers every PR regardless of base.
   pull_request:
-    branches:
-      - main
-      - 'release/**'
 
 permissions:
   contents: write  # Required for `gh release create` in the release job
