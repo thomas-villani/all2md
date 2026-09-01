@@ -71,6 +71,7 @@ from all2md.converter_metadata import ConverterMetadata
 from all2md.options.docx import DocxOptions
 from all2md.parsers.base import BaseParser
 from all2md.parsers.docx_revisions import document_has_revisions, resolve_revisions, run_revision
+from all2md.parsers.docx_sdt import document_has_content_controls, unwrap_content_controls
 from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.footnotes import FootnoteCollector
@@ -443,9 +444,10 @@ class DocxToAstConverter(BaseParser):
         self._comments_map = {}
         self._attachment_footnotes = {}
 
-        # Tracked changes are resolved away before anything reads the document, so
-        # every reader below sees an ordinary document (see docx_revisions).
-        doc = self._resolve_revisions(doc)
+        # Wrapper markup -- tracked changes, content controls -- is resolved away
+        # before anything reads the document, so every reader below sees an ordinary
+        # one (see docx_revisions and docx_sdt).
+        doc = self._normalize_document(doc)
 
         # Emit started event
         self._emit_progress("started", "Converting DOCX document", current=0, total=0)
@@ -480,19 +482,25 @@ class DocxToAstConverter(BaseParser):
         self._comments_map = {}
         return document
 
-    def _resolve_revisions(self, doc: "docx.document.Document") -> "docx.document.Document":
-        """Apply the revision policy to the document, returning what to read.
+    def _normalize_document(self, doc: "docx.document.Document") -> "docx.document.Document":
+        """Resolve wrapper markup away, returning the document to read.
 
-        Returns the document unchanged when it carries no revision markup, which is
-        almost every document and must cost nothing. Otherwise the markup is resolved
-        away in place -- on a copy, when the document was handed to us rather than
-        opened by us, so a caller's ``Document`` is never edited underneath them.
+        Tracked changes and content controls are the same shape of problem: an element
+        that puts real content one level below where every reader looks. Both are
+        rewritten out of the tree here rather than taught to each reader in turn --
+        see :mod:`all2md.parsers.docx_sdt` for the five readers a content control
+        alone would otherwise have to be threaded through.
 
-        Footnote and endnote parts are resolved too: a note is prose like any other
-        and can be revised.
+        Returns the document unchanged when it carries neither, which is almost every
+        document and must cost nothing. Otherwise the markup is resolved away in place
+        -- on a copy, when the document was handed to us rather than opened by us, so
+        a caller's ``Document`` is never edited underneath them.
+
+        Footnote and endnote parts are normalised too: a note is prose like any other
+        and can be revised or hold a control.
         """
         root = getattr(doc, "element", None)
-        if not document_has_revisions(root):
+        if not (document_has_revisions(root) or document_has_content_controls(root)):
             return doc
 
         if not self._doc_is_ours:
@@ -502,20 +510,32 @@ class DocxToAstConverter(BaseParser):
                 root = doc.element
 
         policy = self.options.revisions
-        resolve_revisions(root, policy)
+        for target in (root, *self._note_roots(doc)):
+            if target is None:
+                continue
+            # Unwrapping first means a revision spanning a control boundary -- a
+            # deleted paragraph mark either side of it, say -- is resolved on the
+            # flattened tree, where the two halves are finally siblings.
+            unwrap_content_controls(target)
+            resolve_revisions(target, policy)
+        return doc
 
+    def _note_roots(self, doc: "docx.document.Document") -> list[Any]:
+        """Element roots of the footnote and endnote parts, when the document has them."""
         try:
             from docx.opc.constants import RELATIONSHIP_TYPE as RT
         except ImportError:
-            return doc
+            return []
+
+        roots: list[Any] = []
         for relationship, attribute in ((RT.FOOTNOTES, "footnotes_part"), (RT.ENDNOTES, "endnotes_part")):
             note_part = self._get_note_part(doc, relationship, attribute)
             if note_part is None:
                 continue
             note_root = getattr(note_part, "element", None)
             if note_root is not None:
-                resolve_revisions(note_root, policy)
-        return doc
+                roots.append(note_root)
+        return roots
 
     @staticmethod
     def _copy_document(doc: "docx.document.Document") -> "docx.document.Document | None":
