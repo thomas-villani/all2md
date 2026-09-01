@@ -937,7 +937,19 @@ class DocxToAstConverter(BaseParser):
 
         from docx.text.hyperlink import Hyperlink
 
-        for run in paragraph.iter_inner_content():
+        for run in self._iter_inner_content_with_math(paragraph):
+            if _omml_local_name(getattr(run, "tag", None) or "") == "oMath":
+                # A bare `m:oMath` sitting between runs: inline maths mid-sentence.
+                # It is not a run, so `iter_inner_content` never yields it; walking the
+                # element children is the only way to see it, and the only way to keep
+                # it in the right place relative to the text around it.
+                flush_group()
+                current_format = current_url = current_style = None
+                latex = _omml_to_latex(run)
+                if latex:
+                    result.append(MathInline(content=latex))
+                continue
+
             url, run_to_parse = self._process_hyperlink(run)
             format_key = self._get_run_formatting_key(run_to_parse, url is not None)
             style_name = self._get_run_character_style(run_to_parse)
@@ -975,6 +987,67 @@ class DocxToAstConverter(BaseParser):
         flush_group()
         return result
 
+    @staticmethod
+    def _bare_omath_children(paragraph: "Paragraph") -> list[Any]:
+        """Direct ``m:oMath`` children of ``w:p``, which are not runs.
+
+        Word wraps an equation in ``m:oMathPara`` only when it shares its paragraph
+        with other content. A **standalone display equation gets a bare ``m:oMath``**
+        sitting directly under ``w:p``, and inline maths mid-sentence gets the same
+        shape between the runs -- so this element is the common case, not the rare one.
+
+        Neither is reachable through ``python-docx``: ``Paragraph.runs`` and
+        ``iter_inner_content`` yield only ``w:r`` (and ``w:hyperlink``) children, so an
+        ``m:oMath`` is invisible to both, and equations written this way were dropped
+        outright rather than degraded (#481).
+        """
+        element = getattr(paragraph, "_element", None)
+        if element is None:
+            return []
+        return [child for child in element if _omml_local_name(getattr(child, "tag", None) or "") == "oMath"]
+
+    def _iter_inner_content_with_math(self, paragraph: "Paragraph") -> list[Any]:
+        """Paragraph inner content in document order, with bare ``m:oMath`` interleaved.
+
+        Returns the objects ``iter_inner_content`` yields, plus any bare ``m:oMath``
+        elements in their real positions, so inline maths lands between the words it
+        sits between rather than being appended at the end.
+        """
+        bare = self._bare_omath_children(paragraph)
+        if not bare:
+            return list(paragraph.iter_inner_content())
+
+        by_element = {}
+        for item in paragraph.iter_inner_content():
+            item_element = getattr(item, "_element", None)
+            if item_element is not None:
+                by_element[id(item_element)] = item
+
+        ordered: list[Any] = []
+        claimed = {id(element) for element in self._display_omath(paragraph)}
+        for child in paragraph._element:
+            item = by_element.get(id(child))
+            if item is not None:
+                ordered.append(item)
+            elif id(child) in {id(element) for element in bare} and id(child) not in claimed:
+                ordered.append(child)
+        return ordered
+
+    def _display_omath(self, paragraph: "Paragraph") -> list[Any]:
+        """Bare ``m:oMath`` children that are the paragraph's whole content.
+
+        An equation alone in its paragraph is displayed as a block, and Word gives it
+        the centred ``Equation`` style, so it becomes a :class:`MathBlock`. One sharing
+        a paragraph with text is inline and is left to the inline path -- otherwise a
+        formula mid-sentence would be torn out and re-emitted after it.
+        """
+        bare = self._bare_omath_children(paragraph)
+        if not bare:
+            return []
+        if (paragraph.text or "").strip():
+            return []
+        return bare
+
     def _extract_math_blocks_from_paragraph(self, paragraph: "Paragraph") -> list[MathBlock]:
         if not hasattr(paragraph, "_element"):
             return []
@@ -986,6 +1059,11 @@ class DocxToAstConverter(BaseParser):
                 continue
             if _omml_local_name(tag) != "oMathPara":
                 continue
+            latex = _omml_to_latex(child)
+            if latex:
+                blocks.append(MathBlock(content=latex))
+
+        for child in self._display_omath(paragraph):
             latex = _omml_to_latex(child)
             if latex:
                 blocks.append(MathBlock(content=latex))
@@ -1855,8 +1933,15 @@ def _omml_handle_subsuperscript(element: Any) -> str:
 
 
 def _omml_handle_radical(element: Any) -> str:
-    """Handle radical elements (rad)."""
-    base_expr = _omml_to_latex(_omml_find_child(element, "base"))
+    """Handle radical elements (rad).
+
+    OMML names the radicand ``m:e``, like every other OMML container, and carries the
+    index in ``m:deg`` with ``m:degHide`` set for a plain square root. This looked for
+    a child called ``m:base``, which does not exist in the schema, so every radical
+    resolved to the empty string and vanished silently -- taking the radicand with it
+    while the surrounding expression carried on looking plausible.
+    """
+    base_expr = _omml_to_latex(_omml_find_child(element, "e"))
     degree_expr = _omml_to_latex(_omml_find_child(element, "deg"))
     if base_expr and degree_expr:
         return f"\\sqrt[{degree_expr}]{{{base_expr}}}"
@@ -1901,7 +1986,11 @@ _OMML_HANDLERS: dict[str, Any] = {
     "num": _omml_handle_container,
     "den": _omml_handle_container,
     "e": _omml_handle_container,
-    "base": _omml_handle_container,
+    # No `"base"` entry: OMML has no `m:base`. It sat here looking like the radicand's
+    # element name, which is how `_omml_handle_radical` came to search for one. The
+    # radicand is `m:e`, like every other OMML container. An unknown element would fall
+    # through to the default container handler anyway, so nothing is lost by its absence
+    # -- only the invitation to look for it.
     "sup": _omml_handle_container,
     "sub": _omml_handle_container,
     "sSup": _omml_handle_superscript,

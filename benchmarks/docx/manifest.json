@@ -5,17 +5,17 @@
     "word_version": "16.0",
     "wordlive_version": "wordlive 0.19.0",
     "word_user_name": "all2md corpus",
-    "generated_utc": "2026-08-31T22:31:20+00:00"
+    "generated_utc": "2026-08-31T23:11:01+00:00"
   },
   "cases": [
     {
       "case_id": "baseline/display-equation",
       "family": "baseline",
       "path": "corpus/baseline/display-equation.docx",
-      "sha256": "ca312577f2dc8b6ceec758bdbe0f15d7e916125c7c8217cfd0e896be27794ca0",
-      "size_bytes": 13684,
+      "sha256": "bb2bcac8ca2ff106a015ccb4974c58fe5521bf96942f673ab6f9cdf1f04cf2df",
+      "size_bytes": 13686,
       "generator": "cases/baseline/display-equation.json",
-      "expected_sha256": "d06de89034cb8c092d593da751082a0d616f98090435725303a2490a91628d62",
+      "expected_sha256": "0baf354ce763528af58a5f09380835236cc768153eafac7f7316d23448ca2089",
       "resave_stable": true,
       "resave_failures": []
     },
