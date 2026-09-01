@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "case_id": "numbering/num-style-link",
+  "family": "numbering",
+  "description": "A list style: the paragraphs carry w:numPr directly, but the abstractNum it names holds no levels at all -- only a w:numStyleLink back to the style, whose own numbering points at the abstract that has them.",
+  "control": false,
+  "facts": {
+    "list": {
+      "ordered": true,
+      "numfmt": "decimal",
+      "start": 1,
+      "numpr_on": "paragraph",
+      "defined_via": "numStyleLink",
+      "items": [
+        "Alpha item",
+        "Beta item",
+        "Gamma item"
+      ]
+    }
+  },
+  "positional": [
+    {
+      "index": 1,
+      "anchor_id": "para:1",
+      "start": 0,
+      "end": 21,
+      "style": "Heading 1",
+      "range_text": "List Style Numbering"
+    },
+    {
+      "index": 2,
+      "anchor_id": "para:2",
+      "start": 21,
+      "end": 38,
+      "style": "Normal",
+      "range_text": "Intro paragraph."
+    },
+    {
+      "index": 3,
+      "anchor_id": "para:3",
+      "start": 38,
+      "end": 49,
+      "style": "List Paragraph",
+      "range_text": "Alpha item"
+    },
+    {
+      "index": 4,
+      "anchor_id": "para:4",
+      "start": 49,
+      "end": 59,
+      "style": "List Paragraph",
+      "range_text": "Beta item"
+    },
+    {
+      "index": 5,
+      "anchor_id": "para:5",
+      "start": 59,
+      "end": 70,
+      "style": "List Paragraph",
+      "range_text": "Gamma item"
+    }
+  ]
+}

@@ -170,7 +170,7 @@ def test_an_unknown_family_fails_rather_than_scoring_zero_checks():
 # ---------------------------------------------------------------------------- corpus
 def test_the_committed_corpus_verifies():
     cases = load_corpus()
-    assert len(cases) == 16
+    assert len(cases) == 17
     assert sum(1 for c in cases if c.is_control) == 6
 
 

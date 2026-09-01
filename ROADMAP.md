@@ -496,12 +496,20 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
     which **demoted the list to bullets** rather than losing it (measured 2026-09-01,
     correcting the claim this entry used to make), and the test is now for the two
     ST_NumberFormat values that are not counters instead of for a list of knowns — 5 of 50
-    schemes rendered ordered before, 48 of 50 after. Two holes remain on this path:
-    `w:numStyleLink` is not followed (an `abstractNum` that defers its levels to a style
-    has no `w:lvl` children, so the list demotes to bullets exactly as an unrecognised
-    `numFmt` used to — filed upstream as docx-plus#31, and unmeasurable here until the
-    corpus can generate one, which is blocked on wordlive#104), and `w:lvlOverride` start
-    values are ignored.
+    schemes rendered ordered before, 48 of 50 after. `w:numStyleLink` followed on
+    **2026-09-01** and is no longer a hole: the corpus can generate one after all, and
+    the route wordlive#104 blocks was not the only one. Word writes a numbering style as
+    a *pair* of abstracts — one with the levels and a `w:styleLink`, one with **none** and
+    a `w:numStyleLink` — and the paragraphs point at the empty one, so the list demoted to
+    bullets exactly as an unrecognised `numFmt` used to. The two are now paired by the
+    style they name, which is where ECMA-376's route through `styles.xml` lands anyway, so
+    no second part has to be read. Getting the *corpus case* was the harder half: of three
+    COM routes, only applying the list style's **template** to the range makes Word write
+    the indirection at all — setting `Range.Style` to the list style points the paragraphs
+    straight at the nine-level abstract, and a case built that way would have passed while
+    proving nothing. What remains on this path is `w:lvlOverride` start values, still
+    ignored. (docx-plus#31 records the same gap upstream, in both its reader and its
+    cascade.)
     `docx-plus` resolves `num_id`/`num_level` through the `basedOn` chain (each half
     independently, so a level-only override keeps its style's list) and
     `read_list_definitions` gives per-level `fmt`, `%1.%2` text pattern, `start` and
@@ -1359,9 +1367,9 @@ Two decisions from those batches are kept here because they are *constraints*, n
       not a list), and a level inherited from a style cannot express nesting, so
       indentation still nests where `ilvl` is not set on the paragraph itself.
 
-    **The lane is designed (2026-08-23), step 1 landed (2026-08-31), and the first five
+    **The lane is designed (2026-08-23), step 1 landed (2026-08-31), and the first six
     fixes it found have shipped (#481, #480, style-inherited numbering, the `numFmt`
-    whitelist, content controls)** — the
+    whitelist, content controls, `w:numStyleLink`)** — the
     design is now `benchmarks/docx/README.md` and the live-probed generation machinery,
     every recipe verified in the saved file's XML, is `benchmarks/docx/generate/`. It was
     written under `design/` first and moved in-tree before any code depended on it, per

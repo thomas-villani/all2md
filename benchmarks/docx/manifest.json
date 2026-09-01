@@ -5,7 +5,7 @@
     "word_version": "16.0",
     "wordlive_version": "wordlive 0.19.0",
     "word_user_name": "all2md corpus",
-    "generated_utc": "2026-08-31T23:11:01+00:00"
+    "generated_utc": "2026-09-01T15:36:10+00:00"
   },
   "cases": [
     {
@@ -104,6 +104,17 @@
       "size_bytes": 14739,
       "generator": "cases/numbering/direct-numbered-control.json",
       "expected_sha256": "1870e1645a4d880e1bb1eb7dd283db6a86eb8ec45ae57c2dba60a8ff34b3374a",
+      "resave_stable": true,
+      "resave_failures": []
+    },
+    {
+      "case_id": "numbering/num-style-link",
+      "family": "numbering",
+      "path": "corpus/numbering/num-style-link.docx",
+      "sha256": "65f7c2e30287069b40cd782004cb202bed151a9d1d7b5ce7ab56c3af2d206f75",
+      "size_bytes": 14708,
+      "generator": "cases/numbering/num-style-link.json",
+      "expected_sha256": "1480ae746874219aca869c855504e2a2008658b9aa49aa5f491edfdd76c37033",
       "resave_stable": true,
       "resave_failures": []
     },
