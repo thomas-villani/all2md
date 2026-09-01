@@ -172,7 +172,14 @@ def check_numbering(case: Case, out: str) -> list[Finding]:
                 "rendered as ordered list",
                 markers >= wanted,
                 f"{markers} ordered marker(s) for {wanted} item(s)"
-                + ("" if markers >= wanted else f"; numPr lives on the {spec.get('numpr_on')}"),
+                + (
+                    ""
+                    if markers >= wanted
+                    # Report the two facts, not a cause: the same failing check
+                    # covers numbering the parser cannot reach and numbering it
+                    # reaches but cannot name.
+                    else f"; numFmt={spec.get('numfmt')}, numPr on the {spec.get('numpr_on')}"
+                ),
             )
         )
     return findings
