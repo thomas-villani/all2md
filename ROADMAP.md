@@ -532,15 +532,22 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
     footnotes into fake ones); `add_toc`/`mark_fields_dirty` for the existing generate-toc
     transform; redlined DOCX output via `mark_insertion`/`mark_deletion` — a real product
     feature, scope creep unless deliberately chosen rather than a bug fix.
-  - **What it will not fix, and is our own job regardless:** block-level rich-text SDTs
-    (`w:sdt`) are structural containers, not typed form fields, so `read_controls` correctly
-    has nothing to return for them. `_iter_block_items`
-    (`src/all2md/parsers/docx.py:1951`) matches only `tbl`/`p` and skips SDTs — and where
-    they appear on real documents they are not marginal: one white paper drops 95 of 1,645
-    paragraphs (a stale TOC gallery, arguably fine to lose), the other drops the author's
-    name, twice. The rule is precise — descend into `w:sdtContent`, skip anything with
-    `w:sdtPr/w:showingPlcHdr` set — and is a same-shaped fix regardless of whether
-    `docx-plus` is adopted.
+  - **What it will not fix, and was our own job regardless — DONE 2026-09-01:** block-level
+    rich-text SDTs (`w:sdt`) are structural containers, not typed form fields, so
+    `read_controls` correctly has nothing to return for them. Where they appear on real
+    documents they were not marginal: one white paper dropped 95 of 1,645 paragraphs (a
+    stale TOC gallery, arguably fine to lose), the other dropped the author's name, twice.
+    The plan here was to descend in `_iter_block_items` and skip anything with
+    `w:sdtPr/w:showingPlcHdr` set. **Both halves of that plan were wrong**, and probing
+    the wrapper before writing the fix is what showed it. Descending at one seam would
+    have fixed one of *five* measured losses — a block control, an inline control
+    mid-sentence, a control around a table, one around a table row, and one around a
+    paragraph in a cell — because every `python-docx` reader looks at direct children and
+    each one has its own seam. So the wrapper is removed on the element tree instead,
+    exactly as tracked changes are, and no reader learns about `w:sdt` at all. And
+    placeholder text is **kept**, not skipped: it is what the page prints, and a
+    template's empty fields are much of what makes the template worth reading — skipping
+    them would have traded one silent loss for another.
   - **Correction surfaced during evaluation:** `read_controls` throws `DuplicateTagError` on
     real Word output, because Word writes empty/absent `w:tag` on most controls and the
     library keys its result dict by tag. Filed upstream; does not change the Tier 1 call —
@@ -558,8 +565,8 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
     3. Effective formatting **and** style-inherited numbering as one spike, corpus-gated —
        this is the one that fixes the custom-template documents. The numbering half landed
        separately on 2026-09-01; what remains here is effective formatting.
-    Independent of all three and worth doing first or alongside: the `w:sdt` block fix
-    (drops an author's name on a real white paper) and the `numFmt` whitelist gap.
+    Independent of all three: the `w:sdt` fix and the `numFmt` whitelist gap, **both DONE
+    (2026-09-01)**.
 - 🌱 **DOCX ground truth via `wordlive`** — *added 2026-08-23, not started.* The "no good
   public benchmark exists for Office" gap below has an instrument now: **`wordlive`**
   (sister project, on PyPI) drives a live Word instance over COM, so a DOCX corpus can be
@@ -1292,7 +1299,8 @@ Two decisions from those batches are kept here because they are *constraints*, n
     fidelity frontier by the same logic that opened the PDF arc: real defects are already
     named (tracked changes vanish silently, `HYPERLINK`/`REF`/`SEQ` fields never read,
     style-inherited numbering lost on corporate templates, `w:sdt` blocks dropping an
-    author's name) and the instrument gap is now closable. Shape, in order:
+    author's name — every one of those but the fields now fixed) and the instrument gap is
+    now closable. Shape, in order:
     - **The `wordlive` ground-truth lane first** — see the Theme 2 entry. The PDF arc
       worked because the PMC lane produced a defect stream and a gate *before* the fixes;
       walking into DOCX with only the self-referential `roundtrip` score would repeat the
@@ -1300,8 +1308,20 @@ Two decisions from those batches are kept here because they are *constraints*, n
       corpus plus the real-document counterpart is enough to start; it does not need the
       PMC lane's scale to be a gate.
     - **The two free-standing fixes** that need no dependency: the `w:sdt` block descent
-      and the `numFmt` whitelist gap. **The whitelist is DONE (2026-09-01)**; the `w:sdt`
-      descent is what remains of the pair. It was **sized** first (2026-08-31,
+      and the `numFmt` whitelist gap. **Both are DONE (2026-09-01)**, and both taught the
+      same lesson — a corpus case names a defect, it does not size one.
+
+      The **`w:sdt` descent** turned out not to be a descent. One corpus case asserted one
+      thing (a block control swallows its paragraph); probing the same wrapper everywhere
+      Word writes it found **five** silent total losses, because `python-docx` looks at
+      direct children in five separate readers: the body block walk, `Paragraph.runs`,
+      `tbl.tr_lst`, `tc.p_lst`, and inline content iteration. A fix at one seam would have
+      left four for a user to find, so the wrapper is unwrapped on the element tree before
+      any reader sees the document — the same treatment tracked changes already get, and
+      the module says so. Placeholder text is kept rather than skipped as originally
+      planned: it is what the page prints.
+
+      The **`numFmt` whitelist** was **sized** first (2026-08-31,
       `benchmarks/docx/generate/numfmt-map.json`): Word writes 46 distinct `w:numFmt`
       values and `_map_numbering_format` recognised five — and that set was almost entirely
       CJK, Hebrew and Arabic numbering, which makes it item 18's script blind spot showing
@@ -1339,9 +1359,9 @@ Two decisions from those batches are kept here because they are *constraints*, n
       not a list), and a level inherited from a style cannot express nesting, so
       indentation still nests where `ilvl` is not set on the paragraph itself.
 
-    **The lane is designed (2026-08-23), step 1 landed (2026-08-31), and the first four
+    **The lane is designed (2026-08-23), step 1 landed (2026-08-31), and the first five
     fixes it found have shipped (#481, #480, style-inherited numbering, the `numFmt`
-    whitelist)** — the
+    whitelist, content controls)** — the
     design is now `benchmarks/docx/README.md` and the live-probed generation machinery,
     every recipe verified in the saved file's XML, is `benchmarks/docx/generate/`. It was
     written under `design/` first and moved in-tree before any code depended on it, per
