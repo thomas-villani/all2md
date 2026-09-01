@@ -801,7 +801,7 @@ class DocxToAstConverter(BaseParser):
             return self._process_quote_paragraph(paragraph, style_name)
 
         # Handle lists
-        list_type, level = _detect_list_level(paragraph, doc)
+        list_type, level = _detect_list_level(paragraph, doc, self._numbering_definitions(doc))
         if list_type:
             return self._process_list_item_paragraph(paragraph, list_type, level)
 
@@ -1668,6 +1668,17 @@ class DocxToAstConverter(BaseParser):
         combined_text = "".join(text_fragments)
         return [Text(content=combined_text)]
 
+    def _numbering_definitions(self, doc: "docx.document.Document" | None) -> dict[str, dict[str, str]]:
+        """Return this document's numId -> level -> list-type map, parsed once.
+
+        Every numbered paragraph asks for this, and style-inherited numbering
+        means many more paragraphs reach the lookup than used to, so the
+        numbering part is walked once per document rather than once per item.
+        """
+        if self._numbering_defs is None:
+            self._numbering_defs = _get_numbering_definitions(doc) if doc is not None else {}
+        return self._numbering_defs
+
     def _load_comments(self, doc: "docx.document.Document") -> dict[str, CommentData]:
         comments: dict[str, CommentData] = {}
 
@@ -1836,10 +1847,19 @@ def _get_numbering_definitions(doc: "docx.document.Document") -> dict[str, dict[
 
     Returns a mapping of numId -> {level -> format_type} where format_type is 'bullet' or 'number'.
     """
-    if not hasattr(doc, "_part") or not hasattr(doc._part, "numbering_part"):
+    part = getattr(doc, "_part", None)
+    if part is None:
         return {}
 
-    numbering_part = doc._part.numbering_part
+    try:
+        # python-docx raises NotImplementedError -- not AttributeError -- when a
+        # document has no numbering part at all, which is most documents, so this
+        # access has to be inside the guard rather than behind a hasattr().
+        numbering_part = part.numbering_part
+    except Exception as e:
+        logger.debug(f"Document has no readable numbering part: {e}")
+        return {}
+
     if not numbering_part:
         return {}
 
@@ -1852,8 +1872,77 @@ def _get_numbering_definitions(doc: "docx.document.Document") -> dict[str, dict[
         return {}
 
 
+_MAX_STYLE_CHAIN = 20
+
+
+def _read_numbering_props(pr_element: Any) -> tuple[str | None, str | None] | None:
+    """Read ``(ilvl, numId)`` out of the ``w:numPr`` child of a ``w:pPr``.
+
+    Either value can be absent on its own. Word merges paragraph properties with
+    the style chain element by element, so the two are reported separately
+    rather than as an all-or-nothing pair.
+    """
+    if pr_element is None:
+        return None
+
+    num_pr = pr_element.find(f"{_WORD_NS}numPr")
+    if num_pr is None:
+        return None
+
+    ilvl_elem = num_pr.find(f"{_WORD_NS}ilvl")
+    num_id_elem = num_pr.find(f"{_WORD_NS}numId")
+    return (
+        ilvl_elem.get(f"{_WORD_NS}val") if ilvl_elem is not None else None,
+        num_id_elem.get(f"{_WORD_NS}val") if num_id_elem is not None else None,
+    )
+
+
+def _effective_numbering_props(paragraph: "Paragraph") -> tuple[str | None, str | None, bool]:
+    """Resolve the numbering a paragraph really carries, style chain included.
+
+    Corporate templates put ``w:numPr`` on the paragraph *style*, leaving the
+    paragraph carrying nothing but ``w:pStyle`` -- so reading the paragraph
+    alone finds no numbering and the list is lost entirely. Direct properties
+    win; whatever they leave unset comes from the nearest style in the
+    ``w:basedOn`` chain that sets it.
+
+    Returns ``(ilvl, numId, ilvl_is_direct)``. The third value matters because a
+    depth inherited from a style is the same for every paragraph using it, so it
+    cannot express nesting on its own -- see the caller.
+    """
+    p_element = getattr(paragraph, "_p", None)
+    direct = _read_numbering_props(p_element.find(f"{_WORD_NS}pPr") if p_element is not None else None)
+    ilvl, num_id = direct if direct else (None, None)
+    ilvl_is_direct = ilvl is not None
+
+    try:
+        style = paragraph.style
+    except Exception:  # a pStyle naming a style the styles part does not define
+        style = None
+
+    seen: set[int] = set()
+    depth = 0
+    while style is not None and depth < _MAX_STYLE_CHAIN and (ilvl is None or num_id is None):
+        element = getattr(style, "element", None)
+        if element is None or id(element) in seen:
+            break
+        seen.add(id(element))
+
+        inherited = _read_numbering_props(element.find(f"{_WORD_NS}pPr"))
+        if inherited:
+            ilvl = ilvl if ilvl is not None else inherited[0]
+            num_id = num_id if num_id is not None else inherited[1]
+
+        style = getattr(style, "base_style", None)
+        depth += 1
+
+    return ilvl, num_id, ilvl_is_direct
+
+
 def _detect_list_from_numbering_props(
-    paragraph: "Paragraph", doc: "docx.document.Document" | None
+    paragraph: "Paragraph",
+    doc: "docx.document.Document" | None,
+    numbering_defs: dict[str, dict[str, str]] | None = None,
 ) -> tuple[str | None, int] | None:
     """Check for Word native numbering properties (numPr element).
 
@@ -1863,36 +1952,62 @@ def _detect_list_from_numbering_props(
         return None
 
     try:
-        ns = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
-        num_pr = paragraph._p.find(f".//{ns}numPr")
-        if num_pr is None:
+        ilvl, num_id, ilvl_is_direct = _effective_numbering_props(paragraph)
+
+        # numId is what switches numbering on, and "0" is Word's explicit "none".
+        # An ilvl on its own is not a list: several built-in styles (Subtitle
+        # among them) carry one with no numId anywhere in their chain.
+        if not num_id or num_id == "0":
             return None
 
-        # Get numbering level (Word uses 0-based indexing, we use 1-based)
-        ilvl_elem = num_pr.find(f".//{ns}ilvl")
-        level = int(ilvl_elem.get(f"{ns}val", "0")) + 1 if ilvl_elem is not None else 1
+        # Word's ilvl is 0-based, our level is 1-based.
+        level = 1
+        if ilvl is not None:
+            try:
+                level = int(ilvl) + 1
+            except ValueError:
+                level = 1
 
-        # Get numbering ID to determine list type
-        num_id_elem = num_pr.find(f".//{ns}numId")
-        if num_id_elem is None:
-            return "bullet", level
+        # A depth carried by a style is shared by every paragraph that uses the
+        # style, so it says nothing about nesting. Writers that cannot vary ilvl
+        # nest by naming a deeper style or by indenting instead -- the built-in
+        # "List Bullet 2" carries numPr with no ilvl at all -- so those signals
+        # still decide the depth. A direct ilvl is authoritative, and indentation
+        # beside one is only formatting.
+        if not ilvl_is_direct:
+            level = max(level, _implied_list_level(paragraph))
 
-        num_id = num_id_elem.get(f"{ns}val")
+        if numbering_defs is None:
+            numbering_defs = _get_numbering_definitions(doc) if doc is not None else {}
 
-        # Look up the numbering definition if document is available
-        if doc and num_id:
-            numbering_defs = _get_numbering_definitions(doc)
-            if num_id in numbering_defs:
-                level_key = str(level - 1)
-                if level_key in numbering_defs[num_id]:
-                    return numbering_defs[num_id][level_key], level
-                if "0" in numbering_defs[num_id]:
-                    return numbering_defs[num_id]["0"], level
+        definition = numbering_defs.get(num_id)
+        if definition:
+            level_key = str(level - 1)
+            if level_key in definition:
+                return definition[level_key], level
+            if "0" in definition:
+                return definition["0"], level
 
         # Fallback: detect type from paragraph text pattern
         return _detect_list_type_from_text(paragraph.text, level)
     except Exception:
         return None
+
+
+def _implied_list_level(paragraph: "Paragraph") -> int:
+    """Read the depth a paragraph implies without an explicit ``w:ilvl``.
+
+    The trailing digit of a built-in list style name, plus whatever the
+    paragraph's own left indent adds on top of it.
+    """
+    try:
+        style_name = paragraph.style.name if paragraph.style else None
+    except Exception:
+        style_name = None
+
+    style_level = _detect_list_from_style_name(style_name)[1] if style_name else 1
+    indent_level = _get_paragraph_indent_level(paragraph)
+    return max(style_level, style_level + indent_level)
 
 
 def _detect_list_type_from_text(text: str, level: int) -> tuple[str, int]:
@@ -1930,13 +2045,17 @@ def _get_paragraph_indent_level(paragraph: "Paragraph") -> int:
     return 0
 
 
-def _detect_list_level(paragraph: "Paragraph", doc: "docx.document.Document" | None = None) -> tuple[str | None, int]:
+def _detect_list_level(
+    paragraph: "Paragraph",
+    doc: "docx.document.Document" | None = None,
+    numbering_defs: dict[str, dict[str, str]] | None = None,
+) -> tuple[str | None, int]:
     """Detect the list level of a paragraph based on its style, numbering, and indentation.
 
     Returns tuple of (list_type, level) where list_type is 'bullet' or 'number' and level is integer depth
     """
     # Check for Word native numbering properties first
-    result = _detect_list_from_numbering_props(paragraph, doc)
+    result = _detect_list_from_numbering_props(paragraph, doc, numbering_defs)
     if result is not None:
         return result
 
@@ -1945,13 +2064,12 @@ def _detect_list_level(paragraph: "Paragraph", doc: "docx.document.Document" | N
     if not style_name:
         return None, 0
 
-    base_type, style_level = _detect_list_from_style_name(style_name)
+    base_type, _ = _detect_list_from_style_name(style_name)
     indent_level = _get_paragraph_indent_level(paragraph)
 
     # If we have a list style, combine with indentation
     if base_type:
-        final_level = max(style_level, style_level + indent_level)
-        return base_type, final_level
+        return base_type, _implied_list_level(paragraph)
 
     # Check indentation level for paragraphs without list styles
     if indent_level > 0:
