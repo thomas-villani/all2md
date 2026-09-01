@@ -1,0 +1,68 @@
+name: DOCX Defect Ledger
+
+# Publishes the DOCX lane's per-family defect counts. This is the *report*, not the
+# gate: the gate lives in tests/unit/test_docx_benchmark.py and runs on every pull
+# request, because the corpus is committed bytes rather than a download and scoring
+# seventeen small documents costs seconds, so there was no reason to make a fifteenth
+# runner out of it or to let a regression wait for a weekly run.
+#
+# What is deliberately NOT gated here or there is the defect count itself. This lane
+# exists to open a defect stream, and a gate on the count would punish finding things:
+# adding a corpus case that exposes a real defect would break the build. The count is
+# recorded and read, never asserted.
+#
+# Generation is a separate matter and never runs here -- it needs Windows and a
+# licensed Word (see benchmarks/docx/generate/), which is why the corpus bytes are
+# committed and pinned by digest instead.
+
+on:
+  schedule:
+    # 06:00 UTC Mondays, an hour behind the corpus gate so the two do not queue
+    # against each other. Weekly is enough: the corpus is fixed, so the only thing
+    # that changes between runs is our code.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: docx-ledger-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ledger:
+    name: DOCX Defect Ledger
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all,dev]"
+
+      - name: Score the corpus
+        id: score
+        run: python -m benchmarks.docx | tee ledger.txt
+
+      # Runs even on a red run: a crash or a control failure is exactly when the
+      # ledger is most worth reading, and the exit code alone does not say which.
+      - name: Publish the ledger
+        if: always()
+        run: |
+          {
+            echo "## DOCX defect ledger"
+            echo
+            echo '```'
+            cat ledger.txt 2>/dev/null || echo "no ledger produced -- the run failed before scoring"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

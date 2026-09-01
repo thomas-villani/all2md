@@ -51,10 +51,22 @@ not finished with only one of them.
 ## Posture
 
 **Ungated on fidelity by design, crash-gated always.** The lane exists to open the
-DOCX defect stream *before* the fixes, so each one is measured. The exit criterion
-for gating goes in the workflow file rather than being left to drift — the PMC lane's
-definition, mirrored: after the fixes land and two consecutive scheduled runs open no
-new defect.
+DOCX defect stream *before* the fixes, so each one is measured.
+
+**The gate runs per pull request, in `tests/unit/test_docx_benchmark.py`** — three
+tests: nothing crashes, no control reports a defect, and scoring produces findings at
+all (so an empty corpus cannot read as a clean run). All three are shown red before
+being trusted, the same rule the rest of that file lives by. This departs from the
+design's original "scheduled + dispatch", which was written by analogy to
+`corpus-gate.yml`: that lane is scheduled because it downloads ~700 MB from third-party
+hosts, and none of that applies here. The corpus is committed bytes and scoring
+seventeen small documents costs seconds, so there was no reason to make a fifteenth
+runner out of it, and no reason to let a regression wait a week to be found. It went
+unwired while six fixes landed against it; that is the gap this closes.
+
+`docx-ledger.yml` is the *report* rather than the gate — scheduled weekly plus
+dispatch, publishing the per-family counts to the step summary so the defect stream
+is readable without a local run.
 
 **The lane publishes per-family defect counts first** — a ledger, honest about being
 a new instrument. A scored headline number waits until the fixes give it a story. The

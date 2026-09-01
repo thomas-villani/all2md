@@ -174,6 +174,62 @@ def test_the_committed_corpus_verifies():
     assert sum(1 for c in cases if c.is_control) == 6
 
 
+def score_the_committed_corpus():
+    """Every committed case converted and scored. Returns (findings, crashes)."""
+    from benchmarks.docx.run import alternates, convert
+
+    findings, crashes = [], []
+    for case in sorted(load_corpus(), key=lambda c: c.case_id):
+        try:
+            out = convert(case)
+            extra = alternates(case)
+        except Exception as exc:  # noqa: BLE001 - a crash is the thing being tested for
+            crashes.append(f"{case.case_id}: {type(exc).__name__}: {exc}")
+            continue
+        findings.extend(score_case(case, out, extra))
+    return findings, crashes
+
+
+def test_no_committed_case_crashes_the_parser():
+    """The lane's first gate, run per-PR rather than only by hand.
+
+    ``python -m benchmarks.docx`` is crash- and control-gated and never gated on the
+    defect count, and that gate lived only on a developer's machine while six fixes
+    landed against it. It is cheap enough to be a test -- the corpus is committed
+    bytes, so there is no download and nothing external to be hostage to -- and a
+    regression on real Word output is exactly what the hand-built fixtures elsewhere
+    in ``tests/unit/formats/docx/`` cannot catch.
+    """
+    _, crashes = score_the_committed_corpus()
+    assert not crashes, "conversion crashed:\n  " + "\n  ".join(crashes)
+
+
+def test_no_control_case_reports_a_defect():
+    """A control failing means the lane is wrong, not that the parser is.
+
+    Kept separate from the crash gate because the two say different things: a crash
+    is a parser bug, a failing control is a bad oracle or an over-claiming case. Both
+    earned their keep on the lane's first run.
+    """
+    findings, _ = score_the_committed_corpus()
+    controls = {c.case_id for c in load_corpus() if c.is_control}
+    failed = [str(f) for f in findings if not f.ok and f.case_id in controls]
+    assert not failed, "control case(s) reporting a defect:\n  " + "\n  ".join(failed)
+
+
+def test_the_defect_ledger_is_not_gated_on_its_count():
+    """The count is recorded, deliberately without an assertion on its value.
+
+    A gate on the defect count would punish finding things -- adding a corpus case
+    that exposes a real defect would break the build. What this pins instead is that
+    scoring produces findings at all, so a loader or oracle that silently scores
+    nothing cannot read as a clean run.
+    """
+    findings, _ = score_the_committed_corpus()
+    assert len(findings) > 30
+    assert {f.family for f in findings} >= {"tracked", "numbering", "fields", "tables"}
+
+
 def build_corpus(tmp_path: Path, *, document: bytes = b"docx bytes") -> Path:
     """A minimal, valid corpus on disk. Returns the manifest path."""
     import hashlib

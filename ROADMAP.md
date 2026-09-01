@@ -588,7 +588,13 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
   - **Generation is offline; CI replays, never regenerates.** Windows + licensed Word
     cannot run in CI, so the corpus is generated locally and pinned by digest,
     PMC-manifest style. This also freezes the Word-version variable that would otherwise
-    make readings incomparable across regenerations.
+    make readings incomparable across regenerations. **Replay is wired as of 2026-09-01**
+    — and as a per-PR *test* rather than the scheduled workflow this entry originally
+    imagined, because the corpus being committed bytes means scoring costs seconds and
+    has nothing external to be hostage to. The lane went six fixes deep with its gate
+    living only on a developer's machine; `tests/unit/test_docx_benchmark.py` now holds
+    it (no crash, no control failure, and scoring that cannot silently score nothing),
+    with `docx-ledger.yml` publishing the counts weekly as a report.
   - **A scripted corpus is a sharp instrument, not a noisy one** — it measures what we
     thought to script, like `benchmarks/roundtrip` is synthetic-by-design. Pair it with
     the real-document counterpart (the two tracked white papers, a handful of EDGAR
