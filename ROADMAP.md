@@ -482,7 +482,8 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
     before committing**, it is the one change here with a plausible corpus-gate regression
     path. Fields: one integration fixes both dropped hyperlink URLs and the `Figure :`
     caption bug.
-  - **Tier 1b — style-inherited numbering (added 2026-08-21; the descent DONE 2026-09-01).**
+  - **Tier 1b — style-inherited numbering (added 2026-08-21; the descent and the `numFmt`
+    whitelist both DONE 2026-09-01).**
     Documents built on custom templates "lost" their list numbering because
     `_detect_list_from_numbering_props` (`src/all2md/parsers/docx.py:1942`) read only the
     paragraph's *own* `w:numPr`; when the template puts the `numPr` on the style (the normal
@@ -490,11 +491,17 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
     regex-matches the literal built-in names `List Bullet`/`List Number`/`List Paragraph` and
     otherwise guesses from left indent plus a `^\d+[.)]` text pattern. The `basedOn` descent
     has now landed on its own, ahead of the effective-formatting spike, because the DOCX lane
-    could not measure anything else on this path until it did. Two smaller holes remain:
-    `_map_numbering_format` drops any `numFmt` outside its two whitelists (`custom`,
-    `decimalZero`, CJK counters all return `None`), which **demotes the list to bullets**
-    rather than losing it — measured 2026-09-01, correcting the claim this entry used to
-    make — and `w:lvlOverride` start values are ignored.
+    could not measure anything else on this path until it did. The `numFmt` whitelist went
+    with it: `_map_numbering_format` used to drop any value outside its five-name whitelist,
+    which **demoted the list to bullets** rather than losing it (measured 2026-09-01,
+    correcting the claim this entry used to make), and the test is now for the two
+    ST_NumberFormat values that are not counters instead of for a list of knowns — 5 of 50
+    schemes rendered ordered before, 48 of 50 after. Two holes remain on this path:
+    `w:numStyleLink` is not followed (an `abstractNum` that defers its levels to a style
+    has no `w:lvl` children, so the list demotes to bullets exactly as an unrecognised
+    `numFmt` used to — filed upstream as docx-plus#31, and unmeasurable here until the
+    corpus can generate one, which is blocked on wordlive#104), and `w:lvlOverride` start
+    values are ignored.
     `docx-plus` resolves `num_id`/`num_level` through the `basedOn` chain (each half
     independently, so a level-only override keeps its style's list) and
     `read_list_definitions` gives per-level `fmt`, `%1.%2` text pattern, `start` and
@@ -1293,9 +1300,10 @@ Two decisions from those batches are kept here because they are *constraints*, n
       corpus plus the real-document counterpart is enough to start; it does not need the
       PMC lane's scale to be a gate.
     - **The two free-standing fixes** that need no dependency: the `w:sdt` block descent
-      and the `numFmt` whitelist gap. The second is now **sized** (2026-08-31,
+      and the `numFmt` whitelist gap. **The whitelist is DONE (2026-09-01)**; the `w:sdt`
+      descent is what remains of the pair. It was **sized** first (2026-08-31,
       `benchmarks/docx/generate/numfmt-map.json`): Word writes 46 distinct `w:numFmt`
-      values and `_map_numbering_format` recognises five — and that set is almost entirely
+      values and `_map_numbering_format` recognised five — and that set was almost entirely
       CJK, Hebrew and Arabic numbering, which makes it item 18's script blind spot showing
       up in the parser rather than only in the corpora. Two things about it were
       **measured before starting and both were wrong on the record** (2026-09-01). The
@@ -1305,8 +1313,10 @@ Two decisions from those batches are kept here because they are *constraints*, n
       bullet. And the corpus could not isolate it at all — both numbering cases put
       `numPr` on the *style*, so the whitelist sat behind the style-descent defect and
       widening it alone would have flipped zero checks. Hence the order below: the style
-      descent landed first, and `numbering/numfmt-decimal-zero` now fails for its own
-      stated reason.
+      descent landed first, `numbering/numfmt-decimal-zero` then failed for its own stated
+      reason, and the whitelist fix flipped it the same day — the `numbering` family is
+      clean. The fix was an inversion, not a wider whitelist: only `bullet` and `none` are
+      not counters, so everything else is ordered, including values Word has yet to invent.
     - **The agreed `docx-plus` three-PR sequence** (2026-08-21): tracked changes, then
       fields + bookmarks, then effective formatting + style-inherited numbering — the last
       being the one with the flagged regression path, which is exactly what the new lane
@@ -1329,8 +1339,9 @@ Two decisions from those batches are kept here because they are *constraints*, n
       not a list), and a level inherited from a style cannot express nesting, so
       indentation still nests where `ilvl` is not set on the paragraph itself.
 
-    **The lane is designed (2026-08-23), step 1 landed (2026-08-31), and the first three
-    fixes it found have shipped (#481, #480, style-inherited numbering)** — the
+    **The lane is designed (2026-08-23), step 1 landed (2026-08-31), and the first four
+    fixes it found have shipped (#481, #480, style-inherited numbering, the `numFmt`
+    whitelist)** — the
     design is now `benchmarks/docx/README.md` and the live-probed generation machinery,
     every recipe verified in the saved file's XML, is `benchmarks/docx/generate/`. It was
     written under `design/` first and moved in-tree before any code depended on it, per
