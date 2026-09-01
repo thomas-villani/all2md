@@ -1761,8 +1761,11 @@ class DocxToAstConverter(BaseParser):
 
 _WORD_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
+# ECMA-376 ST_NumberFormat (17.18.59) enumerates some sixty numbering schemes,
+# and only these two are not a counter of some kind. Everything else -- Western,
+# CJK, Hebrew, Arabic, enclosed, full-width -- puts an ordered marker in front of
+# the item, so the test is for the exceptions rather than for a list of knowns.
 _BULLET_FORMATS = frozenset(("bullet", "none"))
-_NUMBER_FORMATS = frozenset(("decimal", "lowerLetter", "upperLetter", "lowerRoman", "upperRoman"))
 
 
 def _map_numbering_format(fmt_val: str | None) -> str | None:
@@ -1771,9 +1774,7 @@ def _map_numbering_format(fmt_val: str | None) -> str | None:
         return None
     if fmt_val in _BULLET_FORMATS:
         return "bullet"
-    if fmt_val in _NUMBER_FORMATS:
-        return "number"
-    return None
+    return "number"
 
 
 def _collect_abstract_numbering_defs(numbering_xml: Any) -> dict[str, dict[str, str]]:
