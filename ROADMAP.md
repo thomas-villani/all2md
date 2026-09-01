@@ -1297,9 +1297,19 @@ Two decisions from those batches are kept here because they are *constraints*, n
     - **The agreed `docx-plus` three-PR sequence** (2026-08-21): tracked changes, then
       fields + bookmarks, then effective formatting + style-inherited numbering — the last
       being the one with the flagged regression path, which is exactly what the new lane
-      exists to gate.
+      exists to gate. **The first is DONE**
+      ([#480](https://github.com/thomas-villani/all2md/issues/480), 2026-09-01): revision
+      markup is resolved away on the element tree before any reader touches the document,
+      under a `revisions` option of `accept` (default) / `reject` / `mark`. Resolving at
+      the tree rather than at each reader is the load-bearing decision — `w:ins` reaches
+      paragraph text, run iteration, list and heading detection, image discovery and table
+      cells alike, and patching them one at a time would have left the next one to be
+      found by a user. `mark` reuses the existing AST (`Strikethrough` plus a `revision`
+      entry in node `metadata`) rather than adding a node type, a **user decision** that
+      knowingly accepts the GFM-flavour limitation.
 
-    **The lane is designed (2026-08-23), and step 1 has landed (2026-08-31)** — the
+    **The lane is designed (2026-08-23), step 1 landed (2026-08-31), and the first two
+    fixes it found have shipped (#481, #480)** — the
     design is now `benchmarks/docx/README.md` and the live-probed generation machinery,
     every recipe verified in the saved file's XML, is `benchmarks/docx/generate/`. It was
     written under `design/` first and moved in-tree before any code depended on it, per

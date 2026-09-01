@@ -18,9 +18,11 @@ from all2md.constants import (
     DEFAULT_DOCX_INCLUDE_ENDNOTES,
     DEFAULT_DOCX_INCLUDE_FOOTNOTES,
     DEFAULT_DOCX_INCLUDE_IMAGE_CAPTIONS,
+    DEFAULT_DOCX_REVISIONS,
     DEFAULT_DOCX_TABLE_STYLE,
     DocxCommentMode,
     DocxCommentsPosition,
+    DocxRevisionPolicy,
 )
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 from all2md.options.common import AttachmentOptionsMixin, NetworkFetchOptions
@@ -207,6 +209,10 @@ class DocxOptions(BaseParserOptions, AttachmentOptionsMixin):
     ----------
     preserve_tables : bool, default True
         Whether to preserve table formatting in Markdown.
+    revisions : {"accept", "reject", "mark"}, default "accept"
+        How to resolve Word tracked changes. ``accept`` reads the document as
+        approved, ``reject`` reads the original text, ``mark`` keeps both with
+        deletions struck through and revision facts on node metadata.
 
     Examples
     --------
@@ -236,6 +242,19 @@ class DocxOptions(BaseParserOptions, AttachmentOptionsMixin):
     include_comments: bool = field(
         default=DEFAULT_DOCX_INCLUDE_COMMENTS,
         metadata={"help": "Include document comments in output", "importance": "core"},
+    )
+
+    revisions: DocxRevisionPolicy = field(
+        default=DEFAULT_DOCX_REVISIONS,
+        metadata={
+            "help": (
+                "How to resolve Word tracked changes: accept (insertions in, deletions out -- the approved "
+                "document), reject (the original text), or mark (keep both, deletions struck through and every "
+                "run carrying the revision author and date on its metadata)"
+            ),
+            "choices": ["accept", "reject", "mark"],
+            "importance": "core",
+        },
     )
 
     comments_position: DocxCommentsPosition = field(

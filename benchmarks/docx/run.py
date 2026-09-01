@@ -22,7 +22,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from benchmarks.docx.corpus import Case, CorpusError, load_corpus, provenance  # noqa: E402
-from benchmarks.docx.oracles import Finding, score_case  # noqa: E402
+from benchmarks.docx.oracles import EXTRA_PROFILES, Finding, score_case  # noqa: E402
 
 #: The one options profile every scoring run uses, recorded so a reading can be
 #: reproduced. `attachment_mode` is pinned because the default makes image URLs
@@ -32,10 +32,18 @@ PROFILE: dict[str, Any] = {
 }
 
 
-def convert(case: Case) -> str:
+def convert(case: Case, **overrides: Any) -> str:
     import all2md
 
-    return str(all2md.to_markdown(str(case.path), **PROFILE))
+    return str(all2md.to_markdown(str(case.path), **{**PROFILE, **overrides}))
+
+
+def alternates(case: Case) -> dict[str, str]:
+    """Return the extra conversions this case's family asks for, keyed by name.
+
+    A crash here is a crash like any other, so it is left to the caller's handler.
+    """
+    return {name: convert(case, **overrides) for name, overrides in EXTRA_PROFILES.get(case.family, {}).items()}
 
 
 def main() -> int:
@@ -67,12 +75,15 @@ def main() -> int:
     for case in sorted(cases, key=lambda c: c.case_id):
         try:
             out = convert(case)
+            extra = alternates(case)
         except Exception as exc:  # noqa: BLE001 - a crash is the one hard failure
             crashed.append(f"{case.case_id}: {type(exc).__name__}: {exc}")
             continue
         if args.show_output:
             print(f"--- {case.case_id} ---\n{out}\n")
-        findings.extend(score_case(case, out))
+            for name, text in extra.items():
+                print(f"--- {case.case_id} ({name}) ---\n{text}\n")
+        findings.extend(score_case(case, out, extra))
 
     by_family: dict[str, list[Finding]] = defaultdict(list)
     for finding in findings:
