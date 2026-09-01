@@ -81,6 +81,74 @@ def check_tracked(case: Case, out: str) -> list[Finding]:
     return findings
 
 
+def check_tracked_resolutions(case: Case, alternates: dict[str, str]) -> list[Finding]:
+    """Check the other two revision resolutions, each against its recorded truth.
+
+    ``accept`` is what the pinned profile converts, so it is checked above. The
+    generating script recorded ``rejected_text`` as well, and a resolution that is
+    never scored is a resolution nobody would notice breaking -- so ``reject`` is
+    converted separately and held to that record.
+
+    ``mark`` keeps both halves, which run together in the output ("crimsonbrown"), so
+    neither text record applies to it. What is checkable is the property that makes
+    ``mark`` worth having: every revision's text survives, and the deleted half is
+    struck through rather than silently mixed into the prose.
+    """
+    facts = case.facts
+    findings = []
+
+    rejected = alternates.get("reject")
+    if rejected is not None:
+        wanted = facts.get("rejected_text", [])
+        missing = [t for t in wanted if not _present(t, rejected)]
+        findings.append(
+            Finding(
+                case.case_id,
+                case.family,
+                "reject: original text",
+                not missing,
+                "all present" if not missing else f"{len(missing)} of {len(wanted)} absent: {missing!r}",
+            )
+        )
+        inserted = [r["text"] for r in facts.get("revisions", []) if r["type"] == "insert"]
+        leaked = [t for t in inserted if _present(t, rejected)]
+        findings.append(
+            Finding(
+                case.case_id,
+                case.family,
+                "reject: insertions withheld",
+                not leaked,
+                "none leaked" if not leaked else f"inserted text still emitted: {leaked!r}",
+            )
+        )
+
+    marked = alternates.get("mark")
+    if marked is not None:
+        revisions = facts.get("revisions", [])
+        absent = [r["text"] for r in revisions if not _present(r["text"], marked)]
+        findings.append(
+            Finding(
+                case.case_id,
+                case.family,
+                "mark: both halves kept",
+                not absent,
+                "all present" if not absent else f"{len(absent)} of {len(revisions)} absent: {absent!r}",
+            )
+        )
+        deletions = [r["text"] for r in revisions if r["type"] == "delete"]
+        unstruck = [t for t in deletions if f"~~{t}~~" not in marked]
+        findings.append(
+            Finding(
+                case.case_id,
+                case.family,
+                "mark: deletions struck",
+                not unstruck,
+                "all struck" if not unstruck else f"emitted as ordinary prose: {unstruck!r}",
+            )
+        )
+    return findings
+
+
 def check_numbering(case: Case, out: str) -> list[Finding]:
     spec = case.facts.get("list", {})
     findings = []
@@ -308,9 +376,31 @@ CHECKS: dict[str, Callable[[Case, str], list[Finding]]] = {
 }
 
 
-def score_case(case: Case, out: str) -> list[Finding]:
-    """Every check a family defines, against one case's output."""
+#: Extra conversions a family needs beyond the one pinned profile, as option
+#: overrides. Only revision handling has more than one right answer, so only the
+#: tracked family declares any -- the corpus records all three resolutions and
+#: scoring one of them would leave the other two free to rot.
+EXTRA_PROFILES: dict[str, dict[str, dict[str, Any]]] = {
+    "tracked": {"reject": {"revisions": "reject"}, "mark": {"revisions": "mark"}},
+}
+
+#: The checks that read those extra conversions.
+RESOLUTION_CHECKS: dict[str, Callable[[Case, dict[str, str]], list[Finding]]] = {
+    "tracked": check_tracked_resolutions,
+}
+
+
+def score_case(case: Case, out: str, alternates: dict[str, str] | None = None) -> list[Finding]:
+    """Every check a family defines, against one case's output.
+
+    ``alternates`` carries the extra conversions :data:`EXTRA_PROFILES` asked for,
+    keyed by name; a family with none is scored exactly as before.
+    """
     check: Any = CHECKS.get(case.family)
     if check is None:
         return [Finding(case.case_id, case.family, "family known", False, f"no checks defined for {case.family!r}")]
-    return list(check(case, out))
+    findings = list(check(case, out))
+    resolutions = RESOLUTION_CHECKS.get(case.family)
+    if resolutions is not None:
+        findings.extend(resolutions(case, alternates or {}))
+    return findings

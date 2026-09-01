@@ -70,6 +70,7 @@ from all2md.ast.transforms import extract_nodes
 from all2md.converter_metadata import ConverterMetadata
 from all2md.options.docx import DocxOptions
 from all2md.parsers.base import BaseParser
+from all2md.parsers.docx_revisions import document_has_revisions, resolve_revisions, run_revision
 from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.footnotes import FootnoteCollector
@@ -176,6 +177,10 @@ class DocxToAstConverter(BaseParser):
         self._footnote_collector: FootnoteCollector | None = None
         self._comments_map: dict[str, CommentData] = {}
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
+        # Resolving tracked changes rewrites the element tree, so a document handed to
+        # us by a caller is copied first rather than edited under them. A document we
+        # opened ourselves is ours to rewrite.
+        self._doc_is_ours = False
 
     @requires_dependencies("docx", DEPS_DOCX)
     def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
@@ -220,10 +225,13 @@ class DocxToAstConverter(BaseParser):
         try:
             if isinstance(input_data, docx.document.Document):
                 doc = input_data
+                self._doc_is_ours = False
             elif isinstance(input_data, Path):
                 doc = docx.Document(str(input_data))  # type: ignore[assignment]
+                self._doc_is_ours = True
             else:
                 doc = docx.Document(input_data)  # type: ignore[assignment,arg-type]
+                self._doc_is_ours = True
         except Exception as e:
             raise MalformedFileError(
                 f"Failed to open DOCX document: {str(e)}",
@@ -435,6 +443,10 @@ class DocxToAstConverter(BaseParser):
         self._comments_map = {}
         self._attachment_footnotes = {}
 
+        # Tracked changes are resolved away before anything reads the document, so
+        # every reader below sees an ordinary document (see docx_revisions).
+        doc = self._resolve_revisions(doc)
+
         # Emit started event
         self._emit_progress("started", "Converting DOCX document", current=0, total=0)
 
@@ -467,6 +479,65 @@ class DocxToAstConverter(BaseParser):
         self._footnote_collector = None
         self._comments_map = {}
         return document
+
+    def _resolve_revisions(self, doc: "docx.document.Document") -> "docx.document.Document":
+        """Apply the revision policy to the document, returning what to read.
+
+        Returns the document unchanged when it carries no revision markup, which is
+        almost every document and must cost nothing. Otherwise the markup is resolved
+        away in place -- on a copy, when the document was handed to us rather than
+        opened by us, so a caller's ``Document`` is never edited underneath them.
+
+        Footnote and endnote parts are resolved too: a note is prose like any other
+        and can be revised.
+        """
+        root = getattr(doc, "element", None)
+        if not document_has_revisions(root):
+            return doc
+
+        if not self._doc_is_ours:
+            copied = self._copy_document(doc)
+            if copied is not None:
+                doc = copied
+                root = doc.element
+
+        policy = self.options.revisions
+        resolve_revisions(root, policy)
+
+        try:
+            from docx.opc.constants import RELATIONSHIP_TYPE as RT
+        except ImportError:
+            return doc
+        for relationship, attribute in ((RT.FOOTNOTES, "footnotes_part"), (RT.ENDNOTES, "endnotes_part")):
+            note_part = self._get_note_part(doc, relationship, attribute)
+            if note_part is None:
+                continue
+            note_root = getattr(note_part, "element", None)
+            if note_root is not None:
+                resolve_revisions(note_root, policy)
+        return doc
+
+    @staticmethod
+    def _copy_document(doc: "docx.document.Document") -> "docx.document.Document | None":
+        """Return a private copy of a caller's document, or ``None`` if impossible.
+
+        Saving to a buffer and reopening is the only copy python-docx supports that
+        keeps the parts and relationships consistent. If it fails the caller gets the
+        original back and it is resolved in place -- a mutated input is worse than a
+        silent one, but losing the text again is worse than both.
+        """
+        import io
+
+        try:
+            import docx
+
+            buffer = io.BytesIO()
+            doc.save(buffer)
+            buffer.seek(0)
+            return cast("docx.document.Document", docx.Document(buffer))
+        except Exception as exc:  # noqa: BLE001 - any failure falls back to in-place
+            logger.debug(f"Could not copy the document before resolving revisions: {exc}")
+            return None
 
     def _coalesce_blockquotes(self, children: list[Node]) -> None:
         """Merge consecutive top-level :class:`BlockQuote` siblings into one.
@@ -927,12 +998,17 @@ class DocxToAstConverter(BaseParser):
         current_format: tuple[bool, bool, bool, bool, bool, bool, bool] | None = None
         current_url: str | None = None
         current_style: str | None = None
+        current_revision: dict[str, str] | None = None
 
         def flush_group() -> None:
             if not current_text:
                 return
             text_value = "".join(current_text)
-            result.append(self._build_formatted_inline_node(text_value, current_format, current_url, current_style))
+            result.append(
+                self._build_formatted_inline_node(
+                    text_value, current_format, current_url, current_style, current_revision
+                )
+            )
             current_text.clear()
 
         from docx.text.hyperlink import Hyperlink
@@ -944,7 +1020,7 @@ class DocxToAstConverter(BaseParser):
                 # element children is the only way to see it, and the only way to keep
                 # it in the right place relative to the text around it.
                 flush_group()
-                current_format = current_url = current_style = None
+                current_format = current_url = current_style = current_revision = None
                 latex = _omml_to_latex(run)
                 if latex:
                     result.append(MathInline(content=latex))
@@ -953,12 +1029,22 @@ class DocxToAstConverter(BaseParser):
             url, run_to_parse = self._process_hyperlink(run)
             format_key = self._get_run_formatting_key(run_to_parse, url is not None)
             style_name = self._get_run_character_style(run_to_parse)
+            # Only `mark` resolution stamps runs, so this is None in every other mode
+            # and the grouping below behaves exactly as it did before. Two adjacent
+            # revisions by different authors must not be merged into one run.
+            revision = run_revision(getattr(run_to_parse, "_element", None))
 
-            if format_key != current_format or url != current_url or style_name != current_style:
+            if (
+                format_key != current_format
+                or url != current_url
+                or style_name != current_style
+                or revision != current_revision
+            ):
                 flush_group()
                 current_format = format_key
                 current_url = url
                 current_style = style_name
+                current_revision = revision
 
             math_nodes = self._extract_math_from_run(run_to_parse)
             if math_nodes:
@@ -1090,7 +1176,10 @@ class DocxToAstConverter(BaseParser):
         format_key: tuple[bool, bool, bool, bool, bool, bool, bool] | None,
         url: str | None,
         source_style: str | None = None,
+        revision: dict[str, str] | None = None,
     ) -> Node:
+        struck = bool(format_key and format_key[3])
+
         # A run wearing the inline-code character style becomes a Code node -- the inverse
         # of the renderer's inline-code style (#71). Code has no sub-formatting to preserve,
         # but a code run can still be a hyperlink, so keep an enclosing Link.
@@ -1098,7 +1187,7 @@ class DocxToAstConverter(BaseParser):
             code_node: Node = Code(content=text)
             if url:
                 code_node = Link(url=url, content=[code_node])
-            return code_node
+            return self._apply_revision(code_node, revision, struck)
 
         inline_node: Node = Text(content=text)
 
@@ -1126,7 +1215,27 @@ class DocxToAstConverter(BaseParser):
         if source_style:
             inline_node.metadata["source_style"] = source_style
 
-        return inline_node
+        return self._apply_revision(inline_node, revision, struck)
+
+    @staticmethod
+    def _apply_revision(node: Node, revision: dict[str, str] | None, already_struck: bool) -> Node:
+        """Mark a node as revised content, under ``revisions="mark"``.
+
+        Deletions are struck through -- reusing :class:`Strikethrough` rather than
+        introducing a revision node, because the semantics are already expressible and
+        a new node type would ripple into every renderer. The cost is that this
+        resolution renders fully only in Markdown flavours that have strikethrough.
+
+        The revision's type, author and date go on ``metadata``, which is where a
+        reviewer-facing consumer wants them and where they survive the AST without
+        constraining any renderer to show them.
+        """
+        if not revision:
+            return node
+        if revision.get("type") == "delete" and not already_struck:
+            node = Strikethrough(content=[node])
+        node.metadata["revision"] = dict(revision)
+        return node
 
     def _extract_note_reference_nodes(self, run: Any) -> list[Node]:
         from docx.text.hyperlink import Hyperlink

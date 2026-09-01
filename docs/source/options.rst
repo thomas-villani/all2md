@@ -97,6 +97,11 @@ Certain format options surface extra metadata that renderers and transforms can 
   nodes with ``metadata`` that includes ``comment_type='docx_review'`` plus the review ``identifier``, ``label``,
   ``author``, and ``date``. ``DocxOptions.comments_position`` controls whether those nodes stay inline or are emitted as
   trailing footnotes.
+* **DOCX tracked changes** — ``DocxOptions.revisions`` decides how a document left with Track Changes on is read.
+  ``'accept'`` (the default) gives the approved document, ``'reject'`` gives the original text, and ``'mark'`` keeps
+  both: deletions become :class:`~all2md.ast.nodes.Strikethrough` and every revised node carries a ``revision`` entry in
+  its ``metadata`` with the revision ``type``, ``author``, ``date`` and ``id``. Strikethrough is a GFM extension, so
+  ``'mark'`` renders fully only in flavours that support it.
 * **PPTX speaker notes** — when ``PptxOptions.comment_mode='comment'`` the converter emits
   :class:`~all2md.ast.nodes.Comment` nodes tagged with ``comment_type='pptx_speaker_notes'`` and the originating
   ``slide_number``. ``comment_mode='content'`` keeps the legacy behaviour of heading + paragraph content.
@@ -1707,6 +1712,16 @@ handling from AttachmentOptionsMixin for embedded images and media.
    :Type: ``bool``
    :CLI flag: ``--docx-include-comments``
    :Default: ``False``
+   :Importance: core
+
+**revisions**
+
+   How to resolve Word tracked changes: accept (insertions in, deletions out -- the approved document), reject (the original text), or mark (keep both, deletions struck through and every run carrying the revision author and date on its metadata)
+
+   :Type: ``Literal['accept', 'reject', 'mark']``
+   :CLI flag: ``--docx-revisions``
+   :Default: ``'accept'``
+   :Choices: ``accept``, ``reject``, ``mark``
    :Importance: core
 
 **comments_position**

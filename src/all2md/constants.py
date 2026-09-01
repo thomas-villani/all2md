@@ -136,6 +136,7 @@ MergedCellHandling = Literal["repeat", "blank", "placeholder"]
 
 # DOCX types
 DocxCommentsPosition = Literal["inline", "footnotes"]
+DocxRevisionPolicy = Literal["accept", "reject", "mark"]
 
 # AST JSON types
 AstJsonIndent = int | None
@@ -1088,6 +1089,7 @@ DEFAULT_DOCX_TABLE_STYLE = "Light Grid Accent 1"
 
 # DOCX parser options
 DEFAULT_DOCX_COMMENTS_POSITION: DocxCommentsPosition = "footnotes"
+DEFAULT_DOCX_REVISIONS: DocxRevisionPolicy = "accept"
 DEFAULT_DOCX_INCLUDE_FOOTNOTES = True
 DEFAULT_DOCX_INCLUDE_ENDNOTES = True
 DEFAULT_DOCX_INCLUDE_COMMENTS = False
