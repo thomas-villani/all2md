@@ -566,16 +566,16 @@ INVARIANTS: dict[str, tuple[Document, object, object]] = {
 #: making the caption invisible in the file.
 KNOWN_INVARIANT_GAPS: dict[tuple[str, str], str] = {
     ("rst", "adjacent-bullet-lists-stay-apart"): (
-        "The RST renderer writes both lists with the same bullet and only a blank line between "
+        "#496: The RST renderer writes both lists with the same bullet and only a blank line between "
         "them (`* a` / blank / `* b`), and docutils reads that back as one list of two items."
     ),
     ("asciidoc", "adjacent-ordered-lists-stay-apart"): (
-        "The AsciiDoc renderer separates the lists with only a blank line (`. a` `. b` / blank / "
+        "#497: The AsciiDoc renderer separates the lists with only a blank line (`. a` `. b` / blank / "
         "`. c`), and AsciiDoc continues a list across a blank line, so they parse back as one list "
         "of three."
     ),
     ("asciidoc", "adjacent-bullet-lists-stay-apart"): (
-        "The AsciiDoc renderer writes both lists as `*` items with only a blank line between "
+        "#497: The AsciiDoc renderer writes both lists as `*` items with only a blank line between "
         "them, which parses back as one list of two items."
     ),
 }
