@@ -72,6 +72,17 @@ def test_numbering_flags_missing_items():
     assert "item text present" in failures(make("numbering", NUMBERING), "1. One\n")
 
 
+STARTS_AT_3 = {"list": {**NUMBERING["list"], "start": 3}}
+
+
+def test_numbering_passes_when_the_start_value_survives():
+    assert not failures(make("numbering", STARTS_AT_3), "3. One\n4. Two\n")
+
+
+def test_numbering_flags_a_list_restarted_at_one():
+    assert failures(make("numbering", STARTS_AT_3), "1. One\n2. Two\n") == ["starts at its first number"]
+
+
 # ---------------------------------------------------------------------------- fields
 FIELDS = {"fields": [{"field_type": "HYPERLINK", "resolved_target": "https://example.com/x"}]}
 

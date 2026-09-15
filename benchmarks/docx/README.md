@@ -88,12 +88,17 @@ baseline            8        0
 fields              4        0
 formatting          2        1
 notes               2        0
-numbering           8        0
+numbering          11        0
 sdt                 1        0
 tables              3        0
 tracked            12        0
-TOTAL              40        1
+TOTAL              43        1
 ```
+
+`numbering` went from 8 checks to 11 when the parser learned Word's list counters: each
+case that records the number its list starts at is now held to it. Before that, a list
+Word starts at 3 read `1. 2. 3.` and passed every check, since the items were all there
+and every marker was ordered.
 
 The count keeps going *up* while the failures go down, and that is the shape a closed
 defect should have here: a stricter measure, satisfied. `baseline` opened at 6 checks
