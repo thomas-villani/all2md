@@ -1495,6 +1495,25 @@ class TestEscaping:
         assert "\\*" not in result
         assert "*asterisks*" in result
 
+    @pytest.mark.parametrize("text", ["03) First item", "1. First item", "12. Twelfth"])
+    def test_paragraph_starting_like_an_ordered_marker_stays_a_paragraph(self, text):
+        """A printed label at a paragraph's start is escaped, so it does not reparse as a list."""
+        import io
+
+        from all2md import to_ast
+
+        doc = Document(children=[Paragraph(content=[Text(content=text)])])
+        result = MarkdownRenderer().render_to_string(doc)
+        reparsed = to_ast(io.BytesIO(result.encode()), source_format="markdown")
+
+        assert [type(child) for child in reparsed.children] == [Paragraph]
+        assert "".join(node.content for node in reparsed.children[0].content) == text
+
+    def test_numbers_that_are_not_markers_are_left_alone(self):
+        """``1.1`` and a number with no space after its dot cannot open a list, so nothing is escaped."""
+        doc = Document(children=[Paragraph(content=[Text(content="1.1 Definitions")])])
+        assert MarkdownRenderer().render_to_string(doc).strip() == "1.1 Definitions"
+
 
 @pytest.mark.unit
 class TestFootnotes:

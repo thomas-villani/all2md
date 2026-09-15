@@ -41,6 +41,8 @@ class Finding:
 
 #: Markdown ordered-list marker at the start of a line.
 _ORDERED = re.compile(r"^\s*(\d+)[.)]\s+", re.MULTILINE)
+#: A Markdown backslash escape, which a printed label may carry (`03\)`).
+_UNESCAPE = re.compile(r"\\(?=[^\w\s])")
 
 
 def _present(needle: str, haystack: str) -> bool:
@@ -162,7 +164,27 @@ def check_numbering(case: Case, out: str) -> list[Finding]:
             "all present" if not missing else f"absent: {missing!r}",
         )
     )
-    if spec.get("ordered"):
+    if spec.get("rendered_markers"):
+        # Word printed a label Markdown list syntax cannot carry (`03)`), so the item
+        # is written as the page prints it -- label, then text -- and that is what gets
+        # checked. A Markdown list would pass the ordered check below while printing
+        # `3.`, which is not what the page says.
+        printed = _UNESCAPE.sub("", out)
+        unprinted = [
+            f"{marker} {item}"
+            for marker, item in zip(spec["rendered_markers"], spec.get("items", []), strict=False)
+            if not _present(f"{marker} {item}", printed)
+        ]
+        findings.append(
+            Finding(
+                case.case_id,
+                case.family,
+                "Word's labels printed",
+                not unprinted,
+                "all printed" if not unprinted else f"absent: {unprinted!r}",
+            )
+        )
+    elif spec.get("ordered"):
         markers = len(_ORDERED.findall(out))
         wanted = len(spec.get("items", []))
         findings.append(
