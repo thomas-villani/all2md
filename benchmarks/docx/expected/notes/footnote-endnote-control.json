@@ -2,7 +2,7 @@
   "schema_version": 1,
   "case_id": "notes/footnote-endnote-control",
   "family": "notes",
-  "description": "CONTROL: a footnote and an endnote. Both work today via hand-rolled XML handling.",
+  "description": "CONTROL: a footnote and an endnote, each reference mark directly after its host sentence. Notes are placed on a found text range, not on para:N: a para:N anchor spans the paragraph mark, so the reference used to land at the START of the next paragraph. The endnote goes in first, so the footnote's find offsets still precede every hidden note mark.",
   "control": true,
   "facts": {
     "notes": [
@@ -29,25 +29,25 @@
       "index": 2,
       "anchor_id": "para:2",
       "start": 6,
-      "end": 31,
+      "end": 32,
       "style": "Normal",
-      "range_text": "Footnote host paragraph."
+      "range_text": "Footnote host paragraph.\u0002"
     },
     {
       "index": 3,
       "anchor_id": "para:3",
-      "start": 31,
-      "end": 56,
+      "start": 32,
+      "end": 57,
       "style": "Normal",
-      "range_text": "\u0002Endnote host paragraph."
+      "range_text": "Endnote host paragraph.\u0002"
     },
     {
       "index": 4,
       "anchor_id": "para:4",
-      "start": 56,
+      "start": 57,
       "end": 77,
       "style": "Normal",
-      "range_text": "\u0002Trailing paragraph."
+      "range_text": "Trailing paragraph."
     }
   ]
 }

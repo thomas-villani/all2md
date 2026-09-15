@@ -1,6 +1,6 @@
 {
   "family": "notes",
-  "description": "CONTROL: a footnote and an endnote. Both work today via hand-rolled XML handling.",
+  "description": "CONTROL: a footnote and an endnote, each reference mark directly after its host sentence. Notes are placed on a found text range, not on para:N: a para:N anchor spans the paragraph mark, so the reference used to land at the START of the next paragraph. The endnote goes in first, so the footnote's find offsets still precede every hidden note mark.",
   "steps": [
     {
       "kind": "wl",
@@ -14,21 +14,23 @@
       "stdin": "# Notes\n\nFootnote host paragraph.\n\nEndnote host paragraph.\n\nTrailing paragraph.\n"
     },
     {
-      "kind": "wl",
+      "kind": "find_wl",
+      "find": "Endnote host paragraph.",
       "args": [
         "insert-endnote",
         "--anchor-id",
-        "para:3",
+        "{anchor}",
         "--text",
         "An endnote body."
       ]
     },
     {
-      "kind": "wl",
+      "kind": "find_wl",
+      "find": "Footnote host paragraph.",
       "args": [
         "insert-footnote",
         "--anchor-id",
-        "para:2",
+        "{anchor}",
         "--text",
         "A footnote body."
       ]
@@ -38,11 +40,23 @@
     {
       "part": "word/document.xml",
       "pattern": "<w:footnoteReference",
-      "min": 1
+      "min": 1,
+      "max": 1
     },
     {
       "part": "word/document.xml",
       "pattern": "<w:endnoteReference",
+      "min": 1,
+      "max": 1
+    },
+    {
+      "part": "word/document.xml",
+      "pattern": "Footnote host paragraph\\.(?:(?!</w:p>).)*?<w:footnoteReference",
+      "min": 1
+    },
+    {
+      "part": "word/document.xml",
+      "pattern": "Endnote host paragraph\\.(?:(?!</w:p>).)*?<w:endnoteReference",
       "min": 1
     }
   ],

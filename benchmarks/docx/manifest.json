@@ -5,7 +5,7 @@
     "word_version": "16.0",
     "wordlive_version": "wordlive 0.19.0",
     "word_user_name": "all2md corpus",
-    "generated_utc": "2026-09-01T15:36:10+00:00"
+    "generated_utc": "2026-09-15T20:01:38+00:00"
   },
   "cases": [
     {
@@ -89,10 +89,10 @@
       "case_id": "notes/footnote-endnote-control",
       "family": "notes",
       "path": "corpus/notes/footnote-endnote-control.docx",
-      "sha256": "9729936d212c2c575a13508ab4906637e81b821771e72be6395c123d836acdfc",
-      "size_bytes": 15563,
+      "sha256": "8361dcdbd43c9575288b38f491f26b412fdb045f466c40bc9fd40e1ffb5c952c",
+      "size_bytes": 15577,
       "generator": "cases/notes/footnote-endnote-control.json",
-      "expected_sha256": "a037bf05eb881d3e00542c4bc4a71db133a322dccae3893aaab18ba4a6727226",
+      "expected_sha256": "49c0786b67612a82dfb5fd6ec6cbdd586713ef5b5633a721009c1936a5efe48d",
       "resave_stable": true,
       "resave_failures": []
     },
