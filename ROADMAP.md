@@ -618,10 +618,10 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
   1. **Re-parse scoring** — convert PMC's PDFs to DOCX, parse the DOCX back with our own
      parser, run the existing JATS oracle on that AST; the delta against the direct
      PDF→AST reading isolates renderer loss with zero new ground truth. *Blocked on the
-     wordlive lane's parser fixes*: today the DOCX read side drops nested tables,
-     duplicates merged cells and skips SDTs, so the re-parse instrument would blame the
-     renderer for the parser's sins. Sequencing therefore falls out for free — this item
-     slots naturally after the DOCX fidelity batch (item 21).
+     wordlive lane's parser fixes*: the DOCX read side drops nested tables (merged
+     cells and SDTs, the other two named here, are fixed), so the re-parse instrument
+     would blame the renderer for the parser's sins. Sequencing therefore falls out for
+     free — this item slots naturally after the DOCX fidelity batch (item 21).
   2. **Word as the write-side oracle** — `wordlive` reads back the converted document
      through Word's own object model: do styles resolve, do lists number, do tables
      survive as tables. The probe verified this loop end-to-end.
@@ -1381,10 +1381,10 @@ Two decisions from those batches are kept here because they are *constraints*, n
       not a list), and a level inherited from a style cannot express nesting, so
       indentation still nests where `ilvl` is not set on the paragraph itself.
 
-    **The lane is designed (2026-08-23), step 1 landed (2026-08-31), and the first seven
+    **The lane is designed (2026-08-23), step 1 landed (2026-08-31), and the first eight
     fixes it found have shipped (#481, #480, style-inherited numbering, the `numFmt`
-    whitelist, content controls, `w:numStyleLink`, field codes), with its gate now running
-    per pull request** — the
+    whitelist, content controls, `w:numStyleLink`, field codes, merged cells), with its
+    gate now running per pull request** — the
     design is now `benchmarks/docx/README.md` and the live-probed generation machinery,
     every recipe verified in the saved file's XML, is `benchmarks/docx/generate/`. It was
     written under `design/` first and moved in-tree before any code depended on it, per
