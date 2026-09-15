@@ -383,7 +383,7 @@ class DocxToAstConverter(BaseParser):
             elif isinstance(block, Paragraph):
                 self._process_paragraph_block(block, doc, children)
             elif isinstance(block, Table):
-                self._process_table_block(block, children)
+                self._process_table_block(block, doc, children)
 
     def _process_image_block(self, block: ImageData, children: list[Node]) -> None:
         """Process an image block.
@@ -425,29 +425,52 @@ class DocxToAstConverter(BaseParser):
             else:
                 children.append(nodes)
 
-    def _process_table_block(self, block: "Table", children: list[Node]) -> None:
+    def _process_table_block(self, block: "Table", doc: "docx.document.Document", children: list[Node]) -> None:
         """Process a table block.
 
         Parameters
         ----------
         block : Table
             Table to process
+        doc : docx.document.Document
+            Parent document (needed for list numbering inside cells)
         children : list[Node]
             List to append processed nodes to
 
         """
+        # A list still open in the body ends where the table starts. Without this flush
+        # the list is only closed by the next body paragraph, so it lands after the table.
+        self._flush_list_stack(children)
         if self.options.preserve_tables:
-            table_node = self._process_table_to_ast(block)
+            table_node = self._process_table_to_ast(block, doc)
             if table_node:
                 children.append(table_node)
         else:
-            # Flatten table to paragraphs
+            # Flatten table to paragraphs. A numbered or bulleted paragraph in a cell is
+            # still a list item, and a cell boundary closes any list the cell opened.
+            numbering_defs = self._numbering_definitions(doc)
             for grid_row in _merged_table_rows(block):
                 for grid_cell in grid_row:
                     for paragraph in grid_cell.paragraphs:
+                        list_type, level = _detect_list_level(paragraph, doc, numbering_defs)
+                        if list_type:
+                            finished = self._process_list_item_paragraph(paragraph, list_type, level)
+                            if finished:
+                                children.append(finished)
+                            continue
+                        self._flush_list_stack(children)
                         inline_nodes = self._process_paragraph_runs_to_inline(paragraph)
                         if inline_nodes:
                             children.append(AstParagraph(content=inline_nodes))
+                    self._flush_list_stack(children)
+
+    def _flush_list_stack(self, children: list[Node]) -> None:
+        """Close the list being accumulated, if any, and append it to ``children``."""
+        if self._list_stack:
+            final_list = self._finalize_current_list()
+            if final_list:
+                children.append(final_list)
+            self._list_stack = []
 
     def _finalize_lists_and_notes(self, doc: "docx.document.Document", children: list[Node]) -> None:
         """Finalize lists and add footnotes/endnotes/comments to document.
@@ -461,11 +484,7 @@ class DocxToAstConverter(BaseParser):
 
         """
         # Finalize any remaining list at the end of document
-        if self._list_stack:
-            final_list = self._finalize_current_list()
-            if final_list:
-                children.append(final_list)
-            self._list_stack = []
+        self._flush_list_stack(children)
 
         # Add footnotes and endnotes if requested
         if self.options.include_footnotes:
@@ -1578,13 +1597,15 @@ class DocxToAstConverter(BaseParser):
             logger.debug(f"Could not determine paragraph border (missing attribute): {exc}")
             return False
 
-    def _process_table_to_ast(self, table: "Table") -> AstTable | None:
+    def _process_table_to_ast(self, table: "Table", doc: "docx.document.Document" | None = None) -> AstTable | None:
         """Process a DOCX table to AST Table node.
 
         Parameters
         ----------
         table : Table
             DOCX table to convert
+        doc : docx.document.Document or None
+            Parent document, whose numbering definitions mark list paragraphs in cells
 
         Returns
         -------
@@ -1599,11 +1620,7 @@ class DocxToAstConverter(BaseParser):
         for grid_row in _merged_table_rows(table):
             cells: list[TableCell] = []
             for grid_cell in grid_row:
-                cell_content: list[Node] = []
-                for p in grid_cell.paragraphs:
-                    inline_nodes = self._process_paragraph_runs_to_inline(p)
-                    if inline_nodes:
-                        cell_content.extend(inline_nodes)
+                cell_content = self._cell_inline_content(grid_cell.paragraphs, doc)
                 cells.append(TableCell(content=cell_content, colspan=grid_cell.colspan, rowspan=grid_cell.rowspan))
             rows.append(TableRow(cells=cells))
 
@@ -1612,6 +1629,50 @@ class DocxToAstConverter(BaseParser):
         data_rows = rows[1:]
 
         return AstTable(header=header_row, rows=data_rows)
+
+    def _cell_inline_content(self, paragraphs: list["Paragraph"], doc: "docx.document.Document" | None) -> list[Node]:
+        """Inline content of one table cell, with a hard line break between its paragraphs.
+
+        A table cell holds inline content only, so a cell's paragraphs cannot stay
+        blocks: each non-blank one becomes a line of the cell. Joined with nothing
+        between them, ``The Supplier shall:`` and its clauses ran together as one word.
+        A list paragraph keeps a marker -- ``1.`` counted per level within the cell, or
+        a bullet -- since the cell has no list syntax to carry it.
+
+        Parameters
+        ----------
+        paragraphs : list[Paragraph]
+            Paragraphs of the cell, in order
+        doc : docx.document.Document or None
+            Parent document, whose numbering definitions mark list paragraphs
+
+        Returns
+        -------
+        list[Node]
+            Inline nodes of the cell
+
+        """
+        content: list[Node] = []
+        counters: dict[int, int] = {}
+        numbering_defs = self._numbering_definitions(doc)
+        for paragraph in paragraphs:
+            inline_nodes = self._process_paragraph_runs_to_inline(paragraph)
+            if all(isinstance(node, Text) and not node.content.strip() for node in inline_nodes):
+                continue
+            list_type, level = _detect_list_level(paragraph, doc, numbering_defs)
+            if list_type:
+                # A shallower item restarts the counts of every level below it.
+                counters = {depth: count for depth, count in counters.items() if depth <= level}
+                if list_type == "number":
+                    counters[level] = counters.get(level, 0) + 1
+                    marker = f"{counters[level]}. "
+                else:
+                    marker = "\u2022 "
+                inline_nodes = [Text(content=marker), *inline_nodes]
+            if content:
+                content.append(LineBreak(soft=False))
+            content.extend(inline_nodes)
+        return content
 
     def _process_notes(
         self,
