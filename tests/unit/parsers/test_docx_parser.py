@@ -910,6 +910,132 @@ class TestFootnotes:
 
 
 @pytest.mark.unit
+class TestNoteBodies:
+    """A note body is read like the document body, not as plain text.
+
+    python-docx has no footnote part, so a note part arrives as a bare blob. These
+    documents build one the same way, which is what every real Word note looks like
+    to the parser.
+    """
+
+    W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    MARK = '<w:r><w:rPr><w:rStyle w:val="FootnoteReference"/></w:rPr><w:footnoteRef/></w:r>'
+    # numId 5 is python-docx's "List Number" definition.
+    NUMBERED = '<w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="5"/></w:numPr></w:pPr>'
+
+    def _note_doc(self, body: str, link: str | None = None) -> "docx.document.Document":
+        from docx.opc.constants import RELATIONSHIP_TYPE as RT
+        from docx.opc.packuri import PackURI
+        from docx.opc.part import Part
+        from docx.oxml import OxmlElement
+        from docx.oxml.ns import qn
+
+        doc = docx.Document()
+        reference = OxmlElement("w:footnoteReference")
+        reference.set(qn("w:id"), "1")
+        doc.add_paragraph("Host sentence.").add_run()._r.append(reference)
+
+        part = Part(
+            PackURI("/word/footnotes.xml"),
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.footnotes+xml",
+            b"",
+            doc.part.package,
+        )
+        if link is not None:
+            body = body.replace("RID", part.relate_to(link, RT.HYPERLINK, is_external=True))
+        part._blob = (
+            f'<w:footnotes xmlns:w="{self.W}" xmlns:r="{self.R}">'
+            '<w:footnote w:type="separator" w:id="-1"><w:p><w:r><w:separator/></w:r></w:p></w:footnote>'
+            f'<w:footnote w:id="1">{body}</w:footnote></w:footnotes>'
+        ).encode()
+        doc.part.relate_to(part, RT.FOOTNOTES)
+        buffer = io.BytesIO()
+        doc.save(buffer)
+        buffer.seek(0)
+        return docx.Document(buffer)
+
+    def _note(self, doc: Any, **options: Any) -> FootnoteDefinition:
+        converter = DocxToAstConverter(options=DocxOptions(include_comments=False, **options))
+        (definition,) = extract_nodes(converter.convert_to_ast(doc), FootnoteDefinition)
+        return definition
+
+    def _markdown(self, doc: Any, **options: Any) -> str:
+        converter = DocxToAstConverter(options=DocxOptions(include_comments=False, **options))
+        markdown = MarkdownRenderer().render_to_string(converter.convert_to_ast(doc))
+        return markdown[markdown.index("[^1]:") :]
+
+    def test_run_formatting_and_tabs_survive(self) -> None:
+        doc = self._note_doc(
+            f"<w:p>{self.MARK}"
+            '<w:r><w:t xml:space="preserve"> Plain </w:t></w:r>'
+            "<w:r><w:rPr><w:b/></w:rPr><w:t>bold</w:t></w:r>"
+            '<w:r><w:t xml:space="preserve"> and </w:t></w:r>'
+            "<w:r><w:rPr><w:i/></w:rPr><w:t>italic</w:t></w:r>"
+            "<w:r><w:tab/><w:t>tabbed</w:t></w:r></w:p>"
+        )
+        definition = self._note(doc)
+        assert extract_nodes(definition, Strong) and extract_nodes(definition, Emphasis)
+        assert self._markdown(doc).startswith("[^1]: Plain **bold** and *italic*\ttabbed")
+
+    def test_the_space_after_the_note_number_is_dropped(self) -> None:
+        doc = self._note_doc(
+            f'<w:p>{self.MARK}<w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve"> Bold</w:t></w:r></w:p>'
+        )
+        assert self._markdown(doc).startswith("[^1]: **Bold**")
+
+    def test_a_space_opening_a_later_paragraph_is_not_the_note_numbers(self) -> None:
+        doc = self._note_doc(
+            f"<w:p>{self.MARK}<w:r><w:t>First.</w:t></w:r></w:p>"
+            '<w:p><w:r><w:t xml:space="preserve">  Indented by hand.</w:t></w:r></w:p>'
+        )
+        paragraphs = [block for block in self._note(doc).content if isinstance(block, Paragraph)]
+        assert _inline_text(paragraphs[1].content) == "  Indented by hand."
+
+    def test_link_target_comes_from_the_note_part(self) -> None:
+        doc = self._note_doc(
+            f'<w:p>{self.MARK}<w:r><w:t xml:space="preserve"> See </w:t></w:r>'
+            '<w:hyperlink r:id="RID"><w:r><w:t>here</w:t></w:r></w:hyperlink></w:p>',
+            link="https://example.com/note",
+        )
+        assert self._markdown(doc).startswith("[^1]: See [here](https://example.com/note)")
+
+    def test_numbered_paragraphs_become_a_list(self) -> None:
+        doc = self._note_doc(
+            f'<w:p>{self.MARK}<w:r><w:t xml:space="preserve"> Steps:</w:t></w:r></w:p>'
+            f"<w:p>{self.NUMBERED}<w:r><w:t>First</w:t></w:r></w:p>"
+            f"<w:p>{self.NUMBERED}<w:r><w:t>Second</w:t></w:r></w:p>"
+            "<w:p><w:r><w:t>Closing.</w:t></w:r></w:p>"
+        )
+        content = self._note(doc).content
+        assert [type(block).__name__ for block in content] == ["Paragraph", "List", "Paragraph"]
+        assert content[1].ordered and len(content[1].items) == 2
+        assert self._markdown(doc) == "[^1]: Steps:\n\n    1. First\n    2. Second\n\n    Closing."
+
+    @pytest.mark.parametrize(
+        ("policy", "present", "absent"),
+        [("accept", "INSERTED", "DELETED"), ("reject", "DELETED", "INSERTED")],
+    )
+    def test_tracked_changes_in_a_note_follow_the_policy(self, policy: str, present: str, absent: str) -> None:
+        # Only the note is revised: the body has nothing to resolve.
+        doc = self._note_doc(
+            f'<w:p>{self.MARK}<w:r><w:t xml:space="preserve"> Kept </w:t></w:r>'
+            '<w:del w:id="91" w:author="A"><w:r><w:delText>DELETED</w:delText></w:r></w:del>'
+            '<w:ins w:id="92" w:author="A"><w:r><w:t>INSERTED</w:t></w:r></w:ins></w:p>'
+        )
+        markdown = self._markdown(doc, revisions=policy)
+        assert present in markdown and absent not in markdown
+
+    def test_mark_policy_marks_a_deletion_in_a_note(self) -> None:
+        doc = self._note_doc(
+            f'<w:p>{self.MARK}<w:r><w:t xml:space="preserve"> Kept </w:t></w:r>'
+            '<w:del w:id="91" w:author="A"><w:r><w:delText>DELETED</w:delText></w:r></w:del></w:p>'
+        )
+        (struck,) = extract_nodes(self._note(doc, revisions="mark"), Strikethrough)
+        assert _inline_text(struck.content) == "DELETED"
+
+
+@pytest.mark.unit
 class TestComments:
     """Tests for DOCX comment rendering options."""
 

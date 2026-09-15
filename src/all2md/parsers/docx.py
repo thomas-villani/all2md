@@ -85,6 +85,8 @@ WORD_ID_ATTR = f"{WORD_TAG_PREFIX}id"
 WORD_PARAGRAPH_TAG = f"{WORD_TAG_PREFIX}p"
 WORD_FOOTNOTE_REFERENCE_TAG = f"{WORD_TAG_PREFIX}footnoteReference"
 WORD_ENDNOTE_REFERENCE_TAG = f"{WORD_TAG_PREFIX}endnoteReference"
+# Inside a note, the note's own number: the mark Word prints before the note text.
+WORD_NOTE_MARK_TAGS = (f"{WORD_TAG_PREFIX}footnoteRef", f"{WORD_TAG_PREFIX}endnoteRef")
 WORD_COMMENT_REFERENCE_TAG = f"{WORD_TAG_PREFIX}commentReference"
 WORD_COMMENT_RANGE_START_TAG = f"{WORD_TAG_PREFIX}commentRangeStart"
 WORD_COMMENT_RANGE_END_TAG = f"{WORD_TAG_PREFIX}commentRangeEnd"
@@ -284,6 +286,8 @@ class DocxToAstConverter(BaseParser):
         self._numbering_defs: dict[str, dict[str, str]] | None = None
         self._list_counters: _ListCounters | None = None
         self._footnote_collector: FootnoteCollector | None = None
+        # Footnote/endnote part -> its XML parsed with python-docx's element classes.
+        self._note_elements: dict[Any, Any] = {}
         self._comments_map: dict[str, CommentData] = {}
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
         # Resolving tracked changes rewrites the element tree, so a document handed to
@@ -579,6 +583,7 @@ class DocxToAstConverter(BaseParser):
         self._footnote_collector = FootnoteCollector()
         self._comments_map = {}
         self._attachment_footnotes = {}
+        self._note_elements = {}
 
         # Wrapper markup -- tracked changes, content controls -- is resolved away
         # before anything reads the document, so every reader below sees an ordinary
@@ -636,7 +641,12 @@ class DocxToAstConverter(BaseParser):
         and can be revised or hold a control.
         """
         root = getattr(doc, "element", None)
-        if not (document_has_revisions(root) or document_has_content_controls(root) or document_has_fields(root)):
+        note_roots = self._note_roots(doc)
+        # A note can carry this markup when the body does not, so the notes are asked too.
+        if not any(
+            document_has_revisions(target) or document_has_content_controls(target) or document_has_fields(target)
+            for target in (root, *note_roots)
+        ):
             return doc
 
         if not self._doc_is_ours:
@@ -644,9 +654,10 @@ class DocxToAstConverter(BaseParser):
             if copied is not None:
                 doc = copied
                 root = doc.element
+                note_roots = self._note_roots(doc)
 
         policy = self.options.revisions
-        for target in (root, *self._note_roots(doc)):
+        for target in (root, *note_roots):
             if target is None:
                 continue
             # Order matters both times. Unwrapping first means a revision spanning a
@@ -672,10 +683,41 @@ class DocxToAstConverter(BaseParser):
             note_part = self._get_note_part(doc, relationship, attribute)
             if note_part is None:
                 continue
-            note_root = getattr(note_part, "element", None)
+            note_root = self._note_element(note_part)
             if note_root is not None:
                 roots.append(note_root)
         return roots
+
+    def _note_element(self, note_part: Any) -> Any | None:
+        """Return a note part's XML parsed with python-docx's element classes, parsed once.
+
+        python-docx has no footnote or endnote part, so the package hands back a bare
+        ``Part``: a blob with no element tree. Two things went wrong because of that.
+        The note reader parsed the blob with plain lxml, whose elements no python-docx
+        ``Paragraph`` can wrap, so every note paragraph fell back to plain text and lost
+        its formatting, tabs, links and maths. And the normaliser looked for an
+        ``element`` that was never there, so a note's tracked changes, content controls
+        and fields were never resolved. Parsing with python-docx's own parser fixes the
+        first. Caching the tree fixes the second: the normaliser edits the very tree the
+        note reader later walks.
+        """
+        element = getattr(note_part, "element", None)
+        if element is not None:
+            return element
+        if note_part in self._note_elements:
+            return self._note_elements[note_part]
+
+        parsed = None
+        blob = getattr(note_part, "blob", None)
+        if blob:
+            try:
+                from docx.oxml.parser import parse_xml
+
+                parsed = parse_xml(blob)
+            except (ValueError, SyntaxError) as exc:
+                logger.debug(f"Could not parse note part XML (invalid data): {exc}")
+        self._note_elements[note_part] = parsed
+        return parsed
 
     @staticmethod
     def _copy_document(doc: "docx.document.Document") -> "docx.document.Document | None":
@@ -1777,7 +1819,7 @@ class DocxToAstConverter(BaseParser):
             if note_part is None:
                 return
 
-            element = self._get_note_part_element(note_part)
+            element = self._note_element(note_part)
             if element is None:
                 return
 
@@ -1786,7 +1828,7 @@ class DocxToAstConverter(BaseParser):
                 if note_id in {"-1", "0"}:
                     continue
 
-                content_nodes = self._build_note_definition_content(note, note_part)
+                content_nodes = self._build_note_definition_content(note, note_part, doc)
                 if content_nodes:
                     collector.register_definition(f"{id_prefix}{note_id}", content_nodes, note_type=note_type)
         except (AttributeError, KeyError) as exc:
@@ -1855,26 +1897,62 @@ class DocxToAstConverter(BaseParser):
             logger.debug(f"Could not parse note part XML (invalid data): {exc}")
             return None
 
-    def _build_note_definition_content(self, note_element: Any, note_part: Any) -> list[Node]:
-        """Create block content for a single footnote or endnote definition."""
+    def _build_note_definition_content(
+        self, note_element: Any, note_part: Any, doc: "docx.document.Document"
+    ) -> list[Node]:
+        """Create block content for a single footnote or endnote definition.
+
+        A note body is read the way the document body is. Its runs go through the same
+        run reader, so formatting, links and maths survive, and its numbered or bulleted
+        paragraphs become lists. The body's list stack and counters are set aside while
+        a note is read and restored afterwards. Each note counts its lists from the
+        start; that is an assumption, not yet checked against Word.
+        """
+        from docx.text.paragraph import Paragraph
+
+        story = cast(Any, _NoteStory(note_part, doc.part))
+        numbering_defs = self._numbering_definitions(doc)
         content_nodes: list[Node] = []
-        for paragraph_element in note_element.findall(f".//{WORD_PARAGRAPH_TAG}"):
-            inline_nodes = self._note_paragraph_to_inline(paragraph_element, note_part)
-            if inline_nodes:
-                content_nodes.append(AstParagraph(content=inline_nodes))
-
-        return content_nodes
-
-    def _note_paragraph_to_inline(self, paragraph_element: Any, note_part: Any) -> list[Node]:
-        """Convert a note paragraph XML element into inline nodes."""
+        saved_stack, saved_counters = self._list_stack, self._list_counters
+        self._list_stack, self._list_counters = [], None
         try:
-            from docx.text.paragraph import Paragraph
+            for index, paragraph_element in enumerate(note_element.findall(f".//{WORD_PARAGRAPH_TAG}")):
+                if not hasattr(paragraph_element, "r_lst"):
+                    # Not a python-docx element, so no Paragraph can wrap it: plain text only.
+                    inline_nodes = self._extract_inline_nodes_from_xml(paragraph_element)
+                    if inline_nodes:
+                        content_nodes.append(AstParagraph(content=inline_nodes))
+                    continue
 
-            paragraph = Paragraph(paragraph_element, note_part)  # type: ignore[call-arg]
-            return self._process_paragraph_runs_to_inline(paragraph)
-        except (TypeError, AttributeError):
-            # Expected fallback when Paragraph construction fails
-            return self._extract_inline_nodes_from_xml(paragraph_element)
+                paragraph = Paragraph(paragraph_element, story)  # type: ignore[call-arg]
+                list_type, level = _detect_list_level(paragraph, doc, numbering_defs)
+                if list_type:
+                    number, label, plain = self._list_mark(paragraph, doc, level)
+                    if label is None or plain:
+                        finished = self._process_list_item_paragraph(paragraph, list_type, level, number)
+                        if finished:
+                            content_nodes.append(finished)
+                        continue
+                    runs = self._process_paragraph_runs_to_inline(paragraph)
+                    inline_nodes = [] if self._is_effectively_empty(runs) else [Text(content=label), *runs]
+                else:
+                    inline_nodes = self._process_paragraph_runs_to_inline(paragraph)
+                    if index == 0 and _has_note_mark(paragraph_element):
+                        # Word writes a space between the note's own number and its text.
+                        _strip_leading_whitespace(inline_nodes)
+
+                finished = self._finalize_current_list()
+                if finished:
+                    content_nodes.append(finished)
+                if not self._is_effectively_empty(inline_nodes):
+                    content_nodes.append(AstParagraph(content=inline_nodes))
+
+            finished = self._finalize_current_list()
+            if finished:
+                content_nodes.append(finished)
+        finally:
+            self._list_stack, self._list_counters = saved_stack, saved_counters
+        return content_nodes
 
     def _extract_inline_nodes_from_xml(self, paragraph_element: Any) -> list[Node]:
         """Fallback text extraction when python-docx objects are unavailable."""
@@ -2232,6 +2310,54 @@ def _word_int(element: Any, attribute: str = "val") -> int | None:
         return int(element.get(f"{_WORD_NS}{attribute}"))
     except (TypeError, ValueError):
         return None
+
+
+class _NoteStory:
+    """The parent a python-docx ``Paragraph`` needs inside a footnote or endnote part.
+
+    A paragraph asks its parent's ``part`` for two different things. Styles live in the
+    document's styles part. Relationships, such as a hyperlink's target or an image,
+    live in the note part itself. python-docx has no note part class that can answer
+    both, so this view answers relationship questions from the note part and
+    everything else from the document part.
+    """
+
+    _NOTE_ATTRIBUTES = frozenset({"rels", "related_parts", "part_related_by"})
+
+    def __init__(self, note_part: Any, document_part: Any) -> None:
+        self._note_part = note_part
+        self._document_part = document_part
+
+    @property
+    def part(self) -> _NoteStory:
+        """Return the view itself, standing in for the part a paragraph belongs to."""
+        return self
+
+    def __getattr__(self, name: str) -> Any:
+        """Answer relationship lookups from the note part and the rest from the document part."""
+        owner = self._note_part if name in self._NOTE_ATTRIBUTES else self._document_part
+        return getattr(owner, name)
+
+
+def _has_note_mark(paragraph_element: Any) -> bool:
+    """Whether a note paragraph carries the note's own number (``w:footnoteRef`` or ``w:endnoteRef``)."""
+    return any(paragraph_element.find(f".//{tag}") is not None for tag in WORD_NOTE_MARK_TAGS)
+
+
+def _strip_leading_whitespace(nodes: list[Node]) -> None:
+    """Drop the whitespace that opens ``nodes``, looking inside formatting such as ``Strong``."""
+    while nodes:
+        first = nodes[0]
+        if isinstance(first, Text):
+            first.content = first.content.lstrip(" \t")
+            if first.content:
+                return
+            nodes.pop(0)
+            continue
+        inner = getattr(first, "content", None)
+        if isinstance(inner, list):
+            _strip_leading_whitespace(inner)
+        return
 
 
 class _ListCounters:
