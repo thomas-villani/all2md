@@ -209,12 +209,12 @@
   
   This should probably be all we need for the test document. So buh bye!
   
-  [^1]:  The first footnote
+  [^1]: The first footnote
   
-  [^2]:  Footnotes are this.
+  [^2]: Footnotes are this.
   
-  [^end1]:  Here’s an endnote.
+  [^end1]: Here’s an endnote.
   
-  [^end2]:  Endnotes are this.
+  [^end2]: Endnotes are this.
   '''
 # ---
