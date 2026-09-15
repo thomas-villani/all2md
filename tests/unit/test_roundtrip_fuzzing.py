@@ -434,6 +434,10 @@ def _list_starts(doc: Document) -> list[int]:
     return [node.start for node in _collect(doc, List) if node.ordered]
 
 
+def _list_lengths(doc: Document) -> list[int]:
+    return [len(node.items) for node in _collect(doc, List)]
+
+
 def _captions(doc: Document) -> list[str | None]:
     return [node.caption for node in _collect(doc, Table)]
 
@@ -514,6 +518,35 @@ INVARIANTS: dict[str, tuple[Document, object, object]] = {
         _code_languages,
         ["python"],
     ),
+    # A blank line does not end a list in Markdown, AsciiDoc or RST, so two lists written
+    # back to back merge unless the renderer marks the boundary -- and a DOCX list that
+    # restarts its numbering reaches the renderer as exactly that shape.
+    "adjacent-ordered-lists-stay-apart": (
+        Document(
+            children=[
+                List(
+                    ordered=True,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="a")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="b")])]),
+                    ],
+                ),
+                List(ordered=True, items=[ListItem(children=[Paragraph(content=[Text(content="c")])])]),
+            ]
+        ),
+        _list_lengths,
+        [2, 1],
+    ),
+    "adjacent-bullet-lists-stay-apart": (
+        Document(
+            children=[
+                List(ordered=False, items=[ListItem(children=[Paragraph(content=[Text(content="a")])])]),
+                List(ordered=False, items=[ListItem(children=[Paragraph(content=[Text(content="b")])])]),
+            ]
+        ),
+        _list_lengths,
+        [1, 1],
+    ),
 }
 
 #: Invariants that do not hold yet, as ``(format, invariant)`` with the reason.
@@ -527,11 +560,25 @@ INVARIANTS: dict[str, tuple[Document, object, object]] = {
 #: different fix from a renderer that emits nothing. Prefer measuring the
 #: rendered output before trusting a reason in this table.
 #:
-#: Empty since #237 closed the last table-caption entry. Markdown has no caption
+#: #237 closed the last table-caption entry. Markdown has no caption
 #: syntax, so the renderer emits the caption twice over -- an italic paragraph for
 #: readers, a marker comment for the parser -- and the invariant holds without
 #: making the caption invisible in the file.
-KNOWN_INVARIANT_GAPS: dict[tuple[str, str], str] = {}
+KNOWN_INVARIANT_GAPS: dict[tuple[str, str], str] = {
+    ("rst", "adjacent-bullet-lists-stay-apart"): (
+        "The RST renderer writes both lists with the same bullet and only a blank line between "
+        "them (`* a` / blank / `* b`), and docutils reads that back as one list of two items."
+    ),
+    ("asciidoc", "adjacent-ordered-lists-stay-apart"): (
+        "The AsciiDoc renderer separates the lists with only a blank line (`. a` `. b` / blank / "
+        "`. c`), and AsciiDoc continues a list across a blank line, so they parse back as one list "
+        "of three."
+    ),
+    ("asciidoc", "adjacent-bullet-lists-stay-apart"): (
+        "The AsciiDoc renderer writes both lists as `*` items with only a blank line between "
+        "them, which parses back as one list of two items."
+    ),
+}
 
 #: Formats the invariant gate covers. Text formats only: the invariants probe
 #: specific node attributes, and the container formats lose so much structure

@@ -57,6 +57,24 @@ class MarkdownFlavor(ABC):
         """
         pass
 
+    def splits_lists_on_marker_change(self) -> bool:
+        """Check if a change of list marker starts a new list.
+
+        A blank line does not end a Markdown list, so two lists written back to back
+        read as one. CommonMark ends a list where the bullet character changes (``*``
+        to ``-``) or where an ordered list's delimiter does (``1.`` to ``1)``), which
+        is how two adjacent lists stay two. Parsers outside that family carry on with
+        the same list regardless, so only flavors whose parsers follow the rule answer
+        True; the rest are kept apart with an empty HTML comment instead.
+
+        Returns
+        -------
+        bool
+            False unless the flavor follows CommonMark's list rules
+
+        """
+        return False
+
     @abstractmethod
     def supports_task_lists(self) -> bool:
         """Check if this flavor supports task lists (checkboxes).
@@ -240,6 +258,17 @@ class CommonMarkFlavor(MarkdownFlavor):
         """
         return False
 
+    def splits_lists_on_marker_change(self) -> bool:
+        """CommonMark follows CommonMark: a new bullet character or delimiter starts a new list.
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
+
     def supports_task_lists(self) -> bool:
         """Task lists are not in CommonMark spec.
 
@@ -358,6 +387,17 @@ class GFMFlavor(MarkdownFlavor):
 
     def supports_tables(self) -> bool:
         """GFM supports pipe tables.
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
+
+    def splits_lists_on_marker_change(self) -> bool:
+        """GFM follows CommonMark: a new bullet character or delimiter starts a new list.
 
         Returns
         -------
@@ -883,6 +923,17 @@ class MarkdownPlusFlavor(MarkdownFlavor):
 
     def supports_tables(self) -> bool:
         """MarkdownPlus supports tables.
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
+
+    def splits_lists_on_marker_change(self) -> bool:
+        """MarkdownPlus follows CommonMark: a new bullet character or delimiter starts a new list.
 
         Returns
         -------
