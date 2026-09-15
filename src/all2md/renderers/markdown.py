@@ -181,6 +181,9 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._indent_level: int = 0
         self._in_list: bool = False
         self._list_marker_stack: list[str] = []
+        #: Set by a block container just before it renders a List that directly follows
+        #: a list of the same kind, telling that List to use its alternate marker.
+        self._alternate_list_marker: bool = False
         self._marker_width_stack: list[int] = []
         self._link_references: dict[str, int] = {}  # url -> ref_id for reference-style links
         self._next_ref_id: int = 1
@@ -750,10 +753,48 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             self._render_frontmatter(node.metadata)
             # Frontmatter formatters already include trailing newlines
 
+        previous: Node | None = None
+        alternated = False
         for i, child in enumerate(node.children):
+            separator, alternated = self._list_boundary(previous, child, alternated)
+            self._output.append(separator)
+            self._alternate_list_marker = alternated
             child.accept(self)
+            previous = child
             if i < len(node.children) - 1:
                 self._output.append("\n\n")
+
+    def _list_boundary(self, previous: Node | None, child: Node, previous_alternated: bool) -> tuple[str, bool]:
+        """Keep a list apart from a list of the same kind directly before it.
+
+        A blank line does not end a Markdown list: two ordered lists written one after
+        the other reparse as a single list, which merges a restarted numbering into the
+        list before it. Where the flavor follows CommonMark the second list switches
+        marker instead -- ``1)`` after ``1.``, the next bullet character after ``*`` --
+        and a third switches back. Elsewhere, or with only one bullet character to use,
+        an empty HTML comment sits between the two.
+
+        Parameters
+        ----------
+        previous : Node or None
+            The sibling block rendered before ``child``
+        child : Node
+            The block about to be rendered
+        previous_alternated : bool
+            Whether ``previous`` was itself rendered with its alternate marker
+
+        Returns
+        -------
+        tuple[str, bool]
+            Text to write before ``child``, and whether ``child`` uses its alternate marker
+
+        """
+        if not (isinstance(previous, List) and isinstance(child, List) and previous.ordered == child.ordered):
+            return "", False
+        can_switch = child.ordered or len(set(self.options.bullet_symbols)) > 1
+        if can_switch and self._flavor.splits_lists_on_marker_change():
+            return "", not previous_alternated
+        return "<!-- -->\n\n", False
 
     def _render_frontmatter(self, metadata: dict | None) -> None:
         """Render metadata as frontmatter in the configured format.
@@ -975,11 +1016,16 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._in_list = False
 
         parts: list[str] = []
+        previous: Node | None = None
+        alternated = False
         try:
             for child in node.children:
-                self._output = []
+                separator, alternated = self._list_boundary(previous, child, alternated)
+                self._output = [separator]
+                self._alternate_list_marker = alternated
                 child.accept(self)
                 parts.append("".join(self._output))
+                previous = child
         finally:
             self._output = saved_output
             self._marker_width_stack[:] = saved_stack
@@ -1115,6 +1161,9 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         was_in_list = self._in_list
         was_tight = self._list_tight
+        # Consumed here, so a sublist inside this list's items starts with its usual marker.
+        alternate = self._alternate_list_marker
+        self._alternate_list_marker = False
 
         # Increment indent level for nested lists
         if self._in_list:
@@ -1135,10 +1184,10 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         for i, item in enumerate(node.items):
             if node.ordered:
-                marker = f"{node.start + i}. "
+                marker = f"{node.start + i}{')' if alternate else '.'} "
             else:
                 depth = len(self._list_marker_stack)
-                bullet = self._get_bullet_symbol(depth)
+                bullet = self._get_bullet_symbol(depth + 1 if alternate else depth)
                 marker = f"{bullet} "
 
             self._list_marker_stack.append(marker)
@@ -1185,6 +1234,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         marker_width = len(base_marker)
 
         # Render children - first child inline with marker, others indented
+        alternated = False
         for i, child in enumerate(node.children):
             if i == 0:
                 # First child goes immediately after the marker (no indentation)
@@ -1239,12 +1289,16 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 # swallowed by it. That one always takes a blank line, whether or
                 # not the containing list was already loose, so that the promoted
                 # output is a fixed point of the round trip.
-                if _interrupts_paragraph(child):
+                separator, alternated = self._list_boundary(node.children[i - 1], child, alternated)
+                if separator:
+                    self._output.append(f"\n\n{self._current_indent()}{separator}{self._current_indent()}")
+                elif _interrupts_paragraph(child):
                     self._output.append("\n\n")
                 elif not self._list_tight and not isinstance(child, List):
                     self._output.append("\n\n")
                 else:
                     self._output.append("\n")
+                self._alternate_list_marker = alternated
                 child.accept(self)
 
         # Pop marker width from stack if we pushed it

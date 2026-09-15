@@ -2021,3 +2021,177 @@ class TestCommentModeDefault:
         ast = to_ast("<!-- please review -->\n", source_format="markdown")
         rendered = MarkdownRenderer(options=MarkdownRendererOptions(comment_mode="blockquote")).render_to_string(ast)
         assert "> please review" in rendered
+
+
+@pytest.mark.unit
+class TestAdjacentLists:
+    """Two lists of the same kind written back to back must stay two lists."""
+
+    @staticmethod
+    def _items(*texts: str) -> list:
+        from all2md.ast import ListItem, Paragraph, Text
+
+        return [ListItem(children=[Paragraph(content=[Text(content=text)])]) for text in texts]
+
+    @staticmethod
+    def _render(doc, **options) -> str:
+        from all2md.options.markdown import MarkdownRendererOptions
+
+        return MarkdownRenderer(MarkdownRendererOptions(**options)).render_to_string(doc).strip()
+
+    @staticmethod
+    def _list_lengths(markdown: str, container_path=()) -> list[int]:
+        from all2md import to_ast
+        from all2md.ast import List
+
+        node = to_ast(markdown.encode("utf-8"), source_format="markdown")
+        for step in container_path:
+            node = step(node)
+        return [len(child.items) for child in node.children if isinstance(child, List)]
+
+    def test_ordered_list_after_ordered_list_switches_delimiter(self) -> None:
+        """A second ordered list is written with ``)``, so it does not continue the first."""
+        from all2md.ast import Document, List
+
+        doc = Document(
+            children=[List(ordered=True, items=self._items("a", "b")), List(ordered=True, items=self._items("c"))]
+        )
+
+        markdown = self._render(doc)
+
+        assert markdown == "1. a\n2. b\n\n1) c"
+        assert self._list_lengths(markdown) == [2, 1]
+
+    def test_third_adjacent_list_switches_back(self) -> None:
+        """Each list only has to differ from its neighbour, so the markers alternate."""
+        from all2md.ast import Document, List
+
+        doc = Document(children=[List(ordered=True, items=self._items(text)) for text in "abc"])
+
+        markdown = self._render(doc)
+
+        assert markdown == "1. a\n\n1) b\n\n1. c"
+        assert self._list_lengths(markdown) == [1, 1, 1]
+
+    def test_restarted_numbering_keeps_its_start(self) -> None:
+        """A list restarted at 3 right after another list keeps its own start."""
+        from all2md import to_ast
+        from all2md.ast import Document, List
+
+        doc = Document(
+            children=[List(ordered=True, items=self._items("a")), List(ordered=True, start=3, items=self._items("b"))]
+        )
+
+        back = to_ast(self._render(doc).encode("utf-8"), source_format="markdown")
+
+        assert [child.start for child in back.children] == [1, 3]
+
+    def test_bullet_list_after_bullet_list_switches_symbol(self) -> None:
+        """A second bullet list takes the next bullet character."""
+        from all2md.ast import Document, List
+
+        doc = Document(
+            children=[List(ordered=False, items=self._items("a")), List(ordered=False, items=self._items("b"))]
+        )
+
+        markdown = self._render(doc)
+
+        assert markdown == "* a\n\n- b"
+        assert self._list_lengths(markdown) == [1, 1]
+
+    def test_lists_of_different_kinds_keep_their_markers(self) -> None:
+        """An ordered list next to a bullet list already reads as two lists."""
+        from all2md.ast import Document, List
+
+        doc = Document(
+            children=[List(ordered=True, items=self._items("a")), List(ordered=False, items=self._items("b"))]
+        )
+
+        assert self._render(doc) == "1. a\n\n* b"
+
+    def test_list_after_a_paragraph_keeps_its_marker(self) -> None:
+        """Only a list directly after a list switches; a block in between resets it."""
+        from all2md.ast import Document, List, Paragraph, Text
+
+        doc = Document(
+            children=[
+                List(ordered=True, items=self._items("a")),
+                Paragraph(content=[Text(content="x")]),
+                List(ordered=True, items=self._items("b")),
+            ]
+        )
+
+        assert self._render(doc) == "1. a\n\nx\n\n1. b"
+
+    def test_flavor_outside_commonmark_separates_with_a_comment(self) -> None:
+        """Kramdown does not start a list on a new delimiter, so an empty comment splits them."""
+        from all2md.ast import Document, List
+
+        doc = Document(
+            children=[List(ordered=True, items=self._items("a")), List(ordered=True, items=self._items("b"))]
+        )
+
+        markdown = self._render(doc, flavor="kramdown")
+
+        assert markdown == "1. a\n\n<!-- -->\n\n1. b"
+        assert self._list_lengths(markdown) == [1, 1]
+
+    def test_single_bullet_symbol_separates_with_a_comment(self) -> None:
+        """With one bullet character there is nothing to switch to."""
+        from all2md.ast import Document, List
+
+        doc = Document(
+            children=[List(ordered=False, items=self._items("a")), List(ordered=False, items=self._items("b"))]
+        )
+
+        markdown = self._render(doc, bullet_symbols="-")
+
+        assert markdown == "- a\n\n<!-- -->\n\n- b"
+        assert self._list_lengths(markdown) == [1, 1]
+
+    def test_adjacent_lists_in_a_block_quote_stay_apart(self) -> None:
+        """Block containers join their children the same way the document does."""
+        from all2md.ast import BlockQuote, Document, List
+
+        quote = BlockQuote(
+            children=[List(ordered=True, items=self._items("a")), List(ordered=True, items=self._items("b"))]
+        )
+
+        markdown = self._render(Document(children=[quote]))
+
+        assert self._list_lengths(markdown, [lambda doc: doc.children[0]]) == [1, 1]
+
+    def test_adjacent_sublists_in_one_item_stay_apart(self) -> None:
+        """Two sublists inside one list item stay two sublists."""
+        from all2md.ast import Document, List, ListItem, Paragraph, Text
+
+        item = ListItem(
+            children=[
+                Paragraph(content=[Text(content="x")]),
+                List(ordered=True, items=self._items("a")),
+                List(ordered=True, items=self._items("b")),
+            ]
+        )
+        doc = Document(children=[List(ordered=False, items=[item])])
+
+        markdown = self._render(doc)
+
+        assert self._list_lengths(markdown, [lambda doc: doc.children[0].items[0]]) == [1, 1]
+
+    def test_adjacent_sublists_stay_apart_outside_commonmark(self) -> None:
+        """The comment separator is indented to the item, so it stays inside it."""
+        from all2md.ast import Document, List, ListItem, Paragraph, Text
+
+        item = ListItem(
+            children=[
+                Paragraph(content=[Text(content="x")]),
+                List(ordered=True, items=self._items("a")),
+                List(ordered=True, items=self._items("b")),
+            ]
+        )
+        doc = Document(children=[List(ordered=False, items=[item])])
+
+        markdown = self._render(doc, flavor="kramdown")
+
+        assert self._list_lengths(markdown) == [1]
+        assert self._list_lengths(markdown, [lambda doc: doc.children[0].items[0]]) == [1, 1]
