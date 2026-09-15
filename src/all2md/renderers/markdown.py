@@ -120,6 +120,40 @@ _ENTITY_AHEAD = re.compile(r"&(?:#[0-9]{1,7};|#[Xx][0-9A-Fa-f]{1,6};|[A-Za-z][A-
 # digits, since CommonMark reads a longer run as prose anyway.
 _ORDERED_MARKER_AT_START = re.compile(r"\A(\d{1,9})([.)])(?=[ \t]|\Z)")
 
+#: Longest anchored-text quote a comment header prints; the full text stays in metadata.
+_COMMENT_ANCHOR_MAX = 60
+
+
+def _comment_header(
+    metadata: dict[str, Any],
+    *,
+    with_date: bool,
+    with_anchor: bool,
+    author_default: str = "",
+) -> str:
+    """Build a reviewer comment's attribution line.
+
+    ``Comment comment1 by Alice (date) [resolved] on "the text"``, or
+    ``Reply comment2 to comment1 by Bob ...`` for a reply in a thread.
+    """
+    label = metadata.get("label", "")
+    parent = metadata.get("parent_label")
+    kind = "Reply" if parent else "Comment"
+    header = f"{kind} {label}" if label else kind
+    if parent:
+        header += f" to {parent}"
+    header += f" by {metadata.get('author') or author_default}"
+    if with_date and metadata.get("date"):
+        header += f" ({metadata['date']})"
+    if metadata.get("resolved"):
+        header += " [resolved]"
+    anchor = metadata.get("anchored_text")
+    if with_anchor and anchor:
+        if len(anchor) > _COMMENT_ANCHOR_MAX:
+            anchor = anchor[: _COMMENT_ANCHOR_MAX - 1].rstrip() + "…"
+        header += f' on "{anchor}"'
+    return header
+
 
 def _interrupts_paragraph(node: Node) -> bool:
     """Report whether an ordered list may not follow a paragraph line directly.
@@ -1765,29 +1799,19 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         if comment_mode == "blockquote":
             # Render as blockquote for readability
             # Add author/date info if available
+            body = node.content.replace("\n", "\n> ")
             if node.metadata.get("author") or node.metadata.get("date"):
-                author = node.metadata.get("author", "Unknown")
-                date = node.metadata.get("date", "")
-                label = node.metadata.get("label", "")
-                header = f"Comment {label} by {author}" if label else f"Comment by {author}"
-                if date:
-                    header += f" ({date})"
-                self._output.append(f"> *{header}*\n> \n> {node.content}")
+                header = _comment_header(node.metadata, with_date=True, with_anchor=True, author_default="Unknown")
+                self._output.append(f"> *{header}*\n> \n> {body}")
             else:
-                self._output.append(f"> {node.content}")
+                self._output.append(f"> {body}")
         else:  # "html"
             # Render as HTML comment for maximum compatibility
             # Build comment text with metadata if available
             comment_text = node.content
             if node.metadata.get("author"):
-                author = node.metadata.get("author")
-                date = node.metadata.get("date", "")
-                label = node.metadata.get("label", "")
-                prefix = f"Comment {label}" if label else "Comment"
-                if date:
-                    comment_text = f"{prefix} by {author} ({date}): {comment_text}"
-                else:
-                    comment_text = f"{prefix} by {author}: {comment_text}"
+                header = _comment_header(node.metadata, with_date=True, with_anchor=True)
+                comment_text = f"{header}: {comment_text}"
 
             self._output.append(f"<!-- {comment_text} -->")
 
@@ -2183,30 +2207,25 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             # Skip rendering comment entirely
             return
 
+        # An inline comment sits in a paragraph, where a line break could start a
+        # new block, so its paragraphs are joined on one line. It already sits
+        # beside the text it annotates, so the anchor is not repeated.
+        content = node.content.replace("\n", " / ")
         if comment_mode == "blockquote":
             # For inline comments in blockquote mode, render as text with attribution
-            comment_text = node.content
             if node.metadata.get("author"):
-                author = node.metadata.get("author")
-                label = node.metadata.get("label", "")
-                prefix = f"[Comment {label}" if label else "[Comment"
-                comment_text = f"{prefix} by {author}: {comment_text}]"
+                header = _comment_header(node.metadata, with_date=False, with_anchor=False)
+                comment_text = f"[{header}: {content}]"
             else:
-                comment_text = f"[{comment_text}]"
+                comment_text = f"[{content}]"
             self._output.append(comment_text)
         else:  # "html"
             # Render as HTML comment for inline comments
             # Build comment text with metadata if available
-            comment_text = node.content
+            comment_text = content
             if node.metadata.get("author"):
-                author = node.metadata.get("author")
-                date = node.metadata.get("date", "")
-                label = node.metadata.get("label", "")
-                prefix = f"Comment {label}" if label else "Comment"
-                if date:
-                    comment_text = f"{prefix} by {author} ({date}): {comment_text}"
-                else:
-                    comment_text = f"{prefix} by {author}: {comment_text}"
+                header = _comment_header(node.metadata, with_date=True, with_anchor=False)
+                comment_text = f"{header}: {comment_text}"
 
             self._output.append(f"<!-- {comment_text} -->")
 

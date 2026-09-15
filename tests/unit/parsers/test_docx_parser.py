@@ -15,6 +15,9 @@ Tests cover:
 
 """
 
+import io
+from typing import Any
+
 import docx
 import pytest
 from docx.oxml import parse_xml
@@ -959,6 +962,108 @@ class TestComments:
 
         blockquotes = [node for node in ast_doc.children if isinstance(node, BlockQuote)]
         assert not blockquotes, "Inline comments should not append trailing blockquotes"
+
+
+@pytest.mark.unit
+class TestCommentThreads:
+    """Comment body text, anchored range text, replies and resolved threads."""
+
+    W14 = "http://schemas.microsoft.com/office/word/2010/wordml"
+    W15 = "http://schemas.microsoft.com/office/word/2012/wordml"
+
+    @classmethod
+    def _threaded_doc(cls, extended: str | None) -> docx.document.Document:
+        """Alice comments on "deliver the goods"; Bob comments on "the goods".
+
+        ``extended`` is the commentsExtended.xml body (the commentEx entries), or
+        None for a document with no thread part. The two comment bodies carry
+        paraIds 00000001 and 00000002.
+        """
+        from docx.opc.packuri import PackURI
+        from docx.opc.part import Part
+
+        doc = docx.Document()
+        paragraph = doc.add_paragraph("The Supplier shall ")
+        first = paragraph.add_run("deliver ")
+        second = paragraph.add_run("the goods")
+        paragraph.add_run(" by Friday.")
+        alice = doc.add_comment([first, second], text="Recon", author="Alice")
+        alice.paragraphs[0].add_run("sider ")
+        alice.paragraphs[0].add_run("this")
+        alice.add_paragraph("Second paragraph.")
+        bob = doc.add_comment(second, text="Agreed.", author="Bob")
+        for number, comment in enumerate((alice, bob), start=1):
+            comment._comment_elm.xpath("./w:p")[-1].set(f"{{{cls.W14}}}paraId", f"0000000{number}")
+
+        if extended is not None:
+            blob = f'<w15:commentsEx xmlns:w15="{cls.W15}">{extended}</w15:commentsEx>'.encode()
+            part = Part(
+                PackURI("/word/commentsExtended.xml"),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.commentsExtended+xml",
+                blob,
+                doc.part.package,
+            )
+            doc.part.relate_to(part, "http://schemas.microsoft.com/office/2011/relationships/commentsExtended")
+
+        buffer = io.BytesIO()
+        doc.save(buffer)
+        return docx.Document(io.BytesIO(buffer.getvalue()))
+
+    @staticmethod
+    def _comments(doc: docx.document.Document) -> dict[str, Any]:
+        from all2md.ast import Comment
+
+        options = DocxOptions(include_comments=True, comments_position="footnotes")
+        ast_doc = DocxToAstConverter(options=options).convert_to_ast(doc)
+        return {node.metadata["label"]: node for node in ast_doc.children if isinstance(node, Comment)}
+
+    def test_runs_join_without_spaces_and_paragraphs_break(self) -> None:
+        comments = self._comments(self._threaded_doc(None))
+        assert comments["comment1"].content == "Reconsider this\nSecond paragraph."
+
+    def test_anchored_text_is_the_commented_range(self) -> None:
+        comments = self._comments(self._threaded_doc(None))
+        assert comments["comment1"].metadata["anchored_text"] == "deliver the goods"
+        assert comments["comment2"].metadata["anchored_text"] == "the goods"
+
+    def test_no_thread_part_means_unresolved_roots(self) -> None:
+        comments = self._comments(self._threaded_doc(None))
+        for node in comments.values():
+            assert "parent_label" not in node.metadata
+            assert "resolved" not in node.metadata
+
+    def test_reply_names_parent_and_follows_resolved_root(self) -> None:
+        extended = (
+            '<w15:commentEx w15:paraId="00000001" w15:done="1"/>'
+            '<w15:commentEx w15:paraId="00000002" w15:paraIdParent="00000001" w15:done="0"/>'
+        )
+        comments = self._comments(self._threaded_doc(extended))
+        assert "parent_label" not in comments["comment1"].metadata
+        assert comments["comment1"].metadata["resolved"] is True
+        assert comments["comment2"].metadata["parent_label"] == "comment1"
+        assert comments["comment2"].metadata["resolved"] is True
+
+    def test_dangling_parent_leaves_a_root(self) -> None:
+        extended = '<w15:commentEx w15:paraId="00000002" w15:paraIdParent="DEADBEEF" w15:done="0"/>'
+        comments = self._comments(self._threaded_doc(extended))
+        assert "parent_label" not in comments["comment2"].metadata
+
+    def test_range_across_paragraphs_reads_as_one_line(self) -> None:
+        doc = docx.Document()
+        first = doc.add_paragraph("End of one.")
+        doc.add_paragraph("Start of two.")
+        doc.add_comment(first.runs[0], text="Spans both.", author="A")
+        # Move the range end (and its reference run) into the second paragraph.
+        body = doc.element.body
+        end = body.xpath(".//w:commentRangeEnd")[0]
+        reference_run = end.getnext()
+        second_paragraph = body.xpath("./w:p")[1]
+        second_paragraph.append(end)
+        if reference_run is not None:
+            second_paragraph.append(reference_run)
+
+        comments = self._comments(doc)
+        assert comments["comment1"].metadata["anchored_text"] == "End of one. Start of two."
 
 
 @pytest.mark.unit
