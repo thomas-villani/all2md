@@ -248,8 +248,9 @@ class DocxToAstConverter(BaseParser):
         self.options: DocxOptions = options
 
         # Internally used to stash info between functions
-        self._list_stack: list[tuple[str, int, list[ListItem]]] = []  # (type, level, items)
+        self._list_stack: list[tuple[str, int, list[ListItem], int]] = []  # (type, level, items, start)
         self._numbering_defs: dict[str, dict[str, str]] | None = None
+        self._list_counters: _ListCounters | None = None
         self._footnote_collector: FootnoteCollector | None = None
         self._comments_map: dict[str, CommentData] = {}
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
@@ -454,7 +455,8 @@ class DocxToAstConverter(BaseParser):
                     for paragraph in grid_cell.paragraphs:
                         list_type, level = _detect_list_level(paragraph, doc, numbering_defs)
                         if list_type:
-                            finished = self._process_list_item_paragraph(paragraph, list_type, level)
+                            number = self._list_number(paragraph, doc, level)
+                            finished = self._process_list_item_paragraph(paragraph, list_type, level, number)
                             if finished:
                                 children.append(finished)
                             continue
@@ -533,6 +535,7 @@ class DocxToAstConverter(BaseParser):
 
         """
         self._numbering_defs = None
+        self._list_counters = None
         self._list_stack = []
         self._footnote_collector = FootnoteCollector()
         self._comments_map = {}
@@ -903,6 +906,11 @@ class DocxToAstConverter(BaseParser):
         """
         style_name = paragraph.style.name if paragraph.style else ""
 
+        # Word counts every numbered paragraph, a numbered heading included, so the
+        # counter advances before any of the special cases below can claim the paragraph.
+        list_type, level = _detect_list_level(paragraph, doc, self._numbering_definitions(doc))
+        number = self._list_number(paragraph, doc, level) if list_type else None
+
         # Try special paragraph types first
         if title_result := self._try_process_title(paragraph, style_name):
             return title_result
@@ -919,9 +927,8 @@ class DocxToAstConverter(BaseParser):
             return self._process_quote_paragraph(paragraph, style_name)
 
         # Handle lists
-        list_type, level = _detect_list_level(paragraph, doc, self._numbering_definitions(doc))
         if list_type:
-            return self._process_list_item_paragraph(paragraph, list_type, level)
+            return self._process_list_item_paragraph(paragraph, list_type, level, number)
 
         math_blocks = self._extract_math_blocks_from_paragraph(paragraph)
 
@@ -941,7 +948,9 @@ class DocxToAstConverter(BaseParser):
 
         return self._process_regular_paragraph(paragraph, math_blocks, style_name)
 
-    def _process_list_item_paragraph(self, paragraph: "Paragraph", list_type: str, level: int) -> Node | None:
+    def _process_list_item_paragraph(
+        self, paragraph: "Paragraph", list_type: str, level: int, number: int | None = None
+    ) -> Node | None:
         """Process a paragraph that is part of a list.
 
         This method accumulates list items and handles nesting properly.
@@ -955,6 +964,10 @@ class DocxToAstConverter(BaseParser):
             'bullet' or 'number'
         level : int
             Nesting level (1-based)
+        number : int or None
+            The number Word prints on this item, when its numbering definition is known.
+            An ordered item whose number does not follow on from the list it would join
+            starts a new list at that number instead: Word restarted the count.
 
         Returns
         -------
@@ -971,59 +984,40 @@ class DocxToAstConverter(BaseParser):
             return None
         item_node = ListItem(children=[AstParagraph(content=content)])
 
-        # Handle level changes
+        finished: List | None = None
+        # Close every list nested deeper than this item. A list that opened deeper than
+        # anything after it has no parent item to nest into, so it is finished whole
+        # rather than discarded.
+        while self._list_stack and self._list_stack[-1][1] > level:
+            finished = self._close_innermost_list() or finished
+
+        if self._list_stack and self._list_stack[-1][1] == level:
+            open_type, _, open_items, open_start = self._list_stack[-1]
+            follows_on = list_type != "number" or number is None or number == open_start + len(open_items)
+            if open_type == list_type and follows_on:
+                open_items.append(item_node)
+                return finished
+            finished = self._close_innermost_list() or finished
+
+        start = number if list_type == "number" and number is not None else 1
+        self._list_stack.append((list_type, level, [item_node], start))
+        return finished
+
+    def _close_innermost_list(self) -> List | None:
+        """Close the innermost open list, nesting it under the item it belongs to.
+
+        Returns
+        -------
+        List or None
+            The closed list when it was the outermost one, with no item to nest under
+
+        """
+        list_type, _, items, start = self._list_stack.pop()
+        closed = List(ordered=list_type == "number", items=items, start=start, tight=True)
         if not self._list_stack:
-            # Start new list at this level
-            self._list_stack = [(list_type, level, [item_node])]
-            return None
-
-        current_type, current_level, current_items = self._list_stack[-1]
-
-        if level > current_level:
-            # Nested list - deeper level
-            # Start new list at the deeper level
-            self._list_stack.append((list_type, level, [item_node]))
-            return None
-
-        elif level < current_level:
-            # Going back to shallower level - need to finalize deeper lists
-            # Pop and nest all lists deeper than the target level
-            while self._list_stack and self._list_stack[-1][1] > level:
-                # Pop the deeper list and nest it
-                popped_type, popped_level, popped_items = self._list_stack.pop()
-                nested_list = List(ordered=(popped_type == "number"), items=popped_items, tight=True)
-
-                # Add nested list to the last item of the parent level
-                if self._list_stack:
-                    parent_items = self._list_stack[-1][2]
-                    if parent_items:
-                        parent_items[-1].children.append(nested_list)
-
-            # Now at the correct level - check if type matches
-            if self._list_stack and self._list_stack[-1][0] == list_type and self._list_stack[-1][1] == level:
-                # Same level and type - add item
-                self._list_stack[-1][2].append(item_node)
-                return None  # Still accumulating
-            else:
-                # Different type at this level - finalize old, start new
-                result_node = None
-                if self._list_stack and self._list_stack[-1][1] == level:
-                    old_type, old_level, old_items = self._list_stack.pop()
-                    result_node = List(ordered=(old_type == "number"), items=old_items, tight=True)
-                self._list_stack.append((list_type, level, [item_node]))
-                return result_node
-
-        else:
-            # Same level
-            if current_type == list_type:
-                # Same type - add to current list
-                current_items.append(item_node)
-                return None
-            else:
-                # Different type at same level - finalize old, start new
-                old_type, old_level, old_items = self._list_stack.pop()
-                self._list_stack.append((list_type, level, [item_node]))
-                return List(ordered=(old_type == "number"), items=old_items, tight=True)
+            return closed
+        self._list_stack[-1][2][-1].children.append(closed)
+        return None
 
     def _finalize_current_list(self) -> List | None:
         """Finalize all lists in the stack, nesting them properly.
@@ -1034,26 +1028,31 @@ class DocxToAstConverter(BaseParser):
             Completed top-level list node with all nesting
 
         """
-        if not self._list_stack:
+        finished = None
+        while self._list_stack:
+            finished = self._close_innermost_list()
+        return finished
+
+    def _list_number(self, paragraph: "Paragraph", doc: "docx.document.Document" | None, level: int) -> int | None:
+        """Advance Word's list counter for a paragraph and return the number it prints.
+
+        Called in document order for every paragraph detected as a list paragraph,
+        wherever it ends up -- a numbered heading or a table cell counts in Word
+        exactly as a list item does, and skipping one would put every later number off.
+
+        Returns
+        -------
+        int or None
+            The number, or None when the paragraph has no numbering definition to count
+
+        """
+        if self._list_counters is None:
+            self._list_counters = _ListCounters(_numbering_element(doc) if doc is not None else None)
+        try:
+            num_id = _effective_numbering_props(paragraph)[1]
+        except Exception:
             return None
-
-        # Pop and nest all lists from deepest to shallowest
-        while len(self._list_stack) > 1:
-            # Pop deeper list
-            deeper_type, deeper_level, deeper_items = self._list_stack.pop()
-            nested_list = List(ordered=(deeper_type == "number"), items=deeper_items, tight=True)
-
-            # Add to parent's last item
-            parent_items = self._list_stack[-1][2]
-            if parent_items:
-                parent_items[-1].children.append(nested_list)
-
-        # Return the top-level list
-        if self._list_stack:
-            list_type, level, items = self._list_stack.pop()
-            return List(ordered=(list_type == "number"), items=items, tight=True)
-
-        return None
+        return self._list_counters.advance(num_id, level - 1)
 
     def _append_text_with_line_breaks(
         self,
@@ -1636,8 +1635,11 @@ class DocxToAstConverter(BaseParser):
         A table cell holds inline content only, so a cell's paragraphs cannot stay
         blocks: each non-blank one becomes a line of the cell. Joined with nothing
         between them, ``The Supplier shall:`` and its clauses ran together as one word.
-        A list paragraph keeps a marker -- ``1.`` counted per level within the cell, or
-        a bullet -- since the cell has no list syntax to carry it.
+        A list paragraph keeps a marker -- the number Word prints, or a bullet -- since
+        the cell has no list syntax to carry it. Word's counters run through table cells
+        in document order, so a clause numbered 3 in the body before the table makes the
+        cell's first clause 4. A number with no definition to count is counted per
+        level within the cell.
 
         Parameters
         ----------
@@ -1663,9 +1665,10 @@ class DocxToAstConverter(BaseParser):
             if list_type:
                 # A shallower item restarts the counts of every level below it.
                 counters = {depth: count for depth, count in counters.items() if depth <= level}
+                number = self._list_number(paragraph, doc, level)
                 if list_type == "number":
                     counters[level] = counters.get(level, 0) + 1
-                    marker = f"{counters[level]}. "
+                    marker = f"{number if number is not None else counters[level]}. "
                 else:
                     marker = "\u2022 "
                 inline_nodes = [Text(content=marker), *inline_nodes]
@@ -2041,9 +2044,23 @@ def _get_numbering_definitions(doc: "docx.document.Document") -> dict[str, dict[
 
     Returns a mapping of numId -> {level -> format_type} where format_type is 'bullet' or 'number'.
     """
+    numbering_xml = _numbering_element(doc)
+    if numbering_xml is None:
+        return {}
+
+    try:
+        abstract_nums = _collect_abstract_numbering_defs(numbering_xml)
+        return _map_num_ids_to_abstract_nums(numbering_xml, abstract_nums)
+    except Exception as e:
+        logger.debug(f"Error parsing numbering definitions: {e}")
+        return {}
+
+
+def _numbering_element(doc: "docx.document.Document") -> Any | None:
+    """Return the root element of the document's numbering part, or None if it has none."""
     part = getattr(doc, "_part", None)
     if part is None:
-        return {}
+        return None
 
     try:
         # python-docx raises NotImplementedError -- not AttributeError -- when a
@@ -2052,18 +2069,124 @@ def _get_numbering_definitions(doc: "docx.document.Document") -> dict[str, dict[
         numbering_part = part.numbering_part
     except Exception as e:
         logger.debug(f"Document has no readable numbering part: {e}")
-        return {}
+        return None
 
     if not numbering_part:
-        return {}
+        return None
+    return getattr(numbering_part, "_element", None)
 
+
+def _word_int(element: Any, attribute: str = "val") -> int | None:
+    """Read an integer ``w:`` attribute, or None when the element or a valid value is absent."""
+    if element is None:
+        return None
     try:
-        numbering_xml = numbering_part._element
-        abstract_nums = _collect_abstract_numbering_defs(numbering_xml)
-        return _map_num_ids_to_abstract_nums(numbering_xml, abstract_nums)
-    except Exception as e:
-        logger.debug(f"Error parsing numbering definitions: {e}")
-        return {}
+        return int(element.get(f"{_WORD_NS}{attribute}"))
+    except (TypeError, ValueError):
+        return None
+
+
+class _ListCounters:
+    """Word's list counters, advanced paragraph by paragraph in document order.
+
+    A counter belongs to the *abstract* definition, not to the ``w:num`` instance that
+    points at it. Two instances of one abstract number as one list, which is why a list
+    interrupted by prose carries on where it stopped. What restarts the count is a
+    ``w:startOverride`` on an instance, which takes effect the first time that instance
+    is used -- Word writes one for "Restart Numbering".
+
+    Within a definition, numbering a level resets every deeper level, unless the deeper
+    level's ``w:lvlRestart`` says otherwise: it names the (1-based) level whose use
+    restarts it, and 0 means nothing does.
+
+    A level without ``w:start`` counts from 1. ECMA-376 says 0, but Word writes the
+    element on every level it creates, so an omission comes from some other writer,
+    and printing ``0.`` for it would be a change nobody asked for.
+    """
+
+    def __init__(self, numbering_xml: Any | None) -> None:
+        self._abstract_of: dict[str, str] = {}  # numId -> abstractNumId that holds the levels
+        self._starts: dict[str, dict[int, int]] = {}
+        self._restarts: dict[str, dict[int, int]] = {}
+        self._overrides: dict[str, dict[int, int]] = {}  # numId -> {ilvl: startOverride}
+        self._overrides_applied: set[str] = set()
+        self._values: dict[str, dict[int, int]] = {}  # abstractNumId -> {ilvl: last number}
+        if numbering_xml is not None:
+            try:
+                self._read(numbering_xml)
+            except Exception as e:
+                logger.debug(f"Error reading list counters: {e}")
+
+    def _read(self, numbering_xml: Any) -> None:
+        # The numStyleLink pairing mirrors _collect_abstract_numbering_defs: the counter
+        # must be the one on the abstract that holds the levels, or the two halves of a
+        # numbering style would count separately.
+        defines_style: dict[str, str] = {}
+        defers_to_style: dict[str, str] = {}
+        for abstract in numbering_xml.findall(f"{_WORD_NS}abstractNum"):
+            abstract_id = abstract.get(f"{_WORD_NS}abstractNumId")
+            if not abstract_id:
+                continue
+            levels = abstract.findall(f"{_WORD_NS}lvl")
+            if levels:
+                starts: dict[int, int] = {}
+                restarts: dict[int, int] = {}
+                for lvl in levels:
+                    ilvl = _word_int(lvl, "ilvl")
+                    if ilvl is None:
+                        continue
+                    if (start := _word_int(lvl.find(f"{_WORD_NS}start"))) is not None:
+                        starts[ilvl] = start
+                    if (restart := _word_int(lvl.find(f"{_WORD_NS}lvlRestart"))) is not None:
+                        restarts[ilvl] = restart
+                self._starts[abstract_id] = starts
+                self._restarts[abstract_id] = restarts
+                if style := _linked_style_name(abstract, "styleLink"):
+                    defines_style.setdefault(style, abstract_id)
+            elif style := _linked_style_name(abstract, "numStyleLink"):
+                defers_to_style[abstract_id] = style
+        aliases = {
+            abstract_id: defines_style[style]
+            for abstract_id, style in defers_to_style.items()
+            if style in defines_style
+        }
+
+        for num in numbering_xml.findall(f"{_WORD_NS}num"):
+            num_id = num.get(f"{_WORD_NS}numId")
+            abstract_ref = num.find(f"{_WORD_NS}abstractNumId")
+            abstract_id = abstract_ref.get(f"{_WORD_NS}val") if abstract_ref is not None else None
+            abstract_id = aliases.get(abstract_id, abstract_id) if abstract_id else None
+            if not num_id or abstract_id not in self._starts:
+                continue
+            self._abstract_of[num_id] = abstract_id
+            overrides: dict[int, int] = {}
+            for override in num.findall(f"{_WORD_NS}lvlOverride"):
+                ilvl = _word_int(override, "ilvl")
+                start = _word_int(override.find(f"{_WORD_NS}startOverride"))
+                if ilvl is not None and start is not None:
+                    overrides[ilvl] = start
+            if overrides:
+                self._overrides[num_id] = overrides
+
+    def advance(self, num_id: str | None, ilvl: int) -> int | None:
+        """Count one paragraph at ``ilvl`` of instance ``num_id`` and return its number."""
+        abstract_id = self._abstract_of.get(num_id) if num_id else None
+        if abstract_id is None:
+            return None
+        values = self._values.setdefault(abstract_id, {})
+
+        if num_id in self._overrides and num_id not in self._overrides_applied:
+            self._overrides_applied.add(num_id)
+            for level, start in self._overrides[num_id].items():
+                values[level] = start - 1
+
+        number = values[ilvl] + 1 if ilvl in values else self._starts[abstract_id].get(ilvl, 1)
+        values[ilvl] = number
+        restarts = self._restarts[abstract_id]
+        for deeper in [level for level in values if level > ilvl]:
+            if ilvl < restarts.get(deeper, deeper):
+                del values[deeper]
+        return number
 
 
 _MAX_STYLE_CHAIN = 20

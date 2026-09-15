@@ -40,7 +40,7 @@ class Finding:
 
 
 #: Markdown ordered-list marker at the start of a line.
-_ORDERED = re.compile(r"^\s*\d+[.)]\s+", re.MULTILINE)
+_ORDERED = re.compile(r"^\s*(\d+)[.)]\s+", re.MULTILINE)
 
 
 def _present(needle: str, haystack: str) -> bool:
@@ -183,6 +183,21 @@ def check_numbering(case: Case, out: str) -> list[Finding]:
                 ),
             )
         )
+        if "start" in spec:
+            # Markdown cannot print `03)`, but it can print the number the list starts
+            # at. A list that restarts at 1 has every item present and every marker
+            # ordered, so neither check above sees a lost start value.
+            first = _ORDERED.search(out)
+            got = int(first.group(1)) if first else None
+            findings.append(
+                Finding(
+                    case.case_id,
+                    case.family,
+                    "starts at its first number",
+                    got == spec["start"],
+                    f"first marker {got}, Word starts at {spec['start']}",
+                )
+            )
     return findings
 
 

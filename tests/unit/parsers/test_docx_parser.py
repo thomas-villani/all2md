@@ -1240,3 +1240,136 @@ class TestTableCellLists:
         ast_doc = DocxToAstConverter().convert_to_ast(doc)
 
         assert [type(child) for child in ast_doc.children] == [List, Table, Paragraph]
+
+
+class TestListStartAndRestart:
+    """The number a Word list starts at, and where Word restarts or continues the count."""
+
+    _cells = TestTableCellLists
+
+    @classmethod
+    def _doc(cls, *extra_xml: str) -> docx.document.Document:
+        """Build a document with abstractNum 90 (decimal, lowerLetter), 91 (bullet), and ``extra_xml``."""
+        from docx.oxml.ns import nsdecls
+
+        doc = cls._cells._doc_with_numbering()
+        numbering = doc.part.numbering_part.element
+        w = nsdecls("w")
+        for xml in extra_xml:
+            element = parse_xml(
+                xml.replace("<w:abstractNum ", f"<w:abstractNum {w} ").replace("<w:num ", f"<w:num {w} ")
+            )
+            if element.tag.endswith("abstractNum"):
+                numbering.insert(0, element)
+            else:
+                numbering.append(element)
+        return doc
+
+    @staticmethod
+    def _lists(doc: docx.document.Document) -> list[List]:
+        return [child for child in DocxToAstConverter().convert_to_ast(doc).children if isinstance(child, List)]
+
+    def test_list_interrupted_by_a_paragraph_carries_on_counting(self) -> None:
+        """Prose between two runs of one numbered list does not restart it at 1."""
+        doc = self._doc()
+        self._cells._list_paragraph(doc, "one")
+        self._cells._list_paragraph(doc, "two")
+        doc.add_paragraph("An interruption.")
+        self._cells._list_paragraph(doc, "three")
+
+        assert [lst.start for lst in self._lists(doc)] == [1, 3]
+        assert "3. three" in self._cells._markdown(doc)
+
+    def test_level_start_value_is_honoured(self) -> None:
+        """A level defined to start at 5 prints 5 first."""
+        doc = self._doc(
+            '<w:abstractNum w:abstractNumId="92"><w:lvl w:ilvl="0"><w:start w:val="5"/>'
+            '<w:numFmt w:val="decimal"/></w:lvl></w:abstractNum>',
+            '<w:num w:numId="92"><w:abstractNumId w:val="92"/></w:num>',
+        )
+        self._cells._list_paragraph(doc, "five", num_id=92)
+        self._cells._list_paragraph(doc, "six", num_id=92)
+
+        assert "5. five\n6. six" in self._cells._markdown(doc)
+
+    def test_start_override_restarts_a_list_written_straight_after_another(self) -> None:
+        """Word's Restart Numbering splits two back-to-back lists instead of fusing them 1..4."""
+        doc = self._doc(
+            '<w:num w:numId="93"><w:abstractNumId w:val="90"/>'
+            '<w:lvlOverride w:ilvl="0"><w:startOverride w:val="1"/></w:lvlOverride></w:num>'
+        )
+        self._cells._list_paragraph(doc, "a")
+        self._cells._list_paragraph(doc, "b")
+        self._cells._list_paragraph(doc, "c", num_id=93)
+        self._cells._list_paragraph(doc, "d", num_id=93)
+
+        lists = self._lists(doc)
+        assert [(lst.start, len(lst.items)) for lst in lists] == [(1, 2), (1, 2)]
+
+    def test_second_instance_without_override_continues_the_same_list(self) -> None:
+        """Two w:num instances of one abstract number count as one list."""
+        doc = self._doc('<w:num w:numId="94"><w:abstractNumId w:val="90"/></w:num>')
+        self._cells._list_paragraph(doc, "a")
+        self._cells._list_paragraph(doc, "b")
+        self._cells._list_paragraph(doc, "c", num_id=94)
+
+        lists = self._lists(doc)
+        assert [(lst.start, len(lst.items)) for lst in lists] == [(1, 3)]
+
+    def test_numbering_in_a_table_cell_continues_from_the_body(self) -> None:
+        """Word's counter runs through table cells in document order."""
+        doc = self._doc()
+        self._cells._list_paragraph(doc, "one")
+        self._cells._list_paragraph(doc, "two")
+        cell = doc.add_table(rows=1, cols=1).cell(0, 0)
+        cell.paragraphs[0].text = "Also:"
+        self._cells._list_paragraph(cell, "three")
+        doc.add_paragraph("After.")
+        self._cells._list_paragraph(doc, "four")
+
+        markdown = self._cells._markdown(doc)
+        assert "| Also:<br>3. three |" in markdown
+        assert "4. four" in markdown
+
+    def test_level_restart_zero_keeps_counting_across_parents(self) -> None:
+        """``w:lvlRestart`` 0 means a shallower item never resets the deeper count."""
+        doc = self._doc(
+            '<w:abstractNum w:abstractNumId="95">'
+            '<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/></w:lvl>'
+            '<w:lvl w:ilvl="1"><w:start w:val="1"/><w:lvlRestart w:val="0"/><w:numFmt w:val="decimal"/></w:lvl>'
+            "</w:abstractNum>",
+            '<w:num w:numId="95"><w:abstractNumId w:val="95"/></w:num>',
+        )
+        cell = doc.add_table(rows=1, cols=1).cell(0, 0)
+        cell.paragraphs[0].text = ""
+        for text, ilvl in (("a", 0), ("b", 1), ("c", 0), ("d", 1)):
+            self._cells._list_paragraph(cell, text, num_id=95, ilvl=ilvl)
+
+        assert "| 1. a<br>1. b<br>2. c<br>2. d |" in self._cells._markdown(doc)
+
+    def test_numbered_heading_restarts_the_level_below_it(self) -> None:
+        """A heading numbered by the same definition resets the clauses under it."""
+        from docx.oxml.ns import nsdecls
+
+        doc = self._doc()
+        for heading in ("Article one", "Article two"):
+            paragraph = doc.add_paragraph(heading, style="Heading 1")
+            paragraph._p.get_or_add_pPr().insert(
+                0, parse_xml(f'<w:numPr {nsdecls("w")}><w:ilvl w:val="0"/><w:numId w:val="90"/></w:numPr>')
+            )
+            self._cells._list_paragraph(doc, f"{heading} clause a", ilvl=1)
+            self._cells._list_paragraph(doc, f"{heading} clause b", ilvl=1)
+
+        assert [lst.start for lst in self._lists(doc)] == [1, 1]
+
+    def test_list_opening_deeper_than_what_follows_keeps_its_items(self) -> None:
+        """A list whose first items sit at level 2 is not discarded when level 1 arrives."""
+        doc = self._doc()
+        self._cells._list_paragraph(doc, "deep a", ilvl=1)
+        self._cells._list_paragraph(doc, "deep b", ilvl=1)
+        self._cells._list_paragraph(doc, "top c")
+
+        markdown = self._cells._markdown(doc)
+        assert "deep a" in markdown
+        assert "deep b" in markdown
+        assert "top c" in markdown
