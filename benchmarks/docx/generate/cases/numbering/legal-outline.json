@@ -1,0 +1,43 @@
+{
+  "description": "A legal outline: one multi-level list printing 1. / 1.1 / (a). Markdown list syntax cannot print 1.1 or (a), so the labels Word shows are written out with the text.",
+  "steps": [
+    {
+      "kind": "wl",
+      "args": ["insert-markdown", "--anchor-id", "start", "--markdown", "-"],
+      "stdin": "Scope of the agreement\n\nDefinitions used\n\nThe first term\n\nThe second term\n\nRemedies available\n\nSpare paragraph.\n"
+    },
+    {
+      "kind": "wl",
+      "args": [
+        "list", "format", "--anchor-id", "range:0-89", "--levels",
+        "[{\"kind\":\"number\",\"format\":\"%1.\",\"style\":\"arabic\"},{\"kind\":\"number\",\"format\":\"%1.%2\",\"style\":\"arabic\"},{\"kind\":\"number\",\"format\":\"(%3)\",\"style\":\"lower-letter\"}]"
+      ]
+    },
+    {"kind": "wl", "args": ["list", "indent", "--anchor-id", "para:2"]},
+    {"kind": "wl", "args": ["list", "indent", "--anchor-id", "para:3"]},
+    {"kind": "wl", "args": ["list", "indent", "--anchor-id", "para:3"]},
+    {"kind": "wl", "args": ["list", "indent", "--anchor-id", "para:4"]},
+    {"kind": "wl", "args": ["list", "indent", "--anchor-id", "para:4"]},
+    {
+      "kind": "expect_list",
+      "strings": {"para:1": "1.", "para:2": "1.1", "para:3": "(a)", "para:4": "(b)", "para:5": "2.", "para:6": ""}
+    }
+  ],
+  "verify": [
+    {"part": "word/numbering.xml", "pattern": "<w:lvlText w:val=\"%1\\.%2\"/>", "min": 1},
+    {"part": "word/numbering.xml", "pattern": "<w:lvlText w:val=\"\\(%3\\)\"/>", "min": 1},
+    {"part": "word/document.xml", "pattern": "<w:numPr>", "min": 5, "max": 5},
+    {"part": "word/document.xml", "pattern": "<w:ilvl w:val=\"2\"/>", "min": 2, "max": 2}
+  ],
+  "facts": {
+    "list": {
+      "ordered": true,
+      "numfmt": "decimal, decimal, lowerLetter",
+      "numpr_on": "paragraph",
+      "items": ["Scope of the agreement", "Definitions used", "The first term", "The second term", "Remedies available"],
+      "rendered_markers": ["1.", "1.1", "(a)", "(b)", "2."]
+    }
+  },
+  "family": "numbering",
+  "control": false
+}

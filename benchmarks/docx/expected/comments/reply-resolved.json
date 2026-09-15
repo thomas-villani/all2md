@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "case_id": "comments/reply-resolved",
+  "family": "comments",
+  "description": "A review thread: a comment with a reply, and a second comment marked resolved. Threading and resolved state live in commentsExtended.xml, not in comments.xml.",
+  "control": false,
+  "facts": {
+    "body": [
+      "The first commented sentence.",
+      "The second commented sentence."
+    ],
+    "comments": [
+      {
+        "text": "Please reword this.",
+        "anchored_text": "first commented sentence",
+        "reply_to": null,
+        "resolved": false
+      },
+      {
+        "text": "Agreed, rewording now.",
+        "reply_to": 0,
+        "resolved": false
+      },
+      {
+        "text": "Fixed in the draft.",
+        "anchored_text": "second commented sentence",
+        "reply_to": null,
+        "resolved": true
+      }
+    ]
+  },
+  "positional": [
+    {
+      "index": 1,
+      "anchor_id": "para:1",
+      "start": 0,
+      "end": 14,
+      "style": "Heading 1",
+      "range_text": "Review Thread"
+    },
+    {
+      "index": 2,
+      "anchor_id": "para:2",
+      "start": 14,
+      "end": 44,
+      "style": "Normal",
+      "range_text": "The first commented sentence."
+    },
+    {
+      "index": 3,
+      "anchor_id": "para:3",
+      "start": 44,
+      "end": 75,
+      "style": "Normal",
+      "range_text": "The second commented sentence."
+    },
+    {
+      "index": 4,
+      "anchor_id": "para:4",
+      "start": 75,
+      "end": 109,
+      "style": "Normal",
+      "range_text": "An uncommented closing paragraph."
+    }
+  ]
+}

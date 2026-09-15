@@ -1,0 +1,156 @@
+{
+  "schema_version": 1,
+  "case_id": "tables/vertical-merge",
+  "family": "tables",
+  "description": "A table with a vertically merged cell (w:vMerge restart, then continue). The merged content belongs to the table once, however many rows it spans.",
+  "control": false,
+  "facts": {
+    "table": {
+      "grid_columns": 3,
+      "rows": 3,
+      "header_row": [
+        "H1",
+        "H2",
+        "H3"
+      ],
+      "merged": [
+        {
+          "row": 2,
+          "col": 1,
+          "rowspan": 2,
+          "text": "spanned down"
+        }
+      ]
+    }
+  },
+  "positional": [
+    {
+      "index": 1,
+      "anchor_id": "para:1",
+      "start": 0,
+      "end": 15,
+      "style": "Heading 1",
+      "range_text": "Vertical Merge"
+    },
+    {
+      "index": 2,
+      "anchor_id": "para:2",
+      "start": 15,
+      "end": 32,
+      "style": "Normal",
+      "range_text": "Intro paragraph."
+    },
+    {
+      "index": 3,
+      "anchor_id": "para:3",
+      "start": 32,
+      "end": 35,
+      "style": "Table Grid",
+      "range_text": "H1"
+    },
+    {
+      "index": 4,
+      "anchor_id": "para:4",
+      "start": 35,
+      "end": 38,
+      "style": "Table Grid",
+      "range_text": "H2"
+    },
+    {
+      "index": 5,
+      "anchor_id": "para:5",
+      "start": 38,
+      "end": 41,
+      "style": "Table Grid",
+      "range_text": "H3"
+    },
+    {
+      "index": 6,
+      "anchor_id": "para:6",
+      "start": 41,
+      "end": 42,
+      "style": "Table Grid",
+      "range_text": ""
+    },
+    {
+      "index": 7,
+      "anchor_id": "para:7",
+      "start": 42,
+      "end": 55,
+      "style": "Table Grid",
+      "range_text": "spanned down"
+    },
+    {
+      "index": 8,
+      "anchor_id": "para:8",
+      "start": 55,
+      "end": 57,
+      "style": "Table Grid",
+      "range_text": "b"
+    },
+    {
+      "index": 9,
+      "anchor_id": "para:9",
+      "start": 57,
+      "end": 59,
+      "style": "Table Grid",
+      "range_text": "c"
+    },
+    {
+      "index": 10,
+      "anchor_id": "para:10",
+      "start": 59,
+      "end": 60,
+      "style": "Table Grid",
+      "range_text": ""
+    },
+    {
+      "index": 11,
+      "anchor_id": "para:11",
+      "start": 60,
+      "end": 61,
+      "style": "Table Grid",
+      "range_text": ""
+    },
+    {
+      "index": 12,
+      "anchor_id": "para:12",
+      "start": 61,
+      "end": 63,
+      "style": "Table Grid",
+      "range_text": "e"
+    },
+    {
+      "index": 13,
+      "anchor_id": "para:13",
+      "start": 63,
+      "end": 65,
+      "style": "Table Grid",
+      "range_text": "f"
+    },
+    {
+      "index": 14,
+      "anchor_id": "para:14",
+      "start": 65,
+      "end": 66,
+      "style": "Table Grid",
+      "range_text": ""
+    },
+    {
+      "index": 15,
+      "anchor_id": "para:15",
+      "start": 66,
+      "end": 67,
+      "style": "Normal",
+      "range_text": ""
+    },
+    {
+      "index": 16,
+      "anchor_id": "para:16",
+      "start": 67,
+      "end": 68,
+      "style": "Normal",
+      "range_text": ""
+    }
+  ]
+}

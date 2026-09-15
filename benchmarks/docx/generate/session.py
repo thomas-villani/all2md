@@ -66,6 +66,8 @@ class WordSession:
         self.env = dict(os.environ, WORDLIVE_SAVE_DIRS=self.outdir)
         self.doc_name: str | None = None
         self._identity: tuple[str, bool] | None = None
+        #: The list template a note list continues from; one per document.
+        self._note_template: Any = None
 
     # --- authorship -----------------------------------------------------
     def pin_author(self, name: str) -> None:
@@ -101,6 +103,7 @@ class WordSession:
         doc = self.app.Documents.Add()
         doc.Activate()
         self.doc_name = str(doc.Name)
+        self._note_template = None
         return self.doc_name
 
     def save_as(self, filename: str) -> str:
@@ -228,6 +231,71 @@ class WordSession:
             ApplyTo=WD_LIST_APPLY_TO_WHOLE_LIST,
             DefaultListBehavior=WD_WORD10_LIST_BEHAVIOR,
         )
+
+    def comment_reply(self, index: int, text: str) -> None:
+        """Reply to comment ``index`` (1-based, document order).
+
+        ``wordlive`` can add and resolve a comment but has no verb to answer one. Word
+        writes the reply as a ``w:comment`` of its own and threads it through
+        ``w15:paraIdParent`` in ``commentsExtended.xml``, which the case verifies.
+        """
+        comment = self.doc().Comments(index)
+        comment.Replies.Add(Range=comment.Scope, Text=text)
+
+    def note_list(
+        self,
+        note: int,
+        lead: str,
+        items: list[str],
+        *,
+        kind: str = "footnote",
+        continue_previous: bool = False,
+        bold: str | None = None,
+        expect: list[str] | None = None,
+    ) -> None:
+        """Give a note a lead paragraph followed by a numbered list.
+
+        ``wordlive`` inserts a note holding one run of text and cannot reach into the
+        note story after that. Two traps, both hit by the 2026-09-15 probe:
+
+        * ``Document.Range()`` addresses the **main** story. A range built from a note
+          paragraph's offsets numbers the body paragraphs at those offsets instead, so
+          the span is taken from the note's own ``Range``.
+        * ``Footnotes.Add(Text=...)`` writes nothing, which is why the text is set here.
+
+        A list only continues across notes when the **same** list template is applied
+        with ``ContinuePreviousList``. ``ApplyNumberDefault`` in each note gives each its
+        own ``w:numId``, and that document cannot tell continuing from restarting.
+        ``expect`` holds Word's own printed labels to what the case records.
+        """
+        document = self.doc()
+        target = (document.Footnotes if kind == "footnote" else document.Endnotes)(note)
+        target.Range.Text = "\r".join([lead, *items])
+        if bold:
+            found = target.Range.Duplicate
+            if not found.Find.Execute(FindText=bold):
+                raise RuntimeError(f"{bold!r} not found in {kind} {note}")
+            found.Bold = True
+        if self._note_template is None or not continue_previous:
+            template = document.ListTemplates.Add(OutlineNumbered=False)
+            level = template.ListLevels(1)
+            level.NumberStyle = 0
+            level.NumberFormat = "%1."
+            level.StartAt = 1
+            self._note_template = template
+        paragraphs = target.Range.Paragraphs
+        span = target.Range.Duplicate
+        span.SetRange(paragraphs(2).Range.Start, paragraphs(paragraphs.Count).Range.End)
+        span.ListFormat.ApplyListTemplateWithLevel(
+            ListTemplate=self._note_template,
+            ContinuePreviousList=continue_previous,
+            ApplyTo=WD_LIST_APPLY_TO_WHOLE_LIST,
+            DefaultListBehavior=WD_WORD10_LIST_BEHAVIOR,
+        )
+        if expect is not None:
+            printed = [str(paragraphs(i).Range.ListFormat.ListString) for i in range(2, paragraphs.Count + 1)]
+            if printed != expect:
+                raise RuntimeError(f"{kind} {note}: Word prints {printed}, the case expects {expect}")
 
     def add_paragraph_style(self, name: str, based_on: str, park_at: str = "para:1") -> None:
         """Create a paragraph style, parking the cursor first.
