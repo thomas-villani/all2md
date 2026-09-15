@@ -17,6 +17,8 @@ from all2md.ast import (
     BlockQuote,
     Code,
     CodeBlock,
+    Comment,
+    CommentInline,
     DefinitionDescription,
     DefinitionList,
     DefinitionTerm,
@@ -1988,6 +1990,52 @@ class TestDefinitionListRendering:
         dls = [n for n in ast.children if isinstance(n, DefinitionList)]
         assert len(dls) == 1
         assert len(dls[0].items) == 2
+
+
+@pytest.mark.unit
+class TestReviewCommentHeaders:
+    """Thread position, resolved state and the anchored text reach the header."""
+
+    @staticmethod
+    def _render(node, mode: str) -> str:
+        from all2md.ast import Document, Paragraph, Text
+        from all2md.options.markdown import MarkdownRendererOptions
+        from all2md.renderers.markdown import MarkdownRenderer
+
+        children = [node] if not isinstance(node, CommentInline) else [Paragraph(content=[Text("x"), node])]
+        return MarkdownRenderer(MarkdownRendererOptions(comment_mode=mode)).render_to_string(
+            Document(children=children)
+        )
+
+    def test_reply_names_its_parent(self) -> None:
+        node = Comment(content="Agreed.", metadata={"label": "comment2", "author": "Bob", "parent_label": "comment1"})
+        assert "<!-- Reply comment2 to comment1 by Bob: Agreed. -->" in self._render(node, "html")
+
+    def test_resolved_and_anchor_on_block_comment(self) -> None:
+        node = Comment(
+            content="Done.",
+            metadata={"label": "comment3", "author": "Carol", "resolved": True, "anchored_text": "Payment terms"},
+        )
+        assert '<!-- Comment comment3 by Carol [resolved] on "Payment terms": Done. -->' in self._render(node, "html")
+
+    def test_long_anchor_is_shortened_in_header(self) -> None:
+        node = Comment(content="Hm.", metadata={"label": "c", "author": "A", "anchored_text": "word " * 40})
+        rendered = self._render(node, "html")
+        quoted = rendered.split('on "', 1)[1].split('"', 1)[0]
+        assert quoted.endswith("…")
+        assert len(quoted) <= 60
+
+    def test_multi_paragraph_block_comment_stays_in_blockquote(self) -> None:
+        node = Comment(content="First.\nSecond.", metadata={"label": "c1", "author": "A"})
+        assert "> First.\n> Second." in self._render(node, "blockquote")
+
+    def test_inline_comment_keeps_paragraphs_on_one_line(self) -> None:
+        node = CommentInline(
+            content="First.\nSecond.",
+            metadata={"label": "c1", "author": "A", "anchored_text": "x", "resolved": True},
+        )
+        # The anchor is not repeated inline: the comment already sits beside it.
+        assert "[Comment c1 by A [resolved]: First. / Second.]" in self._render(node, "blockquote")
 
 
 @pytest.mark.unit

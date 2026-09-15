@@ -88,6 +88,12 @@ WORD_ENDNOTE_REFERENCE_TAG = f"{WORD_TAG_PREFIX}endnoteReference"
 WORD_COMMENT_REFERENCE_TAG = f"{WORD_TAG_PREFIX}commentReference"
 WORD_COMMENT_RANGE_START_TAG = f"{WORD_TAG_PREFIX}commentRangeStart"
 WORD_COMMENT_RANGE_END_TAG = f"{WORD_TAG_PREFIX}commentRangeEnd"
+# Word 2013+ threads comments in a separate part, commentsExtended.xml: one
+# w15:commentEx per comment, keyed by the w14:paraId of the comment body's LAST
+# paragraph, naming its parent's key and whether the thread is resolved.
+WORD_COMMENTS_EXTENDED_RT = "http://schemas.microsoft.com/office/2011/relationships/commentsExtended"
+W14_PARA_ID_ATTR = "{http://schemas.microsoft.com/office/word/2010/wordml}paraId"
+W15_PREFIX = "{http://schemas.microsoft.com/office/word/2012/wordml}"
 MATH_NS = "http://schemas.openxmlformats.org/officeDocument/2006/math"
 MATH_TAG_PREFIX = f"{{{MATH_NS}}}"
 
@@ -136,7 +142,13 @@ class CommentData:
     date : str
         Comment date
     text : str
-        Comment text content
+        Comment text content, one line per comment paragraph
+    anchored_text : str
+        Document text between the comment's range markers
+    parent_label : str or None
+        Label of the comment this one replies to, None for a thread root
+    resolved : bool
+        Whether the comment's thread is marked resolved
 
     """
 
@@ -145,6 +157,26 @@ class CommentData:
     author: str
     date: str
     text: str
+    anchored_text: str = ""
+    parent_label: str | None = None
+    resolved: bool = False
+
+    def to_metadata(self) -> dict[str, Any]:
+        """Return the node metadata shared by inline and block comments."""
+        metadata: dict[str, Any] = {
+            "comment_type": "docx_review",
+            "identifier": self.identifier,
+            "label": self.label,
+            "author": self.author,
+            "date": self.date,
+        }
+        if self.anchored_text:
+            metadata["anchored_text"] = self.anchored_text
+        if self.parent_label:
+            metadata["parent_label"] = self.parent_label
+        if self.resolved:
+            metadata["resolved"] = True
+        return metadata
 
 
 @dataclass
@@ -1468,18 +1500,7 @@ class DocxToAstConverter(BaseParser):
 
         # Create CommentInline node with rich metadata
         # Renderer will decide how to present it based on its own options
-        return [
-            CommentInline(
-                content=comment.text,
-                metadata={
-                    "comment_type": "docx_review",
-                    "identifier": comment.identifier,
-                    "label": comment.label,
-                    "author": comment.author,
-                    "date": comment.date,
-                },
-            )
-        ]
+        return [CommentInline(content=comment.text, metadata=comment.to_metadata())]
 
     def _format_comment_header(
         self,
@@ -1901,6 +1922,9 @@ class DocxToAstConverter(BaseParser):
         if element is None:
             return comments
 
+        anchored = _comment_anchored_text(doc.element.body)
+        label_by_key: dict[str, str] = {}
+        key_by_id: dict[str, str] = {}
         for index, comment_element in enumerate(element.findall(f".//{WORD_TAG_PREFIX}comment"), start=1):
             comment_id = comment_element.get(WORD_ID_ATTR)
             if comment_id is None:
@@ -1908,23 +1932,68 @@ class DocxToAstConverter(BaseParser):
 
             author = comment_element.get(f"{WORD_TAG_PREFIX}author", "Unknown")
             date = comment_element.get(f"{WORD_TAG_PREFIX}date", "")
+            label = f"comment{index}"
 
-            text_parts: list[str] = []
-            for paragraph_node in comment_element.findall(f".//{WORD_PARAGRAPH_TAG}"):
-                for text_element in paragraph_node.findall(f".//{WORD_TAG_PREFIX}t"):
-                    if text_element.text:
-                        text_parts.append(text_element.text)
+            paragraphs = comment_element.findall(f".//{WORD_PARAGRAPH_TAG}")
+            lines = [_comment_paragraph_text(paragraph) for paragraph in paragraphs]
+            thread_key = paragraphs[-1].get(W14_PARA_ID_ATTR) if paragraphs else None
+            if thread_key:
+                label_by_key[thread_key] = label
+                key_by_id[comment_id] = thread_key
 
-            text = " ".join(text_parts).strip()
             comments[comment_id] = CommentData(
                 identifier=comment_id,
-                label=f"comment{index}",
+                label=label,
                 author=author or "",
                 date=date or "",
-                text=text,
+                text="\n".join(line for line in lines if line),
+                anchored_text=anchored.get(comment_id, ""),
             )
 
+        self._apply_comment_threads(doc, comments, key_by_id, label_by_key)
         return comments
+
+    def _apply_comment_threads(
+        self,
+        doc: "docx.document.Document",
+        comments: dict[str, CommentData],
+        key_by_id: dict[str, str],
+        label_by_key: dict[str, str],
+    ) -> None:
+        """Set each comment's parent and resolved state from commentsExtended.xml.
+
+        A document without the part (python-docx output, Word before 2013) has no
+        threads: every comment stays an unresolved root. A parent key that names no
+        comment leaves the reply a root rather than dropping it.
+        """
+        part = self._get_note_part(doc, WORD_COMMENTS_EXTENDED_RT, None)
+        root = self._get_note_part_element(part) if part is not None else None
+        if root is None:
+            return
+
+        entries: dict[str, tuple[str | None, bool]] = {}
+        for entry in root.iter(f"{W15_PREFIX}commentEx"):
+            key = entry.get(f"{W15_PREFIX}paraId")
+            if key and key not in entries:
+                done = (entry.get(f"{W15_PREFIX}done") or "").lower() in ("1", "true", "on")
+                entries[key] = (entry.get(f"{W15_PREFIX}paraIdParent"), done)
+
+        by_label = {comment.label: comment for comment in comments.values()}
+        for comment_id, comment in comments.items():
+            parent_key, done = entries.get(key_by_id.get(comment_id, ""), (None, False))
+            parent_label = label_by_key.get(parent_key or "")
+            comment.parent_label = parent_label if parent_label != comment.label else None
+            comment.resolved = done
+
+        # Word resolves a whole thread; a reply follows its root's flag.
+        for comment in comments.values():
+            seen = {comment.label}
+            parent = by_label.get(comment.parent_label or "")
+            while parent is not None and parent.label not in seen:
+                seen.add(parent.label)
+                if parent.resolved:
+                    comment.resolved = True
+                parent = by_label.get(parent.parent_label or "")
 
     def _process_comments(self) -> list[Node]:
         """Process collected comments as block-level Comment nodes.
@@ -1941,22 +2010,58 @@ class DocxToAstConverter(BaseParser):
             if not comment.text:
                 continue
 
-            # Create Comment node with rich metadata
             # Renderer will decide presentation based on its comment_mode option
-            nodes.append(
-                Comment(
-                    content=comment.text,
-                    metadata={
-                        "comment_type": "docx_review",
-                        "identifier": comment.identifier,
-                        "label": comment.label,
-                        "author": comment.author,
-                        "date": comment.date,
-                    },
-                )
-            )
+            nodes.append(Comment(content=comment.text, metadata=comment.to_metadata()))
 
         return nodes
+
+
+def _comment_paragraph_text(paragraph: Any) -> str:
+    """Return one comment-body paragraph's text as Word shows it.
+
+    Runs are concatenated with nothing between them: a run boundary is a
+    formatting change, not a word break (``Recon`` + ``sider`` is one word).
+    """
+    parts: list[str] = []
+    for node in paragraph.iter():
+        if node.tag == f"{WORD_TAG_PREFIX}t" and node.text:
+            parts.append(node.text)
+        elif node.tag == f"{WORD_TAG_PREFIX}tab":
+            parts.append("\t")
+        elif node.tag in (f"{WORD_TAG_PREFIX}br", f"{WORD_TAG_PREFIX}cr"):
+            parts.append("\n")
+    return "".join(parts).strip()
+
+
+def _comment_anchored_text(body: Any) -> dict[str, str]:
+    """Map each comment id to the body text between its range markers.
+
+    One walk serves every comment, and ranges may overlap, nest or cross
+    paragraphs; a paragraph end inside a range reads as a space. A comment with
+    no start marker, or whose end comes first, maps to nothing.
+    """
+    from lxml import etree
+
+    open_ranges: dict[str, list[str]] = {}
+    found: dict[str, str] = {}
+    for event, node in etree.iterwalk(body, events=("start", "end")):
+        tag = node.tag
+        if event == "start":
+            if tag == WORD_COMMENT_RANGE_START_TAG:
+                comment_id = node.get(WORD_ID_ATTR)
+                if comment_id is not None and comment_id not in found:
+                    open_ranges.setdefault(comment_id, [])
+            elif tag == WORD_COMMENT_RANGE_END_TAG:
+                parts = open_ranges.pop(node.get(WORD_ID_ATTR) or "", None)
+                if parts is not None:
+                    found[node.get(WORD_ID_ATTR)] = " ".join("".join(parts).split())
+            elif tag == f"{WORD_TAG_PREFIX}t" and node.text:
+                for parts in open_ranges.values():
+                    parts.append(node.text)
+        elif tag == WORD_PARAGRAPH_TAG:
+            for parts in open_ranges.values():
+                parts.append(" ")
+    return found
 
 
 _WORD_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
