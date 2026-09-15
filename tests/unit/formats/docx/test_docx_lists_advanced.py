@@ -1,6 +1,8 @@
 """Advanced tests for DOCX list handling edge cases."""
 
 import docx
+from docx.oxml import parse_xml
+from docx.oxml.ns import nsdecls, qn
 from docx.shared import Inches
 from utils import assert_markdown_valid, cleanup_test_dir, create_test_temp_dir
 
@@ -46,8 +48,8 @@ class TestDocxListsAdvanced:
         # Nested item should be properly indented (correct behavior)
         assert "   1. Nested alpha item" in markdown
 
-    def test_restart_numbering(self):
-        """Test lists with restart numbering."""
+    def test_interrupted_list_continues_numbering(self):
+        """An interrupted list with no restart carries on counting, as Word prints it."""
         doc = docx.Document()
 
         doc.add_heading("First List", level=2)
@@ -56,10 +58,51 @@ class TestDocxListsAdvanced:
 
         doc.add_paragraph("Interrupting paragraph")
 
+        doc.add_heading("Continued List", level=2)
+        doc.add_paragraph("Continued item", style="List Number")
+
+        temp_file = self.temp_dir / "continued_numbering.docx"
+        doc.save(str(temp_file))
+
+        markdown = docx_to_markdown(str(temp_file))
+        assert_markdown_valid(markdown)
+
+        assert "1. Item 1" in markdown
+        assert "2. Item 2" in markdown
+        assert "3. Continued item" in markdown
+
+    def test_restart_numbering(self):
+        """A w:startOverride on a second numbering instance restarts the list at 1."""
+        doc = docx.Document()
+        w = nsdecls("w")
+
+        # Word's "Restart Numbering": a new w:num on the List Number style's abstract
+        # definition, overriding the start of level 0.
+        style_num_id = doc.styles["List Number"].element.find(qn("w:pPr")).find(qn("w:numPr")).find(qn("w:numId"))
+        numbering = doc.part.numbering_part.element
+        style_num = next(
+            num for num in numbering.findall(qn("w:num")) if num.get(qn("w:numId")) == style_num_id.get(qn("w:val"))
+        )
+        abstract_id = style_num.find(qn("w:abstractNumId")).get(qn("w:val"))
+        numbering.append(
+            parse_xml(
+                f'<w:num {w} w:numId="99"><w:abstractNumId w:val="{abstract_id}"/>'
+                '<w:lvlOverride w:ilvl="0"><w:startOverride w:val="1"/></w:lvlOverride></w:num>'
+            )
+        )
+
+        doc.add_heading("First List", level=2)
+        doc.add_paragraph("Item 1", style="List Number")
+        doc.add_paragraph("Item 2", style="List Number")
+
+        doc.add_paragraph("Interrupting paragraph")
+
         doc.add_heading("Restarted List", level=2)
-        # Simulate restarted numbering
-        doc.add_paragraph("New item 1", style="List Number")
-        doc.add_paragraph("New item 2", style="List Number")
+        for text in ("New item 1", "New item 2"):
+            paragraph = doc.add_paragraph(text, style="List Number")
+            paragraph._p.get_or_add_pPr().insert(
+                0, parse_xml(f'<w:numPr {w}><w:ilvl w:val="0"/><w:numId w:val="99"/></w:numPr>')
+            )
 
         temp_file = self.temp_dir / "restart_numbering.docx"
         doc.save(str(temp_file))
@@ -67,13 +110,10 @@ class TestDocxListsAdvanced:
         markdown = docx_to_markdown(str(temp_file))
         assert_markdown_valid(markdown)
 
-        # Should have restarted numbering
-        lines = markdown.split("\n")
-        first_list_items = [line for line in lines if "Item" in line and line.strip().startswith("1.")]
-        new_list_items = [line for line in lines if "New item" in line and line.strip().startswith("1.")]
-
-        assert len(first_list_items) >= 1
-        assert len(new_list_items) >= 1
+        assert "1. Item 1" in markdown
+        assert "2. Item 2" in markdown
+        assert "1. New item 1" in markdown
+        assert "2. New item 2" in markdown
 
     def test_mixed_bullet_symbols(self):
         """Test lists with mixed bullet symbols."""
