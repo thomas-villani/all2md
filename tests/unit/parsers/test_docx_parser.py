@@ -565,6 +565,89 @@ class TestTables:
         assert all(isinstance(child, Paragraph) for child in ast_doc.children)
         assert len(ast_doc.children) >= 4  # At least 4 cells
 
+    @staticmethod
+    def _grid(rows: int, cols: int) -> tuple[docx.document.Document, docx.table.Table]:
+        doc = docx.Document()
+        table = doc.add_table(rows=rows, cols=cols)
+        for r, row in enumerate(table.rows):
+            for c, cell in enumerate(row.cells):
+                cell.text = f"r{r}c{c}"
+        return doc, table
+
+    @staticmethod
+    def _cell_texts(table_node: Table) -> list[list[tuple[str, int, int]]]:
+        rows = [table_node.header, *table_node.rows]
+        return [
+            [
+                ("".join(getattr(n, "content", "") for n in cell.content), cell.colspan, cell.rowspan)
+                for cell in row.cells
+            ]
+            for row in rows
+        ]
+
+    def test_horizontal_merge_is_one_cell_with_a_colspan(self) -> None:
+        """A gridSpan cell is read once, not once per grid column it covers."""
+        doc, table = self._grid(2, 3)
+        table.cell(1, 0).merge(table.cell(1, 1)).text = "wide"
+
+        ast_doc = DocxToAstConverter(options=DocxOptions(preserve_tables=True)).convert_to_ast(doc)
+
+        assert self._cell_texts(ast_doc.children[0])[1] == [("wide", 2, 1), ("r1c2", 1, 1)]
+
+    def test_vertical_merge_is_one_cell_with_a_rowspan(self) -> None:
+        """A vMerge continuation extends the cell above instead of repeating it."""
+        doc, table = self._grid(3, 3)
+        table.cell(1, 0).merge(table.cell(2, 0)).text = "tall"
+
+        rows = self._cell_texts(DocxToAstConverter().convert_to_ast(doc).children[0])
+
+        assert rows[1] == [("tall", 1, 2), ("r1c1", 1, 1), ("r1c2", 1, 1)]
+        assert rows[2] == [("r2c1", 1, 1), ("r2c2", 1, 1)]
+
+    def test_block_merge_spans_both_ways(self) -> None:
+        """A merge over a 2x2 block is one cell spanning two rows and two columns."""
+        doc, table = self._grid(3, 3)
+        table.cell(1, 0).merge(table.cell(2, 1)).text = "block"
+
+        rows = self._cell_texts(DocxToAstConverter().convert_to_ast(doc).children[0])
+
+        assert rows[1] == [("block", 2, 2), ("r1c2", 1, 1)]
+        assert rows[2] == [("r2c2", 1, 1)]
+
+    def test_header_merged_down_into_the_data_rows(self) -> None:
+        """A merge that starts in the header row still extends into the row below."""
+        doc, table = self._grid(3, 2)
+        table.cell(0, 0).merge(table.cell(1, 0)).text = "head"
+
+        rows = self._cell_texts(DocxToAstConverter().convert_to_ast(doc).children[0])
+
+        assert rows[0][0] == ("head", 1, 2)
+        assert rows[1] == [("r1c1", 1, 1)]
+
+    def test_grid_before_keeps_cells_in_their_columns(self) -> None:
+        """Columns a row skips with w:gridBefore get an empty stand-in cell."""
+        from docx.oxml.ns import nsdecls
+
+        doc, table = self._grid(2, 3)
+        tr = table.rows[1]._tr
+        tr.remove(tr.tc_lst[0])
+        tr.insert(0, parse_xml(f'<w:trPr {nsdecls("w")}><w:gridBefore w:val="1"/></w:trPr>'))
+
+        rows = self._cell_texts(DocxToAstConverter().convert_to_ast(doc).children[0])
+
+        assert rows[1] == [("", 1, 1), ("r1c1", 1, 1), ("r1c2", 1, 1)]
+
+    def test_flattened_table_writes_a_merged_cell_once(self) -> None:
+        """Flattening reads the same real cells, so merged text is not repeated."""
+        doc, table = self._grid(3, 3)
+        table.cell(1, 0).merge(table.cell(2, 1)).text = "block"
+
+        ast_doc = DocxToAstConverter(options=DocxOptions(preserve_tables=False)).convert_to_ast(doc)
+        texts = ["".join(getattr(n, "content", "") for n in p.content) for p in ast_doc.children]
+
+        assert texts.count("block") == 1
+        assert texts == ["r0c0", "r0c1", "r0c2", "block", "r1c2", "r2c2"]
+
 
 @pytest.mark.unit
 class TestHyperlinks:

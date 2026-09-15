@@ -147,6 +147,80 @@ class CommentData:
     text: str
 
 
+@dataclass
+class _GridCell:
+    """One real ``w:tc`` of a table row, with the grid it covers."""
+
+    cell: Any
+    colspan: int = 1
+    rowspan: int = 1
+
+    @property
+    def paragraphs(self) -> list[Paragraph]:
+        """Paragraphs of the cell, none for a stand-in over skipped grid columns."""
+        return [] if self.cell is None else list(self.cell.paragraphs)
+
+
+def _merged_table_rows(table: Table) -> list[list[_GridCell]]:
+    """Read a table's rows as the cells Word actually stores, merges included.
+
+    ``Row.cells`` returns one cell per grid column, repeating a merged cell for
+    every column and row it covers, so reading it writes a merged cell's text
+    once per position it spans. This walks the ``w:tc`` elements instead: a
+    ``w:gridSpan`` becomes a colspan, and a ``w:vMerge`` continuation adds a row
+    to the cell that restarted the merge above it rather than becoming a cell of
+    its own. Word shows only the restarting cell's content, so a continuation's
+    content is dropped the same way.
+
+    A ``w:gridBefore`` row starts past the table's first grid columns; an empty
+    cell stands in for the skipped columns so the row's cells stay in their own
+    columns instead of sliding left.
+
+    Parameters
+    ----------
+    table : Table
+        DOCX table to read
+
+    Returns
+    -------
+    list[list[_GridCell]]
+        One list per row, holding each cell that row starts
+
+    """
+    from docx.oxml.ns import qn
+    from docx.table import _Cell
+
+    rows: list[list[_GridCell]] = []
+    # Cells whose vertical merge is still open, keyed by starting grid column. A
+    # merge only continues into the row directly below, so each row rebuilds it.
+    open_merges: dict[int, _GridCell] = {}
+    for tr in table._element.tr_lst:
+        cells: list[_GridCell] = []
+        still_open: dict[int, _GridCell] = {}
+        col = tr.grid_before
+        if col:
+            cells.append(_GridCell(cell=None, colspan=col))
+        for tc in tr.tc_lst:
+            span = max(tc.grid_span, 1)
+            tc_pr = tc.tcPr
+            v_merge = tc_pr.find(qn("w:vMerge")) if tc_pr is not None else None
+            # A w:vMerge without w:val continues the merge above, as Word reads it.
+            merge_val = None if v_merge is None else (v_merge.get(qn("w:val")) or "continue")
+            above = open_merges.get(col)
+            if merge_val == "continue" and above is not None:
+                above.rowspan += 1
+                still_open[col] = above
+            else:
+                grid_cell = _GridCell(cell=_Cell(tc, table), colspan=span)
+                cells.append(grid_cell)
+                if merge_val == "restart":
+                    still_open[col] = grid_cell
+            col += span
+        open_merges = still_open
+        rows.append(cells)
+    return rows
+
+
 class DocxToAstConverter(BaseParser):
     """Convert DOCX to AST representation.
 
@@ -368,9 +442,9 @@ class DocxToAstConverter(BaseParser):
                 children.append(table_node)
         else:
             # Flatten table to paragraphs
-            for row in block.rows:
-                for cell in row.cells:
-                    for paragraph in cell.paragraphs:
+            for grid_row in _merged_table_rows(block):
+                for grid_cell in grid_row:
+                    for paragraph in grid_cell.paragraphs:
                         inline_nodes = self._process_paragraph_runs_to_inline(paragraph)
                         if inline_nodes:
                             children.append(AstParagraph(content=inline_nodes))
@@ -1521,30 +1595,21 @@ class DocxToAstConverter(BaseParser):
         if len(table.rows) == 0:
             return None
 
-        # First row is header
-        header_cells: list[TableCell] = []
-        for cell in table.rows[0].cells:
-            cell_content = []
-            for p in cell.paragraphs:
-                inline_nodes = self._process_paragraph_runs_to_inline(p)
-                if inline_nodes:
-                    cell_content.extend(inline_nodes)
-            header_cells.append(TableCell(content=cell_content))
-
-        header_row = TableRow(cells=header_cells, is_header=True)
-
-        # Data rows
-        data_rows: list[TableRow] = []
-        for row in table.rows[1:]:
-            row_cells: list[TableCell] = []
-            for cell in row.cells:
-                cell_content = []
-                for p in cell.paragraphs:
+        rows: list[TableRow] = []
+        for grid_row in _merged_table_rows(table):
+            cells: list[TableCell] = []
+            for grid_cell in grid_row:
+                cell_content: list[Node] = []
+                for p in grid_cell.paragraphs:
                     inline_nodes = self._process_paragraph_runs_to_inline(p)
                     if inline_nodes:
                         cell_content.extend(inline_nodes)
-                row_cells.append(TableCell(content=cell_content))
-            data_rows.append(TableRow(cells=row_cells))
+                cells.append(TableCell(content=cell_content, colspan=grid_cell.colspan, rowspan=grid_cell.rowspan))
+            rows.append(TableRow(cells=cells))
+
+        # First row is header
+        header_row = TableRow(cells=rows[0].cells, is_header=True)
+        data_rows = rows[1:]
 
         return AstTable(header=header_row, rows=data_rows)
 

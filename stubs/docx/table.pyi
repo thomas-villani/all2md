@@ -61,6 +61,7 @@ class _Row:
 class _Cell:
     """Represents a table cell."""
 
+    def __init__(self, tc: Any, parent: Any) -> None: ...
     @property
     def text(self) -> str:
         """Plain text content of the cell."""
