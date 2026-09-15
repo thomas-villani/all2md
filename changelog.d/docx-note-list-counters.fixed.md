@@ -1,0 +1,1 @@
+- A numbered list that continues from one DOCX footnote into the next now keeps counting, as Word does (`3.`, `4.` in the second note), instead of restarting at `1.`. Footnotes and endnotes count their lists separately from the document body.

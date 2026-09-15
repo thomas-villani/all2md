@@ -1823,14 +1823,22 @@ class DocxToAstConverter(BaseParser):
             if element is None:
                 return
 
-            for note in element.findall(f".//{WORD_TAG_PREFIX}{tag_name}"):
-                note_id = note.get(WORD_ID_ATTR)
-                if note_id in {"-1", "0"}:
-                    continue
+            # Word counts a list continuously from one note to the next, and apart from the
+            # body: one numId running through two footnotes prints 1. 2. and then 3. 4.,
+            # while a body list on the same numId still starts at 1. So the notes of a part
+            # share one set of counters, and the body's are set aside meanwhile.
+            saved_counters, self._list_counters = self._list_counters, None
+            try:
+                for note in element.findall(f".//{WORD_TAG_PREFIX}{tag_name}"):
+                    note_id = note.get(WORD_ID_ATTR)
+                    if note_id in {"-1", "0"}:
+                        continue
 
-                content_nodes = self._build_note_definition_content(note, note_part, doc)
-                if content_nodes:
-                    collector.register_definition(f"{id_prefix}{note_id}", content_nodes, note_type=note_type)
+                    content_nodes = self._build_note_definition_content(note, note_part, doc)
+                    if content_nodes:
+                        collector.register_definition(f"{id_prefix}{note_id}", content_nodes, note_type=note_type)
+            finally:
+                self._list_counters = saved_counters
         except (AttributeError, KeyError) as exc:
             logger.debug(f"Could not access {note_type}s (missing element): {exc}")
 
@@ -1904,17 +1912,17 @@ class DocxToAstConverter(BaseParser):
 
         A note body is read the way the document body is. Its runs go through the same
         run reader, so formatting, links and maths survive, and its numbered or bulleted
-        paragraphs become lists. The body's list stack and counters are set aside while
-        a note is read and restored afterwards. Each note counts its lists from the
-        start; that is an assumption, not yet checked against Word.
+        paragraphs become lists. Each note gets a list stack of its own, since a list
+        cannot run from one note into the next. The counters are the caller's, shared by
+        every note in the part, because Word's numbering does run on from note to note
+        (see :meth:`_process_notes`).
         """
         from docx.text.paragraph import Paragraph
 
         story = cast(Any, _NoteStory(note_part, doc.part))
         numbering_defs = self._numbering_definitions(doc)
         content_nodes: list[Node] = []
-        saved_stack, saved_counters = self._list_stack, self._list_counters
-        self._list_stack, self._list_counters = [], None
+        saved_stack, self._list_stack = self._list_stack, []
         try:
             for index, paragraph_element in enumerate(note_element.findall(f".//{WORD_PARAGRAPH_TAG}")):
                 if not hasattr(paragraph_element, "r_lst"):
@@ -1951,7 +1959,7 @@ class DocxToAstConverter(BaseParser):
             if finished:
                 content_nodes.append(finished)
         finally:
-            self._list_stack, self._list_counters = saved_stack, saved_counters
+            self._list_stack = saved_stack
         return content_nodes
 
     def _extract_inline_nodes_from_xml(self, paragraph_element: Any) -> list[Node]:
