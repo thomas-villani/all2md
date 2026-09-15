@@ -924,7 +924,13 @@ class TestNoteBodies:
     # numId 5 is python-docx's "List Number" definition.
     NUMBERED = '<w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="5"/></w:numPr></w:pPr>'
 
-    def _note_doc(self, body: str, link: str | None = None) -> "docx.document.Document":
+    def _note_doc(
+        self,
+        body: str,
+        link: str | None = None,
+        second: str | None = None,
+        body_list: bool = False,
+    ) -> "docx.document.Document":
         from docx.opc.constants import RELATIONSHIP_TYPE as RT
         from docx.opc.packuri import PackURI
         from docx.opc.part import Part
@@ -932,9 +938,15 @@ class TestNoteBodies:
         from docx.oxml.ns import qn
 
         doc = docx.Document()
-        reference = OxmlElement("w:footnoteReference")
-        reference.set(qn("w:id"), "1")
-        doc.add_paragraph("Host sentence.").add_run()._r.append(reference)
+        if body_list:
+            # "List Number" carries numId 5 by style: the same definition as NUMBERED.
+            doc.add_paragraph("Body one", style="List Number")
+            doc.add_paragraph("Body two", style="List Number")
+        notes = {"1": body} if second is None else {"1": body, "2": second}
+        for note_id in notes:
+            reference = OxmlElement("w:footnoteReference")
+            reference.set(qn("w:id"), note_id)
+            doc.add_paragraph(f"Host sentence {note_id}.").add_run()._r.append(reference)
 
         part = Part(
             PackURI("/word/footnotes.xml"),
@@ -943,11 +955,13 @@ class TestNoteBodies:
             doc.part.package,
         )
         if link is not None:
-            body = body.replace("RID", part.relate_to(link, RT.HYPERLINK, is_external=True))
+            rid = part.relate_to(link, RT.HYPERLINK, is_external=True)
+            notes = {note_id: xml.replace("RID", rid) for note_id, xml in notes.items()}
         part._blob = (
             f'<w:footnotes xmlns:w="{self.W}" xmlns:r="{self.R}">'
             '<w:footnote w:type="separator" w:id="-1"><w:p><w:r><w:separator/></w:r></w:p></w:footnote>'
-            f'<w:footnote w:id="1">{body}</w:footnote></w:footnotes>'
+            + "".join(f'<w:footnote w:id="{note_id}">{xml}</w:footnote>' for note_id, xml in notes.items())
+            + "</w:footnotes>"
         ).encode()
         doc.part.relate_to(part, RT.FOOTNOTES)
         buffer = io.BytesIO()
@@ -1011,6 +1025,32 @@ class TestNoteBodies:
         assert [type(block).__name__ for block in content] == ["Paragraph", "List", "Paragraph"]
         assert content[1].ordered and len(content[1].items) == 2
         assert self._markdown(doc) == "[^1]: Steps:\n\n    1. First\n    2. Second\n\n    Closing."
+
+    def _two_numbered_notes(self, body_list: bool = False) -> "docx.document.Document":
+        steps = f"<w:p>{self.NUMBERED}<w:r><w:t>Step</w:t></w:r></w:p>" * 2
+        return self._note_doc(
+            f"<w:p>{self.MARK}<w:r><w:t>One.</w:t></w:r></w:p>{steps}",
+            second=f"<w:p>{self.MARK}<w:r><w:t>Two.</w:t></w:r></w:p>{steps}",
+            body_list=body_list,
+        )
+
+    @staticmethod
+    def _note_list_starts(doc: Any) -> list[int]:
+        converter = DocxToAstConverter(options=DocxOptions(include_comments=False))
+        definitions = extract_nodes(converter.convert_to_ast(doc), FootnoteDefinition)
+        return [block.start for definition in definitions for block in definition.content if isinstance(block, List)]
+
+    def test_a_list_continues_from_one_note_into_the_next(self) -> None:
+        # Measured in Word: one numId through two footnotes prints 1. 2. and then 3. 4.
+        assert self._note_list_starts(self._two_numbered_notes()) == [1, 3]
+
+    def test_a_body_list_on_the_same_numbering_does_not_move_the_notes(self) -> None:
+        # Measured in Word: the notes count apart from the body, which still starts at 1.
+        doc = self._two_numbered_notes(body_list=True)
+        assert self._note_list_starts(doc) == [1, 3]
+        converter = DocxToAstConverter(options=DocxOptions(include_comments=False))
+        body_lists = [node for node in converter.convert_to_ast(doc).children if isinstance(node, List)]
+        assert [body_list.start for body_list in body_lists] == [1]
 
     @pytest.mark.parametrize(
         ("policy", "present", "absent"),
