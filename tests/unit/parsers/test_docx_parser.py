@@ -1122,3 +1122,121 @@ class TestTitleRoundTrip:
         # The title must not have decayed into body text, nor Section into an H1.
         assert "\nTitle\n" not in rendered
         assert "\n# Section" not in rendered
+
+
+@pytest.mark.unit
+class TestTableCellLists:
+    """Numbered and bulleted paragraphs inside a table cell."""
+
+    @staticmethod
+    def _doc_with_numbering() -> docx.document.Document:
+        from docx.oxml.ns import nsdecls
+
+        w = nsdecls("w")
+        doc = docx.Document()
+        numbering = doc.part.numbering_part.element
+        numbering.insert(
+            0,
+            parse_xml(
+                f'<w:abstractNum {w} w:abstractNumId="90">'
+                '<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/></w:lvl>'
+                '<w:lvl w:ilvl="1"><w:start w:val="1"/><w:numFmt w:val="lowerLetter"/><w:lvlText w:val="(%2)"/></w:lvl>'
+                "</w:abstractNum>"
+            ),
+        )
+        numbering.insert(
+            1,
+            parse_xml(
+                f'<w:abstractNum {w} w:abstractNumId="91">'
+                '<w:lvl w:ilvl="0"><w:numFmt w:val="bullet"/><w:lvlText w:val="•"/></w:lvl>'
+                "</w:abstractNum>"
+            ),
+        )
+        numbering.append(parse_xml(f'<w:num {w} w:numId="90"><w:abstractNumId w:val="90"/></w:num>'))
+        numbering.append(parse_xml(f'<w:num {w} w:numId="91"><w:abstractNumId w:val="91"/></w:num>'))
+        return doc
+
+    @staticmethod
+    def _list_paragraph(container, text: str, num_id: int = 90, ilvl: int = 0) -> None:
+        from docx.oxml.ns import nsdecls
+
+        paragraph = container.add_paragraph(text)
+        paragraph._p.get_or_add_pPr().insert(
+            0,
+            parse_xml(f'<w:numPr {nsdecls("w")}><w:ilvl w:val="{ilvl}"/><w:numId w:val="{num_id}"/></w:numPr>'),
+        )
+
+    def _cell(self) -> tuple[docx.document.Document, "docx.table._Cell"]:
+        doc = self._doc_with_numbering()
+        table = doc.add_table(rows=2, cols=1)
+        table.cell(0, 0).text = "Obligation"
+        return doc, table.cell(1, 0)
+
+    @staticmethod
+    def _markdown(doc: docx.document.Document, **options: bool) -> str:
+        ast_doc = DocxToAstConverter(options=DocxOptions(**options)).convert_to_ast(doc)
+        return MarkdownRenderer().render_to_string(ast_doc)
+
+    def test_cell_paragraphs_are_separate_lines(self) -> None:
+        """Paragraphs of one cell are joined by a line break, not run together."""
+        doc, cell = self._cell()
+        cell.paragraphs[0].text = "first"
+        cell.add_paragraph("second")
+
+        assert "| first<br>second |" in self._markdown(doc)
+
+    def test_numbered_paragraphs_in_a_cell_keep_their_numbers(self) -> None:
+        """A numbered clause inside a cell keeps its number on its own line."""
+        doc, cell = self._cell()
+        cell.paragraphs[0].text = "The Supplier shall:"
+        self._list_paragraph(cell, "deliver the goods")
+        self._list_paragraph(cell, "invoice monthly")
+
+        assert "| The Supplier shall:<br>1. deliver the goods<br>2. invoice monthly |" in self._markdown(doc)
+
+    def test_nested_level_counts_from_one_under_each_parent(self) -> None:
+        """A deeper level restarts its count whenever a shallower item intervenes."""
+        doc, cell = self._cell()
+        cell.paragraphs[0].text = ""
+        self._list_paragraph(cell, "a")
+        self._list_paragraph(cell, "b", ilvl=1)
+        self._list_paragraph(cell, "c", ilvl=1)
+        self._list_paragraph(cell, "d")
+        self._list_paragraph(cell, "e", ilvl=1)
+
+        assert "| 1. a<br>1. b<br>2. c<br>2. d<br>1. e |" in self._markdown(doc)
+
+    def test_bulleted_paragraph_in_a_cell_keeps_a_bullet(self) -> None:
+        """A bullet paragraph inside a cell is marked with the bullet Word prints."""
+        doc, cell = self._cell()
+        cell.paragraphs[0].text = "Notes:"
+        self._list_paragraph(cell, "one", num_id=91)
+
+        assert "| Notes:<br>• one |" in self._markdown(doc)
+
+    def test_flattened_cell_list_is_a_list_closed_by_the_cell(self) -> None:
+        """With tables flattened, a cell's numbered paragraphs form a list that ends with the cell."""
+        doc = self._doc_with_numbering()
+        table = doc.add_table(rows=1, cols=2)
+        first, second = table.cell(0, 0), table.cell(0, 1)
+        first.paragraphs[0].text = "The Supplier shall:"
+        self._list_paragraph(first, "deliver the goods")
+        self._list_paragraph(first, "invoice monthly")
+        second.text = "next cell"
+
+        ast_doc = DocxToAstConverter(options=DocxOptions(preserve_tables=False)).convert_to_ast(doc)
+
+        assert [type(child) for child in ast_doc.children] == [Paragraph, List, Paragraph]
+        assert len(ast_doc.children[1].items) == 2
+
+    def test_body_list_before_a_table_stays_ahead_of_it(self) -> None:
+        """A list that runs up to a table is emitted before the table, not after it."""
+        doc = self._doc_with_numbering()
+        self._list_paragraph(doc, "body item one")
+        self._list_paragraph(doc, "body item two")
+        doc.add_table(rows=1, cols=1).cell(0, 0).text = "cell"
+        doc.add_paragraph("After the table.")
+
+        ast_doc = DocxToAstConverter().convert_to_ast(doc)
+
+        assert [type(child) for child in ast_doc.children] == [List, Table, Paragraph]
