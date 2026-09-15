@@ -108,6 +108,16 @@ def run_step(session: WordSession, step: dict[str, Any]) -> Any:
         occurrence = step.get("occurrence", 0)
         anchor = hits[occurrence]["anchor_id"]
         return session.wl("style", "apply", "--anchor-id", anchor, "--name", step["style"])
+    if kind == "find_wl":
+        # Find, then run any wordlive verb on the hit: an ``{anchor}`` argument becomes
+        # the found range. A ``para:N`` anchor spans the paragraph mark, so a note placed
+        # after one lands at the START of the next paragraph; a found range ends where
+        # the text does. The offset-space rule above applies here too.
+        hits = session.wl("find", "--text", step["find"])
+        if not hits:
+            raise RuntimeError(f"find {step['find']!r} matched nothing")
+        anchor = hits[step.get("occurrence", 0)]["anchor_id"]
+        return session.wl(*[anchor if arg == "{anchor}" else arg for arg in step["args"]])
     if kind == "list_style_add":
         return session.add_list_style(
             step["name"],

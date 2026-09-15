@@ -145,7 +145,15 @@ A case is one JSON file at `cases/<family>/<case>.json`:
 `steps` run in order. A step is a `wordlive` invocation (`{"kind": "wl", "args": [...],
 "stdin": "..."}`), an `exec` batch (`{"kind": "ops", "ops": [...], "tracked": true}`),
 or one of the driver hatches for what `wordlive` has no verb for: `style_add`,
-`link_list_style`, `find_style`.
+`link_list_style`, `find_style`, `find_wl`.
+
+`find_wl` finds text, then runs any `wordlive` verb with `{anchor}` replaced by the
+found range (`{"kind": "find_wl", "find": "...", "args": ["insert-footnote",
+"--anchor-id", "{anchor}", "--text", "..."]}`). Use it to put something right after a
+sentence. **A `para:N` anchor spans the paragraph mark**, so a note inserted `--after`
+one lands at the start of the *next* paragraph; the notes control case carried that
+defect until 2026-09-15. Insert later-positioned items first, because `find` offsets
+are visible-text space and every note mark before the target shifts Word Range space.
 
 `verify` is **not optional**. Each rule counts regex matches in one part of the *saved*
 file and fails the case outside `min`/`max`. It is the reason a truth record can be
