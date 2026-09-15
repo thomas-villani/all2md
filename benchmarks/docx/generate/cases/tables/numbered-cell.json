@@ -1,0 +1,39 @@
+{
+  "description": "Numbered paragraphs inside a table cell. A Markdown table cell cannot hold a list, so the numbers Word prints have to travel with the text or the steps lose their order.",
+  "steps": [
+    {
+      "kind": "wl",
+      "args": ["insert-markdown", "--anchor-id", "start", "--markdown", "-"],
+      "stdin": "# Cell Steps\n\nIntro paragraph.\n"
+    },
+    {
+      "kind": "wl",
+      "args": ["table", "create", "--anchor-id", "para:2", "--rows", "2", "--cols", "2", "--header", "--data", "-"],
+      "stdin": "[[\"Task\",\"Steps\"],[\"Deploy\",\"Build the image\\nRoll it out\"]]"
+    },
+    {
+      "kind": "wl",
+      "args": ["list", "apply", "--anchor-id", "table:1:2:2", "--type", "numbered"]
+    },
+    {
+      "kind": "expect_list",
+      "strings": {"table:1:2:2": "1."}
+    }
+  ],
+  "verify": [
+    {"part": "word/document.xml", "pattern": "<w:tc>", "min": 4, "max": 4},
+    {"part": "word/document.xml", "pattern": "<w:numPr>", "min": 2, "max": 2}
+  ],
+  "facts": {
+    "table": {
+      "grid_columns": 2,
+      "rows": 2,
+      "header_row": ["Task", "Steps"],
+      "cell_lists": [
+        {"row": 2, "col": 2, "items": ["Build the image", "Roll it out"], "markers": ["1.", "2."]}
+      ]
+    }
+  },
+  "family": "tables",
+  "control": false
+}

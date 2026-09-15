@@ -220,6 +220,20 @@ def check_numbering(case: Case, out: str) -> list[Finding]:
                     f"first marker {got}, Word starts at {spec['start']}",
                 )
             )
+    if "sequence" in spec:
+        # Every number the list prints, in order. A continuation after an interrupting
+        # paragraph that restarts at 1, or a restart that keeps counting, still has
+        # every item present and every marker ordered -- only the sequence shows it.
+        numbers = [int(number) for number in _ORDERED.findall(out)]
+        findings.append(
+            Finding(
+                case.case_id,
+                case.family,
+                "prints Word's numbers",
+                numbers == spec["sequence"],
+                f"printed {numbers}, Word prints {spec['sequence']}",
+            )
+        )
     return findings
 
 
@@ -303,13 +317,33 @@ def check_tables(case: Case, out: str) -> list[Finding]:
         # A spanned cell holds its text once. Emitting it once per spanned column is
         # the duplication defect, and is visible as a repeat count.
         count = " ".join(out.split()).count(merge["text"])
+        span = f"colspan {merge['colspan']}" if "colspan" in merge else f"rowspan {merge['rowspan']}"
         findings.append(
             Finding(
                 case.case_id,
                 case.family,
                 "merged cell not duplicated",
                 count == 1,
-                f"{merge['text']!r} appears {count}x (colspan {merge['colspan']}, expected 1x)",
+                f"{merge['text']!r} appears {count}x ({span}, expected 1x)",
+            )
+        )
+    rows = [_UNESCAPE.sub("", line) for line in out.splitlines() if line.lstrip().startswith("|")]
+    for cell in table.get("cell_lists", []):
+        # A Markdown table cell cannot hold a list, so the number has to be printed
+        # with the step, in the table row that holds it. Steps present without their
+        # numbers have lost the order the document gives them.
+        unnumbered = [
+            f"{marker} {item}"
+            for marker, item in zip(cell["markers"], cell["items"], strict=False)
+            if not any(f"{marker} {item}" in row for row in rows)
+        ]
+        findings.append(
+            Finding(
+                case.case_id,
+                case.family,
+                "cell list numbered",
+                not unnumbered,
+                "all numbered in their row" if not unnumbered else f"absent from every table row: {unnumbered!r}",
             )
         )
     return findings
@@ -335,10 +369,110 @@ def check_sdt(case: Case, out: str) -> list[Finding]:
 
 def check_notes(case: Case, out: str) -> list[Finding]:
     findings = []
+    # The body check is about the words; emphasis inside them is checked on its own.
+    plain = out.replace("**", "")
     for note in case.facts.get("notes", []):
-        findings.append(
-            Finding(case.case_id, case.family, f"{note['type']} body", _present(note["text"], out), repr(note["text"]))
-        )
+        present = _present(note["text"], plain)
+        findings.append(Finding(case.case_id, case.family, f"{note['type']} body", present, repr(note["text"])))
+        if note.get("bold"):
+            bold = f"**{note['bold']}**" in out
+            detail = repr(note["bold"]) + ("" if bold else " not bold")
+            findings.append(Finding(case.case_id, case.family, "note bold kept", bold, detail))
+        if note.get("list"):
+            # Word counts a list continuously from one note into the next, so the
+            # second note's items print 3. and 4.; restarting per note would print 1.
+            # again with every item still present.
+            unprinted = [f"{marker} {item}" for marker, item in note["list"] if not _present(f"{marker} {item}", out)]
+            findings.append(
+                Finding(
+                    case.case_id,
+                    case.family,
+                    "note list numbers",
+                    not unprinted,
+                    "all printed" if not unprinted else f"absent: {unprinted!r}",
+                )
+            )
+    return findings
+
+
+#: The id a printed comment carries, and the id a reply names as its parent.
+_COMMENT_ID = re.compile(r"^<!-- (?:Comment|Reply) (\S+)")
+_REPLY_PARENT = re.compile(r" to (\S+) by ")
+
+
+def check_comments(case: Case, out: str) -> list[Finding]:
+    """Comments are opt-in, so the pinned profile must print the prose and no review notes."""
+    facts = case.facts
+    missing = [t for t in facts.get("body", []) if not _present(t, out)]
+    leaked = [c["text"] for c in facts.get("comments", []) if _present(c["text"], out)]
+    return [
+        Finding(
+            case.case_id,
+            case.family,
+            "commented text present",
+            not missing,
+            "all present" if not missing else f"absent: {missing!r}",
+        ),
+        Finding(
+            case.case_id,
+            case.family,
+            "comments withheld",
+            not leaked,
+            "none printed by default" if not leaked else f"printed without include_comments: {leaked!r}",
+        ),
+    ]
+
+
+def check_comment_threads(case: Case, alternates: dict[str, str]) -> list[Finding]:
+    """With comments included: every comment printed, replies threaded, resolved state kept.
+
+    The thread and the resolved flag live in ``commentsExtended.xml``, a different part
+    from the comment bodies, so a reader of ``comments.xml`` alone prints every comment
+    as an unresolved root and every body check still passes.
+    """
+    shown = alternates.get("included")
+    if shown is None:
+        return []
+    comments = case.facts.get("comments", [])
+    printed = [line for line in shown.splitlines() if line.startswith("<!--")]
+    lines = [next((line for line in printed if c["text"] in line), None) for c in comments]
+    findings = []
+    for comment, line in zip(comments, lines, strict=True):
+        label = repr(comment["text"])
+        if line is None:
+            findings.append(Finding(case.case_id, case.family, "comment printed", False, f"{label} absent"))
+            continue
+        parent = comment.get("reply_to")
+        if parent is None:
+            threaded = line.startswith("<!-- Comment ")
+            detail = f"{label} " + ("printed as a thread root" if threaded else "printed as a reply, but is a root")
+        else:
+            parent_line = lines[parent]
+            parent_id = _COMMENT_ID.match(parent_line) if parent_line else None
+            names = _REPLY_PARENT.search(line)
+            threaded = bool(
+                line.startswith("<!-- Reply ") and parent_id and names and names.group(1) == parent_id.group(1)
+            )
+            detail = f"{label} " + ("names its parent" if threaded else "is not threaded under its parent")
+        findings.append(Finding(case.case_id, case.family, "reply threaded", threaded, detail))
+        resolved = "[resolved]" in line
+        wanted = bool(comment.get("resolved"))
+        state = f"{label} {'resolved' if resolved else 'open'}"
+        if resolved != wanted:
+            state += f", Word says {'resolved' if wanted else 'open'}"
+        findings.append(Finding(case.case_id, case.family, "resolved state", resolved == wanted, state))
+        anchored = comment.get("anchored_text")
+        if anchored:
+            named = f'on "{anchored}"' in line
+            findings.append(
+                Finding(
+                    case.case_id,
+                    case.family,
+                    "commented text named",
+                    named,
+                    f"{label} on {anchored!r}" + ("" if named else " -- not named"),
+                )
+            )
     return findings
 
 
@@ -417,21 +551,24 @@ CHECKS: dict[str, Callable[[Case, str], list[Finding]]] = {
     "tables": check_tables,
     "sdt": check_sdt,
     "notes": check_notes,
+    "comments": check_comments,
     "baseline": check_baseline,
 }
 
 
 #: Extra conversions a family needs beyond the one pinned profile, as option
-#: overrides. Only revision handling has more than one right answer, so only the
-#: tracked family declares any -- the corpus records all three resolutions and
-#: scoring one of them would leave the other two free to rot.
+#: overrides. Revision handling has more than one right answer -- the corpus records
+#: all three resolutions and scoring one of them would leave the other two free to
+#: rot. Comments are opt-in, so the pinned profile cannot see them at all.
 EXTRA_PROFILES: dict[str, dict[str, dict[str, Any]]] = {
     "tracked": {"reject": {"revisions": "reject"}, "mark": {"revisions": "mark"}},
+    "comments": {"included": {"include_comments": True}},
 }
 
 #: The checks that read those extra conversions.
 RESOLUTION_CHECKS: dict[str, Callable[[Case, dict[str, str]], list[Finding]]] = {
     "tracked": check_tracked_resolutions,
+    "comments": check_comment_threads,
 }
 
 

@@ -118,6 +118,30 @@ def run_step(session: WordSession, step: dict[str, Any]) -> Any:
             raise RuntimeError(f"find {step['find']!r} matched nothing")
         anchor = hits[step.get("occurrence", 0)]["anchor_id"]
         return session.wl(*[anchor if arg == "{anchor}" else arg for arg in step["args"]])
+    if kind == "expect_list":
+        # The label Word prints is the truth a numbering fact records, so Word is asked
+        # before the save instead of the case asserting it. `list restart` on a
+        # `para:N` anchor restarted the FOLLOWING paragraph, and only this caught it.
+        wrong = []
+        for anchor, wanted in step["strings"].items():
+            printed = session.wl("list", "info", "--anchor-id", anchor).get("string")
+            if printed != wanted:
+                wrong.append(f"{anchor}: Word prints {printed!r}, the case expects {wanted!r}")
+        if wrong:
+            raise RuntimeError("list labels differ:\n  " + "\n  ".join(wrong))
+        return None
+    if kind == "comment_reply":
+        return session.comment_reply(step["index"], step["text"])
+    if kind == "note_list":
+        return session.note_list(
+            step["note"],
+            step["lead"],
+            step["items"],
+            kind=step.get("note_type", "footnote"),
+            continue_previous=step.get("continue", False),
+            bold=step.get("bold"),
+            expect=step.get("expect"),
+        )
     if kind == "list_style_add":
         return session.add_list_style(
             step["name"],

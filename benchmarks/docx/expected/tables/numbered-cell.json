@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "case_id": "tables/numbered-cell",
+  "family": "tables",
+  "description": "Numbered paragraphs inside a table cell. A Markdown table cell cannot hold a list, so the numbers Word prints have to travel with the text or the steps lose their order.",
+  "control": false,
+  "facts": {
+    "table": {
+      "grid_columns": 2,
+      "rows": 2,
+      "header_row": [
+        "Task",
+        "Steps"
+      ],
+      "cell_lists": [
+        {
+          "row": 2,
+          "col": 2,
+          "items": [
+            "Build the image",
+            "Roll it out"
+          ],
+          "markers": [
+            "1.",
+            "2."
+          ]
+        }
+      ]
+    }
+  },
+  "positional": [
+    {
+      "index": 1,
+      "anchor_id": "para:1",
+      "start": 0,
+      "end": 11,
+      "style": "Heading 1",
+      "range_text": "Cell Steps"
+    },
+    {
+      "index": 2,
+      "anchor_id": "para:2",
+      "start": 11,
+      "end": 28,
+      "style": "Normal",
+      "range_text": "Intro paragraph."
+    },
+    {
+      "index": 3,
+      "anchor_id": "para:3",
+      "start": 28,
+      "end": 33,
+      "style": "Table Grid",
+      "range_text": "Task"
+    },
+    {
+      "index": 4,
+      "anchor_id": "para:4",
+      "start": 33,
+      "end": 39,
+      "style": "Table Grid",
+      "range_text": "Steps"
+    },
+    {
+      "index": 5,
+      "anchor_id": "para:5",
+      "start": 39,
+      "end": 40,
+      "style": "Table Grid",
+      "range_text": ""
+    },
+    {
+      "index": 6,
+      "anchor_id": "para:6",
+      "start": 40,
+      "end": 47,
+      "style": "Table Grid",
+      "range_text": "Deploy"
+    },
+    {
+      "index": 7,
+      "anchor_id": "para:7",
+      "start": 47,
+      "end": 63,
+      "style": "List Paragraph",
+      "range_text": "Build the image"
+    },
+    {
+      "index": 8,
+      "anchor_id": "para:8",
+      "start": 63,
+      "end": 75,
+      "style": "List Paragraph",
+      "range_text": "Roll it out"
+    },
+    {
+      "index": 9,
+      "anchor_id": "para:9",
+      "start": 75,
+      "end": 76,
+      "style": "Table Grid",
+      "range_text": ""
+    },
+    {
+      "index": 10,
+      "anchor_id": "para:10",
+      "start": 76,
+      "end": 77,
+      "style": "Normal",
+      "range_text": ""
+    },
+    {
+      "index": 11,
+      "anchor_id": "para:11",
+      "start": 77,
+      "end": 78,
+      "style": "Normal",
+      "range_text": ""
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "case_id": "numbering/legal-outline",
+  "family": "numbering",
+  "description": "A legal outline: one multi-level list printing 1. / 1.1 / (a). Markdown list syntax cannot print 1.1 or (a), so the labels Word shows are written out with the text.",
+  "control": false,
+  "facts": {
+    "list": {
+      "ordered": true,
+      "numfmt": "decimal, decimal, lowerLetter",
+      "numpr_on": "paragraph",
+      "items": [
+        "Scope of the agreement",
+        "Definitions used",
+        "The first term",
+        "The second term",
+        "Remedies available"
+      ],
+      "rendered_markers": [
+        "1.",
+        "1.1",
+        "(a)",
+        "(b)",
+        "2."
+      ]
+    }
+  },
+  "positional": [
+    {
+      "index": 1,
+      "anchor_id": "para:1",
+      "start": 0,
+      "end": 23,
+      "style": "List Paragraph",
+      "range_text": "Scope of the agreement"
+    },
+    {
+      "index": 2,
+      "anchor_id": "para:2",
+      "start": 23,
+      "end": 40,
+      "style": "List Paragraph",
+      "range_text": "Definitions used"
+    },
+    {
+      "index": 3,
+      "anchor_id": "para:3",
+      "start": 40,
+      "end": 55,
+      "style": "List Paragraph",
+      "range_text": "The first term"
+    },
+    {
+      "index": 4,
+      "anchor_id": "para:4",
+      "start": 55,
+      "end": 71,
+      "style": "List Paragraph",
+      "range_text": "The second term"
+    },
+    {
+      "index": 5,
+      "anchor_id": "para:5",
+      "start": 71,
+      "end": 90,
+      "style": "List Paragraph",
+      "range_text": "Remedies available"
+    },
+    {
+      "index": 6,
+      "anchor_id": "para:6",
+      "start": 90,
+      "end": 107,
+      "style": "Normal",
+      "range_text": "Spare paragraph."
+    }
+  ]
+}

@@ -145,7 +145,21 @@ A case is one JSON file at `cases/<family>/<case>.json`:
 `steps` run in order. A step is a `wordlive` invocation (`{"kind": "wl", "args": [...],
 "stdin": "..."}`), an `exec` batch (`{"kind": "ops", "ops": [...], "tracked": true}`),
 or one of the driver hatches for what `wordlive` has no verb for: `style_add`,
-`link_list_style`, `find_style`, `find_wl`.
+`link_list_style`, `find_style`, `find_wl`, `expect_list`, `comment_reply`, `note_list`.
+
+`expect_list` asks Word for the label it prints at each anchor (`{"kind": "expect_list",
+"strings": {"para:1": "1.", "para:2": ""}}`) and fails the case before saving when any
+differs. A numbering fact is only as good as that label, and this is what caught
+**`list restart` restarting the paragraph *after* its anchor**, measured on both a
+`para:N` anchor and a found range. Restart a list by applying the numbering without
+`--continue` instead.
+
+`comment_reply` answers comment `index` (document order). `note_list` sets a note's
+text to a lead paragraph plus items and numbers the items, applying one shared list
+template so `"continue": true` carries the count into the next note; it takes `bold`
+and `expect` too. **`Document.Range()` addresses only the main story**: a range built
+from a note paragraph's offsets numbers the *body* paragraphs at those offsets, so the
+hatch ranges from the note's own `Range`.
 
 `find_wl` finds text, then runs any `wordlive` verb with `{anchor}` replaced by the
 found range (`{"kind": "find_wl", "find": "...", "args": ["insert-footnote",

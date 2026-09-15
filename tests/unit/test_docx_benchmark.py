@@ -154,9 +154,109 @@ def test_sdt_ignores_placeholder_content():
 
 
 # ----------------------------------------------------------------------------- notes
+SEQUENCE = {"list": {"ordered": True, "items": ["A", "B", "C"], "sequence": [1, 2, 1]}}
+
+
+def test_numbering_passes_when_word_numbers_are_printed_in_order():
+    assert not failures(make("numbering", SEQUENCE), "1. A\n2. B\n\nBreak.\n\n1) C\n")
+
+
+def test_numbering_flags_a_restart_that_kept_counting():
+    assert failures(make("numbering", SEQUENCE), "1. A\n2. B\n\nBreak.\n\n3. C\n") == ["prints Word's numbers"]
+
+
+CELL_LIST = {
+    "table": {
+        "header_row": ["Task", "Steps"],
+        "cell_lists": [{"row": 2, "col": 2, "items": ["Build", "Ship"], "markers": ["1.", "2."]}],
+    }
+}
+
+
+def test_tables_pass_when_cell_steps_keep_their_numbers():
+    out = "| Task | Steps |\n|---|---|\n| Deploy | 1\\. Build<br>2\\. Ship |\n"
+    assert not failures(make("tables", CELL_LIST), out)
+
+
+def test_tables_flag_cell_steps_that_lost_their_numbers():
+    out = "| Task | Steps |\n|---|---|\n| Deploy | Build<br>Ship |\n"
+    assert failures(make("tables", CELL_LIST), out) == ["cell list numbered"]
+
+
+def test_tables_flag_numbers_printed_outside_the_table():
+    out = "| Task | Steps |\n|---|---|\n| Deploy | |\n\n1. Build\n2. Ship\n"
+    assert failures(make("tables", CELL_LIST), out) == ["cell list numbered"]
+
+
+# ----------------------------------------------------------------------------- notes
 def test_notes_flags_a_dropped_footnote_body():
     case = make("notes", {"notes": [{"type": "footnote", "text": "The body."}]})
     assert "footnote body" in failures(case, "just the host paragraph\n")
+
+
+NOTE_LIST = {
+    "notes": [
+        {"type": "footnote", "text": "Steps with a bold word:", "bold": "bold", "list": [["1.", "One"]]},
+        {"type": "footnote", "text": "More:", "list": [["2.", "Two"]]},
+    ]
+}
+
+
+def test_notes_pass_when_a_list_keeps_counting_into_the_next_note():
+    out = "[^1]: Steps with a **bold** word:\n\n    1. One\n\n[^2]: More:\n\n    2. Two\n"
+    assert not failures(make("notes", NOTE_LIST), out)
+
+
+def test_notes_flag_a_list_restarted_in_each_note():
+    out = "[^1]: Steps with a **bold** word:\n\n    1. One\n\n[^2]: More:\n\n    1. Two\n"
+    assert failures(make("notes", NOTE_LIST), out) == ["note list numbers"]
+
+
+def test_notes_flag_lost_bold():
+    out = "[^1]: Steps with a bold word:\n\n    1. One\n\n[^2]: More:\n\n    2. Two\n"
+    assert failures(make("notes", NOTE_LIST), out) == ["note bold kept"]
+
+
+# -------------------------------------------------------------------------- comments
+COMMENTS = {
+    "body": ["The commented sentence."],
+    "comments": [
+        {"text": "Root note.", "anchored_text": "commented sentence", "reply_to": None, "resolved": False},
+        {"text": "A reply.", "reply_to": 0, "resolved": False},
+        {"text": "Done note.", "anchored_text": "commented sentence", "reply_to": None, "resolved": True},
+    ],
+}
+THREADS = (
+    "The commented sentence.\n\n"
+    '<!-- Comment c1 by A (d) on "commented sentence": Root note. -->\n\n'
+    '<!-- Reply c2 to c1 by A (d) on "commented sentence": A reply. -->\n\n'
+    '<!-- Comment c3 by A (d) [resolved] on "commented sentence": Done note. -->\n'
+)
+
+
+def comment_failures(included: str, default: str = "The commented sentence.\n") -> list[str]:
+    return [f.check for f in score_case(make("comments", COMMENTS), default, {"included": included}) if not f.ok]
+
+
+def test_comments_pass_on_threaded_output():
+    assert not comment_failures(THREADS)
+
+
+def test_comments_flag_review_notes_printed_by_default():
+    assert "comments withheld" in comment_failures(THREADS, default=THREADS)
+
+
+def test_comments_flag_a_reply_printed_as_a_root():
+    flat = THREADS.replace("<!-- Reply c2 to c1 by", "<!-- Comment c2 by")
+    assert comment_failures(flat) == ["reply threaded"]
+
+
+def test_comments_flag_a_reply_naming_the_wrong_parent():
+    assert comment_failures(THREADS.replace("to c1 by", "to c3 by")) == ["reply threaded"]
+
+
+def test_comments_flag_a_lost_resolved_state():
+    assert comment_failures(THREADS.replace(" [resolved]", "")) == ["resolved state"]
 
 
 # -------------------------------------------------------------------------- baseline
@@ -192,7 +292,7 @@ def test_an_unknown_family_fails_rather_than_scoring_zero_checks():
 # ---------------------------------------------------------------------------- corpus
 def test_the_committed_corpus_verifies():
     cases = load_corpus()
-    assert len(cases) == 17
+    assert len(cases) == 23
     assert sum(1 for c in cases if c.is_control) == 6
 
 

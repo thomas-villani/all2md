@@ -1,0 +1,39 @@
+{
+  "description": "One numbered list interrupted by a plain paragraph and continuing (4. 5.), then a list restarted at 1. Every item is present and every marker ordered either way, so only the printed sequence shows a lost continuation or a lost restart.",
+  "steps": [
+    {
+      "kind": "wl",
+      "args": ["insert-markdown", "--anchor-id", "start", "--markdown", "-"],
+      "stdin": "Alpha step\n\nBeta step\n\nGamma step\n\nAn interrupting paragraph.\n\nDelta step\n\nEpsilon step\n\nA second interruption.\n\nFresh first\n\nFresh second\n\nSpare paragraph.\n"
+    },
+    {"kind": "wl", "args": ["list", "apply", "--anchor-id", "para:1", "--type", "numbered"]},
+    {"kind": "wl", "args": ["list", "apply", "--anchor-id", "para:2", "--type", "numbered", "--continue"]},
+    {"kind": "wl", "args": ["list", "apply", "--anchor-id", "para:3", "--type", "numbered", "--continue"]},
+    {"kind": "wl", "args": ["list", "apply", "--anchor-id", "para:5", "--type", "numbered", "--continue"]},
+    {"kind": "wl", "args": ["list", "apply", "--anchor-id", "para:6", "--type", "numbered", "--continue"]},
+    {"kind": "wl", "args": ["list", "apply", "--anchor-id", "para:8", "--type", "numbered"]},
+    {"kind": "wl", "args": ["list", "apply", "--anchor-id", "para:9", "--type", "numbered", "--continue"]},
+    {
+      "kind": "expect_list",
+      "strings": {
+        "para:1": "1.", "para:2": "2.", "para:3": "3.", "para:4": "",
+        "para:5": "4.", "para:6": "5.", "para:7": "",
+        "para:8": "1.", "para:9": "2.", "para:10": ""
+      }
+    }
+  ],
+  "verify": [
+    {"part": "word/document.xml", "pattern": "<w:numPr>", "min": 7, "max": 7}
+  ],
+  "facts": {
+    "list": {
+      "ordered": true,
+      "numfmt": "decimal",
+      "numpr_on": "paragraph",
+      "items": ["Alpha step", "Beta step", "Gamma step", "Delta step", "Epsilon step", "Fresh first", "Fresh second"],
+      "sequence": [1, 2, 3, 4, 5, 1, 2]
+    }
+  },
+  "family": "numbering",
+  "control": false
+}

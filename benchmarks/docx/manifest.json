@@ -5,7 +5,7 @@
     "word_version": "16.0",
     "wordlive_version": "wordlive 0.19.0",
     "word_user_name": "all2md corpus",
-    "generated_utc": "2026-09-15T20:01:38+00:00"
+    "generated_utc": "2026-09-15T22:30:13+00:00"
   },
   "cases": [
     {
@@ -27,6 +27,17 @@
       "size_bytes": 13575,
       "generator": "cases/baseline/headings-inline-control.json",
       "expected_sha256": "b1902d926c34780fecec663ef2fac998ebfc770d2454d50aa23f235df99099f4",
+      "resave_stable": true,
+      "resave_failures": []
+    },
+    {
+      "case_id": "comments/reply-resolved",
+      "family": "comments",
+      "path": "corpus/comments/reply-resolved.docx",
+      "sha256": "2458f6ed9c098cf2cbfa85c121af098a26bd1f67e335d36075dbd7c8c3de147b",
+      "size_bytes": 17825,
+      "generator": "cases/comments/reply-resolved.json",
+      "expected_sha256": "bbaca78790bfa8718d58b48a01ec22cc7d0696d10af1e9c9dd7d2e54ebbc20fc",
       "resave_stable": true,
       "resave_failures": []
     },
@@ -97,6 +108,28 @@
       "resave_failures": []
     },
     {
+      "case_id": "notes/list-across-notes",
+      "family": "notes",
+      "path": "corpus/notes/list-across-notes.docx",
+      "sha256": "bbb0cc3e7027e4844202fcbbe7c3b9a4844ceff74995876b4c4ea458084afaca",
+      "size_bytes": 16772,
+      "generator": "cases/notes/list-across-notes.json",
+      "expected_sha256": "217901d149754fb48e545673a2d09414c65ae35fcce774024ac25318f1891371",
+      "resave_stable": true,
+      "resave_failures": []
+    },
+    {
+      "case_id": "numbering/continue-restart",
+      "family": "numbering",
+      "path": "corpus/numbering/continue-restart.docx",
+      "sha256": "9775e50c3cab77ec4c427919d488d231fe261d4953264ce8c08ad6f850069849",
+      "size_bytes": 14707,
+      "generator": "cases/numbering/continue-restart.json",
+      "expected_sha256": "497297ffbf829e412a86276116e97920701902a0f704af6f87fd2b6226d58894",
+      "resave_stable": true,
+      "resave_failures": []
+    },
+    {
       "case_id": "numbering/direct-numbered-control",
       "family": "numbering",
       "path": "corpus/numbering/direct-numbered-control.docx",
@@ -104,6 +137,17 @@
       "size_bytes": 14739,
       "generator": "cases/numbering/direct-numbered-control.json",
       "expected_sha256": "1870e1645a4d880e1bb1eb7dd283db6a86eb8ec45ae57c2dba60a8ff34b3374a",
+      "resave_stable": true,
+      "resave_failures": []
+    },
+    {
+      "case_id": "numbering/legal-outline",
+      "family": "numbering",
+      "path": "corpus/numbering/legal-outline.docx",
+      "sha256": "faa4223bb577fc36f85f1a5bd4a9a530dd5c86f1885eb9cce1b3ffe689f979df",
+      "size_bytes": 14586,
+      "generator": "cases/numbering/legal-outline.json",
+      "expected_sha256": "f3f44edd68eb6a911f8d1abd7802a073d012a698e193af7f0fbfc10d2d664e33",
       "resave_stable": true,
       "resave_failures": []
     },
@@ -163,6 +207,17 @@
       "resave_failures": []
     },
     {
+      "case_id": "tables/numbered-cell",
+      "family": "tables",
+      "path": "corpus/tables/numbered-cell.docx",
+      "sha256": "087fbfb4e95d968a8577dafdc307c661cc1c1d0bcb822d392346f5cb4f9a3704",
+      "size_bytes": 14963,
+      "generator": "cases/tables/numbered-cell.json",
+      "expected_sha256": "b12e3f0c2a35586c97d04c503818077cc2ca3d572ed4dba6067dea17e9346cc6",
+      "resave_stable": true,
+      "resave_failures": []
+    },
+    {
       "case_id": "tables/plain-grid-control",
       "family": "tables",
       "path": "corpus/tables/plain-grid-control.docx",
@@ -170,6 +225,17 @@
       "size_bytes": 13909,
       "generator": "cases/tables/plain-grid-control.json",
       "expected_sha256": "ccf3d23d92ef40c85122e1248c407af2149beabd39c9662646be09fe316558fb",
+      "resave_stable": true,
+      "resave_failures": []
+    },
+    {
+      "case_id": "tables/vertical-merge",
+      "family": "tables",
+      "path": "corpus/tables/vertical-merge.docx",
+      "sha256": "90c996e4402336c5cceb587c770f905b37ce7dbc61b53236ec32cfc670554f2d",
+      "size_bytes": 13937,
+      "generator": "cases/tables/vertical-merge.json",
+      "expected_sha256": "72cefdd6343fa6e79f0f1a886542e60b00e90ba3da45ff27f54411bc75709f6d",
       "resave_stable": true,
       "resave_failures": []
     },

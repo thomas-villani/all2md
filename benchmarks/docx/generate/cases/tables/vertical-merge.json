@@ -1,0 +1,34 @@
+{
+  "description": "A table with a vertically merged cell (w:vMerge restart, then continue). The merged content belongs to the table once, however many rows it spans.",
+  "steps": [
+    {
+      "kind": "wl",
+      "args": ["insert-markdown", "--anchor-id", "start", "--markdown", "-"],
+      "stdin": "# Vertical Merge\n\nIntro paragraph.\n"
+    },
+    {
+      "kind": "wl",
+      "args": ["table", "create", "--anchor-id", "para:2", "--rows", "3", "--cols", "3", "--header", "--data", "-"],
+      "stdin": "[[\"H1\",\"H2\",\"H3\"],[\"spanned down\",\"b\",\"c\"],[\"\",\"e\",\"f\"]]"
+    },
+    {
+      "kind": "wl",
+      "args": ["table", "merge-cells", "--table", "1", "--from", "2:1", "--to", "3:1"]
+    }
+  ],
+  "verify": [
+    {"part": "word/document.xml", "pattern": "<w:vMerge w:val=\"restart\"/>", "min": 1, "max": 1},
+    {"part": "word/document.xml", "pattern": "<w:vMerge/>", "min": 1, "max": 1},
+    {"part": "word/document.xml", "pattern": "<w:gridSpan", "min": 0, "max": 0}
+  ],
+  "facts": {
+    "table": {
+      "grid_columns": 3,
+      "rows": 3,
+      "header_row": ["H1", "H2", "H3"],
+      "merged": [{"row": 2, "col": 1, "rowspan": 2, "text": "spanned down"}]
+    }
+  },
+  "family": "tables",
+  "control": false
+}

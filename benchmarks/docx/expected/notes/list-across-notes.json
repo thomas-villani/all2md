@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "case_id": "notes/list-across-notes",
+  "family": "notes",
+  "description": "Two footnotes, each a lead paragraph and a numbered list on ONE list template, the second continuing the first: Word prints 1. 2. in the first note and 3. 4. in the second. The first note's lead also carries a bold word.",
+  "control": false,
+  "facts": {
+    "notes": [
+      {
+        "type": "footnote",
+        "text": "Steps with a bold word:",
+        "bold": "bold",
+        "list": [
+          [
+            "1.",
+            "First note step"
+          ],
+          [
+            "2.",
+            "Second note step"
+          ]
+        ]
+      },
+      {
+        "type": "footnote",
+        "text": "More steps:",
+        "list": [
+          [
+            "3.",
+            "Third note step"
+          ],
+          [
+            "4.",
+            "Fourth note step"
+          ]
+        ]
+      }
+    ]
+  },
+  "positional": [
+    {
+      "index": 1,
+      "anchor_id": "para:1",
+      "start": 0,
+      "end": 11,
+      "style": "Heading 1",
+      "range_text": "Note Lists"
+    },
+    {
+      "index": 2,
+      "anchor_id": "para:2",
+      "start": 11,
+      "end": 33,
+      "style": "Normal",
+      "range_text": "First host sentence.\u0002"
+    },
+    {
+      "index": 3,
+      "anchor_id": "para:3",
+      "start": 33,
+      "end": 56,
+      "style": "Normal",
+      "range_text": "Second host sentence.\u0002"
+    },
+    {
+      "index": 4,
+      "anchor_id": "para:4",
+      "start": 56,
+      "end": 73,
+      "style": "Normal",
+      "range_text": "Spare paragraph."
+    }
+  ]
+}
