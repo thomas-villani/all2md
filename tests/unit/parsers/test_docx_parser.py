@@ -1204,7 +1204,7 @@ class TestTableCellLists:
         self._list_paragraph(cell, "d")
         self._list_paragraph(cell, "e", ilvl=1)
 
-        assert "| 1. a<br>1. b<br>2. c<br>2. d<br>1. e |" in self._markdown(doc)
+        assert "| 1. a<br>(a) b<br>(b) c<br>2. d<br>(a) e |" in self._markdown(doc)
 
     def test_bulleted_paragraph_in_a_cell_keeps_a_bullet(self) -> None:
         """A bullet paragraph inside a cell is marked with the bullet Word prints."""
@@ -1360,16 +1360,111 @@ class TestListStartAndRestart:
             self._cells._list_paragraph(doc, f"{heading} clause a", ilvl=1)
             self._cells._list_paragraph(doc, f"{heading} clause b", ilvl=1)
 
-        assert [lst.start for lst in self._lists(doc)] == [1, 1]
+        markdown = self._cells._markdown(doc)
+        assert "# 2. Article two" in markdown
+        assert "(a) Article two clause a" in markdown
+        assert "(b) Article two clause b" in markdown
 
     def test_list_opening_deeper_than_what_follows_keeps_its_items(self) -> None:
         """A list whose first items sit at level 2 is not discarded when level 1 arrives."""
-        doc = self._doc()
-        self._cells._list_paragraph(doc, "deep a", ilvl=1)
-        self._cells._list_paragraph(doc, "deep b", ilvl=1)
-        self._cells._list_paragraph(doc, "top c")
+        doc = self._doc(
+            '<w:abstractNum w:abstractNumId="97">'
+            '<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%1."/></w:lvl>'
+            '<w:lvl w:ilvl="1"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%2."/></w:lvl>'
+            "</w:abstractNum>",
+            '<w:num w:numId="97"><w:abstractNumId w:val="97"/></w:num>',
+        )
+        self._cells._list_paragraph(doc, "deep a", num_id=97, ilvl=1)
+        self._cells._list_paragraph(doc, "deep b", num_id=97, ilvl=1)
+        self._cells._list_paragraph(doc, "top c", num_id=97)
 
         markdown = self._cells._markdown(doc)
         assert "deep a" in markdown
         assert "deep b" in markdown
         assert "top c" in markdown
+
+
+class TestNumberedLabels:
+    """Labels Word prints that a Markdown list cannot: ``Article I``, ``1.1``, ``(a)``."""
+
+    _cells = TestTableCellLists
+    _LEGAL = (
+        '<w:abstractNum w:abstractNumId="98">'
+        '<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="upperRoman"/><w:lvlText w:val="Article %1"/></w:lvl>'
+        '<w:lvl w:ilvl="1"><w:start w:val="1"/><w:isLgl/><w:numFmt w:val="lowerRoman"/>'
+        '<w:lvlText w:val="%1.%2"/></w:lvl>'
+        "</w:abstractNum>",
+        '<w:num w:numId="98"><w:abstractNumId w:val="98"/></w:num>',
+    )
+
+    @staticmethod
+    def _numbered(doc: docx.document.Document, text: str, style: str, num_id: int, ilvl: int) -> None:
+        from docx.oxml.ns import nsdecls
+
+        paragraph = doc.add_paragraph(text, style=style)
+        paragraph._p.get_or_add_pPr().insert(
+            0, parse_xml(f'<w:numPr {nsdecls("w")}><w:ilvl w:val="{ilvl}"/><w:numId w:val="{num_id}"/></w:numPr>')
+        )
+
+    def test_numbered_headings_carry_their_labels(self) -> None:
+        """``Article I`` in upper Roman, and a legal ``1.1`` that prints every level in decimal."""
+        doc = TestListStartAndRestart._doc(*self._LEGAL)
+        self._numbered(doc, "Definitions", "Heading 1", 98, 0)
+        self._numbered(doc, "Scope", "Heading 2", 98, 1)
+        self._numbered(doc, "Terms", "Heading 2", 98, 1)
+        self._numbered(doc, "Payment", "Heading 1", 98, 0)
+        self._numbered(doc, "Invoices", "Heading 2", 98, 1)
+
+        markdown = self._cells._markdown(doc)
+        assert "# Article I Definitions" in markdown
+        assert "## 1.1 Scope" in markdown
+        assert "## 1.2 Terms" in markdown
+        assert "# Article II Payment" in markdown
+        assert "## 2.1 Invoices" in markdown
+
+    def test_lettered_clauses_are_paragraphs_between_plain_list_items(self) -> None:
+        """``(a)`` is printed as text; the plain ``1.`` items around it stay a list and keep counting."""
+        doc = TestListStartAndRestart._doc()
+        self._cells._list_paragraph(doc, "The Supplier shall:")
+        self._cells._list_paragraph(doc, "deliver the goods;", ilvl=1)
+        self._cells._list_paragraph(doc, "invoice monthly.", ilvl=1)
+        self._cells._list_paragraph(doc, "Payment is due in 30 days.")
+
+        children = DocxToAstConverter().convert_to_ast(doc).children
+        assert [type(child) for child in children] == [List, Paragraph, Paragraph, List]
+        assert children[3].start == 2
+        markdown = self._cells._markdown(doc)
+        assert "(a) deliver the goods;" in markdown
+        assert "(b) invoice monthly." in markdown
+        assert "2. Payment is due in 30 days." in markdown
+
+    def test_heading_ends_a_list_open_before_it(self) -> None:
+        """A list running up to a heading is emitted ahead of the heading, not after it."""
+        doc = docx.Document()
+        doc.add_paragraph("item", style="List Number")
+        doc.add_heading("After the list", level=1)
+        doc.add_paragraph("body")
+
+        children = DocxToAstConverter().convert_to_ast(doc).children
+        assert [type(child) for child in children] == [List, Heading, Paragraph]
+
+    @pytest.mark.parametrize(
+        ("value", "fmt", "expected"),
+        [
+            (3, "decimalZero", "03"),
+            (12, "decimalZero", "12"),
+            (1, "lowerLetter", "a"),
+            (27, "lowerLetter", "aa"),
+            (28, "upperLetter", "BB"),
+            (14, "lowerRoman", "xiv"),
+            (1994, "upperRoman", "MCMXCIV"),
+            (11, "ordinal", "11th"),
+            (22, "ordinal", "22nd"),
+            (7, "chineseCounting", "7"),
+        ],
+    )
+    def test_number_formats(self, value: int, fmt: str, expected: str) -> None:
+        """Each counter value is written in its level's ``w:numFmt``; an unknown format prints decimal."""
+        from all2md.parsers.docx import _format_list_number
+
+        assert _format_list_number(value, fmt) == expected

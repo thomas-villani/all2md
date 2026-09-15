@@ -88,12 +88,18 @@ baseline            8        0
 fields              4        0
 formatting          2        1
 notes               2        0
-numbering          11        0
+numbering          10        0
 sdt                 1        0
 tables              3        0
 tracked            12        0
-TOTAL              43        1
+TOTAL              42        1
 ```
+
+`numbering` then dropped from 11 to 10, on purpose. Once the parser printed Word's
+labels, `numfmt-decimal-zero` stopped being a Markdown list: Word prints `03)`, which
+no list syntax can write, so the items read `03) First item` the way the page does.
+Its "ordered list" and "starts at" checks asked a question the output no longer
+answers, and one check replaces them: are Word's printed labels there.
 
 `numbering` went from 8 checks to 11 when the parser learned Word's list counters: each
 case that records the number its list starts at is now held to it. Before that, a list

@@ -83,6 +83,17 @@ def test_numbering_flags_a_list_restarted_at_one():
     assert failures(make("numbering", STARTS_AT_3), "1. One\n2. Two\n") == ["starts at its first number"]
 
 
+PRINTED_LABELS = {"list": {**STARTS_AT_3["list"], "rendered_markers": ["03)", "04)"]}}
+
+
+def test_numbering_passes_when_word_labels_are_printed_even_escaped():
+    assert not failures(make("numbering", PRINTED_LABELS), "03\\) One\n\n04\\) Two\n")
+
+
+def test_numbering_flags_a_markdown_list_that_drops_word_labels():
+    assert failures(make("numbering", PRINTED_LABELS), "3. One\n4. Two\n") == ["Word's labels printed"]
+
+
 # ---------------------------------------------------------------------------- fields
 FIELDS = {"fields": [{"field_type": "HYPERLINK", "resolved_target": "https://example.com/x"}]}
 

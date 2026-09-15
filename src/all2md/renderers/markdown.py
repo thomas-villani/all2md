@@ -115,6 +115,11 @@ _HTML_OPENER = re.compile(r"[A-Za-z/!?]")
 # render back unescaped, and decode a second time to "AT<".
 _ENTITY_AHEAD = re.compile(r"&(?:#[0-9]{1,7};|#[Xx][0-9A-Fa-f]{1,6};|[A-Za-z][A-Za-z0-9]{1,31};)")
 
+# A paragraph whose text begins like an ordered list marker -- a printed label such as
+# "03) First item" -- reparses as a list unless the delimiter is escaped. At most nine
+# digits, since CommonMark reads a longer run as prose anyway.
+_ORDERED_MARKER_AT_START = re.compile(r"\A(\d{1,9})([.)])(?=[ \t]|\Z)")
+
 
 def _interrupts_paragraph(node: Node) -> bool:
     """Report whether an ordered list may not follow a paragraph line directly.
@@ -894,6 +899,8 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         content = self._render_inline_content(node.content)
+        if self.options.escape_special:
+            content = _ORDERED_MARKER_AT_START.sub(r"\1\\\2", content)
         indent = self._current_indent()
         # Soft-wrap prose when the caller asked for a maximum line width. The
         # indent this paragraph will carry eats into the budget, but never below

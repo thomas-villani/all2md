@@ -455,7 +455,14 @@ class DocxToAstConverter(BaseParser):
                     for paragraph in grid_cell.paragraphs:
                         list_type, level = _detect_list_level(paragraph, doc, numbering_defs)
                         if list_type:
-                            number = self._list_number(paragraph, doc, level)
+                            number, label, plain = self._list_mark(paragraph, doc, level)
+                            if label is not None and not plain:
+                                labelled = self._process_labelled_paragraph(paragraph, label, "")
+                                if isinstance(labelled, list):
+                                    children.extend(labelled)
+                                elif labelled is not None:
+                                    children.append(labelled)
+                                continue
                             finished = self._process_list_item_paragraph(paragraph, list_type, level, number)
                             if finished:
                                 children.append(finished)
@@ -780,12 +787,18 @@ class DocxToAstConverter(BaseParser):
         heading.metadata["source_style"] = style_name
         return heading
 
-    def _try_process_heading(self, paragraph: "Paragraph", style_name: str) -> Heading | None:
-        """Try to process paragraph as a heading. Returns Heading or None."""
+    def _try_process_heading(self, paragraph: "Paragraph", style_name: str, label: str | None = None) -> Heading | None:
+        """Try to process paragraph as a heading. Returns Heading or None.
+
+        A numbered heading keeps the label Word prints in front of its text --
+        ``1.1 Definitions``, ``Article I`` -- the way the page reads.
+        """
         heading_match = re.match(r"Heading (\d+)", style_name)
         if heading_match:
             level = min(6, max(1, int(heading_match.group(1))))
             content = self._process_paragraph_runs_to_inline(paragraph)
+            if label:
+                content = [Text(content=label), *content]
             heading = Heading(level=level, content=content)
             if style_name:
                 heading.metadata["source_style"] = style_name
@@ -909,17 +922,19 @@ class DocxToAstConverter(BaseParser):
         # Word counts every numbered paragraph, a numbered heading included, so the
         # counter advances before any of the special cases below can claim the paragraph.
         list_type, level = _detect_list_level(paragraph, doc, self._numbering_definitions(doc))
-        number = self._list_number(paragraph, doc, level) if list_type else None
+        number, label, plain = self._list_mark(paragraph, doc, level) if list_type else (None, None, True)
 
-        # Try special paragraph types first
-        if title_result := self._try_process_title(paragraph, style_name):
-            return title_result
-        if heading_result := self._try_process_heading(paragraph, style_name):
-            return heading_result
-        if code_result := self._try_process_code_block(paragraph, style_name):
-            return code_result
-        if break_result := self._try_process_thematic_break(paragraph):
-            return break_result
+        # Try special paragraph types first. Each one ends a list still open before it;
+        # left open, the list was only emitted by the next body paragraph, after this one.
+        special: Node | None = self._try_process_title(paragraph, style_name)
+        if special is None:
+            special = self._try_process_heading(paragraph, style_name, label)
+        if special is None:
+            special = self._try_process_code_block(paragraph, style_name)
+        if special is None:
+            special = self._try_process_thematic_break(paragraph)
+        if special is not None:
+            return self._close_list_before(special)
 
         # A Quote-styled paragraph is a block quote, not a list -- detect it before list
         # detection so its style (or leftover indent) is never mistaken for list nesting.
@@ -928,6 +943,8 @@ class DocxToAstConverter(BaseParser):
 
         # Handle lists
         if list_type:
+            if label is not None and not plain:
+                return self._process_labelled_paragraph(paragraph, label, style_name)
             return self._process_list_item_paragraph(paragraph, list_type, level, number)
 
         math_blocks = self._extract_math_blocks_from_paragraph(paragraph)
@@ -1033,8 +1050,10 @@ class DocxToAstConverter(BaseParser):
             finished = self._close_innermost_list()
         return finished
 
-    def _list_number(self, paragraph: "Paragraph", doc: "docx.document.Document" | None, level: int) -> int | None:
-        """Advance Word's list counter for a paragraph and return the number it prints.
+    def _list_mark(
+        self, paragraph: "Paragraph", doc: "docx.document.Document" | None, level: int
+    ) -> tuple[int | None, str | None, bool]:
+        """Advance Word's list counter for a paragraph and return what Word prints for it.
 
         Called in document order for every paragraph detected as a list paragraph,
         wherever it ends up -- a numbered heading or a table cell counts in Word
@@ -1042,8 +1061,10 @@ class DocxToAstConverter(BaseParser):
 
         Returns
         -------
-        int or None
-            The number, or None when the paragraph has no numbering definition to count
+        tuple of (int or None, str or None, bool)
+            The number, or None when the paragraph has no numbering definition to count;
+            the full label Word prints with its separator, or None; and whether that
+            label is an ordinary ``N.`` or ``N)`` that a Markdown list prints as well
 
         """
         if self._list_counters is None:
@@ -1051,8 +1072,30 @@ class DocxToAstConverter(BaseParser):
         try:
             num_id = _effective_numbering_props(paragraph)[1]
         except Exception:
+            return None, None, True
+        ilvl = level - 1
+        number = self._list_counters.advance(num_id, ilvl)
+        if number is None:
+            return None, None, True
+        return number, self._list_counters.label(num_id, ilvl), self._list_counters.is_plain(num_id, ilvl)
+
+    def _close_list_before(self, node: Node) -> Node | list[Node]:
+        """Emit any list still open ahead of ``node``, which ends it."""
+        finished = self._finalize_current_list()
+        return [finished, node] if finished else node
+
+    def _process_labelled_paragraph(
+        self, paragraph: "Paragraph", label: str, style_name: str
+    ) -> Node | list[Node] | None:
+        """Write a numbered paragraph whose label no Markdown list can print as that label, then its text.
+
+        ``1.1``, ``(a)`` and ``Article I`` have no list syntax, so the paragraph reads the
+        way the page prints it. Like any paragraph, it ends a list still open.
+        """
+        content = self._process_paragraph_runs_to_inline(paragraph)
+        if self._is_effectively_empty(content):
             return None
-        return self._list_counters.advance(num_id, level - 1)
+        return self._close_list_before(self._build_paragraph_node([Text(content=label), *content], style_name))
 
     def _append_text_with_line_breaks(
         self,
@@ -1665,10 +1708,10 @@ class DocxToAstConverter(BaseParser):
             if list_type:
                 # A shallower item restarts the counts of every level below it.
                 counters = {depth: count for depth, count in counters.items() if depth <= level}
-                number = self._list_number(paragraph, doc, level)
+                number, label, _ = self._list_mark(paragraph, doc, level)
                 if list_type == "number":
                     counters[level] = counters.get(level, 0) + 1
-                    marker = f"{number if number is not None else counters[level]}. "
+                    marker = label or f"{number if number is not None else counters[level]}. "
                 else:
                     marker = "\u2022 "
                 inline_nodes = [Text(content=marker), *inline_nodes]
@@ -2111,6 +2154,8 @@ class _ListCounters:
         self._overrides: dict[str, dict[int, int]] = {}  # numId -> {ilvl: startOverride}
         self._overrides_applied: set[str] = set()
         self._values: dict[str, dict[int, int]] = {}  # abstractNumId -> {ilvl: last number}
+        #: abstractNumId -> {ilvl: (numFmt, lvlText, isLgl, suff)}
+        self._formats: dict[str, dict[int, tuple[str, str | None, bool, str]]] = {}
         if numbering_xml is not None:
             try:
                 self._read(numbering_xml)
@@ -2131,6 +2176,7 @@ class _ListCounters:
             if levels:
                 starts: dict[int, int] = {}
                 restarts: dict[int, int] = {}
+                formats: dict[int, tuple[str, str | None, bool, str]] = {}
                 for lvl in levels:
                     ilvl = _word_int(lvl, "ilvl")
                     if ilvl is None:
@@ -2139,8 +2185,15 @@ class _ListCounters:
                         starts[ilvl] = start
                     if (restart := _word_int(lvl.find(f"{_WORD_NS}lvlRestart"))) is not None:
                         restarts[ilvl] = restart
+                    formats[ilvl] = (
+                        _word_val(lvl.find(f"{_WORD_NS}numFmt")) or "decimal",
+                        _word_val(lvl.find(f"{_WORD_NS}lvlText")),
+                        _word_on(lvl.find(f"{_WORD_NS}isLgl")),
+                        _word_val(lvl.find(f"{_WORD_NS}suff")) or "tab",
+                    )
                 self._starts[abstract_id] = starts
                 self._restarts[abstract_id] = restarts
+                self._formats[abstract_id] = formats
                 if style := _linked_style_name(abstract, "styleLink"):
                     defines_style.setdefault(style, abstract_id)
             elif style := _linked_style_name(abstract, "numStyleLink"):
@@ -2187,6 +2240,96 @@ class _ListCounters:
             if ilvl < restarts.get(deeper, deeper):
                 del values[deeper]
         return number
+
+    def _level_format(self, abstract_id: str, ilvl: int) -> tuple[str, str | None, bool, str]:
+        return self._formats.get(abstract_id, {}).get(ilvl, ("decimal", None, False, "tab"))
+
+    def label(self, num_id: str | None, ilvl: int) -> str | None:
+        """Return the label Word prints for the paragraph just counted at ``ilvl``, separator included.
+
+        ``w:lvlText`` is a template: ``%1.%2`` prints the current value of the first
+        level, a dot, then the second, each in its own level's ``w:numFmt`` -- or all in
+        decimal when this level sets ``w:isLgl``. A level not counted yet prints its
+        start. Bullets and ``none`` print no number, so they have no label.
+        """
+        abstract_id = self._abstract_of.get(num_id) if num_id else None
+        if abstract_id is None:
+            return None
+        fmt, template, is_legal, suffix = self._level_format(abstract_id, ilvl)
+        if fmt in _BULLET_FORMATS or template is None:
+            return None
+        values = self._values.get(abstract_id, {})
+        starts = self._starts[abstract_id]
+
+        def substitute(match: re.Match[str]) -> str:
+            level = int(match.group(1)) - 1
+            value = values.get(level, starts.get(level, 1))
+            return _format_list_number(value, "decimal" if is_legal else self._level_format(abstract_id, level)[0])
+
+        text = re.sub(r"%([1-9])", substitute, template).strip()
+        if not text:
+            return None
+        return text if suffix == "nothing" else f"{text} "
+
+    def is_plain(self, num_id: str | None, ilvl: int) -> bool:
+        """Whether the level prints an ordinary ``N.`` or ``N)``, which a Markdown list prints as well."""
+        abstract_id = self._abstract_of.get(num_id) if num_id else None
+        if abstract_id is None:
+            return True
+        fmt, template, _, _ = self._level_format(abstract_id, ilvl)
+        return (
+            fmt in _BULLET_FORMATS
+            or template is None
+            or (fmt == "decimal" and template in (f"%{ilvl + 1}.", f"%{ilvl + 1})"))
+        )
+
+
+def _word_val(element: Any) -> str | None:
+    """Read the ``w:val`` of an element, or None when the element is absent."""
+    return element.get(f"{_WORD_NS}val") if element is not None else None
+
+
+def _word_on(element: Any) -> bool:
+    """Read an on/off property: present means on, unless its ``w:val`` turns it off."""
+    return element is not None and _word_val(element) not in ("0", "false", "off")
+
+
+_ROMAN_NUMERALS = (
+    (1000, "M"),
+    (900, "CM"),
+    (500, "D"),
+    (400, "CD"),
+    (100, "C"),
+    (90, "XC"),
+    (50, "L"),
+    (40, "XL"),
+    (10, "X"),
+    (9, "IX"),
+    (5, "V"),
+    (4, "IV"),
+    (1, "I"),
+)
+
+
+def _format_list_number(value: int, fmt: str) -> str:
+    """Render one counter value in a Word ``w:numFmt``; a format without a rule here prints decimal."""
+    if fmt == "decimalZero":
+        return f"{value:02d}" if 0 <= value < 10 else str(value)
+    if fmt in ("lowerLetter", "upperLetter") and value > 0:
+        # Past z Word repeats the letter: 27 is aa, 28 is bb.
+        letters = chr(ord("a") + (value - 1) % 26) * ((value - 1) // 26 + 1)
+        return letters if fmt == "lowerLetter" else letters.upper()
+    if fmt in ("lowerRoman", "upperRoman") and 0 < value < 4000:
+        parts = []
+        for amount, numeral in _ROMAN_NUMERALS:
+            count, value = divmod(value, amount)
+            parts.append(numeral * count)
+        roman = "".join(parts)
+        return roman.lower() if fmt == "lowerRoman" else roman
+    if fmt == "ordinal":
+        suffix = "th" if 10 <= value % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(value % 10, "th")
+        return f"{value}{suffix}"
+    return str(value)
 
 
 _MAX_STYLE_CHAIN = 20
