@@ -378,7 +378,10 @@ class TestRunCharacterStyle:
         ast_doc = DocxToAstConverter().convert_to_ast(doc)
 
         node = ast_doc.children[0].content[0]
-        assert isinstance(node, Text)
+        # "Intense Emphasis" defines bold *and* italic in Word's own template, so the run
+        # arrives wrapped in both and the style rides on the outermost node.
+        assert isinstance(node, Emphasis)
+        assert isinstance(node.content[0], Strong)
         assert node.metadata.get("source_style") == "Intense Emphasis"
 
     def test_default_run_style_not_stashed(self) -> None:
@@ -420,11 +423,19 @@ class TestRunCharacterStyle:
 
         ast_doc = DocxToAstConverter().convert_to_ast(doc)
 
+        def text_of(node):
+            """The text at the bottom of however many formatting wrappers."""
+            while not isinstance(node, Text):
+                node = node.content[0]
+            return node.content
+
         content = ast_doc.children[0].content
         assert len(content) == 2
-        assert content[0].content == "alpha"
+        # Both styles carry weight of their own, so each run arrives wrapped and the
+        # style name rides on the outermost node.
+        assert text_of(content[0]) == "alpha"
         assert content[0].metadata.get("source_style") == "Intense Emphasis"
-        assert content[1].content == "beta"
+        assert text_of(content[1]) == "beta"
         assert content[1].metadata.get("source_style") == "Intense Reference"
 
 
