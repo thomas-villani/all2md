@@ -73,6 +73,7 @@ from all2md.parsers.base import BaseParser
 from all2md.parsers.docx_fields import document_has_fields, field_target, resolve_fields
 from all2md.parsers.docx_revisions import document_has_revisions, resolve_revisions, run_revision
 from all2md.parsers.docx_sdt import document_has_content_controls, unwrap_content_controls
+from all2md.parsers.docx_styles import EffectiveFormatting, ParagraphContext, styles_root
 from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.footnotes import FootnoteCollector
@@ -288,6 +289,9 @@ class DocxToAstConverter(BaseParser):
         self._footnote_collector: FootnoteCollector | None = None
         # Footnote/endnote part -> its XML parsed with python-docx's element classes.
         self._note_elements: dict[Any, Any] = {}
+        # (styles element, resolver) for the document being read. The style cascade is
+        # document-wide, so it is indexed once rather than per paragraph.
+        self._effective_styles: tuple[Any, EffectiveFormatting] | None = None
         self._comments_map: dict[str, CommentData] = {}
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
         # Resolving tracked changes rewrites the element tree, so a document handed to
@@ -1247,6 +1251,10 @@ class DocxToAstConverter(BaseParser):
 
         from docx.text.hyperlink import Hyperlink
 
+        # Resolved once for the whole paragraph: every run in it shares the same style
+        # chain and the same baseline to be measured against (see docx_styles).
+        context = self._paragraph_formatting_context(paragraph)
+
         for run in self._iter_inner_content_with_math(paragraph):
             if _omml_local_name(getattr(run, "tag", None) or "") == "oMath":
                 # A bare `m:oMath` sitting between runs: inline maths mid-sentence.
@@ -1261,7 +1269,7 @@ class DocxToAstConverter(BaseParser):
                 continue
 
             url, run_to_parse = self._process_hyperlink(run)
-            format_key = self._get_run_formatting_key(run_to_parse, url is not None)
+            format_key = self._get_run_formatting_key(run_to_parse, url is not None, context)
             style_name = self._get_run_character_style(run_to_parse)
             # Only `mark` resolution stamps runs, so this is None in every other mode
             # and the grouping below behaves exactly as it did before. Two adjacent
@@ -1595,7 +1603,27 @@ class DocxToAstConverter(BaseParser):
         # have to know which of the two encodings produced the link.
         return field_target(getattr(run, "_element", None)), run
 
-    def _get_run_formatting_key(self, run: Any, is_hyperlink: bool) -> tuple[bool, bool, bool, bool, bool, bool, bool]:
+    def _paragraph_formatting_context(self, paragraph: "Paragraph") -> ParagraphContext | None:
+        """Resolve the paragraph's place in the style cascade, or ``None`` if unreachable.
+
+        The resolver is built once per styles part and reused. The cascade is
+        document-wide, and every story -- body, notes, comments -- resolves against the
+        one styles part, which is what the note story view already hands back.
+        """
+        try:
+            root = styles_root(getattr(paragraph, "part", None))
+            if root is None:
+                return None
+            if self._effective_styles is None or self._effective_styles[0] is not root:
+                self._effective_styles = (root, EffectiveFormatting(root))
+            return self._effective_styles[1].paragraph_context(getattr(paragraph, "_element", None))
+        except Exception as exc:  # a styles part that will not parse must not stop the read
+            logger.debug(f"Could not resolve the style cascade: {exc}")
+            return None
+
+    def _get_run_formatting_key(
+        self, run: Any, is_hyperlink: bool, context: ParagraphContext | None = None
+    ) -> tuple[bool, bool, bool, bool, bool, bool, bool]:
         """Get formatting key for a run.
 
         Parameters
@@ -1604,6 +1632,12 @@ class DocxToAstConverter(BaseParser):
             Run to analyze
         is_hyperlink : bool
             Whether this run is part of a hyperlink
+        context : ParagraphContext or None
+            The enclosing paragraph's resolved formatting, when the styles part could be
+            read. Weight, slant and strike then come from the whole style cascade rather
+            than from the run's own properties: a run whose only character property is
+            ``w:rStyle`` declares nothing and still renders bold (see
+            :mod:`all2md.parsers.docx_styles`).
 
         Returns
         -------
@@ -1613,29 +1647,28 @@ class DocxToAstConverter(BaseParser):
         """
         from docx.text.hyperlink import Hyperlink
 
-        # Handle Hyperlink object
+        # A hyperlink wears its first run's formatting; an empty one has none to wear.
         if isinstance(run, Hyperlink):
-            if run.runs:
-                first_run = run.runs[0]
-                return (
-                    first_run.bold or False,
-                    first_run.italic or False,
-                    first_run.underline or False,
-                    first_run.font.strike or False,
-                    first_run.font.subscript or False,
-                    first_run.font.superscript or False,
-                    is_hyperlink,
-                )
-            return (False, False, False, False, False, False, is_hyperlink)
+            if not run.runs:
+                return (False, False, False, False, False, False, is_hyperlink)
+            target = run.runs[0]
+        else:
+            target = run
 
-        # Regular run
+        bold, italic, strike = target.bold, target.italic, target.font.strike
+        if context is not None:
+            marks = context.emphasis(getattr(target, "_element", None))
+            bold, italic, strike = marks["b"], marks["i"], marks["strike"]
+
+        # Underline, subscript and superscript are ordinary override properties rather
+        # than toggles, and are read as they always were.
         return (
-            run.bold or False,
-            run.italic or False,
-            run.underline or False,
-            run.font.strike or False,
-            run.font.subscript or False,
-            run.font.superscript or False,
+            bold or False,
+            italic or False,
+            target.underline or False,
+            strike or False,
+            target.font.subscript or False,
+            target.font.superscript or False,
             is_hyperlink,
         )
 
