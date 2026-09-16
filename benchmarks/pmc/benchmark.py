@@ -79,7 +79,10 @@ from benchmarks.pmc.pages import ASSIGNMENTS, assign_pages, index_pages
 #: against the truth that produced it, and `test_the_reference_was_produced_by_the_current_payload_shape`
 #: is what stops a projection edit from landing while the recorded figures quietly describe
 #: an older one.
-SCHEMA_VERSION = 7
+#: 8 = provenance carries ``tolerated_drift``, so a reading states whether it scored the
+#: pinned bytes exactly or bytes accepted because only volatile metadata had moved. The
+#: corpus pin moves with it: the manifests gained a second, content-only digest.
+SCHEMA_VERSION = 8
 #: 3 = the shared projection admits any container of inline text, by shape rather than by
 #: type name, so a node holding inline content with no ``Paragraph`` wrapper is no longer
 #: invisible to measurement (#443). ``SCHEMA_VERSION`` deliberately does *not* move with
@@ -532,6 +535,10 @@ def normalize_results(
             "corpus_pin": snapshot.manifest_sha256,
             "bucket": snapshot.bucket,
             "complete_corpus": snapshot.complete,
+            # Empty on a run that matched the pin byte for byte, which is the normal case.
+            # Non-empty says the bucket served rewritten metadata and the load accepted it,
+            # which a reader of the figures is entitled to know without re-running anything.
+            "tolerated_drift": dict(sorted(snapshot.tolerated_drift.items())),
             "oracle_schema_version": ORACLE_SCHEMA_VERSION,
             "all2md_commit": all2md_commit,
             "worktree_dirty": worktree_dirty,

@@ -19,8 +19,13 @@ def _pdf_bytes(article_id: str) -> bytes:
     return f"%PDF-1.7\nsynthetic {article_id}\n%%EOF\n".encode()
 
 
-def _xml_bytes(article_id: str) -> bytes:
-    return f"<article><body><p>{article_id}</p></body></article>".encode()
+def _xml_bytes(article_id: str, *, last_change: str = "2013-03-05 22:34:03.240") -> bytes:
+    """Synthetic JATS carrying the one element PMC rewrites in place."""
+    return (
+        f'<article><front><pub-history><event event-type="pmc-last-change">'
+        f'<date iso-8601-date="{last_change}"/></event></pub-history></front>'
+        f"<body><p>{article_id}</p></body></article>"
+    ).encode()
 
 
 def _article_row(article_id: str) -> dict[str, Any]:
@@ -30,6 +35,7 @@ def _article_row(article_id: str) -> dict[str, Any]:
         "pdf_sha256": hashlib.sha256(pdf).hexdigest(),
         "pdf_size_bytes": len(pdf),
         "xml_sha256": hashlib.sha256(xml).hexdigest(),
+        "xml_content_sha256": corpus.xml_content_digest(xml),
         "xml_size_bytes": len(xml),
         "licence": "https://creativecommons.org/licenses/by/4.0/",
         "paragraphs": 12,
@@ -123,6 +129,7 @@ def test_read_manifest_rejects_malformed_manifests(tmp_path: Path, mutate: Any, 
     [
         ("pdf_sha256", "nothex", "pdf_sha256 is invalid"),
         ("xml_sha256", "a" * 63, "xml_sha256 is invalid"),
+        ("xml_content_sha256", "a" * 63, "xml_content_sha256 is invalid"),
         ("pdf_size_bytes", 0, "pdf_size_bytes is invalid"),
         ("xml_size_bytes", -1, "xml_size_bytes is invalid"),
         ("paragraphs", 0, "paragraphs is invalid"),
@@ -167,6 +174,7 @@ def test_limit_selects_a_spread_not_a_prefix() -> None:
             pdf_sha256="a" * 64,
             pdf_size_bytes=1,
             xml_sha256="b" * 64,
+            xml_content_sha256="c" * 64,
             xml_size_bytes=1,
             licence="cc",
             paragraphs=1,
@@ -185,7 +193,9 @@ def test_limit_selects_a_spread_not_a_prefix() -> None:
 
 
 def test_limit_selection_is_deterministic_and_duplicate_free() -> None:
-    articles = tuple(corpus.ManifestArticle(f"PMC{i:07d}.1", "a" * 64, 1, "b" * 64, 1, "cc", 1) for i in range(37))
+    articles = tuple(
+        corpus.ManifestArticle(f"PMC{i:07d}.1", "a" * 64, 1, "b" * 64, "c" * 64, 1, "cc", 1) for i in range(37)
+    )
 
     for size in range(1, 38):
         selected = corpus._select(articles, size)
@@ -195,14 +205,18 @@ def test_limit_selection_is_deterministic_and_duplicate_free() -> None:
 
 
 def test_limit_none_returns_every_article() -> None:
-    articles = tuple(corpus.ManifestArticle(f"PMC{i:07d}.1", "a" * 64, 1, "b" * 64, 1, "cc", 1) for i in range(5))
+    articles = tuple(
+        corpus.ManifestArticle(f"PMC{i:07d}.1", "a" * 64, 1, "b" * 64, "c" * 64, 1, "cc", 1) for i in range(5)
+    )
 
     assert corpus._select(articles, None) == articles
 
 
 @pytest.mark.parametrize("limit", [0, -1, 6, True])
 def test_limit_out_of_range_is_rejected(limit: Any) -> None:
-    articles = tuple(corpus.ManifestArticle(f"PMC{i:07d}.1", "a" * 64, 1, "b" * 64, 1, "cc", 1) for i in range(5))
+    articles = tuple(
+        corpus.ManifestArticle(f"PMC{i:07d}.1", "a" * 64, 1, "b" * 64, "c" * 64, 1, "cc", 1) for i in range(5)
+    )
 
     with pytest.raises(ValueError, match="limit must be"):
         corpus._select(articles, limit)
@@ -271,6 +285,53 @@ def test_a_download_that_disagrees_with_the_manifest_is_fatal(
 
     with pytest.raises(corpus.CorpusIntegrityError, match="does not match the manifest"):
         corpus.load_corpus(tmp_path / "cache", manifest_path=manifest_path, workers=1)
+
+
+def _serve(monkeypatch: pytest.MonkeyPatch, xml_for: Any) -> None:
+    """Serve pinned PDFs and whatever JATS ``xml_for`` builds for an article."""
+
+    def download(url: str, destination: Path, *, label: str, retries: int = 0) -> None:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        article_id = Path(url).stem
+        payload = _pdf_bytes(article_id) if url.endswith(".pdf") else xml_for(article_id)
+        destination.write_bytes(payload)
+
+    monkeypatch.setattr(corpus, "_download", download)
+
+
+def test_a_volatile_metadata_rewrite_is_tolerated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """PMC rewrites ``pmc-last-change`` in place: the bytes move, the article does not.
+
+    Measured on 2026-09-15: 13 of the 14 drifted articles across the three committed
+    manifests differed in this element alone, which failed the load on a change that
+    cannot move a score.
+    """
+    manifest_path = _write_manifest(tmp_path)
+    _serve(monkeypatch, lambda article_id: _xml_bytes(article_id, last_change="2026-09-13 15:34:35.270"))
+
+    snapshot = corpus.load_corpus(tmp_path / "cache", manifest_path=manifest_path, workers=1)
+
+    assert len(snapshot.articles) == 3
+    assert set(snapshot.tolerated_drift) == {article.article_id for article in snapshot.articles}
+    assert all("volatile metadata" in reason for reason in snapshot.tolerated_drift.values())
+
+
+def test_a_changed_article_is_still_fatal(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The tolerance is for one named element, never for anything the lane reads."""
+    manifest_path = _write_manifest(tmp_path)
+    _serve(monkeypatch, lambda article_id: _xml_bytes(article_id).replace(b"</body>", b"<p>new</p></body>"))
+
+    with pytest.raises(corpus.CorpusIntegrityError, match="does not match the manifest"):
+        corpus.load_corpus(tmp_path / "cache", manifest_path=manifest_path, workers=1)
+
+
+def test_an_exact_match_records_no_drift(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The normal case stays silent: tolerance is reported, not assumed."""
+    _install_downloader(monkeypatch)
+
+    snapshot = corpus.load_corpus(tmp_path / "cache", manifest_path=_write_manifest(tmp_path), workers=1)
+
+    assert snapshot.tolerated_drift == {}
 
 
 def test_the_cache_directory_is_keyed_by_the_manifest_digest(

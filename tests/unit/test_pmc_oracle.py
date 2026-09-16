@@ -705,6 +705,7 @@ def test_page_scores_and_the_error_budget_come_from_the_same_run(tmp_path: Path)
                 "complete": True,
                 "expected_articles": 1,
                 "unavailable": {},
+                "tolerated_drift": {},
             },
         )(),
         evaluations=[
@@ -746,6 +747,7 @@ def test_recall_and_precision_are_reported_together() -> None:
                 "complete": True,
                 "expected_articles": 2,
                 "unavailable": {},
+                "tolerated_drift": {},
             },
         )(),
         evaluations=[],
