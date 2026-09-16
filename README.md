@@ -107,6 +107,8 @@ Retrieval-augmented generation (RAG) combines a retriever with...
 
 Tables, multi-column layouts, and scanned pages (via OCR) are handled by the [advanced PDF parser](#advanced-features). See [`all2md report`](#advanced-features) to score how much to trust any given conversion.
 
+Word documents come out as Word shows them: tracked changes resolved by policy (`--docx-revisions accept|reject|mark`), comment threads with their anchors and replies, footnote and endnote bodies, field results, content controls, merged cells, and the list numbers and labels Word actually prints.
+
 ## Supported formats
 
 `all2md` uses a modular system — dependencies are only required for the formats you actually process.
@@ -115,7 +117,7 @@ Tables, multi-column layouts, and scanned pages (via OCR) are handled by the [ad
 - **Web & markup:** HTML, MHTML, Markdown, reStructuredText, AsciiDoc, Org-Mode, LaTeX, MediaWiki, Textile, DokuWiki, BBCode
 - **Data & spreadsheets:** XLSX, ODS, CSV/TSV, JSON, YAML, TOML, INI, OpenAPI/Swagger
 - **Email:** EML, MBOX, Outlook (MSG/PST/OST), Evernote (ENEX)
-- **Notebooks & code:** Jupyter (IPYNB), plus 100+ source-code and config file types
+- **Notebooks & code:** Jupyter (IPYNB), plus nearly 200 source-code and config file types
 - **Archives:** ZIP, TAR, TGZ, 7Z, RAR, and more
 - **Custom output:** any text format via Jinja2 templates (DocBook XML, YAML, ANSI, …)
 
@@ -160,7 +162,7 @@ Run `all2md list-formats` to see everything on your install, or browse the [full
 | **INI / Config**              | `.ini`, `.cfg`, `.conf`                       |       ✅       |        ✅      | (built-in)         |
 | **OpenAPI/Swagger**           | `.yaml`, `.yml`, `.json`                      |       ✅       |       (N/A)    | `openapi`          |
 | **Plain Text**                | `.txt`, `.text`                               |       ✅       |        ✅      | (built-in)         |
-| **Source Code**               | 100+ extensions (`.py`, `.js`, etc.)          |       ✅       |       (N/A)    | (built-in)         |
+| **Source Code**               | nearly 200 extensions (`.py`, `.js`, etc.)    |       ✅       |       (N/A)    | (built-in)         |
 | **Archive Formats**           | `.tar`, `.tgz`, `.7z`, `.rar`, etc.           |       ✅       |       (N/A)    | (built-in)         |
 | **ZIP Archive**               | `.zip`                                        |       ✅       |       (N/A)    | (built-in)         |
 | **Jinja2 Templates (Custom)** | User-defined (`.jinja2`, `.j2`)               |       ❌       |        ✅      | `jinja2`           |
@@ -487,7 +489,7 @@ all2md's conversion quality is measured, not asserted — against three independ
 
 Current figures, their controls, and — just as important — what each lane structurally *cannot* see are documented in [Conversion Fidelity](https://all2md.readthedocs.io/en/latest/benchmarks.html).
 
-**How does it compare to other converters?** A fourth lane ([`benchmarks/comparison/`](benchmarks/comparison/)) scores pymupdf4llm and Docling with the same instruments, on a corpus held out from the born-digital lane, with every tool's output re-parsed through one normalization path. In the reading of 2026-08-28 — the first taken on a freshly drawn, sealed holdout — all2md has by far the lowest invented-text rate (0.55%, vs 6.26% for pymupdf4llm, whose defaults now auto-OCR born-digital pages, and 2.05% for Docling) and is the fastest of the three, while recall is a three-way tie inside 0.65 points and Docling leads table cell preservation by 16.7 points (86.4% to 69.7%). That table gap is much wider than the previous reading showed, because the previous holdout had been tuned against and flattered us; redrawing it is what exposed the real distance. Full results, ground rules, and the caveats that bound them are in that lane's [README](benchmarks/comparison/README.md) and dated `results-*.json` snapshots.
+**How does it compare to other converters?** A fourth lane ([`benchmarks/comparison/`](benchmarks/comparison/)) scores pymupdf4llm and Docling with the same instruments, on a corpus held out from the born-digital lane, with every tool's output re-parsed through one normalization path. In the reading of 2026-08-29 — taken on a freshly drawn, sealed holdout against a corrected ground truth — all2md has by far the lowest invented-text rate (0.55%, vs 6.26% for pymupdf4llm, whose defaults now auto-OCR born-digital pages, and 2.05% for Docling), is the fastest of the three, and leads recall of what is attainable (97.3% to 97.1% and 96.2%), while Docling leads table cell preservation by 6.2 points (79.3% to 73.1%). The first reading on that holdout had put the table gap at 16.7 points; 7.1 of those were a ground-truth artifact that hid a whole class of table from every tool, and 4.1 were closed by row-grouping fixes since. What remains is diagnosed in the lane as a row-count difference — a learned table model against geometry rules — rather than a rule all2md is missing. Full results, ground rules, and the caveats that bound them are in that lane's [README](benchmarks/comparison/README.md) and dated `results-*.json` snapshots.
 
 ## Frequently asked questions
 

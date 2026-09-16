@@ -3247,9 +3247,9 @@ Markdown → Markdown editing is loss-free for the constructs Markdown can expre
 
 What still does not round-trip:
 
-* Run-level character styles (e.g. "Quote Char", "Intense Reference") — only paragraph-level styles are preserved today.
+* Run-level character styles (e.g. "Quote Char", "Intense Reference") — the parser reads the bold, italic and strikethrough such a style carries, but the style *name* is not re-applied on output; only paragraph-level styles are.
 * Direct/manual run formatting that wasn't a named style (specific colors, highlights, custom fonts at the run level).
-* Content controls, fields, footnotes/endnotes if the AST drops them, drawings/SmartArt, and comments anchored to specific runs.
+* Content controls and fields are read (the control's content and the field's cached result) but written back as plain content, not as a control or a live field; drawings/SmartArt are dropped; a comment's anchor to a specific run is recorded in metadata but not re-anchored on output.
 * New content the user adds during editing receives the template's default style — markdown's structural model has no concept of the document's custom inline character styles.
 
 Pass ``--no-preserve-formatting`` to disable template inheritance and produce a generic ``.docx`` instead. Other binary targets (``pptx``, ``odt``, ``odp``) do not currently use template-based preservation.

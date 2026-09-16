@@ -15,12 +15,13 @@
   lane trustworthy. It also buys something a collected corpus never can: paired
   minimal-difference documents, two files identical but for one construct.
 
-  Sixteen documents across eight families ship here, six of them controls. Generation
-  cannot run in CI, so it lives in `benchmarks/docx/generate/` and the corpus bytes are
-  committed and digest-pinned for CI to replay. Every case verifies its own claims against
-  the saved XML and is re-checked after a Word re-save; revision authorship is pinned so no
-  machine identity leaks into a truth record. The scoring side does not exist yet,
-  deliberately — the same order `benchmarks/pmc` landed in.
+  The lane opened with sixteen documents across eight families, six of them controls, and
+  holds 23 cases at this release. Generation cannot run in CI, so it lives in
+  `benchmarks/docx/generate/` and the corpus bytes are committed and digest-pinned for CI
+  to replay. Every case verifies its own claims against the saved XML and is re-checked
+  after a Word re-save; revision authorship is pinned so no machine identity leaks into a
+  truth record. The scoring side landed afterwards, in the same order `benchmarks/pmc`
+  landed in, and now gates every pull request (see *Changed*).
 
   Truth records carry no claim about how all2md parses anything. Two predictions written
   into the design from a code survey were both wrong in the same direction — a silent
@@ -31,6 +32,7 @@
   each Word `WdListNumberStyle` constant actually writes, measured rather than read off
   the documentation because the constant names mislead (the one named `GBNum1` writes
   `decimalEnclosedFullstop`; `chineseCounting` comes from a different constant entirely).
-  It sizes a defect as a side effect: Word writes **46 distinct `w:numFmt` values and the
-  DOCX parser recognises five**, so the other 41 leave an ordered list undetected as
+  It sized a defect as a side effect: Word writes **46 distinct `w:numFmt` values and the
+  DOCX parser recognised five**, so the other 41 left an ordered list undetected as
   ordered — and that unrecognised set is almost entirely CJK, Hebrew and Arabic numbering.
+  That defect is fixed in this release (see *Fixed*).

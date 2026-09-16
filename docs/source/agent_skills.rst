@@ -87,7 +87,7 @@ Key capabilities covered:
 
 * Basic conversion: ``all2md document.pdf``, ``all2md report.docx -o report.md``
 * Stdin: ``cat doc.pdf | all2md -``
-* Format-specific options: ``--pdf-pages``, ``--pdf-table-detection-mode``, ``--pdf-ocr-enabled``, ``--docx-include-comments``, ``--html-extract-title``, ``--eml-attachment-mode``
+* Format-specific options: ``--pdf-pages``, ``--pdf-table-detection-mode``, ``--pdf-ocr-enabled``, ``--docx-include-comments``, ``--docx-revisions``, ``--html-extract-title``, ``--eml-attachment-mode``
 * Section extraction: ``--extract "Chapter 3"``, ``--outline``; line-range navigation: ``--outline --line-numbers`` then ``--extract line:42-87``
 * Batch: ``-r``, ``--parallel``, ``--collate``
 * Python API: ``to_markdown()``, ``to_ast()``, parser options
