@@ -622,11 +622,13 @@ Development Dependencies
 
 The ``dev`` extra includes:
 
-* **pytest** (>=8.4.2) - Testing framework
-* **mypy** (>=1.18.2) - Type checking
-* **ruff** (>=0.13.1) - Linting and formatting
-* **sphinx** (>=8.2.3) - Documentation generation
-* **sphinx-rtd-theme** (>=3.0.2) - Documentation theme
+* **pytest** (>=9.1.1), with **pytest-cov** and **pytest-xdist** - Testing framework
+* **mypy** (>=2.1.0) - Type checking
+* **ruff** (>=0.15.20) and **black** (~=26.1) - Linting and formatting
+* **bandit** (>=1.9.4) - Security linting
+* **sphinx** (>=9.0.4) and **sphinx-rtd-theme** (>=3.1.0) - Documentation build (Python 3.11+)
+
+The exact pins live in ``pyproject.toml`` under ``[project.optional-dependencies].dev``; that list is authoritative when the two disagree.
 
 Virtual Environment Setup
 --------------------------

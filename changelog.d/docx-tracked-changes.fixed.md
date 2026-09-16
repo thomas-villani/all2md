@@ -38,8 +38,9 @@
   the rejected document. Deleted and inserted table **rows** are dropped by the policy
   that resolves them away, rather than leaving a phantom empty row; and `reject` restores
   the previous properties a `w:rPrChange`/`w:pPrChange` records, so a paragraph restyled
-  to a heading under review stops being a heading when the review is rejected. Footnote
-  and endnote parts are resolved with the same policy. A `Document` handed to the parser
-  by a caller is copied before any of this, never edited underneath them, and a document
-  with no revision markup at all — nearly every document — is not touched or copied.
+  to a heading under review stops being a heading when the review is rejected. A
+  `Document` handed to the parser by a caller is copied before any of this, never edited
+  underneath them, and a document with no revision markup at all — nearly every document —
+  is not touched or copied. Revisions inside footnotes and endnotes are covered by the note
+  fix below.
   ([#480](https://github.com/thomas-villani/all2md/issues/480))

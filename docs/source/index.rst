@@ -22,7 +22,7 @@ Key Features
 
 🔍 **Smart Detection** – Multi-stage format detection (extension, MIME, magic bytes) with graceful fallbacks
 
-📄 **Wide Format Coverage** – 20+ document, markup, and archive formats plus 200+ source-code/flat text types
+📄 **Wide Format Coverage** – 40+ document, markup, data, and archive formats plus nearly 200 source-code/flat text types
 
 ⚙️ **Dynamic Configuration** – Dataclass-driven options, presets, and CLI/env overrides for every converter
 
@@ -88,13 +88,21 @@ Supported Formats
 -----------------
 
 **Documents**
-  PDF, Word (DOCX), PowerPoint (PPTX), HTML/MHTML, Email (EML), EPUB, RTF, OpenDocument (ODT/ODP with bidirectional support)
+  PDF, Word (DOCX), PowerPoint (PPTX), OpenDocument (ODT/ODP with bidirectional support), RTF, EPUB, FictionBook (FB2), CHM
 
-**Data & Other**
-  Excel (XLSX), CSV/TSV, Jupyter Notebooks (IPYNB), Archives (TAR/7Z/RAR/ZIP), 200+ text formats
+**Web & markup**
+  HTML/MHTML, Safari web archives, Markdown, reStructuredText, AsciiDoc, Org-Mode, LaTeX, MediaWiki, Textile, DokuWiki, BBCode
 
-**Markup**
-  Markdown, reStructuredText, AsciiDoc, Org-Mode, MediaWiki, LaTeX, OpenAPI/Swagger, Textile
+**Data & spreadsheets**
+  Excel (XLSX), OpenDocument Spreadsheet (ODS), CSV/TSV, JSON, YAML, TOML, INI, OpenAPI/Swagger
+
+**Email & notes**
+  EML, MBOX, Outlook (MSG/PST/OST), Evernote (ENEX)
+
+**Notebooks, code & archives**
+  Jupyter Notebooks (IPYNB), nearly 200 source-code and plain-text types, Archives (ZIP/TAR/TGZ/7Z/RAR)
+
+See :doc:`formats` for the full matrix of input and output support and the extra each one needs.
 
 Getting Started
 ---------------

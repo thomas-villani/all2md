@@ -65,11 +65,29 @@ Word Documents (DOCX)
 *Parser:* ``DocxToAstConverter`` — *Renderer:* ``DocxRenderer``
 
 - Preserves paragraph, list, and table structure; handles nested styles and runs
+- Reads the document as Word shows it. Tracked changes are resolved by policy
+  (``revisions``: ``accept`` by default, ``reject``, or ``mark`` to keep both sides with
+  deletions struck through and the revision recorded in node metadata); content controls
+  are unwrapped; fields such as ``HYPERLINK`` and ``SEQ`` contribute the result Word last
+  computed, never evaluated
+- Lists keep the numbers and labels Word prints: numbering carried by a paragraph style or a
+  list style, every ``w:numFmt`` counter (including CJK, Hebrew and Arabic schemes), start
+  and restart values, lists that continue across paragraphs or through table cells, and
+  numbered headings (``## 1.1 Definitions``). A label Markdown cannot express (``(a)``,
+  ``1.1``, ``03)``) is printed as text at the start of the paragraph
+- Comments carry their author, date, anchored text, reply parent and resolved state;
+  footnote and endnote bodies keep their formatting, links and lists
+- Merged table cells are written once with their span; bold, italic and strikethrough
+  carried by a character style are emitted, judged against the paragraph's own weight so
+  headings do not gain ``**``
+- Display equations and inline OMML convert to LaTeX ``MathBlock`` / ``MathInline`` nodes
 - Extracts images or embeds them inline according to ``attachment_mode``
 - Renderer supports bidirectional workflows (:doc:`python_api`)
 
-Common options: ``DocxOptions`` (tables, style normalisation, image handling) and ``DocxRendererOptions``
-(default fonts, style mapping, template overrides).
+Common options: ``DocxOptions`` (tables, revisions, comments, notes, image handling) and
+``DocxRendererOptions`` (default fonts, style mapping, template overrides). The parser is
+measured against a Word-generated corpus with independent ground truth, described in
+:doc:`benchmarks`.
 
 PowerPoint Presentations (PPTX)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

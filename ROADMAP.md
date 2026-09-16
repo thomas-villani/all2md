@@ -464,8 +464,9 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
   The round-trip scorer that surfaced these now also scores code/math/HTML block content,
   so a regression in any of them shows up in `all2md roundtrip <file> --via docx` (or
   `--via html`).
-- 🌱 **`docx-plus` integration** — *evaluated 2026-08-04, re-scoped 2026-08-21, no code
-  written yet.* The original writeup was never committed (the gitignored
+- 🌱 **`docx-plus` integration** — *evaluated 2026-08-04, re-scoped 2026-08-21; most of the
+  numbering, field and control work since shipped in-tree without the dependency (see the
+  DONE markers below), leaving effective formatting as the open question.* The original writeup was never committed (the gitignored
   `design/docx-plus-evaluation.md` it cited is not on disk or in any ref), so this entry is
   now the record of the evaluation; keep it self-sufficient. Verdict: adopt
   selectively, parser read-side first, behind an optional extra pinned
@@ -517,8 +518,9 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
     effective-formatting item above, so the two are one spike, and it carries the same
     corpus-gate warning. The `numFmt` whitelist gap is a ~5-line fix we can land today
     without the dependency.
-  - **Fields and bookmarks are not "partially handled" — the parser never looks.** A grep for
-    `fldChar|fldSimple|instrText|bookmark` in `parsers/docx.py` returns nothing. Observed
+  - **Fields: DONE (2026-09-01, `parsers/docx_fields.py`, cached results only). Bookmarks are
+    still never read.** As found before the fix: a grep for
+    `fldChar|fldSimple|instrText|bookmark` in `parsers/docx.py` returned nothing. Observed
     losses: `HYPERLINK` *fields* (older Word, mail-merge, Outlook pastes) keep their text
     and drop the URL because we only handle `w:hyperlink` elements; `REF`/`PAGEREF`
     cross-references keep the cached text and lose the target; `SEQ Figure` is the `Figure :`
@@ -575,7 +577,8 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
        separately on 2026-09-01; what remains here is effective formatting.
     Independent of all three: the `w:sdt` fix and the `numFmt` whitelist gap, **both DONE
     (2026-09-01)**.
-- 🌱 **DOCX ground truth via `wordlive`** — *added 2026-08-23, not started.* The "no good
+- 🌱 **DOCX ground truth via `wordlive`** — *added 2026-08-23; the lane and its per-PR gate
+  landed 2026-09-01, see below.* The "no good
   public benchmark exists for Office" gap below has an instrument now: **`wordlive`**
   (sister project, on PyPI) drives a live Word instance over COM, so a DOCX corpus can be
   *scripted* — the script is the ground truth, exact and free, and **Word's own serializer
@@ -646,10 +649,13 @@ People star us because "it just converted my gnarly PDF perfectly." Protect and 
   users and a natural pairing with the existing arxiv packager.
 - 🚢 **The ratchet: automate the harnesses we already built.** *Shipped (v1.10.1).* The
   diagnosis was that we did not need to *build* a benchmark — we had three good ones and
-  automation on none of them. All three now gate:
+  automation on none of them. All of them now gate:
   - `benchmarks/roundtrip/` — MD→AST→MD fidelity, two independent oracles (🚢 v1.9.0). Now
     a **blocking gate** on every push and PR, with an `EXPECTED_FAILURES` allowlist where an
     entry that starts passing, or goes stale, is *also* red.
+  - `benchmarks/docx/` — a Word-generated corpus with scripted truth, replayed from committed
+    bytes (2026-09-01). Gates every PR on crashes, control cases and non-empty findings; the
+    defect count is a weekly report, not a gate.
   - `benchmarks/startup.py` — cold start. Now **two** gates, because the cost is milliseconds
     but the cause is an import graph: an exact module-set assertion that cannot flake, and a
     wall-clock job that requires raw and interpreter-normalized deltas to agree before going

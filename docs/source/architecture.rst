@@ -760,7 +760,7 @@ with the exact install command:
    except ImportError as e:
        raise DependencyError(
            converter_name="pdf",
-           missing_packages=[("pymupdf", ">=1.26.4")],
+           missing_packages=[("pymupdf", ">=1.28.0")],
            install_command="pip install 'all2md[pdf]'"
        ) from e
 
@@ -791,7 +791,7 @@ the dependency state programmatically:
    missing_pdf = get_missing_dependencies("pdf")
    if missing_pdf:
        cmd = generate_install_command(missing_pdf)
-       print(f"Install with: {cmd}")  # e.g. pip install "pymupdf>=1.26.4"
+       print(f"Install with: {cmd}")  # e.g. pip install "pymupdf>=1.28.0"
 
    # Print a comprehensive dependency report
    print(print_dependency_report())

@@ -181,11 +181,11 @@ The project uses the following pre-commit hooks (see `.pre-commit-config.yaml`):
    - `format-sync-update`: Auto-updates DocumentFormat Literal in constants.py
    - `format-sync-validate`: Validates DocumentFormat synchronization
 
-2. **Black** (v25.9.0)
+2. **Black** (v26.5.1)
    - Automatically formats Python code on commit
    - Configuration: 120 char line length, Python 3.10+
 
-3. **Ruff** (v0.14.2)
+3. **Ruff** (v0.15.20)
    - Lints code and auto-fixes common issues
    - Runs with `--fix` flag to automatically correct problems
 
@@ -197,6 +197,11 @@ The project uses the following pre-commit hooks (see `.pre-commit-config.yaml`):
    - `check-toml`: Validates TOML syntax
    - `check-added-large-files`: Prevents committing files >1MB
    - `mixed-line-ending`: Ensures consistent line endings
+   - The `.ambr` snapshots and the round-trip corpus are excluded from the whitespace
+     and line-ending fixers, because their whitespace is test data
+
+5. **Bandit** (v1.9.4) - Security linting of `src/` with the configuration in
+   `pyproject.toml`; `tests/` is excluded
 
 **Using pre-commit:**
 
@@ -295,7 +300,7 @@ We use pytest with test markers for different test categories:
 .venv/Scripts/python.exe -m pytest -m html
 
 # Run a specific test file
-.venv/Scripts/python.exe -m pytest tests/unit/test_pdf2markdown.py
+.venv/Scripts/python.exe -m pytest tests/unit/formats/pdf/test_pdf2markdown.py
 
 # Run with coverage
 .venv/Scripts/python.exe -m pytest --cov=all2md tests/
@@ -314,7 +319,8 @@ Available test markers (see `pytest.ini`):
 
 ### Writing Tests
 
-- Place unit tests in `tests/unit/`
+- Place unit tests in `tests/unit/`, under the subdirectory for the area they cover
+  (`parsers/`, `renderers/`, `formats/<format>/`, `cli/`, `transforms/`, ...)
 - Place integration tests in `tests/integration/`
 - Place end-to-end tests in `tests/e2e/`
 - Use appropriate markers on test functions
@@ -486,16 +492,22 @@ To add support for a new document format:
 
 3. **Register the parser:**
 
-   Add to `src/all2md/converter_registry.py` in the `_register_builtin_converters()` method:
+   Built-in converters are not registered by hand. `ConverterRegistry.auto_discover()` reads
+   them from the generated manifest `src/all2md/_converter_manifest.py`, a leaf module of
+   literals that lets the CLI start without importing every parser. Export a
+   `CONVERTER_METADATA` object from your module, then regenerate the manifest:
 
-   ```python
-   from all2md.parsers.yourformat import CONVERTER_METADATA as yourformat_metadata
-   self.register_converter(yourformat_metadata)
+   ```bash
+   .venv/Scripts/python.exe scripts/generate_converter_manifest.py --update
    ```
+
+   A unit test fails if the manifest is out of sync with the live modules
+   (`--validate` runs the same check). Also add the format to the `DocumentFormat`
+   literal in `constants.py`; the `format-sync` pre-commit hooks keep it in step.
 
 4. **Add tests:**
 
-   Create `tests/unit/test_yourformat_ast.py` and `tests/integration/test_yourformat_integration.py`
+   Create `tests/unit/parsers/test_yourformat_parser.py` (and `tests/unit/renderers/` if you add a renderer) plus `tests/integration/test_yourformat_integration.py`
 
 5. **Update documentation:**
 
@@ -590,17 +602,20 @@ For third-party plugins, see the detailed guide in `docs/source/plugins.rst`.
 
    ```bash
    git add .
-   git commit -m "Add feature: brief description"
+   git commit -m "feat(yourformat): brief description"
    ```
 
    **Note:** If you installed pre-commit hooks, they will run automatically on commit and may modify files (formatting, trailing whitespace, etc.). If this happens, simply stage the changes and commit again.
 
-   Use clear, descriptive commit messages:
-   - `Add: new feature or functionality`
-   - `Fix: bug fix`
-   - `Update: changes to existing functionality`
-   - `Docs: documentation changes`
-   - `Test: test additions or changes`
+   Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/), with a scope naming the area touched:
+   - `feat(docx): ...` - new functionality
+   - `fix(pdf): ...` - a bug fix
+   - `docs: ...` - documentation only
+   - `test(html): ...` - test additions or changes
+   - `chore(benchmarks): ...`, `ci: ...`, `build(deps): ...` - housekeeping
+
+   Add a changelog fragment under `changelog.d/` for any user-visible change (see
+   `changelog.d/README.md`); do not edit `CHANGELOG.md` directly.
 
 5. **Push to your fork:**
 
