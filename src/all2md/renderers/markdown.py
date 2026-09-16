@@ -120,6 +120,12 @@ _ENTITY_AHEAD = re.compile(r"&(?:#[0-9]{1,7};|#[Xx][0-9A-Fa-f]{1,6};|[A-Za-z][A-
 # digits, since CommonMark reads a longer run as prose anyway.
 _ORDERED_MARKER_AT_START = re.compile(r"\A(\d{1,9})([.)])(?=[ \t]|\Z)")
 
+# The same shape with a bullet marker -- "- 5 degrees", "+ tax". Only "-" and "+" are
+# listed: "*" is escaped everywhere it appears, so it never reaches this. A marker must
+# be followed by a space, which is what leaves "-5" and "+44" alone; and "---" is left
+# for the thematic break it is, since only its first character could match here.
+_BULLET_MARKER_AT_START = re.compile(r"\A([-+])(?=[ \t]|\Z)")
+
 #: Longest anchored-text quote a comment header prints; the full text stays in metadata.
 _COMMENT_ANCHOR_MAX = 60
 
@@ -935,6 +941,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         content = self._render_inline_content(node.content)
         if self.options.escape_special:
             content = _ORDERED_MARKER_AT_START.sub(r"\1\\\2", content)
+            content = _BULLET_MARKER_AT_START.sub(r"\\\1", content)
         indent = self._current_indent()
         # Soft-wrap prose when the caller asked for a maximum line width. The
         # indent this paragraph will carry eats into the budget, but never below

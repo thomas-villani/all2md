@@ -1516,6 +1516,41 @@ class TestEscaping:
         doc = Document(children=[Paragraph(content=[Text(content="1.1 Definitions")])])
         assert MarkdownRenderer().render_to_string(doc).strip() == "1.1 Definitions"
 
+    @pytest.mark.parametrize("text", ["- not a list", "+ not a list", "- 5 degrees below", "+ tax included"])
+    def test_paragraph_starting_like_a_bullet_marker_stays_a_paragraph(self, text):
+        """A paragraph opening with ``-`` or ``+`` reparses as a list unless it is escaped (#502)."""
+        import io
+
+        from all2md import to_ast
+
+        doc = Document(children=[Paragraph(content=[Text(content=text)])])
+        result = MarkdownRenderer().render_to_string(doc)
+        reparsed = to_ast(io.BytesIO(result.encode()), source_format="markdown")
+
+        assert [type(child) for child in reparsed.children] == [Paragraph]
+        assert "".join(node.content for node in reparsed.children[0].content) == text
+
+    @pytest.mark.parametrize("text", ["-5 degrees", "+44 7700 900090", "a - b", "-- dashes"])
+    def test_dashes_that_cannot_open_a_list_are_left_alone(self, text):
+        """The marker must be followed by a space, so signed numbers and mid-text dashes are untouched."""
+        assert (
+            MarkdownRenderer().render_to_string(Document(children=[Paragraph(content=[Text(content=text)])])).strip()
+            == text
+        )
+
+    def test_a_thematic_break_still_renders_as_one(self):
+        """The escape is a paragraph rule: an actual break is a different node and keeps its ``---``."""
+        import io
+
+        from all2md import to_ast
+        from all2md.ast import ThematicBreak
+
+        result = MarkdownRenderer().render_to_string(Document(children=[ThematicBreak()]))
+        reparsed = to_ast(io.BytesIO(result.encode()), source_format="markdown")
+
+        assert result.strip() == "---"
+        assert [type(child) for child in reparsed.children] == [ThematicBreak]
+
 
 @pytest.mark.unit
 class TestFootnotes:
