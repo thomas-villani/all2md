@@ -39,7 +39,7 @@ import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager, suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Iterator, Sequence
 from urllib.parse import quote
@@ -59,7 +59,7 @@ from defusedxml.common import EntitiesForbidden
 
 BUCKET = "pmc-oa-opendata"
 BUCKET_BASE = f"https://{BUCKET}.s3.amazonaws.com"
-MANIFEST_SCHEMA_VERSION = 1
+MANIFEST_SCHEMA_VERSION = 2
 MANIFEST_FILENAME = "manifest.json"
 DEFAULT_MANIFEST = Path(__file__).with_name(MANIFEST_FILENAME)
 USER_AGENT = "all2md-benchmark-corpus"
@@ -72,6 +72,23 @@ _ARTICLE_ID_RE = re.compile(r"PMC(?P<pmcid>[0-9]+)\.(?P<version>[0-9]+)\Z")
 
 #: The anchor spacing behind the default seeds; see `seed_anchors`.
 _SEED_ANCHOR_RANGE = range(1_500_000, 12_500_000, 500_000)
+
+#: PMC rewrites this housekeeping event in place.  Nothing the lane reads changes -- not a
+#: word of prose, not a table, not a reference -- but the bytes do, so a byte pin alone
+#: fails on a change that provably cannot move a score.  Sweeping all three manifests on
+#: 2026-09-15 found 14 articles drifted and 13 of them differed in this element alone.
+_VOLATILE_XML_EVENT = re.compile(rb"<event event-type=\"pmc-last-change\">.*?</event>", re.DOTALL)
+
+
+def xml_content_digest(data: bytes) -> str:
+    """Return the SHA-256 of one JATS document with its volatile metadata removed.
+
+    This is the second, weaker pin.  The byte digest remains the primary claim; this one
+    exists so that a mismatch can be *classified* rather than merely rejected, and it is
+    deliberately narrow: it removes one named element and nothing else, so a changed DOI,
+    a corrected author or a reprocessed table still fails as loudly as before.
+    """
+    return hashlib.sha256(_VOLATILE_XML_EVENT.sub(b"", data)).hexdigest()
 
 
 def seed_anchors(offset: int = 0) -> tuple[str, ...]:
@@ -177,6 +194,11 @@ class CorpusArticle:
         Licence recorded by the JATS ``ali:license_ref``/``license`` element.
     paragraphs : int
         Number of JATS ``<p>`` elements, the born-digital body test.
+    tolerated_drift : str or None
+        Set when the served bytes no longer equal the pinned ones but the pinned
+        *content* does, which is upstream housekeeping rather than a changed article.
+        ``None`` on an exact match.  Carried rather than logged so a reading can say
+        whether it scored the pinned bytes or bytes accepted under tolerance.
 
     """
 
@@ -191,6 +213,7 @@ class CorpusArticle:
     xml_size_bytes: int
     licence: str
     paragraphs: int
+    tolerated_drift: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -218,6 +241,12 @@ class CorpusSnapshot:
         ``True`` only when the caller requested the whole manifest *and* every pinned
         article was materialized.  Supplying a ``limit`` always produces ``False``,
         even when it equals the manifest size.
+    tolerated_drift : dict[str, str]
+        Article id to description, for articles whose served bytes no longer equal the
+        pinned ones while the pinned *content* still does.  Empty on an exact run.  Named
+        for the same reason as ``unavailable``: a run that accepted rewritten bytes is a
+        different claim from one that matched the pin exactly, and only the snapshot can
+        say which happened.
 
     """
 
@@ -228,6 +257,7 @@ class CorpusSnapshot:
     expected_articles: int
     unavailable: dict[str, str]
     complete: bool
+    tolerated_drift: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -238,6 +268,7 @@ class ManifestArticle:
     pdf_sha256: str
     pdf_size_bytes: int
     xml_sha256: str
+    xml_content_sha256: str
     xml_size_bytes: int
     licence: str
     paragraphs: int
@@ -303,6 +334,13 @@ def load_corpus(
     Those articles land in ``CorpusSnapshot.unavailable`` and the snapshot is no longer
     ``complete``; only a large enough share of them aborts the load.
 
+    A pinned object can also change its *bytes* without changing anything the lane reads:
+    PMC rewrites a ``pmc-last-change`` timestamp in place, which moves the digest while
+    leaving every word of prose, every table and every reference untouched.  The manifest
+    carries a second digest taken with that element removed, so such a file is accepted
+    and named in ``CorpusSnapshot.tolerated_drift`` rather than aborting the load.  Any
+    other difference -- a corrected DOI, a reprocessed table -- still raises.
+
     Parameters
     ----------
     cache_dir : pathlib.Path
@@ -352,6 +390,9 @@ def load_corpus(
         expected_articles=len(manifest.articles),
         unavailable=unavailable,
         complete=limit is None and not unavailable,
+        tolerated_drift={
+            article.article_id: article.tolerated_drift for article in articles if article.tolerated_drift is not None
+        },
     )
 
 
@@ -413,18 +454,26 @@ def read_manifest(manifest_path: Path) -> Manifest:
         raise CorpusCacheError("corpus manifest names no articles")
 
     articles: list[ManifestArticle] = []
-    article_fields = {"pdf_sha256", "pdf_size_bytes", "xml_sha256", "xml_size_bytes", "licence", "paragraphs"}
+    article_fields = {
+        "pdf_sha256",
+        "pdf_size_bytes",
+        "xml_sha256",
+        "xml_content_sha256",
+        "xml_size_bytes",
+        "licence",
+        "paragraphs",
+    }
     for article_id, row in payload["articles"].items():
         _parse_article_id(article_id, source="corpus manifest")
         if not isinstance(row, dict) or set(row) != article_fields:
             raise CorpusCacheError(f"corpus manifest row schema mismatch for {article_id!r}")
-        for field in ("pdf_sha256", "xml_sha256"):
-            if not isinstance(row[field], str) or _SHA256_RE.fullmatch(row[field]) is None:
-                raise CorpusCacheError(f"corpus manifest {field} is invalid for {article_id!r}")
-        for field in ("pdf_size_bytes", "xml_size_bytes", "paragraphs"):
-            value = row[field]
+        for digest_field in ("pdf_sha256", "xml_sha256", "xml_content_sha256"):
+            if not isinstance(row[digest_field], str) or _SHA256_RE.fullmatch(row[digest_field]) is None:
+                raise CorpusCacheError(f"corpus manifest {digest_field} is invalid for {article_id!r}")
+        for count_field in ("pdf_size_bytes", "xml_size_bytes", "paragraphs"):
+            value = row[count_field]
             if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
-                raise CorpusCacheError(f"corpus manifest {field} is invalid for {article_id!r}")
+                raise CorpusCacheError(f"corpus manifest {count_field} is invalid for {article_id!r}")
         if not isinstance(row["licence"], str) or not row["licence"].strip():
             raise CorpusCacheError(f"corpus manifest licence is invalid for {article_id!r}")
         articles.append(
@@ -433,6 +482,7 @@ def read_manifest(manifest_path: Path) -> Manifest:
                 pdf_sha256=row["pdf_sha256"],
                 pdf_size_bytes=row["pdf_size_bytes"],
                 xml_sha256=row["xml_sha256"],
+                xml_content_sha256=row["xml_content_sha256"],
                 xml_size_bytes=row["xml_size_bytes"],
                 licence=row["licence"],
                 paragraphs=row["paragraphs"],
@@ -621,12 +671,13 @@ def _materialize(
                 size_bytes=entry.pdf_size_bytes,
                 label=f"PDF {entry.article_id}",
             )
-            _ensure_artifact(
+            drift = _ensure_artifact(
                 xml_path,
                 url=_object_url(entry.article_id, "xml"),
                 sha256=entry.xml_sha256,
                 size_bytes=entry.xml_size_bytes,
                 label=f"JATS {entry.article_id}",
+                content_sha256=entry.xml_content_sha256,
             )
         except ArtifactMissingError as exc:
             return str(exc)
@@ -642,6 +693,7 @@ def _materialize(
             xml_size_bytes=entry.xml_size_bytes,
             licence=entry.licence,
             paragraphs=entry.paragraphs,
+            tolerated_drift=drift,
         )
 
     if len(selected) == 1:
@@ -667,6 +719,20 @@ def _materialize(
     return articles, unavailable
 
 
+def _tolerated_drift(path: Path, *, content_sha256: str | None, label: str) -> str | None:
+    """Classify a byte mismatch, tolerating only a change to volatile metadata.
+
+    Returns a description when the pinned *content* is still intact, or ``None`` when the
+    difference is anything the lane can actually read -- which keeps a corrected DOI or a
+    reprocessed table exactly as fatal as it was before.
+    """
+    if content_sha256 is None:
+        return None
+    if xml_content_digest(path.read_bytes()) != content_sha256:
+        return None
+    return f"{label}: volatile metadata rewritten upstream; pinned content unchanged"
+
+
 def _ensure_artifact(
     path: Path,
     *,
@@ -674,13 +740,22 @@ def _ensure_artifact(
     sha256: str,
     size_bytes: int,
     label: str,
-) -> None:
-    """Guarantee ``path`` holds exactly the manifest's bytes, downloading if needed."""
+    content_sha256: str | None = None,
+) -> str | None:
+    """Guarantee ``path`` holds the manifest's bytes, downloading if needed.
+
+    Returns ``None`` when the bytes are exactly the pinned ones, or a description of the
+    difference when they are not but the content digest still agrees.  A tolerated file is
+    kept: its bytes differ from the pin in metadata the lane never reads.
+    """
     if path.exists():
         if path.is_symlink() or not path.is_file():
             raise CorpusCacheError(f"cached {label} is not a regular file: {path}")
         if path.stat().st_size == size_bytes and _sha256(path) == sha256:
-            return
+            return None
+        warm_drift = _tolerated_drift(path, content_sha256=content_sha256, label=label)
+        if warm_drift is not None:
+            return warm_drift
         # A warm file that disagrees with the manifest is replaced, not trusted and not
         # fatal: partial writes happen, and the digest check below still gates the result.
         path.unlink()
@@ -688,12 +763,16 @@ def _ensure_artifact(
     _download(url, path, label=label)
     actual_size = path.stat().st_size
     actual_digest = _sha256(path)
-    if actual_size != size_bytes or actual_digest != sha256:
-        path.unlink(missing_ok=True)
-        raise CorpusIntegrityError(
-            f"{label} does not match the manifest: expected {sha256} ({size_bytes} bytes), "
-            f"got {actual_digest} ({actual_size} bytes)"
-        )
+    if actual_size == size_bytes and actual_digest == sha256:
+        return None
+    drift = _tolerated_drift(path, content_sha256=content_sha256, label=label)
+    if drift is not None:
+        return drift
+    path.unlink(missing_ok=True)
+    raise CorpusIntegrityError(
+        f"{label} does not match the manifest: expected {sha256} ({size_bytes} bytes), "
+        f"got {actual_digest} ({actual_size} bytes)"
+    )
 
 
 def _object_url(article_id: str, suffix: str) -> str:
@@ -1073,6 +1152,7 @@ def build_manifest(
                 "pdf_sha256": entry.pdf_sha256,
                 "pdf_size_bytes": entry.pdf_size_bytes,
                 "xml_sha256": entry.xml_sha256,
+                "xml_content_sha256": entry.xml_content_sha256,
                 "xml_size_bytes": entry.xml_size_bytes,
                 "licence": entry.licence,
                 "paragraphs": entry.paragraphs,
@@ -1176,6 +1256,7 @@ def _evaluate_candidate(article_id: str, workspace: Path) -> tuple[ManifestArtic
             pdf_sha256=_sha256(pdf_path),
             pdf_size_bytes=pdf_path.stat().st_size,
             xml_sha256=hashlib.sha256(xml_bytes).hexdigest(),
+            xml_content_sha256=xml_content_digest(xml_bytes),
             xml_size_bytes=len(xml_bytes),
             licence=_extract_licence(root),
             paragraphs=paragraphs,
