@@ -148,11 +148,48 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 self._render_attributes(metadata_block)
                 self._output.append("\n")
 
+        previous: Node | None = None
         for i, child in enumerate(node.children):
+            self._output.append(self._list_boundary(previous, child))
             child.accept(self)
+            previous = child
             # Add blank line between blocks
             if i < len(node.children) - 1:
                 self._output.append("\n\n")
+
+    @staticmethod
+    def _list_boundary(previous: Node | None, child: Node) -> str:
+        """Keep a list apart from a list of the same kind directly before it (#497).
+
+        A blank line does not end an AsciiDoc list: two lists of the same kind written
+        one after the other reparse as a single list, which is the shape a restarted
+        DOCX list or a pair of HTML ``<ol>`` elements arrives in -- and a restarted
+        ordered list then continues the numbering of the one before it. AsciiDoc's
+        documented way to force two adjacent lists apart is a line comment between
+        them, conventionally ``//-``; the parser ends the first list there and keeps
+        the comment as a ``Comment`` node, as the Markdown parser keeps the ``<!-- -->``
+        the Markdown renderer writes for the same boundary.
+
+        Applied at the document and block-quote level only. A comment line inside a
+        nested list ends the *outer* list, and the nested marker that follows is then an
+        orphan the parser rejects, so two adjacent nested lists still merge.
+
+        Parameters
+        ----------
+        previous : Node or None
+            The sibling block rendered before ``child``
+        child : Node
+            The block about to be rendered
+
+        Returns
+        -------
+        str
+            The separator line to write before ``child``, or ``""``
+
+        """
+        if isinstance(previous, List) and isinstance(child, List) and previous.ordered == child.ordered:
+            return "//-\n"
+        return ""
 
     def _collect_footnote_definitions(self, node: Node) -> None:
         """Recursively collect all footnote definitions from the document.
@@ -363,8 +400,11 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         self._output.append("____\n")
 
+        previous: Node | None = None
         for i, child in enumerate(node.children):
+            self._output.append(self._list_boundary(previous, child))
             child.accept(self)
+            previous = child
             if i < len(node.children) - 1:
                 self._output.append("\n\n")
 

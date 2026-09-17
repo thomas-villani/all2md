@@ -27,6 +27,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   number they were printed with into `List.start`, so a list that opens at "8." renders from 8
   rather than from 1 — which is also what makes a reference mistaken for a list item cost
   nothing in the text.
+- **asciidoc: two adjacent lists of the same kind stay two lists (#497).** A blank line
+  does not end an AsciiDoc list, so two bullet lists written back to back came back as one,
+  and a restarted ordered list continued the numbering of the list before it — the shape a
+  restarted DOCX list or a pair of HTML `<ol>` elements arrives in. The renderer now writes
+  AsciiDoc's documented separator, the line comment `//-`, before a list that directly
+  follows one of its own kind at the document and block-quote level; the parser ends the
+  first list there and keeps the comment as a `Comment` node, as Markdown does with its
+  `<!-- -->`. Two adjacent lists nested under one item still merge: a comment line there
+  ends the outer list instead.
 
 ## [1.15.0] - 2026-09-16
 
