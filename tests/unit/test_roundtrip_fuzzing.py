@@ -438,6 +438,11 @@ def _list_lengths(doc: Document) -> list[int]:
     return [len(node.items) for node in _collect(doc, List)]
 
 
+def _list_shapes(doc: Document) -> list[tuple[int, int]]:
+    """Each list's ``(item count, start)``, so a merged pair and a lost start both show."""
+    return [(len(node.items), node.start) for node in _collect(doc, List)]
+
+
 def _captions(doc: Document) -> list[str | None]:
     return [node.caption for node in _collect(doc, Table)]
 
@@ -547,6 +552,26 @@ INVARIANTS: dict[str, tuple[Document, object, object]] = {
         _list_lengths,
         [1, 1],
     ),
+    # The harder shape of the same defect (#496): a second ordered list that *continues*
+    # the numbering of the first. Where a restarted list survives by accident -- the
+    # numbering visibly restarts -- this one reads as one list of three in any format that
+    # separates lists by numbering alone, and the second list's start is lost with it.
+    "adjacent-ordered-list-keeps-its-start": (
+        Document(
+            children=[
+                List(
+                    ordered=True,
+                    items=[
+                        ListItem(children=[Paragraph(content=[Text(content="a")])]),
+                        ListItem(children=[Paragraph(content=[Text(content="b")])]),
+                    ],
+                ),
+                List(ordered=True, start=3, items=[ListItem(children=[Paragraph(content=[Text(content="c")])])]),
+            ]
+        ),
+        _list_shapes,
+        [(2, 1), (1, 3)],
+    ),
 }
 
 #: Invariants that do not hold yet, as ``(format, invariant)`` with the reason.
@@ -565,10 +590,6 @@ INVARIANTS: dict[str, tuple[Document, object, object]] = {
 #: readers, a marker comment for the parser -- and the invariant holds without
 #: making the caption invisible in the file.
 KNOWN_INVARIANT_GAPS: dict[tuple[str, str], str] = {
-    ("rst", "adjacent-bullet-lists-stay-apart"): (
-        "#496: The RST renderer writes both lists with the same bullet and only a blank line between "
-        "them (`* a` / blank / `* b`), and docutils reads that back as one list of two items."
-    ),
     ("asciidoc", "adjacent-ordered-lists-stay-apart"): (
         "#497: The AsciiDoc renderer separates the lists with only a blank line (`. a` `. b` / blank / "
         "`. c`), and AsciiDoc continues a list across a blank line, so they parse back as one list "

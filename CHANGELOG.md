@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **rst: two adjacent lists of the same kind stay two lists (#496).** A blank line does not
+  end a reStructuredText list, so two bullet lists written back to back came back from
+  docutils as one, and two enumerated lists came back as one whenever the second continued
+  the first's numbering — the shape a restarted DOCX list or a pair of HTML `<ol>` elements
+  arrives in — taking the second list's `start` with it. The renderer now switches marker for
+  a list that directly follows one of its own kind (`-` after `*`, `3)` after `2.`, and back
+  for a third), which is where docutils ends a list. The round-trip fuzzer gains the
+  continuing-numbering shape as an invariant for every text format.
+
 ## [1.15.0] - 2026-09-16
 
 ### Added

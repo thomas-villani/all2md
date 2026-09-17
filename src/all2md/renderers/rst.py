@@ -44,6 +44,7 @@ from all2md.ast.nodes import (
     MathBlock,
     MathInline,
     MathNotation,
+    Node,
     Paragraph,
     Strikethrough,
     Strong,
@@ -120,6 +121,8 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self._output = []
         self._in_list = False
         self._list_depth = 0
+        # Set by a container for the list it is about to render, consumed by visit_list.
+        self._alternate_list_marker = False
         self._in_blockquote = 0
         self._in_footnote = 0
 
@@ -185,10 +188,47 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         if metadata_block:
             self._render_docinfo(metadata_block)
 
+        previous: Node | None = None
+        alternated = False
         for i, child in enumerate(node.children):
+            alternated = self._list_boundary(previous, child, alternated)
+            self._alternate_list_marker = alternated
             child.accept(self)
+            previous = child
             if i < len(node.children) - 1:
                 self._output.append("\n\n")
+
+    @staticmethod
+    def _list_boundary(previous: Node | None, child: Node, previous_alternated: bool) -> bool:
+        """Keep a list apart from a list of the same kind directly before it (#496).
+
+        A blank line does not end a reStructuredText list: two bullet lists written one
+        after the other reparse as a single list, and so do two enumerated lists when the
+        second continues the first's numbering -- which is exactly the shape a restarted
+        DOCX list or a pair of HTML ``<ol>`` elements arrives in, and it loses the second
+        list's ``start``. docutils does end a list where the marker changes, so the second
+        list switches marker -- ``-`` after ``*``, ``3)`` after ``2.`` -- and a third
+        switches back. This is the Markdown renderer's rule; RST needs no separator
+        fallback because both switches are always available.
+
+        Parameters
+        ----------
+        previous : Node or None
+            The sibling block rendered before ``child``
+        child : Node
+            The block about to be rendered
+        previous_alternated : bool
+            Whether ``previous`` was itself rendered with its alternate marker
+
+        Returns
+        -------
+        bool
+            Whether ``child`` uses its alternate marker
+
+        """
+        if not (isinstance(previous, List) and isinstance(child, List) and previous.ordered == child.ordered):
+            return False
+        return not previous_alternated
 
     def _render_docinfo(self, metadata: dict) -> None:
         """Render metadata as RST docinfo block.
@@ -373,15 +413,18 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         was_in_list = self._in_list
         self._in_list = True
         self._list_depth += 1
+        # The flag is for this list alone; a nested list starts from the default again.
+        alternate = self._alternate_list_marker
+        self._alternate_list_marker = False
 
         for i, item in enumerate(node.items):
             if node.ordered:
                 # Use numbered list format
                 number = node.start + i
-                marker = f"{number}. "
+                marker = f"{number}{')' if alternate else '.'} "
             else:
                 # Use bullet list format
-                marker = "* "
+                marker = "- " if alternate else "* "
 
             # Add indentation for nested lists
             indent = "   " * (self._list_depth - 1)
@@ -417,8 +460,13 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             List item to render
 
         """
+        previous: Node | None = None
+        alternated = False
         for i, child in enumerate(node.children):
+            alternated = self._list_boundary(previous, child, alternated)
+            self._alternate_list_marker = alternated
             child.accept(self)
+            previous = child
             if i < len(node.children) - 1:
                 self._output.append("\n")
 
