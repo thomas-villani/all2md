@@ -589,17 +589,7 @@ INVARIANTS: dict[str, tuple[Document, object, object]] = {
 #: syntax, so the renderer emits the caption twice over -- an italic paragraph for
 #: readers, a marker comment for the parser -- and the invariant holds without
 #: making the caption invisible in the file.
-KNOWN_INVARIANT_GAPS: dict[tuple[str, str], str] = {
-    ("asciidoc", "adjacent-ordered-lists-stay-apart"): (
-        "#497: The AsciiDoc renderer separates the lists with only a blank line (`. a` `. b` / blank / "
-        "`. c`), and AsciiDoc continues a list across a blank line, so they parse back as one list "
-        "of three."
-    ),
-    ("asciidoc", "adjacent-bullet-lists-stay-apart"): (
-        "#497: The AsciiDoc renderer writes both lists as `*` items with only a blank line between "
-        "them, which parses back as one list of two items."
-    ),
-}
+KNOWN_INVARIANT_GAPS: dict[tuple[str, str], str] = {}
 
 #: Formats the invariant gate covers. Text formats only: the invariants probe
 #: specific node attributes, and the container formats lose so much structure
