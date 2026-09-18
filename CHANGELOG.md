@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **rst: two adjacent lists of the same kind stay two lists (#496).** A blank line does not
+  end a reStructuredText list, so two bullet lists written back to back came back from
+  docutils as one, and two enumerated lists came back as one whenever the second continued
+  the first's numbering — the shape a restarted DOCX list or a pair of HTML `<ol>` elements
+  arrives in — taking the second list's `start` with it. The renderer now switches marker for
+  a list that directly follows one of its own kind (`-` after `*`, `3)` after `2.`, and back
+  for a third), which is where docutils ends a list. The round-trip fuzzer gains the
+  continuing-numbering shape as an invariant for every text format.
 - **pdf: a numbered list whose markers are their own spans is a list again, when it is
   indented (#503).** Word prints a list item as three spans — number, tab, text — and the
   marker reader refused to cross that boundary for a number because a reference list arrives
