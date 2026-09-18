@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.15.1] - 2026-09-18
+
 ### Security
 
 - **soupsieve 2.8.4 → 2.9.2 in the lock file** (CVE-2026-85999, CVE-2026-86000, two
@@ -20,7 +22,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **xlsx, pdf, latex: three silent `except: pass` fallbacks now log at debug level** (the
   cell alignment reader, the PDF date parser, the LaTeX heading title fallback). Behaviour
   is unchanged; the swallowed error is recorded.
-
 - **rst: two adjacent lists of the same kind stay two lists (#496).** A blank line does not
   end a reStructuredText list, so two bullet lists written back to back came back from
   docutils as one, and two enumerated lists came back as one whenever the second continued
@@ -4315,7 +4316,8 @@ surfaced one real conversion bug, which is the reason to take the release.
 - NumPy-style docstrings
 - Modular architecture with clear separation of concerns
 
-[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.15.0...HEAD
+[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.15.1...HEAD
+[1.15.1]: https://github.com/thomas-villani/all2md/releases/tag/v1.15.1
 [1.15.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.15.0
 [1.14.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.14.0
 [1.13.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.13.0
