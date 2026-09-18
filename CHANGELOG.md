@@ -7,7 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **soupsieve 2.8.4 → 2.9.2 in the lock file** (CVE-2026-85999, CVE-2026-86000, two
+  polynomial-time ReDoS findings in its CSS selector compiler). all2md's only selector
+  path is the HTML renderer's template injection, whose selectors come from the caller's
+  options rather than from document content, so exposure was low; fresh installs already
+  resolved past it and the bump brings CI and development environments in line.
+
 ### Fixed
+
+- **xlsx, pdf, latex: three silent `except: pass` fallbacks now log at debug level** (the
+  cell alignment reader, the PDF date parser, the LaTeX heading title fallback). Behaviour
+  is unchanged; the swallowed error is recorded.
 
 - **rst: two adjacent lists of the same kind stay two lists (#496).** A blank line does not
   end a reStructuredText list, so two bullet lists written back to back came back from
