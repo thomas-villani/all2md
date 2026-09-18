@@ -1232,8 +1232,9 @@ class PdfToAstConverter(BaseParser):
                     return date_str
 
                 return datetime(year, month, day).isoformat()
-        except (ValueError, IndexError):
-            pass
+        except (ValueError, IndexError) as exc:
+            # Best effort: an unparseable date is returned as the PDF printed it.
+            logger.debug(f"Could not parse PDF date {date_str!r}, keeping it verbatim: {exc!r}")
         return date_str
 
     def convert_to_ast(self, doc: "pymupdf.Document", pages_to_use: range | list[int], base_filename: str) -> Document:

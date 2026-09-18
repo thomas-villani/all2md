@@ -11,6 +11,7 @@ by parsing LaTeX into the same AST structure used for other formats.
 
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
 from typing import IO, Any, Optional, Union
@@ -48,6 +49,8 @@ from all2md.options.latex import LatexOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
 from all2md.utils.metadata import DocumentMetadata
+
+logger = logging.getLogger(__name__)
 
 
 class LatexParser(BaseParser):
@@ -458,8 +461,9 @@ class LatexParser(BaseParser):
                         text = match.group(1).strip()
                         if text:
                             content_nodes.append(Text(content=text))
-            except Exception:
-                pass
+            except Exception as exc:
+                # Best effort: a heading whose title cannot be recovered is emitted empty.
+                logger.debug(f"Could not recover a sectioning macro's title from its source: {exc!r}")
 
         return Heading(level=level, content=content_nodes)
 

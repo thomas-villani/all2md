@@ -116,8 +116,9 @@ def _alignment_for_cell(cell: Any) -> Alignment:
                 "justify": "left",
             }
             return alignment_map.get(horiz, "center")
-    except Exception:
-        pass
+    except Exception as exc:
+        # Best effort: a cell whose alignment cannot be read keeps the default.
+        logger.debug(f"Could not read cell alignment, defaulting to center: {exc!r}")
 
     return "center"
 
