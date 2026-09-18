@@ -220,8 +220,61 @@ _LEADING_TEXT_CHARS = 16
 #: from becoming an ordered list.
 _BULLET_AWAITING_ITS_SPACE = re.compile("^[-–—*+•◦▪▫o]$")
 
+#: A number marker standing alone in its node, the space after it not yet read. Crossed only
+#: when the caller has established that the line is indented -- see
+#: :meth:`PdfToAstConverter._split_number_marker_is_indented`. Three digits at most: the
+#: one split number that arrives indented and is *not* a list item is a year opening a
+#: reference's wrapped line (``2020. MMWR Morb Mortal Wkly Rep``), and no list has a
+#: thousand items.
+_NUMBER_AWAITING_ITS_SPACE = re.compile(r"^\d{1,3}[.)]$")
 
-def _leading_inline_text(content: list[Node], limit: int = _LEADING_TEXT_CHARS) -> str:
+#: How far past the surrounding body text a split number marker must sit to be read as a
+#: list marker, and how far it may sit before the "body text" it is measured against is
+#: really the other column. Measured over the 128-article PMC dev corpus: every split number
+#: at the body margin was a reference or a numbered heading; the largest offset a reference
+#: number showed was 4pt, the one-digit shift of a right-aligned label (``9.`` under
+#: ``10.``); every split number 10pt or more past the body text was a list item (Word's
+#: default indent is 36pt, LaTeX-set lists showed 12-18pt). Column left edges are never
+#: closer than ~150pt, so a "body paragraph" more than 120pt to the left is the other column.
+_SPLIT_NUMBER_MIN_INDENT = 10.0
+_SPLIT_NUMBER_MAX_INDENT = 120.0
+
+#: An ordered marker at the start of a line: the number, ``.`` or ``)``, and the space that
+#: keeps ``2024`` and ``1.5`` from being markers. Group 1 is the printed number.
+_ORDERED_MARKER = re.compile(r"^\s*(\d+)[.)]\s")
+
+
+def _carry_list_starts(nodes: list[Node], printed_numbers: dict[int, int]) -> None:
+    """Give each ordered list the number its first item was printed with.
+
+    A list is built from the items the page prints, and the marker comes off each item
+    as it is read; without this the renderer numbers every list from 1. That is wrong for
+    a list the source continues after an interruption ("4." follows a figure), and it is
+    the whole of the harm when a reference is mistaken for a list item: a paragraph that
+    printed ``8. Mitchell KM`` came out as ``1. Mitchell KM``, and no citation in the body
+    could be matched to it. Carrying the number through makes that mistake cost nothing
+    in the text (#503).
+
+    Parameters
+    ----------
+    nodes : list of Node
+        The converted nodes; every ``List`` in them, at any depth, is visited.
+    printed_numbers : dict[int, int]
+        ``id(item)`` -> the number that item was printed with, for ordered items.
+
+    """
+    for node in nodes:
+        if not isinstance(node, List):
+            continue
+        if node.ordered and node.items:
+            start = printed_numbers.get(id(node.items[0]))
+            if start is not None and start > 0:
+                node.start = start
+        for item in node.items:
+            _carry_list_starts(item.children, printed_numbers)
+
+
+def _leading_inline_text(content: list[Node], limit: int = _LEADING_TEXT_CHARS, *, split_number: bool = False) -> str:
     """Return the text a paragraph or line *opens with*, descending into inline wrappers.
 
     Reading the first top-level ``Text`` node instead gets the question wrong in both
@@ -244,13 +297,19 @@ def _leading_inline_text(content: list[Node], limit: int = _LEADING_TEXT_CHARS) 
     from being a bullet could never fire and Word's second-level bullets could never be
     recognised at all.
 
-    Numbers get no such step, and that restriction is the load-bearing part. A numbered
-    marker arrives split exactly the same way -- ``Text("44.")`` then ``Text(" Konema,
-    Nigeria ...")`` -- and nothing in the PDF distinguishes the 44th bibliography entry from
-    the 44th item of a list. Reading across that boundary turned reference lists into
-    ordered lists, whereupon the renderer renumbered them from 1 and destroyed every
-    citation number in the document. A numbered marker must therefore be complete within one
-    node, which is exactly what it was before.
+    Numbers get that step only when the caller passes ``split_number=True``, and the
+    restriction is the load-bearing part. A numbered marker arrives split exactly the same
+    way -- ``Text("44.")`` then ``Text(" Konema, Nigeria ...")`` -- and nothing *on the
+    line* distinguishes the 44th bibliography entry from the 44th item of a list: a
+    Word-typeset reference list (PMC3000079) has the number, the tab and the text in the
+    same three spans, in the same fonts, as a Word-typeset list. Reading across that
+    boundary unconditionally turned reference lists into ordered lists, whereupon the
+    renderer renumbered them from 1 and destroyed every citation number in the document.
+    What does distinguish them is where the line sits: a list is indented from the body
+    text around it, a reference list hangs at the margin. That is a paragraph-level fact,
+    so the caller decides it (:meth:`PdfToAstConverter._split_number_marker_is_indented`)
+    and only then lets the walk cross for a number. Without that finding a numbered marker
+    must be complete within one node, which is exactly what it was before (#503).
 
     ``Code`` and anything else that is not an inline wrapper stops the walk: a line opening
     with inline code does not open with a list marker, and reporting the text past it would
@@ -261,11 +320,16 @@ def _leading_inline_text(content: list[Node], limit: int = _LEADING_TEXT_CHARS) 
         if isinstance(node, Text):
             piece = node.content
         elif isinstance(node, _INLINE_WRAPPERS):
-            piece = _leading_inline_text(node.content, limit)
+            piece = _leading_inline_text(node.content, limit, split_number=split_number)
         else:
             break
-        if text and not _BULLET_AWAITING_ITS_SPACE.match(text.strip()):
-            break
+        if text:
+            held = text.strip()
+            awaiting_space = _BULLET_AWAITING_ITS_SPACE.match(held) or (
+                split_number and _NUMBER_AWAITING_ITS_SPACE.match(held)
+            )
+            if not awaiting_space:
+                break
         text += piece
         if len(text.lstrip()) >= limit:
             break
@@ -4724,19 +4788,21 @@ class PdfToAstConverter(BaseParser):
 
         # Check for numbered list markers (1. or 1) followed by space)
         # More robust: require space after marker to avoid matching dates/numbers
-        match = re.match(r"^\s*(\d+)[\.\)]\s", text)
-        if match:
+        if _ORDERED_MARKER.match(text):
             return True, "ordered"
 
         return False, None
 
-    def _detect_list_marker(self, para: AstParagraph) -> tuple[bool, str | None]:
+    def _detect_list_marker(self, para: AstParagraph, *, split_number: bool = False) -> tuple[bool, str | None]:
         """Detect if a paragraph is a list item and return its type.
 
         Parameters
         ----------
         para : AstParagraph
             The paragraph to check
+        split_number : bool, optional
+            Whether a number marker may be read across a node boundary. Only
+            :meth:`_split_number_marker_is_indented` should say so.
 
         Returns
         -------
@@ -4745,7 +4811,42 @@ class PdfToAstConverter(BaseParser):
             "ordered", "unordered", or None
 
         """
-        return self._is_valid_list_marker(_leading_inline_text(para.content))
+        return self._is_valid_list_marker(_leading_inline_text(para.content, split_number=split_number))
+
+    def _split_number_marker_is_indented(self, para: AstParagraph, body_x: float | None) -> bool:
+        """Whether ``para`` sits far enough past the body text for a split number to be a marker.
+
+        Parameters
+        ----------
+        para : AstParagraph
+            The candidate paragraph.
+        body_x : float or None
+            Left edge of the most recent paragraph on the page that was *not* taken as a
+            list item, or None when there has been none.
+
+        Returns
+        -------
+        bool
+            True when the paragraph's left edge lies between
+            ``_SPLIT_NUMBER_MIN_INDENT`` and ``_SPLIT_NUMBER_MAX_INDENT`` past ``body_x``.
+
+        Notes
+        -----
+        The reference is the last paragraph the list conversion left as prose rather than
+        the nearest node, so that the second item of a list is measured against the body
+        text before the list and not against the first item; and so that the 44th entry of
+        a reference list is measured against the 43rd, which sits at the same margin. A
+        heading carries no bbox and does not move the reference, which is what lets a list
+        that opens straight under a heading be measured against the prose above it.
+
+        Unknown is answered conservatively: with no body paragraph yet on the page, or a
+        paragraph without a bbox, a split number stays prose, exactly as before #503.
+
+        """
+        x = self._extract_list_item_x_coord(para)
+        if x is None or body_x is None:
+            return False
+        return _SPLIT_NUMBER_MIN_INDENT <= x - body_x <= _SPLIT_NUMBER_MAX_INDENT
 
     def _extract_list_item_x_coord(self, node: AstParagraph) -> float | None:
         """Extract x-coordinate from a paragraph's bbox metadata.
@@ -4767,13 +4868,16 @@ class PdfToAstConverter(BaseParser):
                 return bbox[0]
         return None
 
-    def _strip_list_marker(self, para: AstParagraph) -> list[Node]:
+    def _strip_list_marker(self, para: AstParagraph, *, split_number: bool = False) -> list[Node]:
         """Remove list marker from paragraph content and return cleaned content.
 
         Parameters
         ----------
         para : AstParagraph
             The paragraph containing a list marker
+        split_number : bool, optional
+            The same answer :meth:`_detect_list_marker` was given, so the marker is
+            stripped exactly as it was read.
 
         Returns
         -------
@@ -4781,7 +4885,7 @@ class PdfToAstConverter(BaseParser):
             Content nodes with the list marker removed
 
         """
-        full_text = _leading_inline_text(para.content)
+        full_text = _leading_inline_text(para.content, split_number=split_number)
 
         # Use the robust marker detection to validate this is actually a list item
         is_list, list_type = self._is_valid_list_marker(full_text)
@@ -4802,7 +4906,7 @@ class PdfToAstConverter(BaseParser):
                 marker_end += 1
         elif list_type == "ordered":
             # Numbered marker - use regex to find end
-            match = re.match(r"^(\s*)(\d+[\.\)])\s", full_text)
+            match = _ORDERED_MARKER.match(full_text)
             if match:
                 marker_end = match.end()
 
@@ -4993,11 +5097,18 @@ class PdfToAstConverter(BaseParser):
         result: list[Node] = []
         list_stack: list[tuple[str, int, list[ListItem]]] = []
         x_levels: dict[int, float] = {}
+        # Left edge of the last paragraph left as prose: the body text a split number
+        # marker is measured against (#503).
+        body_x: float | None = None
+        # The number each ordered item was printed with, so a list that opens at "8."
+        # renders from 8 rather than from 1 (see _carry_list_starts).
+        printed_numbers: dict[int, int] = {}
 
         for node in nodes:
             if isinstance(node, AstParagraph):
                 # Check if this is a list item
-                is_list_item, list_type = self._detect_list_marker(node)
+                split_number = self._split_number_marker_is_indented(node, body_x)
+                is_list_item, list_type = self._detect_list_marker(node, split_number=split_number)
 
                 if is_list_item and list_type:
                     # Extract x-coordinate and determine nesting level
@@ -5007,8 +5118,14 @@ class PdfToAstConverter(BaseParser):
                         level = self._determine_list_level_from_x(x_coord, x_levels)
 
                     # Create list item with cleaned content
-                    cleaned_content = self._strip_list_marker(node)
+                    if list_type == "ordered":
+                        printed = _ORDERED_MARKER.match(_leading_inline_text(node.content, split_number=split_number))
+                    else:
+                        printed = None
+                    cleaned_content = self._strip_list_marker(node, split_number=split_number)
                     item_node = ListItem(children=[AstParagraph(content=cleaned_content)])
+                    if printed:
+                        printed_numbers[id(item_node)] = int(printed.group(1))
 
                     # Handle list stack based on level
                     if not list_stack:
@@ -5029,6 +5146,9 @@ class PdfToAstConverter(BaseParser):
                     self._finalize_pending_lists(list_stack, result)
                     x_levels.clear()
                     result.append(node)
+                    prose_x = self._extract_list_item_x_coord(node)
+                    if prose_x is not None:
+                        body_x = prose_x
             else:
                 # Non-paragraph - finalize any pending lists
                 self._finalize_pending_lists(list_stack, result)
@@ -5037,6 +5157,7 @@ class PdfToAstConverter(BaseParser):
 
         # Finalize any remaining lists
         self._finalize_pending_lists(list_stack, result)
+        _carry_list_starts(result, printed_numbers)
 
         return result
 

@@ -17,6 +17,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a list that directly follows one of its own kind (`-` after `*`, `3)` after `2.`, and back
   for a third), which is where docutils ends a list. The round-trip fuzzer gains the
   continuing-numbering shape as an invariant for every text format.
+- **pdf: a numbered list whose markers are their own spans is a list again, when it is
+  indented (#503).** Word prints a list item as three spans — number, tab, text — and the
+  marker reader refused to cross that boundary for a number because a reference list arrives
+  split the same way. Position separates them: over the 128-article PMC dev corpus every split
+  number at the body margin was a reference or numbered heading, and every one 10pt or more
+  past the surrounding prose was a list item. The walk now crosses for a number only when the
+  paragraph sits 10–120pt past the last paragraph left as prose. Ordered lists also carry the
+  number they were printed with into `List.start`, so a list that opens at "8." renders from 8
+  rather than from 1 — which is also what makes a reference mistaken for a list item cost
+  nothing in the text.
 
 ## [1.15.0] - 2026-09-16
 
