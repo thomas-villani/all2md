@@ -18,7 +18,7 @@ import logging
 import tempfile
 from io import BytesIO
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Union
+from typing import IO, TYPE_CHECKING, Any, Union, cast
 from urllib.parse import urlparse
 
 if TYPE_CHECKING:
@@ -67,6 +67,7 @@ from all2md.ast.nodes import (
 from all2md.ast.nodes import (
     Paragraph as ASTParagraph,
 )
+from all2md.ast.transforms import remove_xml_illegal_characters
 from all2md.ast.visitors import NodeVisitor
 from all2md.constants import DEPS_DOCX_RENDER
 from all2md.exceptions import RenderingError
@@ -182,6 +183,16 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
             # Set default font
             self._set_document_defaults()
+
+            # python-docx refuses a whole document over one character XML cannot carry, and
+            # PDF text layers routinely hold them (a glyph whose font encoding maps nowhere).
+            cleaned, removed = remove_xml_illegal_characters(doc)
+            if removed:
+                logger.warning(
+                    "Removed %d control character(s) DOCX cannot store, typically from a PDF text layer",
+                    removed,
+                )
+            doc = cast(ASTDocument, cleaned)
 
             # Apply title promotion transform if enabled (requires styles for Title style)
             if self.options.promote_title and self.options.use_styles:
