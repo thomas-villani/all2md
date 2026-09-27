@@ -237,6 +237,67 @@ def _score(args: argparse.Namespace) -> int:
     return 0
 
 
+def _docx(args: argparse.Namespace) -> int:
+    from benchmarks.pmc.benchmark import write_result
+    from benchmarks.pmc.docx_reparse import ROUTES, run
+
+    snapshot = corpus.load_corpus(
+        Path(args.cache),
+        manifest_path=None if args.manifest is None else Path(args.manifest),
+        limit=args.limit,
+        workers=args.workers,
+    )
+    payload = run(
+        snapshot,
+        all2md_commit=args.commit,
+        keep_docx=None if args.keep_docx is None else Path(args.keep_docx),
+        progress=None if args.quiet else lambda line: print(line, flush=True),
+    )
+    if args.out:
+        print(f"written    : {write_result(payload, Path(args.out))}")
+
+    print(f"pin        : {payload['provenance']['corpus_pin']}")
+    print(f"articles   : {payload['articles_all_routes']} read through every route of {payload['articles']}")
+    if payload["parse_failures"]:
+        print(f"  PDF parse failed: {', '.join(payload['parse_failures'])}")
+    print()
+    # The direct reading is the baseline; every route's figure is read against it, not alone.
+    print("truth      : the lane's article instruments, per route, on the same articles")
+    print(f"    {'route':10s} {'attainable':>10s} {'delta':>7s} {'novel':>7s} {'delta':>7s} {'dup':>7s}")
+    direct = payload["direct"]
+    print(
+        f"    {'direct':10s} {direct['attainable_recall']:10.1%} {'':7s} "
+        f"{direct['novel_share']:7.2%} {'':7s} {direct['duplication']:7.2%}"
+    )
+    for route in ROUTES[1:]:
+        truth = payload["routes"][route]["truth"]
+        print(
+            f"    {route:10s} {truth['attainable_recall']:10.1%} {truth['attainable_recall_delta']:+7.1%} "
+            f"{truth['novel_share']:7.2%} {truth['novel_share_delta']:+7.2%} {truth['duplication']:7.2%}"
+        )
+    print()
+    print("text       : the direct reading's own n-grams, no truth involved")
+    for route in ROUTES[1:]:
+        text = payload["routes"][route]["text"]
+        print(f"    {route:10s} lost {text['lost']:6.2%}   added {text['added']:6.2%}")
+    print()
+    print("structure  : paired against the direct reading (kept / lost / gained of before)")
+    names = sorted({name for route in ROUTES[1:] for name in payload["routes"][route]["structure"]})
+    for name in names:
+        cells = []
+        for route in ROUTES[1:]:
+            counts = payload["routes"][route]["structure"].get(name)
+            if counts is None:
+                cells.append(f"{route}: n/a")
+                continue
+            cells.append(f"{route}: {counts['kept']}/{counts['lost']}/{counts['gained']} of {counts['before']}")
+        print(f"    {name:13s} " + "   ".join(cells))
+    for route in ROUTES[1:]:
+        if payload["routes"][route]["failures"]:
+            print(f"\n{route} failed on: {', '.join(payload['routes'][route]['failures'])}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the PMC corpus command line.
 
@@ -310,6 +371,20 @@ def main(argv: list[str] | None = None) -> int:
     score.add_argument("--out", default=None, help="write the evidence payload here")
     score.add_argument("--commit", default="unknown", help="all2md commit being scored")
     score.set_defaults(handler=_score)
+
+    docx = subparsers.add_parser(
+        "docx",
+        help="score the DOCX renderer: read each article's AST back through DOCX (and Markdown, as reference)",
+    )
+    docx.add_argument("--manifest", default=None, help="manifest path (default: the committed one)")
+    docx.add_argument("--cache", default=str(DEFAULT_CACHE), help="cache directory")
+    docx.add_argument("--limit", type=int, default=None, help="evenly spaced subset size")
+    docx.add_argument("--workers", type=int, default=8, help="concurrent download workers")
+    docx.add_argument("--out", default=None, help="write the ledger payload here")
+    docx.add_argument("--commit", default="unknown", help="all2md commit being measured")
+    docx.add_argument("--keep-docx", default=None, help="directory to keep each rendered DOCX in")
+    docx.add_argument("--quiet", action="store_true", help="suppress per-article progress")
+    docx.set_defaults(handler=_docx)
 
     show = subparsers.add_parser("show", help="summarize the committed manifest without any network access")
     show.add_argument("--manifest", default=None, help="manifest path (default: the committed one)")
