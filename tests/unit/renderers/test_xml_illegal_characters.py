@@ -16,7 +16,7 @@ import pytest
 
 from all2md.ast import Document, Heading, Image, Link, Paragraph, Table, TableCell, TableRow, Text
 from all2md.ast.nodes import Figure
-from all2md.ast.transforms import remove_xml_illegal_characters
+from all2md.ast.transforms import XML_ILLEGAL_CHARACTERS, remove_xml_illegal_characters
 from all2md.ast.utils import extract_text
 
 pytestmark = pytest.mark.unit
@@ -78,8 +78,26 @@ def test_every_string_field_is_cleaned_and_the_input_is_not_mutated() -> None:
     assert document.metadata["keywords"] == ["k\x0bey"]
 
 
+def test_the_pattern_is_exactly_the_complement_of_xml_char() -> None:
+    """Every code point, against XML 1.0's own ``Char`` production.
+
+    CodeQL flags the U+000E to U+001F range as possibly over-broad. It is not, and this is
+    the proof: the pattern matches no character XML allows and misses none it forbids.
+    """
+
+    def xml_char(code: int) -> bool:
+        return (
+            code in (0x9, 0xA, 0xD) or 0x20 <= code <= 0xD7FF or 0xE000 <= code <= 0xFFFD or 0x10000 <= code <= 0x10FFFF
+        )
+
+    disagreements = [
+        hex(code) for code in range(0x110000) if bool(XML_ILLEGAL_CHARACTERS.match(chr(code))) == xml_char(code)
+    ]
+    assert disagreements == []
+
+
 def test_unpaired_surrogates_and_noncharacters_are_removed() -> None:
-    document = Document(children=[Paragraph(content=[Text("a\ud800b￾c￿d")])])
+    document = Document(children=[Paragraph(content=[Text("a\ud800b\ufffec\uffffd")])])
     cleaned, removed = remove_xml_illegal_characters(document)
     assert removed == 3
     assert extract_text(cleaned) == "abcd"

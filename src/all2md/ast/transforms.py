@@ -682,8 +682,10 @@ def clone_node(node: Node) -> Node:
 #: Code points XML 1.0 cannot carry at all, escaped or not: the C0 controls other than tab,
 #: line feed and carriage return, unpaired surrogates, and the two noncharacters U+FFFE and
 #: U+FFFF. lxml refuses any string holding one, so a renderer that builds XML through it
-#: fails the whole document over a single character.
-XML_ILLEGAL_CHARACTERS: Pattern[str] = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff￾￿]")
+#: fails the whole document over a single character. A raw string, so every code point is a
+#: visible escape; `test_the_pattern_is_exactly_the_complement_of_xml_char` checks it
+#: against the XML 1.0 ``Char`` production over every code point.
+XML_ILLEGAL_CHARACTERS: Pattern[str] = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff\ufffe\uffff]")
 
 
 def remove_xml_illegal_characters(node: Node) -> tuple[Node, int]:
