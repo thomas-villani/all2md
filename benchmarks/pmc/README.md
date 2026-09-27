@@ -566,6 +566,78 @@ What the first run (2026-08-29) found, on the 66-article development corpus:
   against a heading the tool actually emitted, and which needs no page attribution and so
   scores third-party output too.
 
+## The DOCX renderer: `benchmarks.pmc docx`
+
+"Make this PDF an editable Word document" had no instrument. This one holds the PDF parse
+fixed: each article is parsed **once**, and that one AST is read three ways — directly,
+through `from_ast(..., "docx")` and the DOCX parser, and through Markdown as a reference
+column. Every difference between the direct reading and the DOCX one happened on the DOCX
+leg, so the delta needs no new ground truth.
+
+```bash
+.venv/Scripts/python.exe -m benchmarks.pmc docx --out docx.json --keep-docx ./docx-out
+```
+
+Three readings, coarse to sharp: the lane's own **truth recall and precision** per route;
+**text survival** of the direct reading's n-grams, which needs no truth and sees text the
+trip *adds*; and a **structure inventory** — headings, tables, lists, links, captions —
+paired between readings, because a table flattened to paragraphs keeps every word.
+
+What it cannot do, stated up front:
+
+- **Renderer and DOCX parser are not separated.** The re-read goes through our own parser,
+  so a defect in either looks the same, and the two can agree on a reading Word rejects.
+  Word's own read-back (`wordlive`, by hand) is the instrument that separates them.
+- **Article level only.** Page attribution rides on separator nodes a Word document has no
+  reason to keep. The PDF is parsed with the library's *default* separator policy, not the
+  lane's numbered one, which would reach the document as one review comment per page.
+- **Section and column layout is not scored.** One column for a two-column source is a
+  legitimate default for an editable document.
+
+It is a **ledger, not a gate** — the route the DOCX corpus lane took. A threshold recorded
+before the defect list is worked would ratchet the defects in as accepted.
+
+### First reading, 2026-09-27 (development corpus, 66 articles)
+
+**The DOCX route failed outright on 18 of 66 articles (27%)**, all one defect: the PDF's
+text layer carries C0 control characters (`\x01`–`\x08`, `\x1f` — glyphs a broken font
+encoding maps nowhere, e.g. the `\x02` standing in for `©` before "Springer"), and
+python-docx refuses the whole document rather than one string. The Markdown route passes
+them through. So `all2md paper.pdf --out paper.docx` fails on about a quarter of this
+corpus. Every figure below is over the 48 articles all three routes completed.
+
+| | direct | via DOCX | via Markdown |
+|---|---|---|---|
+| attainable recall | 98.8% | 98.8% (+0.0) | 98.8% (+0.0) |
+| novel share | 0.46% | 0.64% (**+0.19**) | 0.46% |
+| direct n-grams lost / added | — | 0.20% / 0.40% | 0.00% / 0.00% |
+
+| structure, kept / lost / gained of direct | via DOCX | via Markdown |
+|---|---|---|
+| captions (figure and table) | **0 / 95 / 0 of 95** | 189 / 0 / 0 of 189 |
+| links | 1219 / **247** / 0 of 1466 | 2172 / 17 / 16 of 2189 |
+| lists | 229 / 24 / 9 of 253 | 369 / 0 / 0 of 369 |
+| headings (level and text) | 1076 / 4 / 4 of 1080 | 1608 / 14 / 14 of 1622 |
+| tables (rows × columns) | 116 / 0 / 0 of 116 | 171 / 0 / 0 of 171 |
+
+The Markdown column covers all 66 articles, the DOCX column the 48 it completed, so the two
+structure columns have different denominators; read each against its own `before`.
+
+**Text survives; structure does not.** Recall does not move, so the DOCX leg is not losing
+the document's words. What it loses:
+
+- **Every caption stops being a caption.** `visit_figure` writes the caption as a centered
+  italic paragraph with no `Caption` style, so the text reaches Word and nothing — not Word,
+  not our parser — can tell it is a caption.
+- **17% of links**, concentrated in a few articles (98 of 340 in one). Mechanism not yet traced.
+- **Adjacent lists merge**, the shape #496/#497 fixed for RST and AsciiDoc, and some
+  one-item lists vanish.
+- **Invented text, +0.19 points of novel share.** Largest on the articles whose figures lose
+  their wrapper, consistent with image alt text being written as a visible caption
+  paragraph. A hypothesis, not yet a finding.
+- Headings are nearly clean: a space lost at a run boundary ("Bio Med" → "BioMed") in three
+  articles' shared publisher footer, and one level shift.
+
 ## Licences
 
 The OA subset is not uniformly licensed. Each article's licence is read out of its own
