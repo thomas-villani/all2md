@@ -50,9 +50,9 @@
       "paragraphs": 50,
       "pdf_sha256": "c552ddb4313a1937036dfe069f44c196df5718e1630509bdd899add2c276cb08",
       "pdf_size_bytes": 2470339,
-      "xml_content_sha256": "a1a08bdb88f967c1f7bad3fc02c9dc541469822ef9a032d65d2243e9975d0c5f",
-      "xml_sha256": "2401e44b6234d28bf34c8462122a0ef7d6a06273e467961a1996ce7560c0a4ff",
-      "xml_size_bytes": 79267
+      "xml_content_sha256": "69ea3339bbc348fe2aa56f8138b1a700f6f65d91ec9eb591cf8157b983fe5799",
+      "xml_sha256": "d87b365824e547301f5df461cc692b7c42baf8bda0c380f8cf9d90c394a328df",
+      "xml_size_bytes": 80071
     },
     "PMC11000000.1": {
       "licence": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
@@ -131,9 +131,9 @@
       "paragraphs": 32,
       "pdf_sha256": "122915a7ca28811994dd1a2f74869f5549beb274c8610ddece752075d05d07b7",
       "pdf_size_bytes": 572055,
-      "xml_content_sha256": "7bc53ab6d58b50e45966927b7189411e35a736950944b535819b4787322bb2d7",
-      "xml_sha256": "cb8f8a86ad4e4b14d5696378cf470878d307d78c36a70e8eed3d535ed96a4c2e",
-      "xml_size_bytes": 71231
+      "xml_content_sha256": "94062f3ca17d0bc3002e5745ba4d324aa85bc40a9842d0836276d8b8a1f4dd04",
+      "xml_sha256": "b23fab808138f85695262cf8b2327b98204214a7b96ed44876424b3288ab50b9",
+      "xml_size_bytes": 71323
     },
     "PMC150011.1": {
       "licence": "unrecorded",
