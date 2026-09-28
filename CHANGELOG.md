@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **docx, epub: a control character in the text no longer fails the whole document.**
+  PDF text layers routinely carry C0 control characters (a glyph whose font encoding maps
+  nowhere), and lxml refuses any string holding one, so PDF → DOCX failed outright on 18
+  of the 66 articles in the PMC development corpus. Both renderers now drop characters
+  XML 1.0 cannot carry, from every string in the tree (text, alt text, URLs, captions,
+  metadata), and log a warning with the count. The input AST is not mutated. The shared
+  helper is `all2md.ast.transforms.remove_xml_illegal_characters`. ODT, ODP and PPTX were
+  already safe.
+
 ## [1.15.1] - 2026-09-18
 
 ### Security
