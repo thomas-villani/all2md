@@ -30,6 +30,7 @@ Change heading levels:
 from __future__ import annotations
 
 import copy
+import dataclasses
 import re
 from typing import Any, Callable, Pattern, Type
 
@@ -676,6 +677,103 @@ def clone_node(node: Node) -> Node:
 
     """
     return copy.deepcopy(node)
+
+
+#: Code points XML 1.0 cannot carry at all, escaped or not: the C0 controls other than tab,
+#: line feed and carriage return, unpaired surrogates, and the two noncharacters U+FFFE and
+#: U+FFFF. lxml refuses any string holding one, so a renderer that builds XML through it
+#: fails the whole document over a single character. A raw string, so every code point is a
+#: visible escape; `test_the_pattern_is_exactly_the_complement_of_xml_char` checks it
+#: against the XML 1.0 ``Char`` production over every code point.
+XML_ILLEGAL_CHARACTERS: Pattern[str] = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff\ufffe\uffff]")
+
+
+def remove_xml_illegal_characters(node: Node) -> tuple[Node, int]:
+    """Return a copy of an AST with every character XML cannot carry removed.
+
+    PDF text layers are the usual source: a font whose encoding maps a glyph nowhere
+    yields a raw control character, such as the U+0002 a publisher's PDF carries
+    where it prints a copyright sign. The glyph's meaning is already lost by then, so
+    removing the character loses nothing a renderer could have recovered.
+
+    Every string the tree holds is cleaned, not only visible text -- alt text, URLs,
+    captions and metadata all reach the XML -- which is why this walks dataclass fields
+    rather than the visitor's node types. The input is never mutated, and when nothing
+    needs removing it is returned as is, uncopied.
+
+    Parameters
+    ----------
+    node : Node
+        Tree to clean, usually a `Document`.
+
+    Returns
+    -------
+    tuple[Node, int]
+        The cleaned tree (the input itself when the count is zero) and the number of
+        characters removed.
+
+    """
+    if not _holds_xml_illegal(node, set()):
+        return node, 0
+    cleaned = copy.deepcopy(node)
+    removed = [0]
+    _strip_xml_illegal(cleaned, removed, set())
+    return cleaned, removed[0]
+
+
+def _holds_xml_illegal(value: Any, seen: set[int]) -> bool:
+    if isinstance(value, str):
+        return XML_ILLEGAL_CHARACTERS.search(value) is not None
+    if isinstance(value, (bytes, bytearray, int, float, bool)) or value is None:
+        return False
+    if id(value) in seen:
+        return False
+    seen.add(id(value))
+    if isinstance(value, dict):
+        return any(_holds_xml_illegal(key, seen) or _holds_xml_illegal(item, seen) for key, item in value.items())
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return any(_holds_xml_illegal(item, seen) for item in value)
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        return any(_holds_xml_illegal(getattr(value, field.name), seen) for field in dataclasses.fields(value))
+    return False
+
+
+def _clean(text: str, removed: list[int]) -> str:
+    cleaned, count = XML_ILLEGAL_CHARACTERS.subn("", text)
+    removed[0] += count
+    return cleaned
+
+
+def _strip_xml_illegal(value: Any, removed: list[int], seen: set[int]) -> Any:
+    """Clean ``value`` in place where it is mutable, and return the cleaned value."""
+    if isinstance(value, str):
+        return _clean(value, removed)
+    if isinstance(value, (bytes, bytearray, int, float, bool)) or value is None:
+        return value
+    if id(value) in seen:
+        return value
+    seen.add(id(value))
+    if isinstance(value, dict):
+        items = [
+            (_strip_xml_illegal(key, removed, seen), _strip_xml_illegal(item, removed, seen))
+            for key, item in value.items()
+        ]
+        value.clear()
+        value.update(items)
+        return value
+    if isinstance(value, list):
+        value[:] = [_strip_xml_illegal(item, removed, seen) for item in value]
+        return value
+    if isinstance(value, (tuple, set, frozenset)):
+        return type(value)(_strip_xml_illegal(item, removed, seen) for item in value)
+    if dataclasses.is_dataclass(value) and not isinstance(value, type):
+        for field in dataclasses.fields(value):
+            current = getattr(value, field.name)
+            cleaned = _strip_xml_illegal(current, removed, seen)
+            if cleaned is not current:
+                object.__setattr__(value, field.name, cleaned)
+        return value
+    return value
 
 
 def extract_nodes(doc: Document, node_type: Type[Node] | None = None) -> list[Node]:

@@ -23,7 +23,7 @@ from typing import IO, Any, Union, cast
 from urllib.parse import urlparse
 
 from all2md.ast.nodes import Comment, CommentInline, Document, Heading, Image, Node, get_node_children
-from all2md.ast.transforms import clone_node
+from all2md.ast.transforms import clone_node, remove_xml_illegal_characters
 from all2md.constants import DEPS_EPUB_RENDER
 from all2md.exceptions import RenderingError
 from all2md.options.epub import EpubRendererOptions
@@ -117,6 +117,16 @@ class EpubRenderer(BaseRenderer):
         # Clone document to avoid mutating the original AST during image URL rewriting.
         # This ensures the input document can be reused for rendering to other formats.
         doc = cast(Document, clone_node(doc))
+
+        # ebooklib builds its XHTML through lxml, which refuses a whole book over one
+        # character XML cannot carry; PDF text layers routinely hold them.
+        cleaned, removed = remove_xml_illegal_characters(doc)
+        if removed:
+            logger.warning(
+                "Removed %d control character(s) EPUB cannot store, typically from a PDF text layer",
+                removed,
+            )
+        doc = cast(Document, cleaned)
 
         # Create EPUB book
         book = epub.EpubBook()
