@@ -40,6 +40,7 @@ from all2md.ast import (
     CommentInline,
     Document,
     Emphasis,
+    Figure,
     FootnoteReference,
     Heading,
     Image,
@@ -79,6 +80,12 @@ from all2md.utils.decorators import requires_dependencies
 from all2md.utils.footnotes import FootnoteCollector
 
 logger = logging.getLogger(__name__)
+
+# Word's built-in caption style (the one Insert Caption applies), as python-docx names it.
+CAPTION_STYLE = "Caption"
+# A caption that could belong to the figure before it or the table after it is a
+# table's when it is labelled as one.
+TABLE_CAPTION_LABEL = re.compile(r"\s*(?:table|tab\.)\s", re.IGNORECASE)
 
 WORDPROCESSING_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 WORD_TAG_PREFIX = f"{{{WORDPROCESSING_NS}}}"
@@ -619,6 +626,7 @@ class DocxToAstConverter(BaseParser):
             metadata_dict = metadata.to_dict()
 
         self._coalesce_blockquotes(children)
+        self._attach_captions(children)
         self._invert_title_promotion(children)
 
         document = Document(children=children, metadata=metadata_dict)
@@ -762,6 +770,63 @@ class DocxToAstConverter(BaseParser):
                 current.children.extend(following.children)
                 del children[i + 1]
             else:
+                i += 1
+
+    def _attach_captions(self, children: list[Node]) -> None:
+        """Pair each Caption-styled paragraph with the figure or table it captions.
+
+        Word marks a caption only by its paragraph style; nothing links it to the
+        picture or table beside it. A caption paragraph is therefore claimed by its
+        neighbours, in Word's placement conventions:
+
+        - after one or more image-only paragraphs: those images become a
+          :class:`Figure` with the caption (figure captions sit below);
+        - before an uncaptioned table: the table's caption (table captions sit above);
+        - after an uncaptioned table: the table's caption;
+        - before image-only paragraphs not captioned below: a :class:`Figure`,
+          captioned from above.
+
+        A caption with both an image before it and a table after it goes to the table
+        only when it is labelled "Table". A caption with no neighbour to claim it is a
+        caption-only :class:`Figure`, the AST's record of a figure whose content was not
+        extracted (a chart, SmartArt). Mutates ``children``.
+        """
+        i = 0
+        while i < len(children):
+            child = children[i]
+            if not isinstance(child, AstParagraph) or not _is_caption_paragraph(child):
+                i += 1
+                continue
+            caption = " ".join(_inline_plain_text(child.content).split())
+            if not caption:
+                i += 1
+                continue
+
+            start = i
+            while start > 0 and _is_image_paragraph(children[start - 1]):
+                start -= 1
+            end = i + 1
+            while end < len(children) and _is_image_paragraph(children[end]):
+                end += 1
+            following = children[i + 1] if i + 1 < len(children) else None
+            preceding = children[i - 1] if i > 0 else None
+            table_after = isinstance(following, AstTable) and not following.caption
+            table_before = isinstance(preceding, AstTable) and not preceding.caption
+
+            if start < i and not (table_after and TABLE_CAPTION_LABEL.match(caption)):
+                children[start : i + 1] = [Figure(children=children[start:i], caption=caption)]
+                i = start + 1
+            elif table_after:
+                cast(AstTable, following).caption = caption
+                del children[i]
+            elif table_before:
+                cast(AstTable, preceding).caption = caption
+                del children[i]
+            elif end > i + 1 and not _is_caption_paragraph(children[end] if end < len(children) else None):
+                children[i:end] = [Figure(children=children[i + 1 : end], caption=caption)]
+                i += 1
+            else:
+                children[i] = Figure(caption=caption)
                 i += 1
 
     def _invert_title_promotion(self, children: list[Node]) -> None:
@@ -2984,6 +3049,33 @@ def _omml_to_latex(element: Any) -> str:
     # Dispatch to handler function
     handler = _OMML_HANDLERS.get(name, _omml_handle_default)
     return handler(element)
+
+
+def _inline_plain_text(nodes: list[Node]) -> str:
+    """Return the text of inline nodes, a line break read as a space."""
+    parts: list[str] = []
+    for node in nodes:
+        if isinstance(node, (Text, Code)):
+            parts.append(node.content)
+        elif isinstance(node, LineBreak):
+            parts.append(" ")
+        elif isinstance(getattr(node, "content", None), list):
+            parts.append(_inline_plain_text(node.content))  # type: ignore[attr-defined]
+    return "".join(parts)
+
+
+def _is_caption_paragraph(node: Node | None) -> bool:
+    """Return whether ``node`` is a paragraph in Word's Caption style."""
+    return isinstance(node, AstParagraph) and node.metadata.get("source_style") == CAPTION_STYLE
+
+
+def _is_image_paragraph(node: Node) -> bool:
+    """Return whether ``node`` is a paragraph holding images and nothing else."""
+    if not isinstance(node, AstParagraph) or not node.content:
+        return False
+    return all(
+        isinstance(item, Image) or (isinstance(item, Text) and not item.content.strip()) for item in node.content
+    ) and any(isinstance(item, Image) for item in node.content)
 
 
 def _iter_block_items(

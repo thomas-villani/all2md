@@ -17,6 +17,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   metadata), and log a warning with the count. The input AST is not mutated. The shared
   helper is `all2md.ast.transforms.remove_xml_illegal_characters`. ODT, ODP and PPTX were
   already safe.
+- **docx: figure and table captions survive a round trip.** The renderer wrote a
+  caption as a plain centered italic paragraph and dropped `Table.caption` entirely, and
+  the parser never built a caption, so PDF → DOCX kept 0 of the 95 figure captions in
+  the PMC development corpus as captions. Captions are now written in Word's built-in
+  Caption style (the one Insert Caption applies): below a figure, above a table, below
+  an image that carries its own caption. The parser pairs a Caption-styled paragraph
+  with the images or table beside it, following Word's placement conventions; one with
+  nothing beside it becomes a caption-only figure. Inside a captioned figure an image no
+  longer prints its alt text as a second line, and every picture now carries its alt
+  text in its description, where Word and the parser read it. A template without the
+  Caption style still gets the italic line.
 
 ## [1.15.1] - 2026-09-18
 
