@@ -114,6 +114,10 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
     # built-in present in the default template.
     _INLINE_CODE_CHAR_STYLE = "Verbatim Char"
     _BLOCKQUOTE_STYLE = "Quote"
+    # Word's built-in caption style, the one Insert Caption applies. The parser pairs a
+    # paragraph in it with the figure or table beside it, so a caption written in it
+    # comes back a caption rather than an italic paragraph.
+    _CAPTION_STYLE = "Caption"
 
     def __init__(self, options: DocxRendererOptions | None = None):
         """Initialize the DOCX renderer with options."""
@@ -129,6 +133,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         self._network_rate_limiter: RateLimiter | None = None
         self._list_ordered_stack: list[bool] = []  # Track ordered/unordered at each level
         self._blockquote_depth: int = 0  # Track blockquote nesting depth
+        self._captioned_figure_depth: int = 0  # Inside a Figure that writes its own caption
         self._available_styles: set[str] = set()  # Populated after document creation
 
     @requires_dependencies("docx_render", DEPS_DOCX_RENDER)
@@ -770,7 +775,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         """Render a Figure node.
 
         Renders the figure's child blocks in order, then the caption (if any)
-        as a centered italic paragraph, matching the image-caption idiom.
+        below them in Word's Caption style.
 
         Parameters
         ----------
@@ -778,15 +783,40 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             Figure to render
 
         """
-        # Render children
-        for child in node.children:
-            child.accept(self)
+        # A captioned figure's images do not print their alt text: a line between
+        # the picture and its caption would read as a second caption.
+        captioned = bool(node.caption and node.caption.strip())
+        self._captioned_figure_depth += captioned
+        try:
+            for child in node.children:
+                child.accept(self)
+        finally:
+            self._captioned_figure_depth -= captioned
 
-        # Add caption if present
-        if node.caption and self.document:
-            caption_para = self.document.add_paragraph(node.caption)
-            caption_para.alignment = self._WD_ALIGN_PARAGRAPH.CENTER
-            caption_para.runs[0].italic = True
+        if node.caption:
+            self._add_caption_paragraph(node.caption)
+
+    def _add_caption_paragraph(self, caption: str) -> None:
+        """Write a caption as a body paragraph in Word's Caption style.
+
+        The style is what makes it a caption: Word lists it in a table of figures,
+        and the DOCX parser pairs it with the figure or table beside it. A template
+        without the style gets the centered italic line captions were before.
+
+        Parameters
+        ----------
+        caption : str
+            Caption text
+
+        """
+        if not self.document or not caption.strip():
+            return
+        if self._has_style(self._CAPTION_STYLE):
+            self.document.add_paragraph(caption, style=self._CAPTION_STYLE)
+            return
+        caption_para = self.document.add_paragraph(caption)
+        caption_para.alignment = self._WD_ALIGN_PARAGRAPH.CENTER
+        caption_para.runs[0].italic = True
 
     def visit_list(self, node: List) -> None:
         """Render a List node.
@@ -890,6 +920,10 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
         if grid.num_cols == 0:
             return
+
+        # Word sets a table's caption above it (Insert Caption's default for tables).
+        if node.caption:
+            self._add_caption_paragraph(node.caption)
 
         # Create table with proper dimensions
         table = self.document.add_table(rows=grid.num_rows, cols=grid.num_cols)
@@ -1415,10 +1449,17 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             if image_file:
                 para = self.document.add_paragraph()
                 run = para.add_run()
-                run.add_picture(image_file, width=self._Inches(4))
-
-                # Add caption if alt text exists
+                picture = run.add_picture(image_file, width=self._Inches(4))
+                # Word keeps a picture's alt text in its description, where the
+                # parser reads it back.
                 if node.alt_text:
+                    picture._inline.docPr.set("descr", node.alt_text)
+
+                # A caption is text printed beside the image, so it is written as one.
+                # Alt text is still printed below an uncaptioned image.
+                if node.caption:
+                    self._add_caption_paragraph(node.caption)
+                elif node.alt_text and not self._captioned_figure_depth:
                     caption_para = self.document.add_paragraph(node.alt_text)
                     caption_para.alignment = self._WD_ALIGN_PARAGRAPH.CENTER
                     caption_para.runs[0].italic = True
