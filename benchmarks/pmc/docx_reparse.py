@@ -157,9 +157,30 @@ ROUND_TRIPS: Mapping[str, Callable[[Any], Any]] = {
 
 
 def _plain(nodes: Any) -> str:
-    from all2md.ast.utils import extract_text
+    """Read inline nodes as a reader sees them, whitespace collapsed.
 
-    return " ".join(extract_text(nodes).split())
+    Text and code verbatim and a line break as a space, with nothing added where one node
+    meets the next. ``extract_text`` puts a space at every node boundary, so a word the
+    PDF parser split over two links ("Bio" + "Med") read as two words in the direct
+    reading and one in the DOCX reading, which merges the links, and scored as a changed
+    heading while the text was the same.
+    """
+    from all2md.ast.nodes import Code, LineBreak, Text, get_node_children
+
+    parts: list[str] = []
+
+    def walk(node: Any) -> None:
+        if isinstance(node, (Text, Code)):
+            parts.append(node.content)
+        elif isinstance(node, LineBreak):
+            parts.append(" ")
+        else:
+            for child in get_node_children(node):
+                walk(child)
+
+    for node in nodes if isinstance(nodes, list) else [nodes]:
+        walk(node)
+    return " ".join("".join(parts).split())
 
 
 def _collect(document: Any, kind: type) -> list[Any]:
