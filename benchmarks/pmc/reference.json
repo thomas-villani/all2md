@@ -1,19 +1,21 @@
 {
   "schema_version": 8,
   "provenance": {
-    "corpus_pin": "c8fdbd5f967b9a2332e007593c26300f1c37d0641a2b07139d55ffb12f8d7161",
+    "corpus_pin": "13d2d68ef743312a8b64b0a30488e406cc2ed5caf1a043b108ed54a13d487523",
     "bucket": "pmc-oa-opendata",
     "complete_corpus": true,
     "tolerated_drift": {
       "PMC150011.1": "JATS PMC150011.1: volatile metadata rewritten upstream; pinned content unchanged",
+      "PMC1500805.1": "JATS PMC1500805.1: volatile metadata rewritten upstream; pinned content unchanged",
       "PMC1500944.1": "JATS PMC1500944.1: volatile metadata rewritten upstream; pinned content unchanged",
+      "PMC2500011.1": "JATS PMC2500011.1: volatile metadata rewritten upstream; pinned content unchanged",
       "PMC3500000.1": "JATS PMC3500000.1: volatile metadata rewritten upstream; pinned content unchanged"
     },
     "oracle_schema_version": 3,
-    "all2md_commit": "c1fa1600c4204311ad60612d1710ee8c686bdf00",
+    "all2md_commit": "f9e1bd582eccc551191a6ab59966b0f1d84ebe4d",
     "worktree_dirty": false,
-    "created_at": "2026-09-16T03:53:21.919001+00:00",
-    "python": "3.12.3 (main, Jul 15 2026, 23:46:41) [GCC 13.3.0]",
+    "created_at": "2026-09-27T23:51:59.233275+00:00",
+    "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
     "platform": "linux",
     "parser_runtime": {
       "pymupdf": "1.28.0",
@@ -41,14 +43,14 @@
     "articles_scored": 66,
     "articles_converted": 66,
     "pages_scored": 706,
-    "ground_truth_blocks": 11507,
+    "ground_truth_blocks": 11508,
     "coverage": {
       "count": 66.0,
-      "mean": 0.9331671045435238,
+      "mean": 0.9332402891267308,
       "median": 0.9556443397911896,
       "minimum": 0.09348198970840481,
       "maximum": 1.1222493887530562,
-      "stdev": 0.13134175691895295
+      "stdev": 0.13137364632319168
     },
     "tables_expected": 127,
     "tables_emitted": 162,
@@ -68,7 +70,7 @@
   },
   "projection": {
     "assignments": {
-      "clean": 7185,
+      "clean": 7186,
       "spans": 322,
       "tokens": 976,
       "phrase": 1479,
@@ -80,15 +82,15 @@
       "split": 95,
       "too_short": 44
     },
-    "error_budget": 0.04067089597636221,
+    "error_budget": 0.040667361835245046,
     "unsplit_spans": 43
   },
   "article_recall": {
-    "recall": 0.6378129561019423,
+    "recall": 0.6377413560844185,
     "recovered": 5681,
-    "scored": 8907,
+    "scored": 8908,
     "too_short": 2600,
-    "ceiling": 0.6393847535646121,
+    "ceiling": 0.6393129770992366,
     "attainable": 5695,
     "recovered_attainable": 5631,
     "attainable_recall": 0.9887620719929763,
@@ -111,27 +113,27 @@
         "recovered": 2313,
         "attainable": 2316,
         "recovered_attainable": 2291,
-        "scored": 2425,
+        "scored": 2426,
         "attainable_recall": 0.9892055267702936
       }
     },
-    "control_recall": 0.003592679914673852,
-    "control_scored": 8907,
-    "discrimination": 0.6342202761872685
+    "control_recall": 0.003592276605298608,
+    "control_scored": 8908,
+    "discrimination": 0.6341490794791199
   },
   "article_precision": {
-    "precision": 0.9562883607742422,
-    "supported": 425971,
-    "emitted": 445442,
-    "resequenced": 17573,
+    "precision": 0.956176783573478,
+    "supported": 425906,
+    "emitted": 445426,
+    "resequenced": 17622,
     "novel": 1898,
-    "novel_share": 0.004260936328410882,
-    "duplication": 0.004480072459934354,
+    "novel_share": 0.004261089384095225,
+    "duplication": 0.0044802241593495315,
     "excess": 2117,
-    "occurrences": 472537,
-    "control_precision": 0.007073872692741142,
-    "control_emitted": 445442,
-    "discrimination": 0.949214488081501
+    "occurrences": 472521,
+    "control_precision": 0.007074126790982116,
+    "control_emitted": 445426,
+    "discrimination": 0.949102656782496
   },
   "figure_binding": {
     "binding_rate": 0.6837209302325581,
@@ -151,35 +153,35 @@
   "dimensions": {
     "block_structure_similarity": {
       "count": 706.0,
-      "mean": 0.5515790576234474,
+      "mean": 0.551565724666574,
       "median": 0.5714285714285714,
       "minimum": 0.023255813953488413,
       "maximum": 1.0,
-      "stdev": 0.20835091938239486,
+      "stdev": 0.2083606289063708,
       "direction": "higher",
-      "control_mean": 0.4468847689841981,
-      "discrimination": 0.10469428863924929,
+      "control_mean": 0.44687771035997104,
+      "discrimination": 0.10468801430660302,
       "mutation_drop": {
         "reversed": 0.01694626840500665,
         "shuffled": 0.03187297910293168,
-        "halved": 0.08306029838419246
+        "halved": 0.08305402405154617
       },
       "ungateable": "compares kind sequences without inspecting the text under a block, so content-free output scores 1.0 (issue #256); eleven text categories collapse to `text_block`, so fully reversed output scores exactly 1.0 on 153 of the 981 pinned pages; and on the born-digital lane it separates own-page from wrong-page output by only ~0.06 while *rising* when half the emitted content is deleted, which rewards dropping blocks"
     },
     "reading_order_similarity": {
       "count": 706.0,
-      "mean": 0.8318248971639377,
+      "mean": 0.8318271454664694,
       "median": 0.9090909090909091,
       "minimum": 0.0,
       "maximum": 1.0,
-      "stdev": 0.20427215158867193,
+      "stdev": 0.20427068984684604,
       "direction": "higher",
-      "control_mean": 0.29338972141271175,
-      "discrimination": 0.538435175751226,
+      "control_mean": 0.29337996201004113,
+      "discrimination": 0.5384471834564283,
       "mutation_drop": {
-        "reversed": 0.5393427789533674,
-        "shuffled": 0.24948723555417543,
-        "halved": 0.32878663350497067
+        "reversed": 0.5393538667958863,
+        "shuffled": 0.24948586846381018,
+        "halved": 0.32878191032678417
       }
     },
     "table_content_similarity": {
@@ -216,18 +218,18 @@
     },
     "text_content_similarity": {
       "count": 706.0,
-      "mean": 0.6919077328680012,
+      "mean": 0.6918812264051917,
       "median": 0.7147269954392326,
       "minimum": 0.010652463382157085,
       "maximum": 0.993987493987494,
-      "stdev": 0.21954227611389018,
+      "stdev": 0.21955719609692842,
       "direction": "higher",
-      "control_mean": 0.2343756921995961,
-      "discrimination": 0.45753204066840514,
+      "control_mean": 0.23437243044159967,
+      "discrimination": 0.457508795963592,
       "mutation_drop": {
-        "reversed": 0.2961958729036337,
-        "shuffled": 0.2053849265913479,
-        "halved": 0.2965567608459487
+        "reversed": 0.296158291323301,
+        "shuffled": 0.20537832284734373,
+        "halved": 0.2965296232528361
       }
     }
   },
