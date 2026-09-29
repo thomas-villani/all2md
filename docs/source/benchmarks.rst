@@ -115,7 +115,7 @@ Did the text survive?
      -
    * - Raw recall
      - 63.8%
-     - of 8,907 ground-truth blocks
+     - of 8,908 ground-truth blocks
    * - Attainable ceiling
      - 63.9%
      - what the PDF's own text layer reproduces
@@ -190,7 +190,7 @@ By block kind:
      - 3,236
      - **99.4%**
    * - Titles
-     - 2,316 of 2,425
+     - 2,316 of 2,426
      - 2,291
      - **98.9%**
    * - Tables
@@ -233,7 +233,7 @@ Unsupported output is therefore split in two:
      - **95.6%**
      - the n-gram appears in the document's text layer
    * - Resequenced
-     - 3.9%
+     - 4.0%
      - every word is in the document, in a new adjacency
    * - **Novel**
      - **0.4%**
@@ -245,7 +245,7 @@ Unsupported output is therefore split in two:
      - 0.7%
      - wants to be ~0%
 
-Over 445,442 emitted n-grams, 1,898 are novel. Reporting the raw unsupported figure instead
+Over 445,426 emitted n-grams, 1,898 are novel. Reporting the raw unsupported figure instead
 would have made the result roughly ten times worse than the parser deserves.
 
 Duplication is counted apart from both, because it is invisible to either. Text emitted
