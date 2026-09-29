@@ -190,7 +190,7 @@ class Inventory:
     lists : Counter[tuple[bool, int]]
         ``(ordered, items)`` of every list, nested lists included.
     links : Counter[str]
-        Target URL of every link.
+        Target URL of every link span (see `link_spans`).
     captions : Counter[str]
         Caption text of every figure and table that carries one.
 
@@ -218,7 +218,7 @@ def inventory(document: Any) -> Inventory:
         The reading's structure, keyed for pairing.
 
     """
-    from all2md.ast.nodes import Figure, Heading, Link, List, Node, Table
+    from all2md.ast.nodes import Figure, Heading, List, Node, Table
 
     nodes = Counter(type(node).__name__ for node in _collect(document, Node))
     headings = Counter((node.level, _plain(node.content)) for node in _collect(document, Heading))
@@ -233,8 +233,47 @@ def inventory(document: Any) -> Inventory:
         if figure.caption:
             captions[" ".join(figure.caption.split())] += 1
     lists = Counter((bool(node.ordered), len(node.items)) for node in _collect(document, List))
-    links = Counter(node.url for node in _collect(document, Link))
+    links = link_spans(document)
     return Inventory(nodes=nodes, headings=headings, tables=tables, lists=lists, links=links, captions=captions)
+
+
+def link_spans(document: Any) -> Counter[str]:
+    """Count a reading's links as spans of text, keyed by target URL.
+
+    The PDF parser emits one ``Link`` per printed line, so a reference that wraps over three
+    lines is three adjacent links to one URL. The DOCX parser reads adjacent hyperlink runs to
+    one target back as a single link, which a count of ``Link`` nodes scores as two lost links
+    when every URL and every word survived. Adjacent links to the same URL, separated by
+    nothing but whitespace or line breaks, are therefore one span here. A link split by other
+    text is two spans on both sides and is not merged.
+
+    Parameters
+    ----------
+    document : Document
+        A reading of one article.
+
+    Returns
+    -------
+    Counter[str]
+        Target URL of every link span.
+
+    """
+    from all2md.ast.nodes import LineBreak, Link, Node, Text
+
+    spans: Counter[str] = Counter()
+    for container in _collect(document, Node):
+        content = getattr(container, "content", None)
+        if isinstance(container, Link) or not isinstance(content, list):
+            continue
+        open_url: str | None = None
+        for node in content:
+            if isinstance(node, Link):
+                if node.url != open_url:
+                    spans[node.url] += 1
+                open_url = node.url
+            elif not (isinstance(node, LineBreak) or (isinstance(node, Text) and not node.content.strip())):
+                open_url = None
+    return spans
 
 
 def _pairing(before: Counter[Any], after: Counter[Any]) -> dict[str, Any]:

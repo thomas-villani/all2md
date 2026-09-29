@@ -14,6 +14,7 @@ import pytest
 from all2md.ast.nodes import (
     Document,
     Heading,
+    LineBreak,
     Link,
     List,
     ListItem,
@@ -153,3 +154,18 @@ def test_a_failed_route_is_listed_and_kept_out_of_the_shared_denominator() -> No
     assert payload["direct"]["articles"] == 1
     assert payload["routes"]["docx"]["truth"]["attainable_recall_delta"] == 0.0
     assert payload["per_article"][1]["errors"] == {"docx": "ValueError: boom"}
+
+
+def test_a_link_split_across_lines_is_one_span() -> None:
+    def fragments(*parts: Any) -> Paragraph:
+        return Paragraph(content=list(parts))
+
+    doi = "https://doi.org/10.1/x"
+    one = Link(url=doi, content=[Text("Cancer incidence")])
+    two = Link(url=doi, content=[Text("worldwide. 2015.")])
+    split = Document(children=[fragments(one, LineBreak(), Text(" "), two)])
+    merged = Document(children=[fragments(Link(url=doi, content=[Text("Cancer incidence worldwide. 2015.")]))])
+    assert docx_reparse.link_spans(split) == docx_reparse.link_spans(merged) == {doi: 1}
+
+    cited_twice = Document(children=[fragments(one, Text(" and again "), two)])
+    assert docx_reparse.link_spans(cited_twice) == {doi: 2}

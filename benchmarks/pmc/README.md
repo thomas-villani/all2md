@@ -629,7 +629,12 @@ the document's words. What it loses:
 - **Every caption stops being a caption.** `visit_figure` writes the caption as a centered
   italic paragraph with no `Caption` style, so the text reaches Word and nothing — not Word,
   not our parser — can tell it is a caption.
-- **17% of links**, concentrated in a few articles (98 of 340 in one). Mechanism not yet traced.
+- **17% of links**, concentrated in a few articles (98 of 340 in one). *Corrected: an
+  instrument artifact, not a loss.* The PDF parser emits one link per printed line, so a
+  reference wrapping over three lines was three adjacent links to one URL; the DOCX parser
+  reads them back as one, and a count of `Link` nodes scored that as two lost links while
+  every URL and word survived. The inventory now counts link *spans* (`link_spans`); on a
+  6-article subset DOCX keeps 107 of 107.
 - **Adjacent lists merge**, the shape #496/#497 fixed for RST and AsciiDoc, and some
   one-item lists vanish.
 - **Invented text, +0.19 points of novel share.** Largest on the articles whose figures lose
