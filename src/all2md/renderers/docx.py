@@ -118,6 +118,11 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
     # paragraph in it with the figure or table beside it, so a caption written in it
     # comes back a caption rather than an italic paragraph.
     _CAPTION_STYLE = "Caption"
+    _W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    # Indent per depth of a list style the renderer creates: the 0.25" step of Word's own
+    # "List Number 2" and "List Number 3". Word numbering definitions stop at nine levels.
+    _LIST_INDENT_TWIPS = 360
+    _MAX_LIST_DEPTH = 9
 
     def __init__(self, options: DocxRendererOptions | None = None):
         """Initialize the DOCX renderer with options."""
@@ -131,7 +136,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         self._in_table: bool = False
         self._temp_files: list[str] = []
         self._network_rate_limiter: RateLimiter | None = None
-        self._list_ordered_stack: list[bool] = []  # Track ordered/unordered at each level
+        # (paragraph style, numId or None) of the list at each level; see visit_list
+        self._list_format_stack: list[tuple[str | None, str | None]] = []
         self._blockquote_depth: int = 0  # Track blockquote nesting depth
         self._captioned_figure_depth: int = 0  # Inside a Figure that writes its own caption
         self._available_styles: set[str] = set()  # Populated after document creation
@@ -294,165 +300,164 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 logger.debug(f"Failed to cleanup temp file {temp_file}: {e}")
         self._temp_files.clear()
 
+    def _numbering_element(self) -> Any:
+        """Return the document's ``w:numbering`` element, adding a numbering part if it has none."""
+        try:
+            numbering_part = self.document.part.numbering_part
+        except (KeyError, NotImplementedError):
+            from docx.opc.constants import RELATIONSHIP_TYPE as RT
+            from docx.opc.packuri import PackURI
+            from docx.oxml.parser import parse_xml
+            from docx.parts.numbering import NumberingPart
+
+            numbering_xml = f'<w:numbering xmlns:w="{self._W_NS}"/>'.encode()
+            numbering_part = NumberingPart(
+                PackURI("/word/numbering.xml"),
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml",
+                parse_xml(numbering_xml),
+                self.document.part.package,
+            )
+            self.document.part.relate_to(numbering_part, RT.NUMBERING)
+        return numbering_part._element
+
+    def _add_abstract_num(self, ordered: bool, depth: int, style_id: str) -> str:
+        """Add a one-level bullet or decimal definition indented for ``depth``; return its abstractNumId.
+
+        CT_Numbering is a strict sequence: every w:abstractNum must precede every w:num.
+        Word does not reject an out-of-order numbering part outright -- it silently
+        mis-associates the stray w:abstractNum, so the affected list loses its numbering
+        and renders as plain paragraphs.
+        """
+        from docx.oxml.parser import parse_xml
+
+        qn = self._qn
+        numbering = self._numbering_element()
+        abstract_id = (
+            max((int(el.get(qn("w:abstractNumId"))) for el in numbering.findall(qn("w:abstractNum"))), default=-1) + 1
+        )
+        if ordered:
+            level_format = f'<w:numFmt w:val="decimal"/><w:pStyle w:val="{style_id}"/><w:lvlText w:val="%1."/>'
+            fonts = ""
+        else:
+            # U+F0B7 is the Symbol font's bullet glyph; a literal U+00B7 renders as
+            # the wrong character once w:rFonts pins the run to Symbol.
+            level_format = f'<w:numFmt w:val="bullet"/><w:pStyle w:val="{style_id}"/><w:lvlText w:val="\uf0b7"/>'
+            fonts = '<w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr>'
+        abstract = parse_xml(
+            f'<w:abstractNum xmlns:w="{self._W_NS}" w:abstractNumId="{abstract_id}">'
+            '<w:multiLevelType w:val="singleLevel"/>'
+            f'<w:lvl w:ilvl="0"><w:start w:val="1"/>{level_format}<w:lvlJc w:val="left"/>'
+            f'<w:pPr><w:ind w:left="{self._LIST_INDENT_TWIPS * depth}" w:hanging="360"/></w:pPr>{fonts}</w:lvl>'
+            "</w:abstractNum>"
+        )
+        first_num = numbering.find(qn("w:num"))
+        if first_num is None:
+            numbering.append(abstract)
+        else:
+            first_num.addprevious(abstract)
+        return str(abstract_id)
+
+    def _add_num(self, abstract_id: str, restart: tuple[int, int] | None = None) -> str:
+        """Add a ``w:num`` instance of ``abstract_id`` and return its numId.
+
+        ``restart`` is ``(ilvl, start)``: the instance begins that level at ``start``, the
+        way Word records "Restart numbering", instead of carrying on the count of every
+        other list that shares the definition.
+        """
+        from docx.oxml.parser import parse_xml
+
+        qn = self._qn
+        numbering = self._numbering_element()
+        num_id = max((int(el.get(qn("w:numId"))) for el in numbering.findall(qn("w:num"))), default=0) + 1
+        override = ""
+        if restart is not None:
+            ilvl, start = restart
+            override = f'<w:lvlOverride w:ilvl="{ilvl}"><w:startOverride w:val="{start}"/></w:lvlOverride>'
+        num = parse_xml(
+            f'<w:num xmlns:w="{self._W_NS}" w:numId="{num_id}">'
+            f'<w:abstractNumId w:val="{abstract_id}"/>{override}</w:num>'
+        )
+        trailing = numbering.find(qn("w:numIdMacAtCleanup"))
+        if trailing is None:
+            numbering.append(num)
+        else:
+            trailing.addprevious(num)
+        return str(num_id)
+
+    @staticmethod
+    def _list_style_name(ordered: bool, depth: int) -> str:
+        """Name Word's built-in list style for a depth: "List Number", "List Number 2", ..."""
+        base = "List Number" if ordered else "List Bullet"
+        return base if depth <= 1 else f"{base} {depth}"
+
+    def _create_list_style(self, ordered: bool, depth: int) -> None:
+        """Add the list paragraph style for ``depth``, with a numbering definition of its own."""
+        name = self._list_style_name(ordered, depth)
+        num_id = self._add_num(self._add_abstract_num(ordered, depth, name.replace(" ", "")))
+        # builtin=True keeps the name as "List Bullet"; a custom style of that name
+        # collides with Word's latent built-in and gets renamed to "List Bullet1",
+        # so any styling the template applies to "List Bullet" would never take.
+        # Word's latent built-ins stop at "List Bullet 5".
+        style = self.document.styles.add_style(name, self._WD_STYLE_TYPE.PARAGRAPH, builtin=depth <= 5)
+        style.base_style = self.document.styles["Normal"]
+        pPr = style._element.get_or_add_pPr()
+        pPr.get_or_add_numPr().get_or_add_numId().val = int(num_id)
+        pPr.append(self._OxmlElement("w:contextualSpacing"))
+        self._available_styles.add(name)
+
     def _ensure_list_styles(self) -> None:
         """Ensure List Bullet and List Number styles exist, creating them if missing.
 
         Template documents often lack the built-in list styles that python-docx's
         default template provides.  This method creates proper numbering definitions
         and paragraph styles so that bullet and numbered lists render correctly
-        regardless of the template used.
+        regardless of the template used. Deeper levels are created on demand by
+        ``_list_item_style``.
         """
-        need_bullet = not self._has_style("List Bullet")
-        need_number = not self._has_style("List Number")
-        if not need_bullet and not need_number:
-            return
+        created = []
+        for ordered in (False, True):
+            name = self._list_style_name(ordered, 1)
+            if not self._has_style(name):
+                self._create_list_style(ordered, 1)
+                created.append(name)
+        if created:
+            logger.debug("Created missing list styles: %s", ", ".join(created))
 
-        OxmlElement = self._OxmlElement
+    def _list_item_style(self, ordered: bool, depth: int) -> str | None:
+        """Return the paragraph style for list items at ``depth``, creating it if the document lacks it.
+
+        Word nests a list by style -- "List Number 2" under "List Number" -- and each of
+        those styles numbers with a definition of its own, so a nested list neither
+        flattens into its parent nor disturbs the parent's count.
+        """
+        depth = min(max(depth, 1), self._MAX_LIST_DEPTH)
+        name = self._list_style_name(ordered, depth)
+        if not self._has_style(name) and self.options.use_styles and self._has_style("Normal"):
+            self._create_list_style(ordered, depth)
+        if self._has_style(name):
+            return name
+        base = self._list_style_name(ordered, 1)
+        return base if self._has_style(base) else None
+
+    def _style_numbering(self, style_name: str) -> tuple[str, int] | None:
+        """Return the ``(abstractNumId, ilvl)`` a paragraph style numbers with, basedOn chain included."""
         qn = self._qn
-        parse_xml = __import__("docx.oxml", fromlist=["parse_xml"]).parse_xml
-        WD_STYLE_TYPE = self._WD_STYLE_TYPE
-
-        # ------------------------------------------------------------------
-        # 1. Ensure a numbering part exists in the document package
-        # ------------------------------------------------------------------
-        try:
-            numbering_part = self.document.part.numbering_part
-        except (KeyError, NotImplementedError):
-            from docx.opc.constants import RELATIONSHIP_TYPE as RT
-            from docx.opc.packuri import PackURI
-            from docx.parts.numbering import NumberingPart
-
-            numbering_xml = b'<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"/>'
-            numbering_element = parse_xml(numbering_xml)
-            numbering_part = NumberingPart(
-                PackURI("/word/numbering.xml"),
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml",
-                numbering_element,
-                self.document.part.package,
-            )
-            self.document.part.relate_to(numbering_part, RT.NUMBERING)
-
-        numbering_el = numbering_part._element
-
-        # Determine the next safe abstractNumId and numId values
-        existing_abstract_ids = {int(el.get(qn("w:abstractNumId"))) for el in numbering_el.findall(qn("w:abstractNum"))}
-        existing_num_ids = {int(el.get(qn("w:numId"))) for el in numbering_el.findall(qn("w:num"))}
-        next_abstract_id = max(existing_abstract_ids, default=-1) + 1
-        next_num_id = max(existing_num_ids, default=0) + 1
-
-        # ------------------------------------------------------------------
-        # 2. Create numbering definitions and styles
-        # ------------------------------------------------------------------
-        W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-
-        # CT_Numbering is a strict sequence: every w:abstractNum must precede every
-        # w:num.  Collect the new definitions here and splice them into the right
-        # positions once both are built (see step 3 below).
-        new_abstract_nums = []
-        new_nums = []
-
-        if need_bullet:
-            abs_id = next_abstract_id
-            num_id = next_num_id
-            next_abstract_id += 1
-            next_num_id += 1
-
-            # U+F0B7 is the Symbol font's bullet glyph; a literal U+00B7 renders as
-            # the wrong character once w:rFonts pins the run to Symbol.
-            bullet_abstract_xml = (
-                f'<w:abstractNum xmlns:w="{W}" w:abstractNumId="{abs_id}">'
-                f'  <w:multiLevelType w:val="singleLevel"/>'
-                f'  <w:lvl w:ilvl="0">'
-                f'    <w:start w:val="1"/>'
-                f'    <w:numFmt w:val="bullet"/>'
-                f'    <w:pStyle w:val="ListBullet"/>'
-                f'    <w:lvlText w:val="\uf0b7"/>'
-                f'    <w:lvlJc w:val="left"/>'
-                f'    <w:pPr><w:ind w:left="360" w:hanging="360"/></w:pPr>'
-                f'    <w:rPr><w:rFonts w:ascii="Symbol" w:hAnsi="Symbol" w:hint="default"/></w:rPr>'
-                f"  </w:lvl>"
-                f"</w:abstractNum>"
-            ).encode("utf-8")
-            new_abstract_nums.append(parse_xml(bullet_abstract_xml))
-
-            num_xml = (f'<w:num xmlns:w="{W}" w:numId="{num_id}">  <w:abstractNumId w:val="{abs_id}"/></w:num>').encode(
-                "utf-8"
-            )
-            new_nums.append(parse_xml(num_xml))
-
-            # builtin=True keeps the name as "List Bullet"; a custom style of that name
-            # collides with Word's latent built-in and gets renamed to "List Bullet1",
-            # so any styling the template applies to "List Bullet" would never take.
-            bullet_style = self.document.styles.add_style("List Bullet", WD_STYLE_TYPE.PARAGRAPH, builtin=True)
-            bullet_style.base_style = self.document.styles["Normal"]
-            pPr = bullet_style._element.get_or_add_pPr()
-            numPr = OxmlElement("w:numPr")
-            numId_el = OxmlElement("w:numId")
-            numId_el.set(qn("w:val"), str(num_id))
-            numPr.append(numId_el)
-            pPr.append(numPr)
-            pPr.append(OxmlElement("w:contextualSpacing"))
-            self._available_styles.add("List Bullet")
-
-        if need_number:
-            abs_id = next_abstract_id
-            num_id = next_num_id
-
-            number_abstract_xml = (
-                f'<w:abstractNum xmlns:w="{W}" w:abstractNumId="{abs_id}">'
-                f'  <w:multiLevelType w:val="singleLevel"/>'
-                f'  <w:lvl w:ilvl="0">'
-                f'    <w:start w:val="1"/>'
-                f'    <w:numFmt w:val="decimal"/>'
-                f'    <w:pStyle w:val="ListNumber"/>'
-                f'    <w:lvlText w:val="%1."/>'
-                f'    <w:lvlJc w:val="left"/>'
-                f'    <w:pPr><w:ind w:left="360" w:hanging="360"/></w:pPr>'
-                f"  </w:lvl>"
-                f"</w:abstractNum>"
-            ).encode("utf-8")
-            new_abstract_nums.append(parse_xml(number_abstract_xml))
-
-            num_xml = (f'<w:num xmlns:w="{W}" w:numId="{num_id}">  <w:abstractNumId w:val="{abs_id}"/></w:num>').encode(
-                "utf-8"
-            )
-            new_nums.append(parse_xml(num_xml))
-
-            number_style = self.document.styles.add_style("List Number", WD_STYLE_TYPE.PARAGRAPH, builtin=True)
-            number_style.base_style = self.document.styles["Normal"]
-            pPr2 = number_style._element.get_or_add_pPr()
-            numPr2 = OxmlElement("w:numPr")
-            numId_el2 = OxmlElement("w:numId")
-            numId_el2.set(qn("w:val"), str(num_id))
-            numPr2.append(numId_el2)
-            pPr2.append(numPr2)
-            pPr2.append(OxmlElement("w:contextualSpacing"))
-            self._available_styles.add("List Number")
-
-        # ------------------------------------------------------------------
-        # 3. Splice the definitions in, preserving CT_Numbering's element order.
-        #    Word doesn't reject an out-of-order numbering part outright -- it
-        #    silently mis-associates the stray w:abstractNum, so the affected list
-        #    loses its numbering and renders as plain paragraphs.
-        # ------------------------------------------------------------------
-        first_num = numbering_el.find(qn("w:num"))
-        for abstract_el in new_abstract_nums:
-            if first_num is None:
-                numbering_el.append(abstract_el)
-            else:
-                first_num.addprevious(abstract_el)
-
-        trailing = numbering_el.find(qn("w:numIdMacAtCleanup"))
-        for num_el in new_nums:
-            if trailing is None:
-                numbering_el.append(num_el)
-            else:
-                trailing.addprevious(num_el)
-
-        logger.debug(
-            "Created missing list styles: %s",
-            ", ".join(s for s, needed in [("List Bullet", need_bullet), ("List Number", need_number)] if needed),
-        )
+        style = self.document.styles[style_name]
+        seen: set[str] = set()
+        while style is not None and style.style_id not in seen:
+            seen.add(style.style_id)
+            pPr = style._element.pPr
+            num_pr = pPr.numPr if pPr is not None else None
+            if num_pr is not None and num_pr.numId is not None:
+                num_id = str(num_pr.numId.val)
+                ilvl = num_pr.ilvl.val if num_pr.ilvl is not None else 0
+                for num in self._numbering_element().findall(qn("w:num")):
+                    abstract = num.find(qn("w:abstractNumId"))
+                    if num.get(qn("w:numId")) == num_id and abstract is not None:
+                        return abstract.get(qn("w:val")), ilvl
+                return None
+            style = style.base_style
+        return None
 
     def visit_document(self, node: ASTDocument) -> None:
         """Render a Document node.
@@ -827,14 +832,26 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             List to render
 
         """
-        self._list_level += 1
-        self._list_ordered_stack.append(node.ordered)
+        if not self.document:
+            return
 
-        for _i, item in enumerate(node.items):
+        self._list_level += 1
+        style = self._list_item_style(node.ordered, self._list_level)
+        # Every numbered list gets a numbering instance of its own that restarts at its
+        # start. Sharing the style's instance carries the count on from the list before,
+        # and Word -- and the parser -- then read two adjacent lists as one.
+        num_id = None
+        numbering = self._style_numbering(style) if style and node.ordered else None
+        if numbering is not None:
+            abstract_id, ilvl = numbering
+            num_id = self._add_num(abstract_id, restart=(ilvl, node.start if node.start is not None else 1))
+        self._list_format_stack.append((style, num_id))
+
+        for item in node.items:
             item.accept(self)
 
         self._list_level -= 1
-        self._list_ordered_stack.pop()
+        self._list_format_stack.pop()
 
     def visit_list_item(self, node: ListItem) -> None:
         """Render a ListItem node.
@@ -851,14 +868,13 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         # Create paragraph for list item
         para = self.document.add_paragraph()
 
-        # Determine list style based on ordered/unordered
-        is_ordered = self._list_ordered_stack[-1] if self._list_ordered_stack else False
-        if is_ordered:
-            if self._has_style("List Number"):
-                para.style = "List Number"
-        else:
-            if self._has_style("List Bullet"):
-                para.style = "List Bullet"
+        style, num_id = self._list_format_stack[-1] if self._list_format_stack else (None, None)
+        if style:
+            para.style = style
+        if num_id:
+            # numId alone: the level still comes from the style, as Word's own nested
+            # list styles leave it.
+            para._p.get_or_add_pPr().get_or_add_numPr().get_or_add_numId().val = int(num_id)
 
         self._current_paragraph = para
 

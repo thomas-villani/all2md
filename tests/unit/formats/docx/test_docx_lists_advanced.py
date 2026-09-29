@@ -45,8 +45,9 @@ class TestDocxListsAdvanced:
         assert "1. First item" in markdown
         assert "2. Second item" in markdown
         assert "3. Third item" in markdown
-        # Nested item should be properly indented (correct behavior)
-        assert "   1. Nested alpha item" in markdown
+        # The indent nests the item, but it shares the list's numbering instance at level 0
+        # (no w:ilvl), so Word carries the count on and prints 4.
+        assert "   4. Nested alpha item" in markdown
 
     def test_interrupted_list_continues_numbering(self):
         """An interrupted list with no restart carries on counting, as Word prints it."""

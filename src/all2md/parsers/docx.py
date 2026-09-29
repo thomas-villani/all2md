@@ -502,7 +502,7 @@ class DocxToAstConverter(BaseParser):
                     for paragraph in grid_cell.paragraphs:
                         list_type, level = _detect_list_level(paragraph, doc, numbering_defs)
                         if list_type:
-                            number, label, plain = self._list_mark(paragraph, doc, level)
+                            number, label, plain = self._list_mark(paragraph, doc)
                             if label is not None and not plain:
                                 labelled = self._process_labelled_paragraph(paragraph, label, "")
                                 if isinstance(labelled, list):
@@ -1065,7 +1065,7 @@ class DocxToAstConverter(BaseParser):
         # Word counts every numbered paragraph, a numbered heading included, so the
         # counter advances before any of the special cases below can claim the paragraph.
         list_type, level = _detect_list_level(paragraph, doc, self._numbering_definitions(doc))
-        number, label, plain = self._list_mark(paragraph, doc, level) if list_type else (None, None, True)
+        number, label, plain = self._list_mark(paragraph, doc) if list_type else (None, None, True)
 
         # Try special paragraph types first. Each one ends a list still open before it;
         # left open, the list was only emitted by the next body paragraph, after this one.
@@ -1194,7 +1194,7 @@ class DocxToAstConverter(BaseParser):
         return finished
 
     def _list_mark(
-        self, paragraph: "Paragraph", doc: "docx.document.Document" | None, level: int
+        self, paragraph: "Paragraph", doc: "docx.document.Document" | None
     ) -> tuple[int | None, str | None, bool]:
         """Advance Word's list counter for a paragraph and return what Word prints for it.
 
@@ -1213,10 +1213,16 @@ class DocxToAstConverter(BaseParser):
         if self._list_counters is None:
             self._list_counters = _ListCounters(_numbering_element(doc) if doc is not None else None)
         try:
-            num_id = _effective_numbering_props(paragraph)[1]
+            ilvl_value, num_id, _ = _effective_numbering_props(paragraph)
         except Exception:
             return None, None, True
-        ilvl = level - 1
+        # Word counts a paragraph at the level its numbering names, 0 when none does --
+        # not at the depth its style name or indent implies. "List Number 2" nests by
+        # numbering with a one-level definition of its own, so it counts at level 0.
+        try:
+            ilvl = int(ilvl_value) if ilvl_value is not None else 0
+        except ValueError:
+            ilvl = 0
         number = self._list_counters.advance(num_id, ilvl)
         if number is None:
             return None, None, True
@@ -1869,7 +1875,7 @@ class DocxToAstConverter(BaseParser):
             if list_type:
                 # A shallower item restarts the counts of every level below it.
                 counters = {depth: count for depth, count in counters.items() if depth <= level}
-                number, label, _ = self._list_mark(paragraph, doc, level)
+                number, label, _ = self._list_mark(paragraph, doc)
                 if list_type == "number":
                     counters[level] = counters.get(level, 0) + 1
                     marker = label or f"{number if number is not None else counters[level]}. "
@@ -2033,7 +2039,7 @@ class DocxToAstConverter(BaseParser):
                 paragraph = Paragraph(paragraph_element, story)  # type: ignore[call-arg]
                 list_type, level = _detect_list_level(paragraph, doc, numbering_defs)
                 if list_type:
-                    number, label, plain = self._list_mark(paragraph, doc, level)
+                    number, label, plain = self._list_mark(paragraph, doc)
                     if label is None or plain:
                         finished = self._process_list_item_paragraph(paragraph, list_type, level, number)
                         if finished:
