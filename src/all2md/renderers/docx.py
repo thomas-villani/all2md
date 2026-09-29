@@ -1424,15 +1424,44 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
     def visit_image(self, node: Image) -> None:
         """Render an Image node.
 
+        The picture is embedded when its source can be read. Whether or not it could
+        be, a caption is written below it, and an uncaptioned image prints its alt
+        text there instead -- so an image carried as alt text alone
+        (``attachment_mode="alt_text"``) or one whose source failed to load keeps
+        the text the Markdown renderer would keep. Inside a captioned figure the alt
+        text is not printed: a line between the picture and its caption would read
+        as a second caption.
+
         Parameters
         ----------
         node : Image
             Image to render
 
         """
-        if not self.document or not node.url:
+        if not self.document:
             return
 
+        if node.url:
+            self._embed_picture(node)
+
+        if node.caption:
+            self._add_caption_paragraph(node.caption)
+        elif node.alt_text and node.alt_text.strip() and not self._captioned_figure_depth:
+            alt_para = self.document.add_paragraph(node.alt_text)
+            alt_para.alignment = self._WD_ALIGN_PARAGRAPH.CENTER
+            alt_para.runs[0].italic = True
+
+    def _embed_picture(self, node: Image) -> None:
+        """Embed an image's picture in its own paragraph, if its source can be read.
+
+        Parameters
+        ----------
+        node : Image
+            Image whose ``url`` is a data URI, an http(s) URL or a local path
+
+        """
+        if self.document is None:
+            return
         try:
             # Handle different image sources
             if node.url.startswith("data:"):
@@ -1445,24 +1474,12 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 # Local file
                 image_file = node.url
 
-            # Add image to document
             if image_file:
-                para = self.document.add_paragraph()
-                run = para.add_run()
-                picture = run.add_picture(image_file, width=self._Inches(4))
+                picture = self.document.add_paragraph().add_run().add_picture(image_file, width=self._Inches(4))
                 # Word keeps a picture's alt text in its description, where the
                 # parser reads it back.
                 if node.alt_text:
                     picture._inline.docPr.set("descr", node.alt_text)
-
-                # A caption is text printed beside the image, so it is written as one.
-                # Alt text is still printed below an uncaptioned image.
-                if node.caption:
-                    self._add_caption_paragraph(node.caption)
-                elif node.alt_text and not self._captioned_figure_depth:
-                    caption_para = self.document.add_paragraph(node.alt_text)
-                    caption_para.alignment = self._WD_ALIGN_PARAGRAPH.CENTER
-                    caption_para.runs[0].italic = True
         except Exception as e:
             # If image loading fails, log and optionally raise
             logger.warning(f"Failed to add image to DOCX: {e}")

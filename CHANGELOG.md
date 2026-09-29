@@ -28,6 +28,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   longer prints its alt text as a second line, and every picture now carries its alt
   text in its description, where Word and the parser read it. A template without the
   Caption style still gets the italic line.
+- **docx: an image's alt text is kept when its picture cannot be embedded.** The renderer
+  returned early on an image with no URL, which is how `attachment_mode="alt_text"`
+  carries one, and printed nothing when a picture failed to load, so the alt text the
+  Markdown renderer keeps (`![A cat]()`) was dropped from the DOCX. An uncaptioned image
+  now prints its alt text below where the picture is or would be, whether or not the
+  picture was embedded, and a caption is written even when the picture is missing.
 
 ## [1.15.1] - 2026-09-18
 
