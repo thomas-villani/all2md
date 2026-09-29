@@ -34,6 +34,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Markdown renderer keeps (`![A cat]()`) was dropped from the DOCX. An uncaptioned image
   now prints its alt text below where the picture is or would be, whether or not the
   picture was embedded, and a caption is written even when the picture is missing.
+- **docx: nested and adjacent lists survive a round trip.** The renderer gave every list
+  item the one "List Bullet" or "List Number" style whatever its depth, so a nested list
+  flattened into its parent, and every numbered list shared that style's numbering, so
+  Word carried the count on from one list into the next and two adjacent lists read back
+  as one. A nested list now takes Word's style for its depth ("List Number 2",
+  "List Bullet 3", ...), created when the template lacks it, and each numbered list gets
+  a numbering instance of its own that restarts at the list's start, so a list starting
+  at 4 prints 4. The parser now counts a list paragraph at the level its numbering
+  names, as Word does, rather than at the depth its style or indent implies, which kept
+  a nested list's start from reading back.
 
 ## [1.15.1] - 2026-09-18
 

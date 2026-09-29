@@ -636,7 +636,14 @@ the document's words. What it loses:
   every URL and word survived. The inventory now counts link *spans* (`link_spans`); on a
   6-article subset DOCX keeps 107 of 107.
 - **Adjacent lists merge**, the shape #496/#497 fixed for RST and AsciiDoc, and some
-  one-item lists vanish.
+  one-item lists vanish. *Fixed, apart from one case.* Two renderer defects: every item got
+  the depth-1 list style, so a nested list flattened into its parent; and every numbered
+  list shared that style's numbering instance, so the count ran on from one list into the
+  next and they read back as one. Nested lists now take Word's "List Number 2"-style depth
+  styles, and each numbered list restarts at its own start. On the 6-article subset lists
+  go from 22 / 3 / 1 to 24 / 1 / 0 of 25. The loss left is a PDF artifact: a year wrapped
+  to the start of a reference line ("2001.") read as a list marker with no text, and the
+  DOCX parser drops a list paragraph with no text by design.
 - **Invented text, +0.19 points of novel share.** Largest on the articles whose figures lose
   their wrapper, consistent with image alt text being written as a visible caption
   paragraph. A hypothesis, not yet a finding.
