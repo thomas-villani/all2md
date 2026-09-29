@@ -91,6 +91,23 @@ class TestRenderer:
     def test_an_uncaptioned_image_still_prints_its_alt_text(self) -> None:
         assert _body(_render(Document(children=[Paragraph(content=[_image(alt="a picture")])])))[1][2] == "a picture"
 
+    def test_an_image_carried_as_alt_text_alone_prints_it(self) -> None:
+        # attachment_mode="alt_text" yields an Image with no url; Markdown keeps ![A cat]().
+        document = Document(children=[Paragraph(content=[Image(url="", alt_text="A cat")])])
+        assert _body(_render(document)) == [("p", "Normal", "A cat")]
+
+    def test_an_image_that_fails_to_load_still_prints_its_alt_text(self, tmp_path: Path) -> None:
+        document = Document(children=[Paragraph(content=[Image(url=str(tmp_path / "gone.png"), alt_text="A cat")])])
+        assert _body(_render(document)) == [("p", "Normal", "A cat")]
+
+    def test_an_image_without_a_picture_still_prints_its_caption(self) -> None:
+        document = Document(children=[Paragraph(content=[Image(url="", alt_text="A cat", caption="Figure 5.")])])
+        assert _body(_render(document)) == [("p", "Caption", "Figure 5.")]
+
+    def test_an_alt_text_image_in_a_captioned_figure_prints_only_the_caption(self) -> None:
+        figure = Figure(children=[Paragraph(content=[Image(url="", alt_text="A cat")])], caption="Figure 6.")
+        assert _body(_render(Document(children=[figure]))) == [("p", "Caption", "Figure 6.")]
+
     def test_alt_text_is_the_picture_description(self) -> None:
         word = docx.Document(BytesIO(_render(Document(children=[Paragraph(content=[_image(alt="a picture")])]))))
         assert word.inline_shapes[0]._inline.docPr.get("descr") == "a picture"
