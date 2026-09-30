@@ -65,8 +65,9 @@ no instrument at all. `benchmarks/roundtrip --via docx` scores `md → docx → 
 synthetic documents, not whether a two-column paper with figures and tables becomes a
 usable Word document. The DOCX batch was the prerequisite: an instrument that re-reads
 our own DOCX output through our own parser blames the renderer for every parser defect,
-and the parser has now been through a defect stream. The one reader gap still open, nested
-tables, is moot here because the PDF parser never emits one.
+and the parser has now been through a defect stream. The two large reader gaps still open,
+text boxes and nested tables (see the next section), are moot here because the PDF parser
+emits neither.
 
 Instruments, cheapest first. Each is a step; the first two are the batch's spine.
 
@@ -105,6 +106,49 @@ Decisions this batch will need: whether the re-parse lane gets a fidelity gate o
 first reading or stays a ledger until the renderer defect stream runs dry (the DOCX lane
 took the ledger route and it was right); and whether Word's import is worth publishing as
 a comparison column at all, given that it is a different product with a different goal.
+
+### Alongside: DOCX reader gaps from the LibreOffice corpus
+
+The DOCX lane's 23 cases are documents we made in Word, so they assert what we believed
+the format means. LibreOffice's own Writer regression files
+(`sw/qa/extras/ooxml{export,import}/data`, 1,526 `.docx`, MPL-2.0) are documents other
+people made, many of them bug reports. A first sweep on 2026-09-29 compared the words
+our parser reads against the words Word itself shows for each file (main story, notes and
+text-box stories, read over COM):
+
+| Set | Files compared | Identical | Word's words | We missed | We added |
+|---|---|---|---|---|---|
+| export | 1,311 | 1,021 | 122,096 | 3,908 (3.2%) | 1,895 |
+| import | 153 | 128 | 6,235 | 82 | 21 |
+
+Of the missed main-story words, 264 are math glyphs: Word shows Unicode and we write
+LaTeX, which is a difference of form, not a loss. What remains, in order:
+
+1. **Crash on an XML comment in `document.xml`.** lxml gives a comment node a function
+   where a tag name should be, and two call sites assume a string. Three files Word opens
+   fail outright. First, because it is small and safe.
+2. **Text boxes are not read at all.** `w:txbxContent` appears in 213 files and accounts
+   for 2,359 of the missed words, the largest single loss. Word keeps text-box text in
+   separate shape stories; decide where it lands in the AST (inline at the anchor is the
+   docx-rs choice) and read the `mc:AlternateContent` choice once, not both branches.
+3. **Nested tables are dropped whole.** A cell is read as its paragraphs only, so a table
+   inside it vanishes with all its text (28 files; one lost 311 words, one lost
+   everything). Markdown cannot nest a table, so the AST keeps the structure and the
+   Markdown renderer decides how to flatten it. **Cap the depth.** Hand-crafted files
+   nesting far beyond ten levels are a known attack shape (Word is reported to give out
+   around 30; measure it with `wordlive` before choosing the cap), and the cost per level
+   must stay bounded. lxml already refuses XML deeper than 256 elements, about 60 table
+   levels, so recursion depth is not the risk; work and output size per level are.
+   Beyond the cap, flatten to text rather than reject the file.
+4. **Bidirectional run containers** (`w:dir`, `w:bdo`) are skipped: one Arabic file lost
+   all 71 of its words. `w:smartTag` (14 files) is probably the same class; unverified.
+5. **Missing optional parts fail the whole file.** About 15 files lack a footer, font
+   table, numbering part or image that their relationships name; Word opens them and
+   python-docx refuses. Six more are Strict OOXML, which we do not read at all.
+
+Each fix takes its trigger file into the tests. The sweep itself belongs in `benchmarks/`
+as a manual instrument like the PDF → DOCX ledger: no CI step, and the Word reading is
+cached and dated because it needs Word.
 
 ### Then: the outward push (Theme 5)
 
@@ -216,8 +260,10 @@ oracle audit, the heading measure and the table diagnosis (v1.15.0).
   `max_examples`, which deepens only shapes already reachable.
 - 🌱 **PDF footnote detection** — structural, not textual; a prerequisite for real Word
   footnotes in PDF → DOCX and for the viewer's footnote work. Theme 8 Stage 4.
-- 🌱 **DOCX reader: nested tables** — the one known reader loss left after the DOCX batch.
-  A cell's content is read as inline paragraphs only.
+- 🌱 **DOCX reader: text boxes and nested tables** — the two largest losses the
+  LibreOffice-corpus sweep found (see **Next**). Text boxes are not read at all; a cell's
+  content is read as inline paragraphs only, so a nested table vanishes. Nested tables
+  need a depth cap against hand-crafted files.
 - ⏸️ **`docx-plus` adoption** — evaluated 2026-08-04, and every item it was to supply
   (tracked changes, fields, style-inherited numbering, effective formatting) has since
   shipped in-tree. Not adopted; revisit only if a new reader gap names it.
