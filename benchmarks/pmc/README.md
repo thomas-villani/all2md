@@ -648,7 +648,13 @@ the document's words. What it loses:
   their wrapper, consistent with image alt text being written as a visible caption
   paragraph. A hypothesis, not yet a finding.
 - Headings are nearly clean: a space lost at a run boundary ("Bio Med" → "BioMed") in three
-  articles' shared publisher footer, and one level shift.
+  articles' shared publisher footer, and one level shift. *Corrected: the space is an
+  instrument artifact.* The PDF parser split the word over two adjacent links, "Bio" and
+  "Med", with no space between them; heading text was read with `extract_text`, which puts
+  a space at every node boundary, so the direct reading said "Bio Med" and the DOCX
+  reading, which merges the links, said "BioMed", the text on the page. Heading text now
+  adds nothing where one inline node meets the next; on the 6-article subset DOCX keeps
+  79 of 79 headings.
 
 ## Licences
 

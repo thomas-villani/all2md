@@ -169,3 +169,19 @@ def test_a_link_split_across_lines_is_one_span() -> None:
 
     cited_twice = Document(children=[fragments(one, Text(" and again "), two)])
     assert docx_reparse.link_spans(cited_twice) == {doi: 2}
+
+
+def test_heading_text_adds_nothing_where_one_node_meets_the_next() -> None:
+    url = "http://www.biomedcentral.com/"
+
+    def heading(*content: Any) -> docx_reparse.Inventory:
+        return docx_reparse.inventory(Document(children=[Heading(level=3, content=list(content))]))
+
+    split = heading(Text("Publish with "), Link(url=url, content=[Text("Bio")]), Link(url=url, content=[Text("Med")]))
+    merged = heading(Text("Publish with "), Link(url=url, content=[Text("BioMed")]))
+    assert docx_reparse.compare_inventories(split, merged)["heading_text"]["lost"] == 0
+
+    # A space really lost is still a changed heading, and a line break still reads as one.
+    assert docx_reparse.compare_inventories(heading(Text("Bio Med")), merged)["heading_text"]["lost"] == 1
+    broken = heading(Text("Publish with"), LineBreak(), Text("BioMed"))
+    assert docx_reparse.compare_inventories(broken, merged)["heading_text"]["lost"] == 0
