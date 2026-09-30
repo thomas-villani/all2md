@@ -73,7 +73,12 @@ from all2md.options.docx import DocxOptions
 from all2md.parsers.base import BaseParser
 from all2md.parsers.docx_fields import document_has_fields, field_target, resolve_fields
 from all2md.parsers.docx_revisions import document_has_revisions, resolve_revisions, run_revision
-from all2md.parsers.docx_sdt import document_has_content_controls, unwrap_content_controls
+from all2md.parsers.docx_sdt import (
+    document_has_content_controls,
+    document_has_transparent_wrappers,
+    unwrap_content_controls,
+    unwrap_transparent_wrappers,
+)
 from all2md.parsers.docx_styles import EffectiveFormatting, ParagraphContext, styles_root
 from all2md.progress import ProgressCallback
 from all2md.utils.decorators import requires_dependencies
@@ -702,13 +707,14 @@ class DocxToAstConverter(BaseParser):
     def _normalize_document(self, doc: "docx.document.Document") -> "docx.document.Document":
         """Resolve wrapper markup away, returning the document to read.
 
-        Tracked changes and content controls are the same shape of problem: an element
-        that puts real content one level below where every reader looks. Both are
+        Tracked changes, content controls and the transparent wrappers (``w:dir``,
+        ``w:bdo``, ``w:smartTag``, ``w:customXml``) are the same shape of problem: an
+        element that puts real content one level below where every reader looks. Both are
         rewritten out of the tree here rather than taught to each reader in turn --
         see :mod:`all2md.parsers.docx_sdt` for the five readers a content control
         alone would otherwise have to be threaded through.
 
-        Returns the document unchanged when it carries neither, which is almost every
+        Returns the document unchanged when it carries none of them, which is almost every
         document and must cost nothing. Otherwise the markup is resolved away in place
         -- on a copy, when the document was handed to us rather than opened by us, so
         a caller's ``Document`` is never edited underneath them.
@@ -720,7 +726,10 @@ class DocxToAstConverter(BaseParser):
         note_roots = self._note_roots(doc)
         # A note can carry this markup when the body does not, so the notes are asked too.
         if not any(
-            document_has_revisions(target) or document_has_content_controls(target) or document_has_fields(target)
+            document_has_revisions(target)
+            or document_has_content_controls(target)
+            or document_has_transparent_wrappers(target)
+            or document_has_fields(target)
             for target in (root, *note_roots)
         ):
             return doc
@@ -743,6 +752,7 @@ class DocxToAstConverter(BaseParser):
             # already in one document order, with rejected or accepted revisions
             # settled, by the time the field walk counts them.
             unwrap_content_controls(target)
+            unwrap_transparent_wrappers(target)
             resolve_revisions(target, policy)
             resolve_fields(target)
         return doc

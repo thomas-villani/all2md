@@ -87,3 +87,47 @@ def unwrap_content_controls(root: Any) -> int:
         unwrapped += 1
 
     return unwrapped
+
+
+# Wrappers that change how their content is shown or tagged, never what it says, and
+# carry no content of their own beyond an optional properties child. ``w:dir`` and
+# ``w:bdo`` set the direction of the runs inside (an Arabic or Hebrew sentence),
+# ``w:smartTag`` marks a recognised name or date, and ``w:customXml`` binds content to
+# a custom schema -- in the body, around a row or cell, or inside a paragraph, which
+# puts it in front of the same five readers a content control is.
+TRANSPARENT_WRAPPER_TAGS = (f"{W}dir", f"{W}bdo", f"{W}smartTag", f"{W}customXml")
+_WRAPPER_PROPERTY_TAGS = frozenset((f"{W}smartTagPr", f"{W}customXmlPr"))
+
+
+def document_has_transparent_wrappers(root: Any) -> bool:
+    """Report whether the tree contains any ``w:dir``, ``w:bdo``, ``w:smartTag`` or ``w:customXml``."""
+    if root is None:
+        return False
+    return next(iter(root.iter(*TRANSPARENT_WRAPPER_TAGS)), None) is not None
+
+
+def unwrap_transparent_wrappers(root: Any) -> int:
+    """Replace every transparent wrapper with the content it wraps, in place.
+
+    The run direction ``w:dir`` and ``w:bdo`` set is display only: the characters are
+    stored in reading order, which is the order the text is written out in. Returns
+    the number of wrappers removed. Nesting needs no special handling, for the reason
+    ``unwrap_content_controls`` gives.
+    """
+    if root is None:
+        return 0
+
+    unwrapped = 0
+    for wrapper in list(root.iter(*TRANSPARENT_WRAPPER_TAGS)):
+        parent = wrapper.getparent()
+        if parent is None:
+            continue
+
+        index = parent.index(wrapper)
+        children = [child for child in wrapper if child.tag not in _WRAPPER_PROPERTY_TAGS]
+        for offset, child in enumerate(children):
+            parent.insert(index + offset, child)
+        parent.remove(wrapper)
+        unwrapped += 1
+
+    return unwrapped
