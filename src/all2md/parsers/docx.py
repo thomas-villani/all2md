@@ -2292,7 +2292,9 @@ def _collect_abstract_numbering_defs(numbering_xml: Any) -> dict[str, dict[str, 
     #: abstract with no levels -> the style its ``w:numStyleLink`` defers to.
     defers_to_style: dict[str, str] = {}
 
-    for elem in numbering_xml.iter():
+    from lxml import etree
+
+    for elem in numbering_xml.iter(etree.Element):
         if not elem.tag.endswith("abstractNum"):
             continue
 
@@ -2332,9 +2334,11 @@ def _linked_style_name(abstract_num_elem: Any, tag: str) -> str | None:
 
 def _extract_level_formats(abstract_num_elem: Any) -> dict[str, str]:
     """Extract level format mappings from an abstractNum element."""
+    from lxml import etree
+
     levels: dict[str, str] = {}
 
-    for level_elem in abstract_num_elem.iter():
+    for level_elem in abstract_num_elem.iter(etree.Element):
         if not level_elem.tag.endswith("lvl"):
             continue
 
@@ -2342,7 +2346,7 @@ def _extract_level_formats(abstract_num_elem: Any) -> dict[str, str]:
         if level_id is None:
             continue
 
-        for child in level_elem.iter():
+        for child in level_elem.iter(etree.Element):
             if child.tag.endswith("numFmt"):
                 fmt_val = child.get(f"{_WORD_NS}val")
                 mapped = _map_numbering_format(fmt_val)
@@ -2357,9 +2361,11 @@ def _map_num_ids_to_abstract_nums(
     numbering_xml: Any, abstract_nums: dict[str, dict[str, str]]
 ) -> dict[str, dict[str, str]]:
     """Map number IDs to abstract numbering definitions."""
+    from lxml import etree
+
     numbering_defs: dict[str, dict[str, str]] = {}
 
-    for elem in numbering_xml.iter():
+    for elem in numbering_xml.iter(etree.Element):
         if not elem.tag.endswith("num"):
             continue
 
@@ -2367,7 +2373,7 @@ def _map_num_ids_to_abstract_nums(
         if not num_id:
             continue
 
-        for child in elem.iter():
+        for child in elem.iter(etree.Element):
             if child.tag.endswith("abstractNumId"):
                 abs_id = child.get(f"{_WORD_NS}val")
                 if abs_id in abstract_nums:
@@ -2881,8 +2887,9 @@ def _detect_list_level(
     return None, 0
 
 
-def _omml_local_name(tag: str | None) -> str:
-    if not tag:
+def _omml_local_name(tag: Any) -> str:
+    # A comment or processing instruction carries a function here, not a string.
+    if not isinstance(tag, str):
         return ""
     if "}" in tag:
         return tag.split("}", 1)[1]
@@ -3091,10 +3098,12 @@ def _iter_block_items(
     import docx.document
     from docx.table import Table
     from docx.text.paragraph import Paragraph
+    from lxml import etree
 
     parent_elm = parent.element.body if isinstance(parent, docx.document.Document) else parent._element
 
-    for child in parent_elm.iterchildren():
+    # Elements only: a comment or processing instruction's tag is a function, not a string.
+    for child in parent_elm.iterchildren(etree.Element):
         if child.tag.endswith("tbl"):
             yield Table(child, parent)  # type: ignore[call-arg]
         elif child.tag.endswith("p"):
