@@ -894,7 +894,7 @@ class TestAdvancedCLIIntegration:
                 from pathlib import Path
 
                 output = kwargs.get("output")
-                if "html" in str(input_path):
+                if "html" in Path(input_path).name:
                     content = "# HTML Test\n\nHTML content"
                 else:
                     content = "# Markdown Test\n\nMarkdown content"
@@ -1093,7 +1093,7 @@ class TestAdvancedCLIIntegration:
             def selective_error(input_path, **kwargs):
                 from pathlib import Path
 
-                if "bad" in str(input_path):
+                if "bad" in Path(input_path).name:
                     raise Exception("Simulated conversion error")
 
                 content = "# Good File\n\nContent"
@@ -1164,7 +1164,9 @@ class TestAdvancedCLIIntegration:
         with patch("all2md.cli.processors.convert") as mock_convert:
 
             def mock_with_images(input_path, **kwargs):
-                if "doc1" in str(input_path):
+                from pathlib import Path
+
+                if "doc1" in Path(input_path).name:
                     return "# Doc 1\n\n![Image 1](images/image1.png)"
                 else:
                     return "# Doc 2\n\n![Image 2](images/image2.png)"
