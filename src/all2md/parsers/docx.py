@@ -2292,7 +2292,9 @@ def _collect_abstract_numbering_defs(numbering_xml: Any) -> dict[str, dict[str, 
     #: abstract with no levels -> the style its ``w:numStyleLink`` defers to.
     defers_to_style: dict[str, str] = {}
 
-    for elem in numbering_xml.iter():
+    from lxml import etree
+
+    for elem in numbering_xml.iter(etree.Element):
         if not elem.tag.endswith("abstractNum"):
             continue
 
@@ -2332,9 +2334,11 @@ def _linked_style_name(abstract_num_elem: Any, tag: str) -> str | None:
 
 def _extract_level_formats(abstract_num_elem: Any) -> dict[str, str]:
     """Extract level format mappings from an abstractNum element."""
+    from lxml import etree
+
     levels: dict[str, str] = {}
 
-    for level_elem in abstract_num_elem.iter():
+    for level_elem in abstract_num_elem.iter(etree.Element):
         if not level_elem.tag.endswith("lvl"):
             continue
 
@@ -2342,7 +2346,7 @@ def _extract_level_formats(abstract_num_elem: Any) -> dict[str, str]:
         if level_id is None:
             continue
 
-        for child in level_elem.iter():
+        for child in level_elem.iter(etree.Element):
             if child.tag.endswith("numFmt"):
                 fmt_val = child.get(f"{_WORD_NS}val")
                 mapped = _map_numbering_format(fmt_val)
@@ -2357,9 +2361,11 @@ def _map_num_ids_to_abstract_nums(
     numbering_xml: Any, abstract_nums: dict[str, dict[str, str]]
 ) -> dict[str, dict[str, str]]:
     """Map number IDs to abstract numbering definitions."""
+    from lxml import etree
+
     numbering_defs: dict[str, dict[str, str]] = {}
 
-    for elem in numbering_xml.iter():
+    for elem in numbering_xml.iter(etree.Element):
         if not elem.tag.endswith("num"):
             continue
 
@@ -2367,7 +2373,7 @@ def _map_num_ids_to_abstract_nums(
         if not num_id:
             continue
 
-        for child in elem.iter():
+        for child in elem.iter(etree.Element):
             if child.tag.endswith("abstractNumId"):
                 abs_id = child.get(f"{_WORD_NS}val")
                 if abs_id in abstract_nums:
@@ -2881,8 +2887,9 @@ def _detect_list_level(
     return None, 0
 
 
-def _omml_local_name(tag: str | None) -> str:
-    if not tag:
+def _omml_local_name(tag: Any) -> str:
+    # A comment or processing instruction carries a function here, not a string.
+    if not isinstance(tag, str):
         return ""
     if "}" in tag:
         return tag.split("}", 1)[1]
@@ -3084,17 +3091,65 @@ def _is_image_paragraph(node: Node) -> bool:
     ) and any(isinstance(item, Image) for item in node.content)
 
 
+_TXBX_CONTENT_TAG = f"{_WORD_NS}txbxContent"
+_MC_NS = "{http://schemas.openxmlformats.org/markup-compatibility/2006}"
+
+
+def _text_box_contents(paragraph_element: Any) -> list[Any]:
+    """Return the ``w:txbxContent`` elements a paragraph anchors, each read once.
+
+    A text box inside another box is left for that box to find, and the VML copy Word
+    writes under ``mc:Fallback`` is skipped when its ``mc:Choice`` holds a box of its
+    own. A linked box continuing another's story has no ``w:txbxContent`` in its
+    DrawingML half, so its fallback, empty or not, is the only copy there is.
+    """
+    boxes = []
+    for box in paragraph_element.iter(_TXBX_CONTENT_TAG):
+        ancestor = box.getparent()
+        while ancestor is not None and ancestor is not paragraph_element:
+            if ancestor.tag == _TXBX_CONTENT_TAG:
+                break
+            if ancestor.tag == f"{_MC_NS}Fallback" and _choice_has_text_box(ancestor):
+                break
+            ancestor = ancestor.getparent()
+        else:
+            boxes.append(box)
+    return boxes
+
+
+def _choice_has_text_box(fallback: Any) -> bool:
+    alternate = fallback.getparent()
+    if alternate is None:
+        return False
+    return any(
+        next(choice.iter(_TXBX_CONTENT_TAG), None) is not None for choice in alternate.iterchildren(f"{_MC_NS}Choice")
+    )
+
+
+def _inside_text_box(element: Any, run_element: Any) -> bool:
+    """Whether ``element`` sits in a text box anchored within ``run_element``."""
+    ancestor = element.getparent()
+    while ancestor is not None and ancestor is not run_element:
+        if ancestor.tag == _TXBX_CONTENT_TAG:
+            return True
+        ancestor = ancestor.getparent()
+    return False
+
+
 def _iter_block_items(
     parent: Any, options: DocxOptions, base_filename: str = "document", attachment_sequencer: Any = None
 ) -> Any:
     """Generate a sequence of Paragraph and Table elements in order, handling images."""
     import docx.document
+    from docx.blkcntnr import BlockItemContainer
     from docx.table import Table
     from docx.text.paragraph import Paragraph
+    from lxml import etree
 
     parent_elm = parent.element.body if isinstance(parent, docx.document.Document) else parent._element
 
-    for child in parent_elm.iterchildren():
+    # Elements only: a comment or processing instruction's tag is a function, not a string.
+    for child in parent_elm.iterchildren(etree.Element):
         if child.tag.endswith("tbl"):
             yield Table(child, parent)  # type: ignore[call-arg]
         elif child.tag.endswith("p"):
@@ -3109,6 +3164,8 @@ def _iter_block_items(
                     ".//pic:pic",
                     {"pic": "http://schemas.openxmlformats.org/drawingml/2006/picture"},
                 ):
+                    if _inside_text_box(pic, run._element):
+                        continue  # read with the text box's own blocks, below
                     has_image = True
 
                     # attachment_mode="skip" discards every image, and
@@ -3187,6 +3244,15 @@ def _iter_block_items(
             if has_image and img_data:
                 for image_data in img_data:
                     yield image_data
+            # A text box's blocks follow the paragraph that anchors it. Each box is a
+            # block container of its own, so a box inside a box is found in turn.
+            for text_box in _text_box_contents(child):
+                yield from _iter_block_items(
+                    BlockItemContainer(text_box, parent),
+                    options,
+                    base_filename=base_filename,
+                    attachment_sequencer=attachment_sequencer,
+                )
 
 
 # Converter metadata for registration
