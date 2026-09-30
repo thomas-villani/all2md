@@ -142,8 +142,10 @@ LaTeX, which is a difference of form, not a loss. What remains, in order:
    lxml refuses XML nested past 256 elements (about 60 table levels) before we see it.
    Export words missed: 1,786 → 781, with no file changing status; the five new extra
    words are list labels Word's text omits and one box the COM reading cannot see.
-4. **Bidirectional run containers** (`w:dir`, `w:bdo`) are skipped: one Arabic file lost
-   all 71 of its words. `w:smartTag` (14 files) is probably the same class; unverified.
+4. ✅ **Transparent run wrappers.** `w:dir`/`w:bdo` (direction), `w:smartTag` and
+   `w:customXml` are unwrapped on the element tree before reading, beside content
+   controls. The Arabic file (tdf119143) lost all 71 words; export words missed
+   781 → 653, and only the 14 files carrying a wrapper changed.
 5. **Missing optional parts fail the whole file.** About 15 files lack a footer, font
    table, numbering part or image that their relationships name; Word opens them and
    python-docx refuses. Six more are Strict OOXML, which we do not read at all.
