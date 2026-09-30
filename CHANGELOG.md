@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   picture inside a box is no longer also collected by its anchor. On LibreOffice's
   Writer regression corpus, the words missed in text boxes fell from 2,359 to 316;
   most of the rest are boxes inside table cells, which are read with nested tables.
+- **docx: an XML comment or processing instruction in the package no longer fails the
+  whole document.** Word ignores `<!-- ... -->` and `<?...?>` nodes wherever they sit,
+  but the parser took every child's tag for a string, and lxml gives these nodes a
+  function instead. A comment between body blocks, inside a paragraph, or in
+  `numbering.xml` raised `AttributeError` or `TypeError`. Three files in LibreOffice's
+  Writer regression corpus that Word opens failed this way; all three now read.
 - **docx, epub: a control character in the text no longer fails the whole document.**
   PDF text layers routinely carry C0 control characters (a glyph whose font encoding maps
   nowhere), and lxml refuses any string holding one, so PDF → DOCX failed outright on 18
