@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **docx: text boxes are read.** The parser never looked inside `w:txbxContent`, so
+  every word in a text box, shape or grouped drawing was dropped. A box's paragraphs,
+  tables and pictures are now read as ordinary blocks placed right after the paragraph
+  that anchors it, and a box inside a box follows its own anchor. Word writes a modern
+  box twice, as a DrawingML shape and a VML fallback; only one copy is read, and a
+  picture inside a box is no longer also collected by its anchor. On LibreOffice's
+  Writer regression corpus, the words missed in text boxes fell from 2,359 to 316;
+  most of the rest are boxes inside table cells, which are read with nested tables.
 - **docx, epub: a control character in the text no longer fails the whole document.**
   PDF text layers routinely carry C0 control characters (a glyph whose font encoding maps
   nowhere), and lxml refuses any string holding one, so PDF → DOCX failed outright on 18
