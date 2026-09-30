@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **docx: a table nested in a table cell is read.** A cell was read as its own
+  paragraphs only, so a table inside it vanished with every word it held, and so did a
+  text box anchored in a cell. A table cell holds inline content, so a nested table's
+  cells are now read in place as lines of the outer cell, row by row with merged cells
+  read once, and a box follows the paragraph that anchors it. Nesting is capped at 30
+  levels, about where Word itself gives out: a deeper table is read as a flat run of its
+  paragraphs without recursion, so a hand-crafted file nested to the XML parser's limit
+  still reads in linear time and nothing is dropped. On LibreOffice's Writer regression
+  corpus, the words missed fell from 1,786 to 781.
 - **docx: text boxes are read.** The parser never looked inside `w:txbxContent`, so
   every word in a text box, shape or grouped drawing was dropped. A box's paragraphs,
   tables and pictures are now read as ordinary blocks placed right after the paragraph

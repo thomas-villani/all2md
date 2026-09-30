@@ -199,8 +199,72 @@ class _GridCell:
 
     @property
     def paragraphs(self) -> list[Paragraph]:
-        """Paragraphs of the cell, none for a stand-in over skipped grid columns."""
-        return [] if self.cell is None else list(self.cell.paragraphs)
+        """Paragraphs of the cell in reading order, none for a stand-in over skipped grid columns.
+
+        A table nested in the cell, or a text box anchored in it, has its paragraphs read in
+        place: a cell holds inline content only, so its blocks become lines of the cell.
+        """
+        return [] if self.cell is None else _block_paragraphs(self.cell._tc, self.cell, depth=1)
+
+
+# Word gives up somewhere past thirty nested tables, and no real document comes close,
+# but a hand-made file can nest far deeper to exhaust a reader. Tables nested up to this
+# depth are read row by row with their merges resolved; anything deeper is read as a flat
+# run of its paragraphs, which costs no recursion however deep it goes.
+_MAX_NESTED_TABLE_DEPTH = 30
+
+
+def _block_paragraphs(element: Any, parent: Any, depth: int) -> list[Paragraph]:
+    """Paragraphs of a block container (a cell or a text box), nested blocks read in place.
+
+    ``depth`` is the nesting depth of the table whose cell is being read, or the depth
+    of the cell a text box sits in.
+    """
+    from docx.table import Table
+    from docx.text.paragraph import Paragraph
+    from lxml import etree
+
+    paragraphs: list[Paragraph] = []
+    for child in element.iterchildren(etree.Element):
+        if child.tag == f"{_WORD_NS}p":
+            paragraphs.append(Paragraph(child, parent))  # type: ignore[call-arg]
+            # A text box's lines follow the paragraph that anchors it, as in the body.
+            for text_box in _text_box_contents(child):
+                paragraphs.extend(_block_paragraphs(text_box, parent, depth))
+        elif child.tag == f"{_WORD_NS}tbl":
+            if depth >= _MAX_NESTED_TABLE_DEPTH:
+                paragraphs.extend(_flat_paragraphs(child, parent))
+                continue
+            for grid_row in _merged_table_rows(Table(child, parent)):  # type: ignore[call-arg]
+                for grid_cell in grid_row:
+                    if grid_cell.cell is not None:
+                        paragraphs.extend(_block_paragraphs(grid_cell.cell._tc, grid_cell.cell, depth + 1))
+    return paragraphs
+
+
+def _flat_paragraphs(element: Any, parent: Any) -> list[Paragraph]:
+    """Every paragraph under ``element`` in document order, read without recursion.
+
+    A text box's VML copy is skipped when its DrawingML original is there, as
+    ``_text_box_contents`` does; merged cells are not resolved.
+    """
+    from docx.text.paragraph import Paragraph
+
+    return [
+        Paragraph(paragraph, parent)  # type: ignore[call-arg]
+        for paragraph in element.iter(f"{_WORD_NS}p")
+        if not _in_superseded_fallback(paragraph, element)
+    ]
+
+
+def _in_superseded_fallback(element: Any, stop: Any) -> bool:
+    """Whether ``element`` sits in an ``mc:Fallback`` whose ``mc:Choice`` holds a text box."""
+    ancestor = element.getparent()
+    while ancestor is not None and ancestor is not stop:
+        if ancestor.tag == f"{_MC_NS}Fallback" and _choice_has_text_box(ancestor):
+            return True
+        ancestor = ancestor.getparent()
+    return False
 
 
 def _merged_table_rows(table: Table) -> list[list[_GridCell]]:

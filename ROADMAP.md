@@ -124,22 +124,24 @@ text-box stories, read over COM):
 Of the missed main-story words, 264 are math glyphs: Word shows Unicode and we write
 LaTeX, which is a difference of form, not a loss. What remains, in order:
 
-1. **Crash on an XML comment in `document.xml`.** lxml gives a comment node a function
-   where a tag name should be, and two call sites assume a string. Three files Word opens
-   fail outright. First, because it is small and safe.
-2. **Text boxes are not read at all.** `w:txbxContent` appears in 213 files and accounts
-   for 2,359 of the missed words, the largest single loss. Word keeps text-box text in
-   separate shape stories; decide where it lands in the AST (inline at the anchor is the
-   docx-rs choice) and read the `mc:AlternateContent` choice once, not both branches.
-3. **Nested tables are dropped whole.** A cell is read as its paragraphs only, so a table
-   inside it vanishes with all its text (28 files; one lost 311 words, one lost
-   everything). Markdown cannot nest a table, so the AST keeps the structure and the
-   Markdown renderer decides how to flatten it. **Cap the depth.** Hand-crafted files
-   nesting far beyond ten levels are a known attack shape (Word is reported to give out
-   around 30; measure it with `wordlive` before choosing the cap), and the cost per level
-   must stay bounded. lxml already refuses XML deeper than 256 elements, about 60 table
-   levels, so recursion depth is not the risk; work and output size per level are.
-   Beyond the cap, flatten to text rather than reject the file.
+1. ✅ **Crash on an XML comment in `document.xml`** (#531). lxml gives a comment node a
+   function where a tag name should be; comments and processing instructions are now
+   skipped wherever they sit. The three files Word opens and we failed on now read.
+2. ✅ **Text boxes** (#532). Each `w:txbxContent` is read as ordinary blocks right after
+   the paragraph that anchors it (the mammoth convention), and a modern box's VML
+   fallback is skipped when its DrawingML original is there. Text-box words missed:
+   2,359 → 316, most of the rest in table cells (item 3).
+3. ✅ **Nested tables and text boxes in cells.** A cell used to read only its own
+   paragraphs, so a table inside it vanished with all its text (28 files; one lost 311
+   words, one lost everything). A nested table's cells, and a box anchored in a cell,
+   are now read in place as lines of the outer cell. The AST's table cell is inline-only
+   in all sixteen renderers, so the parser flattens the nesting rather than making every
+   renderer learn it, as the HTML parser already did. **Depth is capped at 30**, about
+   where Word gives out: deeper tables are read as a flat run of their paragraphs with
+   no recursion, so every word is still read, work stays linear, and no file is rejected.
+   lxml refuses XML nested past 256 elements (about 60 table levels) before we see it.
+   Export words missed: 1,786 → 781, with no file changing status; the five new extra
+   words are list labels Word's text omits and one box the COM reading cannot see.
 4. **Bidirectional run containers** (`w:dir`, `w:bdo`) are skipped: one Arabic file lost
    all 71 of its words. `w:smartTag` (14 files) is probably the same class; unverified.
 5. **Missing optional parts fail the whole file.** About 15 files lack a footer, font
@@ -260,10 +262,9 @@ oracle audit, the heading measure and the table diagnosis (v1.15.0).
   `max_examples`, which deepens only shapes already reachable.
 - 🌱 **PDF footnote detection** — structural, not textual; a prerequisite for real Word
   footnotes in PDF → DOCX and for the viewer's footnote work. Theme 8 Stage 4.
-- 🌱 **DOCX reader: text boxes and nested tables** — the two largest losses the
-  LibreOffice-corpus sweep found (see **Next**). Text boxes are not read at all; a cell's
-  content is read as inline paragraphs only, so a nested table vanishes. Nested tables
-  need a depth cap against hand-crafted files.
+- ✅ **DOCX reader: text boxes and nested tables** — the two largest losses the
+  LibreOffice-corpus sweep found (see **Next**), both read now; nested tables are capped
+  at 30 levels against hand-crafted files.
 - ⏸️ **`docx-plus` adoption** — evaluated 2026-08-04, and every item it was to supply
   (tracked changes, fields, style-inherited numbering, effective formatting) has since
   shipped in-tree. Not adopted; revisit only if a new reader gap names it.
