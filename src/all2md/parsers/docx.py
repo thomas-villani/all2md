@@ -426,6 +426,11 @@ class DocxToAstConverter(BaseParser):
                 doc = docx.Document(input_data)  # type: ignore[assignment,arg-type]
                 self._doc_is_ours = True
         except Exception as e:
+            # A relationship naming a part the archive lacks fails the whole open; Word
+            # reads such a file without the part, so retry once without those relationships.
+            repaired = self._open_without_dangling_relationships(input_data)
+            if repaired is not None:
+                return self.convert_to_ast(repaired, base_filename)
             raise MalformedFileError(
                 f"Failed to open DOCX document: {str(e)}",
                 file_path=str(input_data) if isinstance(input_data, (str, Path)) else None,
@@ -433,6 +438,28 @@ class DocxToAstConverter(BaseParser):
             ) from e
 
         return self.convert_to_ast(doc, base_filename)
+
+    def _open_without_dangling_relationships(self, input_data: Any) -> "docx.document.Document | None":
+        """Open the package again without relationships to missing parts, or None if that fails too."""
+        from io import BytesIO
+
+        import docx
+
+        from all2md.parsers.docx_package import drop_dangling_relationships, package_bytes
+
+        data = package_bytes(input_data)
+        if data is None:
+            return None
+        repaired = drop_dangling_relationships(data)
+        if repaired is None:
+            return None
+        try:
+            doc = docx.Document(BytesIO(repaired[0]))
+        except Exception as e:
+            logger.debug(f"DOCX still unreadable without its dangling relationships: {e}")
+            return None
+        self._doc_is_ours = True
+        return doc  # type: ignore[return-value]
 
     def extract_metadata(self, document: "docx.document.Document") -> DocumentMetadata:
         """Extract metadata from DOCX document.
