@@ -154,9 +154,11 @@ LaTeX, which is a difference of form, not a loss. What remains, in order:
    and match Word's words (the equation in `strict.docx` is LaTeX). Every file still
    failing is one Word refuses too: encrypted, malformed XML, or missing content types.
 
-Each fix takes its trigger file into the tests. The sweep itself belongs in `benchmarks/`
-as a manual instrument like the PDF → DOCX ledger: no CI step, and the Word reading is
-cached and dated because it needs Word.
+Each fix takes its trigger file into the tests. ✅ The sweep is `benchmarks/libreoffice`, a
+manual instrument like the PDF → DOCX ledger: no CI step, the Word reading committed and
+dated because it needs Word, and a paired comparison against the base for judging a
+change. After items 1–5: export words missed 3,908 → 657 (267 of them math glyphs), and
+no file Word opens fails.
 
 ### Then: the outward push (Theme 5)
 
