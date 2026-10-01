@@ -112,6 +112,10 @@ benchmarks/pmc/.cache/
 # act with a different path rather than an accident of the default cache.
 benchmarks/pmc/.cache-holdout/
 
+# LibreOffice corpus lane: all2md sweeps and partial Word readings. The packed Word
+# reading beside them is committed; the corpus itself lives in a LibreOffice checkout.
+benchmarks/libreoffice/.cache/
+
 .claude/
 broken/
 design/
