@@ -146,10 +146,13 @@ LaTeX, which is a difference of form, not a loss. What remains, in order:
    `w:customXml` are unwrapped on the element tree before reading, beside content
    controls. The Arabic file (tdf119143) lost all 71 words; export words missed
    781 → 653, and only the 14 files carrying a wrapper changed.
-5. **Missing optional parts and Strict OOXML.** ✅ Missing parts: when an open fails,
-   the package is rebuilt in memory without relationships to parts the archive lacks
-   and read again (16 files now read, 15 of them ones Word opens). Still open: the 7
-   Strict OOXML files Word reads and we do not.
+5. ✅ **Missing optional parts and Strict OOXML.** Missing parts (#536): when an open
+   fails, the package is rebuilt in memory without relationships to parts the archive
+   lacks and read again (16 files now read, 15 of them ones Word opens). Strict OOXML:
+   the same retry renames Strict's `purl.oclc.org` namespaces and relationship types to
+   the Transitional ones, which is all the 7 Strict files Word opens needed; all 7 read
+   and match Word's words (the equation in `strict.docx` is LaTeX). Every file still
+   failing is one Word refuses too: encrypted, malformed XML, or missing content types.
 
 Each fix takes its trigger file into the tests. The sweep itself belongs in `benchmarks/`
 as a manual instrument like the PDF → DOCX ledger: no CI step, and the Word reading is

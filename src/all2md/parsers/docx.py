@@ -426,9 +426,9 @@ class DocxToAstConverter(BaseParser):
                 doc = docx.Document(input_data)  # type: ignore[assignment,arg-type]
                 self._doc_is_ours = True
         except Exception as e:
-            # A relationship naming a part the archive lacks fails the whole open; Word
-            # reads such a file without the part, so retry once without those relationships.
-            repaired = self._open_without_dangling_relationships(input_data)
+            # Word reads two kinds of package python-docx refuses: Strict Open XML, and
+            # one whose relationships name parts the archive lacks. Retry once repaired.
+            repaired = self._open_repaired(input_data)
             if repaired is not None:
                 return self.convert_to_ast(repaired, base_filename)
             raise MalformedFileError(
@@ -439,24 +439,33 @@ class DocxToAstConverter(BaseParser):
 
         return self.convert_to_ast(doc, base_filename)
 
-    def _open_without_dangling_relationships(self, input_data: Any) -> "docx.document.Document | None":
-        """Open the package again without relationships to missing parts, or None if that fails too."""
+    def _open_repaired(self, input_data: Any) -> "docx.document.Document | None":
+        """Open the package again as Transitional and without relationships to missing parts.
+
+        Returns None when neither repair applies or the repaired package fails too.
+        """
         from io import BytesIO
 
         import docx
 
-        from all2md.parsers.docx_package import drop_dangling_relationships, package_bytes
+        from all2md.parsers.docx_package import drop_dangling_relationships, package_bytes, strict_to_transitional
 
         data = package_bytes(input_data)
         if data is None:
             return None
-        repaired = drop_dangling_relationships(data)
-        if repaired is None:
+        repaired = False
+        transitional = strict_to_transitional(data)
+        if transitional is not None:
+            data, repaired = transitional, True
+        without_dangling = drop_dangling_relationships(data)
+        if without_dangling is not None:
+            data, repaired = without_dangling[0], True
+        if not repaired:
             return None
         try:
-            doc = docx.Document(BytesIO(repaired[0]))
+            doc = docx.Document(BytesIO(data))
         except Exception as e:
-            logger.debug(f"DOCX still unreadable without its dangling relationships: {e}")
+            logger.debug(f"DOCX still unreadable after repair: {e}")
             return None
         self._doc_is_ours = True
         return doc  # type: ignore[return-value]
