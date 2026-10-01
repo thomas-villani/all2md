@@ -11,6 +11,8 @@ Tests cover:
 
 """
 
+import itertools
+
 import pytest
 
 from all2md.ast import (
@@ -1434,6 +1436,112 @@ class TestStrikethroughDelimiterRuns:
         assert [type(n).__name__ for n in back.children] == ["Paragraph"]
         text = "".join(getattr(n, "content", "") for n in back.children[0].content if isinstance(n, Text))
         assert "after" in text
+
+
+def _styled_characters(nodes, styles=frozenset()):
+    """Each visible character with the set of star styles over it; whitespace carries none."""
+    out = []
+    for node in nodes:
+        if isinstance(node, Text):
+            out.extend((char, styles) for char in node.content if not char.isspace())
+        elif isinstance(node, (Strong, Emphasis)):
+            out.extend(_styled_characters(node.content, styles | {type(node).__name__}))
+        else:
+            out.append((type(node).__name__, styles))
+    return out
+
+
+def _star_runs(*runs):
+    """Build a paragraph from (styles outermost first, text) runs."""
+    nodes = []
+    for styles, text in runs:
+        node = Text(content=text)
+        for style in reversed(styles):
+            node = style(content=[node])
+        nodes.append(node)
+    return Document(children=[Paragraph(content=nodes)])
+
+
+def _reads_back(doc):
+    markdown = MarkdownRenderer().render_to_string(doc)
+    back = _reparse(markdown)
+    assert [type(n).__name__ for n in back.children] == ["Paragraph"], markdown
+    return _styled_characters(back.children[0].content) == _styled_characters(doc.children[0].content)
+
+
+@pytest.mark.unit
+class TestEmphasisDelimiterRuns:
+    """Emphasis and strong delimiters must be ones CommonMark can close (#529)."""
+
+    @pytest.mark.parametrize(
+        "doc, expected",
+        [
+            (_star_runs(((Strong,), "bold "), ((), "after")), "**bold** after"),
+            (_star_runs(((), "before"), ((Strong,), " bold")), "before **bold**"),
+            # PMC2500011.1: the space between two words fell inside the styled runs.
+            (
+                Document(
+                    children=[
+                        Paragraph(
+                            content=[
+                                Emphasis(content=[Strong(content=[Text(content="Mixed Methods")]), Text(content=" ")]),
+                                Text(content=" "),
+                                Emphasis(content=[Strong(content=[Text(content="Research")])]),
+                            ]
+                        )
+                    ]
+                ),
+                "***Mixed Methods***  ***Research***",
+            ),
+        ],
+    )
+    def test_whitespace_at_a_span_edge_goes_outside_it(self, doc, expected):
+        assert MarkdownRenderer().render_to_string(doc) == expected
+        assert _reads_back(doc)
+
+    def test_neighbor_runs_sharing_a_style_are_opened_once(self):
+        # PMC6000022.1: written side by side, ***Meta*** and **-analysis** fused into *****.
+        doc = Document(
+            children=[
+                Paragraph(
+                    content=[
+                        Strong(content=[Text(content="A")]),
+                        Text(content=" "),
+                        Emphasis(content=[Strong(content=[Text(content="Meta")])]),
+                        Strong(content=[Text(content="-analysis of trials")]),
+                    ]
+                )
+            ]
+        )
+
+        assert MarkdownRenderer().render_to_string(doc) == "**A** ***Meta*-analysis of trials**"
+        assert _reads_back(doc)
+
+    def test_crossing_runs_open_the_second_span_with_underscores(self):
+        doc = _star_runs(((Strong,), "x "), ((Strong, Emphasis), "a"), ((Emphasis,), "b c"))
+
+        assert MarkdownRenderer().render_to_string(doc) == "**x *a***_b c_"
+        assert _reads_back(doc)
+
+    def test_emphasis_inside_emphasis_is_not_written_as_strong(self):
+        doc = Document(children=[Paragraph(content=[Emphasis(content=[Emphasis(content=[Text(content="x")])])])])
+
+        assert MarkdownRenderer().render_to_string(doc) == "*x*"
+
+    def test_every_combination_of_spaced_runs_reads_back(self):
+        # A style change inside a word is not always expressible with * and _
+        # (``***a*b*c***`` is ambiguous); a change at a space always is.
+        styles = [(), (Strong,), (Emphasis,), (Emphasis, Strong), (Strong, Emphasis)]
+        texts = ["a ", "b c ", " d"]
+        failures = []
+        for runs in itertools.product(itertools.product(styles, texts), repeat=3):
+            joins = [left[-1] + right[0] for (_, left), (_, right) in itertools.pairwise(runs)]
+            if any(" " not in join for join in joins):
+                continue  # the runs meet inside a word
+            doc = _star_runs(*runs)
+            if not _reads_back(doc):
+                failures.append(MarkdownRenderer().render_to_string(doc))
+        assert failures == []
 
 
 @pytest.mark.unit
