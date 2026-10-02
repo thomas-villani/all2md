@@ -246,8 +246,10 @@ _SPLIT_NUMBER_MIN_INDENT = 10.0
 _SPLIT_NUMBER_MAX_INDENT = 120.0
 
 #: An ordered marker at the start of a line: the number, ``.`` or ``)``, and the space that
-#: keeps ``2024`` and ``1.5`` from being markers. Group 1 is the printed number.
-_ORDERED_MARKER = re.compile(r"^\s*(\d+)[.)]\s")
+#: keeps ``2024`` and ``1.5`` from being markers. Group 1 is the printed number. At most
+#: three digits: a reference whose year wraps onto a line of its own ("2001.") otherwise
+#: became a list starting at 2001, and no document numbers a list past 999.
+_ORDERED_MARKER = re.compile(r"^\s*(\d{1,3})[.)]\s")
 
 
 def _translate_text(nodes: list[Node], table: dict[int, str]) -> None:
