@@ -6,55 +6,51 @@
 
 Legend: 🌱 natural next step · 🚀 ambitious · 🌙 moonshot · ⏸️ parked with a reason
 
-## Where we are (2026-09-17)
+## Where we are (2026-10-01)
 
-**v1.15.0 shipped on 2026-09-16.** Its spine was the DOCX fidelity batch: a Word-generated
-ground-truth corpus (`benchmarks/docx`, 23 cases, 66 checks) that now gates every pull
-request, and the defect stream it opened is closed at **0 failing checks** — tracked
-changes, display equations, style-inherited numbering, the `numFmt` whitelist, content
-controls, `w:numStyleLink`, field codes, merged cells, comments, legal numbering, footnotes
-and endnotes, list restarts, and bold carried by a character style. The remaining item of
-the old `docx-plus` plan, effective formatting, shipped in-tree with its own style cascade,
-so that dependency question is settled: not adopted.
+**v1.15.1 shipped on 2026-09-18**, the cleanup patch: PDF numbered lists (#503), and
+adjacent same-kind lists that RST and AsciiDoc read back as one (#496, #497). Since then
+`main` has carried two DOCX streams, both manual instruments with a committed ledger
+rather than a CI gate:
 
-The PDF side closed its arc the same release. On the sealed 103-article PMC holdout
-(reading of 2026-08-29, corrected ground truth): all2md leads recall of attainable text
-outright at **97.3%**, novel share **0.55%** against Docling's 2.05% and pymupdf4llm's
-6.26%, and the table gap to Docling is **6.2 points**, of which every point is *row
-grouping*: all2md holds 99.8% of every truth table's words, best of the three, and 97% of
-Docling's per-table wins are the same words in a different order. The diagnosis
-(`benchmarks/comparison/tablediag.py`) concluded that the residue is a model-class
-difference, a learned structure model over the page image against geometry rules over
-words, and **table work stops there** rather than fitting more heuristics. Section headings
-are now scored across every tool and all three lose about a fifth of them to prose
-(all2md 79.0%, Docling 80.3%, pymupdf4llm 79.2%).
+- **PDF → DOCX, renderer side.** `python -m benchmarks.pmc docx` re-reads the PMC corpus's
+  articles through our own DOCX output (#521). Its first reading was a six-item defect
+  ledger, now worked: characters XML cannot carry crashed 18 of 66 documents (#523);
+  captions were never written as captions (#524); nested lists flattened and adjacent
+  numbered lists ran together (#527); an image whose picture could not be embedded lost
+  its alt text (#526). Two of the six were the instrument's own artifacts, not losses
+  (#525 links, #528 heading spaces), which is why every ledger item is now checked
+  against the direct AST before it is called a defect. Its follow-ups shipped too:
+  Markdown link destinations and emphasis delimiters that read back (#540, #541, the
+  latter closing #529), a year at a line start read as a list number (#542), one link per
+  text span (#543), and TeX math fonts embedded without a Unicode map (#544). Kept by
+  decision: the "image" placeholder alt text for an undescribed picture, in every parser,
+  because it records that a picture existed. Left by design: fonts re-encoded per
+  document and glyph-number subsets, which no published table can read.
+- **DOCX reader, against other people's files.** LibreOffice's Writer regression corpus,
+  1,526 files, scored word for word against what Word shows (`benchmarks/libreoffice`,
+  #539). Five reader gaps closed (#531–#538, below); export words missed 3,908 → 657,
+  267 of them math written as LaTeX, and no file Word opens fails any more.
 
-What that leaves open on PDF is small, named, and not reachable by the levers already
-tried: prose over-segmentation around equations (#442, closed on measurement), sub- and
-superscript reconstruction in display math (#456's step 3), and the precision half of
-gutter-crossing interleaving (#440's remainder). All three are Theme 8 Stage 4 work,
-layout reconstruction, and are carried there rather than as open fixes.
+The PDF side's numbers stand as of v1.15.0 (sealed 103-article holdout, reading of
+2026-08-29): attainable recall **97.3%**, novel share **0.55%** against Docling's 2.05%
+and pymupdf4llm's 6.26%, and a **6.2-point** table gap that is all row grouping, where
+table work stopped on evidence. What remains open on PDF (#442, #456 step 3, #440's
+remainder) is Theme 8 Stage 4 layout reconstruction and is carried there.
 
-**Open issues at this date:** three small bugs filed 2026-09-15 (#503 PDF numbered lists,
-#496 RST and #497 AsciiDoc adjacent lists), and three parked by design (#256, #186, #183).
+**Open issues at this date:** #517 (the RST renderer writes a nested list that reads back
+as a definition list), and three parked by design (#256, #186, #183).
 
 ## Next
 
-### v1.15.1 — cleanup ahead of the outward push
+### Before the next release
 
-Small, user-visible, no new instruments.
-
-- **#503** — the PDF parser recognises bullet glyphs but not decimal `N.` markers, so an
-  ordered list comes out as escaped paragraphs. Fix at the source, as #499 decided; the
-  golden changes back to an unescaped list.
-- **#496 / #497** — the RST and AsciiDoc renderers write two adjacent same-kind lists
-  with only a blank line between them, and both formats read that back as one list. The
-  Markdown renderer's boundary marker from #495 is the model; both are pinned as strict
-  xfails, so the fix must also delete the allowlist entries.
+- **#517** — the RST renderer writes a nested list that reparses as a definition list,
+  and the parent item's text goes with it.
 - **Gate the PMC lane on fidelity when its exit criterion is met.** The criterion, written
-  2026-08-13, is two consecutive *scheduled* runs that open no new defect issue. The first
-  scheduled run (2026-09-15) failed on a housekeeping-timestamp bug (#509, fixed in #510),
-  so the count restarts; the lane is monthly, so this lands in a later patch, not this one.
+  2026-08-13, is two consecutive *scheduled* runs that open no new defect issue. The count
+  restarted after #509; two articles' JATS changed upstream and were re-pinned (#522)
+  ahead of the 2026-10-15 run, which is the first that can count.
 
 ### The next batch: PDF → DOCX fidelity (Theme 2)
 
@@ -71,11 +67,12 @@ emits neither.
 
 Instruments, cheapest first. Each is a step; the first two are the batch's spine.
 
-1. **Re-parse scoring.** Convert the PMC corpus's PDFs to DOCX, parse the DOCX back with
-   our parser, run the existing JATS oracle on that AST. The delta against the direct
-   PDF → AST reading isolates renderer loss with zero new ground truth. Runs in CI on the
-   existing corpus pin. The first reading is a defect ledger for the DOCX renderer, which
-   has never had one.
+1. ✅ **Re-parse scoring** (#521). Convert the PMC corpus's PDFs to DOCX, parse the DOCX
+   back with our parser, run the existing JATS oracle on that AST. The delta against the
+   direct PDF → AST reading isolates renderer loss with zero new ground truth. Manual, by
+   decision: no CI step. Its first reading's ledger is worked (see "Where we are"); the
+   fixes were each measured on a six-article subset, so the next step is a second full
+   reading of the development corpus to confirm them together before instrument 2.
 2. **Word as the write-side oracle.** `wordlive` reads the converted document back through
    Word's own object model: do styles resolve, do lists number, do tables survive as
    tables, do headings appear in the navigation pane. This is the check the re-parse
@@ -102,10 +99,9 @@ Known gaps to state before the first reading rather than discover after it:
   PDF side's row-grouping residue will show up here as the same 6.2 points and must not
   be re-chased under a new name.
 
-Decisions this batch will need: whether the re-parse lane gets a fidelity gate on its
-first reading or stays a ledger until the renderer defect stream runs dry (the DOCX lane
-took the ledger route and it was right); and whether Word's import is worth publishing as
-a comparison column at all, given that it is a different product with a different goal.
+Decided: the re-parse lane stays a manual ledger, as the DOCX lane did. Still open: whether
+Word's import is worth publishing as a comparison column at all, given that it is a
+different product with a different goal.
 
 ### Alongside: DOCX reader gaps from the LibreOffice corpus
 
@@ -159,6 +155,40 @@ manual instrument like the PDF → DOCX ledger: no CI step, the Word reading com
 dated because it needs Word, and a paired comparison against the base for judging a
 change. After items 1–5: export words missed 3,908 → 657 (267 of them math glyphs), and
 no file Word opens fails.
+
+### Alongside: inbound formats (Theme 4)
+
+Three format families, chosen 2026-10-01 for value per effort: man pages, the formats
+PyMuPDF already opens, and legacy binary Office. Each is a run of small PRs that touches
+none of the PDF → DOCX work, so they interleave with it.
+
+1. **OLE routing fix first — a live bug.** The Outlook parser claims the OLE magic
+   `D0 CF 11 E0` outright, so a `.doc`, `.ppt` or `.xls` detected by content is read as a
+   `.msg`. One shared detector reads the compound file's stream names (`WordDocument`,
+   `PowerPoint Document`, `Workbook`, `__substg1.0_*`) and routes each to its parser, or to
+   a clear unsupported-format error; mislabeled `.doc` files that are really RTF, Word
+   2003 XML, MHTML or `.docx` go to the parsers that already read them.
+2. **Man pages, both directions.** A pure-Python man(7) parser, then a markdown → man
+   renderer with a `--via man` route in `benchmarks/roundtrip`, then mdoc(7). The
+   extension-only `.1`–`.9` match is confirmed by a `.TH`/`.Dd` content detector. Roff
+   beyond the two macro sets (`.de`, conditionals, `eqn`) degrades to text; we do not
+   emulate roff. `mandoc -T markdown` is the independent oracle for a later corpus lane.
+3. **XPS and OXPS through the PDF pipeline.** The parser hardcodes `filetype="pdf"` on
+   stream input; parameterizing it makes each format a thin subclass with no new
+   dependency. MOBI is undecided: PyMuPDF lays reflowable text into pages and loses the
+   real headings, so unpacking its HTML for the HTML parser is likely the better route.
+4. **Legacy `.doc` and `.ppt`, native, in fidelity tiers.** A pure-Python reader on
+   `olefile`: tier 1 is text, paragraphs, notes and flattened tables from the piece table
+   (`.doc`) or the slide text atoms (`.ppt`); tier 2 adds headings (built-in style ids,
+   language-independent), bold/italic, lists and real tables; tier 3 images. Fields keep
+   cached results and comments go to metadata, as the DOCX decisions set. LibreOffice
+   conversion is at most an opt-in backend, never the default. The oracle comes free:
+   save the DOCX and LibreOffice lanes' sources as `.doc`/`.ppt` and score the parse of
+   each against the parse of its `.docx`/`.pptx` twin.
+
+Open: the fidelity bar for shipping `.doc` (tier 1 alone, or with headings and lists),
+whether the LibreOffice backend ships at all, the MOBI route, and whether gzipped man
+pages need their own shim.
 
 ### Then: the outward push (Theme 5)
 
@@ -307,8 +337,14 @@ is I/O. Shape when it is needed: `ato_markdown` / `aconvert` over `asyncio.to_th
 
 ## Theme 4 — New formats and domains
 
-- 🌱 **More inbound formats** — iWork, Visio, OneNote, Google Docs export, chat exports
-  (Slack, Discord, WhatsApp), Confluence and Notion exports.
+- 🌱 **Man pages, XPS/OXPS, legacy `.doc`/`.ppt`** — in progress; see **Next**.
+- 🌱 **More inbound formats**, roughly cheapest first: `.xls` (`xlrd` 2.x still reads it,
+  and it slots into the OLE routing table), SRT/VTT subtitles, chat exports (Slack,
+  Discord, Telegram, WhatsApp, whose timestamps follow the phone's locale), Notion and
+  Confluence exports, draw.io and Visio → Mermaid, Numbers then Pages (from
+  `numbers-parser`'s reverse-engineered IWA schemas, which drift between iWork
+  versions), and OneNote (Graph API first; a local `.one` reader only on demand, the
+  format being intricate and Python having no structural parser for it).
 - 🌱 **Cloud input sources** — `all2md s3://bucket/key.pdf`, `gdrive:<id>`, Azure Blob,
   reusing the remote-input plumbing HTTP(S) already has. Each backend an optional extra;
   Google Docs via the export API so format detection stays honest.
@@ -316,7 +352,12 @@ is I/O. Shape when it is needed: `ato_markdown` / `aconvert` over `asyncio.to_th
   `prose`); the net-new rules are figure and table numbering, caption presence,
   cross-reference integrity, IMRaD ordering, acronym defined on first use. The PMC and
   arXiv corpora are the documents these rules are for.
-- 🚀 **Audio and video → markdown** — transcript, chapters, speaker diarisation.
+- 🚀 **Audio and video → markdown** — transcript, chapters, speaker diarization.
+  `faster-whisper` (CTranslate2, no torch; PyAV bundles FFmpeg) behind a `transcribe`
+  extra modeled on the OCR engines; subtitle tracks already in the container are read
+  before anything is transcribed. The costs are a model download on first use,
+  non-deterministic output for tests, and CPU speed; diarization needs torch and stays
+  a separate engine.
 - 🚀 **Spreadsheet semantics** — formulas, named ranges and cross-sheet references, not
   only rendered values.
 - 🌙 **Diagram intelligence** — Mermaid renders in `view`/`serve` since v1.8.0; parsing and
@@ -496,6 +537,8 @@ None blocking.
 
 One line each; `CHANGELOG.md` has the ledger.
 
+- **v1.15.1** (2026-09-18) — PDF numbered lists, and adjacent same-kind lists kept apart
+  in RST and AsciiDoc.
 - **v1.15.0** (2026-09-16) — the DOCX ground-truth lane and its defect stream to 0 failing;
   the PMC oracle audit; the cross-tool heading measure; the table diagnosis that closed
   table work on evidence; the corrected ground truth that cut the Docling gap to 6.2 points.
