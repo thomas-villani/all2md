@@ -276,7 +276,13 @@ class TitlePromotionTransform(NodeTransformer):
     level (H2 → H1, H3 → H2, etc.) so they style properly under the title.
 
     If the first real content node is not an H1, the document passes through
-    unchanged.
+    unchanged. So does a document with more than one top-level H1: its leading H1 is a
+    section, not the document's title, and promoting the headings after it would write
+    a later H1 and the H2s around it as the same "Heading 1". A paragraph holding an
+    image is content, not a blank spacer, so a document that opens with a picture is not
+    promoted either: the picture is written ahead of the title, and the DOCX parser,
+    which only undoes the shift when the title leads, would read every heading a level
+    too high.
 
     Examples
     --------
@@ -311,7 +317,7 @@ class TitlePromotionTransform(NodeTransformer):
         for i, child in enumerate(children):
             if isinstance(child, Paragraph):
                 text = extract_text(child).strip()
-                if not text:
+                if not text and not any(isinstance(inline, Image) for inline in child.content):
                     continue  # skip empty paragraphs
                 # First real content is a non-heading paragraph → no promotion
                 return node
@@ -324,6 +330,8 @@ class TitlePromotionTransform(NodeTransformer):
 
         if title_index is None:
             return node
+        if any(isinstance(child, Heading) and child.level == 1 for child in children[title_index + 1 :]):
+            return node  # another H1 follows: the leading one is not the document's title
 
         # Build new children list
         new_children: list[Node] = []
