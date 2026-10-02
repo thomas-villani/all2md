@@ -39,6 +39,7 @@ from all2md.ast import (
     FootnoteDefinition,
     FootnoteReference,
     Heading,
+    Image,
     LineBreak,
     Link,
     List,
@@ -61,6 +62,9 @@ if DOCX_AVAILABLE:
     from all2md.renderers.docx import DocxRenderer
 
 pytestmark = pytest.mark.skipif(not DOCX_AVAILABLE, reason="python-docx not installed")
+
+# A 1x1 white PNG.
+_PNG_1PX = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC"
 
 
 @pytest.mark.unit
@@ -1722,6 +1726,39 @@ class TestTitlePromotion:
         assert section_para.style.name == "Heading 1"
         assert subsection_para is not None
         assert subsection_para.style.name == "Heading 2"
+
+    @pytest.mark.parametrize(
+        "leading",
+        [
+            # PMC10000026.1: a second H1 used to be written as "Heading 1" beside the H2s.
+            [Heading(level=1, content=[Text(content="animals")]), Heading(level=1, content=[Text(content="Article")])],
+            # PMC8000039.1: a logo ahead of the H1 left every heading a level too high.
+            [
+                Paragraph(content=[Image(url="data:image/png;base64," + _PNG_1PX, alt_text="")]),
+                Heading(level=1, content=[Text(content="microorganisms")]),
+            ],
+        ],
+        ids=["two h1", "image first"],
+    )
+    def test_heading_levels_survive_a_docx_round_trip(self, leading):
+        from all2md import from_ast, to_ast
+
+        doc = Document(
+            children=[
+                *leading,
+                Heading(level=2, content=[Text(content="1. Introduction")]),
+                Heading(level=3, content=[Text(content="1.1. Scope")]),
+            ]
+        )
+
+        back = to_ast(BytesIO(from_ast(doc, "docx")), source_format="docx")
+
+        def levels(document):
+            return [
+                (h.level, "".join(t.content for t in h.content)) for h in document.children if isinstance(h, Heading)
+            ]
+
+        assert levels(back) == levels(doc)
 
     def test_promote_title_false_keeps_h1(self, tmp_path):
         """Test that promote_title=False keeps H1 as Heading 1."""

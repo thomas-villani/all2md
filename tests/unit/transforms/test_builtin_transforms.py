@@ -1424,6 +1424,35 @@ class TestTitlePromotionTransform:
         assert isinstance(h2, Heading)
         assert h2.level == 1
 
+    def test_a_second_h1_skips_promotion(self):
+        """Two H1s: the leading one is a section, and promoting would merge H1 and H2."""
+        doc = Document(
+            children=[
+                Heading(level=1, content=[Text(content="animals")]),
+                Heading(level=1, content=[Text(content="Article")]),
+                Heading(level=2, content=[Text(content="1. Introduction")]),
+            ]
+        )
+
+        result = TitlePromotionTransform().transform(doc)
+
+        assert [(h.level, h.metadata.get("is_title")) for h in result.children] == [(1, None), (1, None), (2, None)]
+
+    def test_an_image_before_h1_skips_promotion(self):
+        """A picture ahead of the H1 is content: the DOCX parser could not undo the shift."""
+        doc = Document(
+            children=[
+                Paragraph(content=[Image(url="logo.png", alt_text="")]),
+                Heading(level=1, content=[Text(content="Title")]),
+                Heading(level=2, content=[Text(content="Section")]),
+            ]
+        )
+
+        result = TitlePromotionTransform().transform(doc)
+
+        headings = [child for child in result.children if isinstance(child, Heading)]
+        assert [(h.level, h.metadata.get("is_title")) for h in headings] == [(1, None), (2, None)]
+
     def test_no_h1_passthrough(self):
         """Test that a document without H1 passes through unchanged."""
         doc = Document(
