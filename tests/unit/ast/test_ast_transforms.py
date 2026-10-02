@@ -12,6 +12,7 @@ from all2md.ast import (
     Emphasis,
     Heading,
     Image,
+    LineBreak,
     Link,
     Paragraph,
     Strong,
@@ -896,6 +897,66 @@ class TestInlineFormattingConsolidator:
         # Links should be preserved, not merged
         assert isinstance(result.content[0], Link)
         assert isinstance(result.content[1], Link)
+
+    def test_link_fragments_to_one_target_merge(self) -> None:
+        """One PDF link annotation over several spans is one link, not one per span."""
+        url = "http://www.biomedcentral.com/"
+        para = Paragraph(
+            content=[
+                Link(url=url, content=[Strong(content=[Text(content="Bio")])]),
+                Link(url=url, content=[Strong(content=[Text(content="Med")])]),
+                Link(url=url, content=[Text(content=" ")]),
+                Link(url=url, content=[Strong(content=[Text(content="Central")])]),
+                Text(content=" and more"),
+            ]
+        )
+
+        result = InlineFormattingConsolidator().transform(para)
+
+        assert isinstance(result, Paragraph)
+        link, after = result.content
+        assert isinstance(link, Link) and link.url == url
+        assert [type(n).__name__ for n in link.content] == ["Strong", "Text", "Strong"]
+        assert [n.content for n in link.content[0].content] == ["BioMed"]
+        assert isinstance(after, Text) and after.content == " and more"
+
+    def test_link_lines_merge_across_whitespace_and_line_breaks(self) -> None:
+        """A wrapped URL's printed lines, separated by a space or a break, are one link."""
+        url = "http://example.org/a/long/path"
+        para = Paragraph(
+            content=[
+                Link(url=url, content=[Text(content="http://example.org/a/")]),
+                Text(content=" "),
+                LineBreak(soft=True),
+                Link(url=url, content=[Text(content="long/path")]),
+            ]
+        )
+
+        result = InlineFormattingConsolidator().transform(para)
+
+        assert isinstance(result, Paragraph)
+        assert len(result.content) == 1
+        link = result.content[0]
+        assert isinstance(link, Link)
+        assert isinstance(link.content[1], LineBreak)
+        assert "".join(n.content for n in link.content if isinstance(n, Text)) == "http://example.org/a/ long/path"
+
+    @pytest.mark.parametrize(
+        "between, second",
+        [
+            ([], Link(url="http://a.com", title="other", content=[Text(content="b")])),
+            ([Text(content=" x ")], Link(url="http://a.com", content=[Text(content="b")])),
+            ([], Link(url="http://b.com", content=[Text(content="b")])),
+        ],
+        ids=["different title", "words between", "different url"],
+    )
+    def test_links_stay_apart_unless_only_whitespace_separates_one_target(self, between, second) -> None:
+        para = Paragraph(content=[Link(url="http://a.com", content=[Text(content="a")]), *between, second])
+
+        result = InlineFormattingConsolidator().transform(para)
+
+        assert isinstance(result, Paragraph)
+        assert sum(isinstance(n, Link) for n in result.content) == 2
 
     def test_code_spans_not_merged(self) -> None:
         """Test that Code spans are NOT merged (they represent distinct code)."""

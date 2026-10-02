@@ -1553,10 +1553,72 @@ class InlineFormattingConsolidator(NodeTransformer):
 
         return result
 
+    @staticmethod
+    def _merge_adjacent_links(nodes: list[Node]) -> list[Node]:
+        """Merge neighboring links to the same target into one link.
+
+        A PDF link annotation covers a rectangle, and every text span inside it becomes a
+        link of its own: one per font run ("Bio" "Med" " " "Central") and one per printed
+        line of a wrapped URL. Links with the same URL and title, with nothing between
+        them but whitespace or line breaks, are one link; the whitespace between them
+        moves inside it.
+
+        Parameters
+        ----------
+        nodes : list of Node
+            Nodes to process
+
+        Returns
+        -------
+        list of Node
+            Nodes with neighboring same-target links merged
+
+        """
+        result: list[Node] = []
+        index = 0
+        while index < len(nodes):
+            current = nodes[index]
+            if not isinstance(current, Link):
+                result.append(current)
+                index += 1
+                continue
+            content = list(current.content)
+            end = index + 1
+            look = end
+            while look < len(nodes):
+                candidate = nodes[look]
+                if isinstance(candidate, Link):
+                    if candidate.url != current.url or candidate.title != current.title:
+                        break
+                    content.extend(nodes[end:look])  # the whitespace between them
+                    content.extend(candidate.content)
+                    end = look = look + 1
+                elif isinstance(candidate, LineBreak) or (
+                    isinstance(candidate, Text) and not candidate.content.strip()
+                ):
+                    look += 1
+                else:
+                    break
+            if end == index + 1:
+                result.append(current)
+            else:
+                result.append(
+                    Link(
+                        url=current.url,
+                        content=content,
+                        title=current.title,
+                        metadata=current.metadata.copy(),
+                        source_location=current.source_location,
+                    )
+                )
+            index = end
+        return result
+
     def _consolidate_inline_nodes(self, nodes: list[Node]) -> list[Node]:
         """Consolidates formatting for inline nodes.
 
         Applies transformations in order:
+        0. Merge neighboring links to the same target
         1. Recursively consolidate children of container nodes
         2. Merge adjacent same-type formatting nodes
         3. Normalize whitespace (move outside formatting)
@@ -1575,6 +1637,9 @@ class InlineFormattingConsolidator(NodeTransformer):
         """
         if not nodes:
             return []
+
+        # Step 0: Merge link fragments, so their content is consolidated as one
+        nodes = self._merge_adjacent_links(nodes)
 
         # Step 1: Recursively process children of formatting nodes and links
         processed: list[Node] = []
