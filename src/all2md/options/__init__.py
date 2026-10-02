@@ -62,6 +62,7 @@ if TYPE_CHECKING:
     from all2md.options.jinja import JinjaRendererOptions
     from all2md.options.json import JsonParserOptions, JsonRendererOptions
     from all2md.options.latex import LatexOptions, LatexRendererOptions
+    from all2md.options.man import ManParserOptions
     from all2md.options.markdown import MarkdownParserOptions, MarkdownRendererOptions
     from all2md.options.mbox import MboxOptions
     from all2md.options.mediawiki import MediaWikiOptions, MediaWikiParserOptions
@@ -124,6 +125,7 @@ _LAZY_EXPORTS: dict[str, str] = {
     "JsonRendererOptions": "json",
     "LatexOptions": "latex",
     "LatexRendererOptions": "latex",
+    "ManParserOptions": "man",
     "LocalFileAccessOptions": "common",
     "MarkdownParserOptions": "markdown",
     "MarkdownRendererOptions": "markdown",
@@ -258,6 +260,7 @@ __all__ = [
     "JsonRendererOptions",
     "LatexOptions",
     "LatexRendererOptions",
+    "ManParserOptions",
     "MarkdownParserOptions",
     "MarkdownRendererOptions",
     "MboxOptions",

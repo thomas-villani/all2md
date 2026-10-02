@@ -276,6 +276,16 @@ _MANIFEST_RECORDS: list[ConverterMetadata] = [
         priority=10,
     ),
     ConverterMetadata(
+        format_name="man",
+        extensions=[".1", ".2", ".3", ".4", ".5", ".6", ".7", ".8", ".9", ".man"],
+        mime_types=["text/troff", "text/x-troff-man", "application/x-troff-man"],
+        content_detector_path="all2md.parsers.man._is_man_content",
+        parser_class="all2md.parsers.man.ManParser",
+        parser_options_class="all2md.options.man.ManParserOptions",
+        description="Parse Unix manual pages written with the man(7) macros",
+        priority=10,
+    ),
+    ConverterMetadata(
         format_name="markdown",
         extensions=[".md", ".markdown", ".mdown", ".mkd", ".mkdn"],
         mime_types=["text/markdown", "text/x-markdown"],

@@ -5066,6 +5066,33 @@ LaTeX output suitable for compilation with pdflatex/xelatex.
    :Choices: ``percent``, ``todonotes``, ``marginnote``, ``ignore``
    :Importance: core
 
+MAN Options
+~~~~~~~~~~~
+
+
+MAN Parser Options
+^^^^^^^^^^^^^^^^^^
+
+Configuration options for man(7) page to AST parsing.
+
+**title_heading**
+
+   Emit a level-1 heading such as LS(1) from the .TH line
+
+   :Type: ``bool``
+   :CLI flag: ``--man-no-title-heading``
+   :Default: ``True``
+   :Importance: core
+
+**normalize_heading_case**
+
+   Rewrite all-uppercase section headings in title case (SEE ALSO -> See Also)
+
+   :Type: ``bool``
+   :CLI flag: ``--man-normalize-heading-case``
+   :Default: ``False``
+   :Importance: advanced
+
 MARKDOWN Options
 ~~~~~~~~~~~~~~~~
 
