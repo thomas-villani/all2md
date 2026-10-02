@@ -160,6 +160,40 @@ dated because it needs Word, and a paired comparison against the base for judgin
 change. After items 1–5: export words missed 3,908 → 657 (267 of them math glyphs), and
 no file Word opens fails.
 
+### Alongside: inbound formats (Theme 4)
+
+Three format families, chosen 2026-10-01 for value per effort: man pages, the formats
+PyMuPDF already opens, and legacy binary Office. Each is a run of small PRs that touches
+none of the PDF → DOCX work, so they interleave with it.
+
+1. **OLE routing fix first — a live bug.** The Outlook parser claims the OLE magic
+   `D0 CF 11 E0` outright, so a `.doc`, `.ppt` or `.xls` detected by content is read as a
+   `.msg`. One shared detector reads the compound file's stream names (`WordDocument`,
+   `PowerPoint Document`, `Workbook`, `__substg1.0_*`) and routes each to its parser, or to
+   a clear unsupported-format error; mislabeled `.doc` files that are really RTF, Word
+   2003 XML, MHTML or `.docx` go to the parsers that already read them.
+2. **Man pages, both directions.** A pure-Python man(7) parser, then a markdown → man
+   renderer with a `--via man` route in `benchmarks/roundtrip`, then mdoc(7). The
+   extension-only `.1`–`.9` match is confirmed by a `.TH`/`.Dd` content detector. Roff
+   beyond the two macro sets (`.de`, conditionals, `eqn`) degrades to text; we do not
+   emulate roff. `mandoc -T markdown` is the independent oracle for a later corpus lane.
+3. **XPS and OXPS through the PDF pipeline.** The parser hardcodes `filetype="pdf"` on
+   stream input; parameterizing it makes each format a thin subclass with no new
+   dependency. MOBI is undecided: PyMuPDF lays reflowable text into pages and loses the
+   real headings, so unpacking its HTML for the HTML parser is likely the better route.
+4. **Legacy `.doc` and `.ppt`, native, in fidelity tiers.** A pure-Python reader on
+   `olefile`: tier 1 is text, paragraphs, notes and flattened tables from the piece table
+   (`.doc`) or the slide text atoms (`.ppt`); tier 2 adds headings (built-in style ids,
+   language-independent), bold/italic, lists and real tables; tier 3 images. Fields keep
+   cached results and comments go to metadata, as the DOCX decisions set. LibreOffice
+   conversion is at most an opt-in backend, never the default. The oracle comes free:
+   save the DOCX and LibreOffice lanes' sources as `.doc`/`.ppt` and score the parse of
+   each against the parse of its `.docx`/`.pptx` twin.
+
+Open: the fidelity bar for shipping `.doc` (tier 1 alone, or with headings and lists),
+whether the LibreOffice backend ships at all, the MOBI route, and whether gzipped man
+pages need their own shim.
+
 ### Then: the outward push (Theme 5)
 
 Mostly writing, so it interleaves with the batch above rather than occupying one. It has
@@ -307,8 +341,14 @@ is I/O. Shape when it is needed: `ato_markdown` / `aconvert` over `asyncio.to_th
 
 ## Theme 4 — New formats and domains
 
-- 🌱 **More inbound formats** — iWork, Visio, OneNote, Google Docs export, chat exports
-  (Slack, Discord, WhatsApp), Confluence and Notion exports.
+- 🌱 **Man pages, XPS/OXPS, legacy `.doc`/`.ppt`** — in progress; see **Next**.
+- 🌱 **More inbound formats**, roughly cheapest first: `.xls` (`xlrd` 2.x still reads it,
+  and it slots into the OLE routing table), SRT/VTT subtitles, chat exports (Slack,
+  Discord, Telegram, WhatsApp, whose timestamps follow the phone's locale), Notion and
+  Confluence exports, draw.io and Visio → Mermaid, Numbers then Pages (from
+  `numbers-parser`'s reverse-engineered IWA schemas, which drift between iWork
+  versions), and OneNote (Graph API first; a local `.one` reader only on demand, the
+  format being intricate and Python having no structural parser for it).
 - 🌱 **Cloud input sources** — `all2md s3://bucket/key.pdf`, `gdrive:<id>`, Azure Blob,
   reusing the remote-input plumbing HTTP(S) already has. Each backend an optional extra;
   Google Docs via the export API so format detection stays honest.
@@ -316,7 +356,12 @@ is I/O. Shape when it is needed: `ato_markdown` / `aconvert` over `asyncio.to_th
   `prose`); the net-new rules are figure and table numbering, caption presence,
   cross-reference integrity, IMRaD ordering, acronym defined on first use. The PMC and
   arXiv corpora are the documents these rules are for.
-- 🚀 **Audio and video → markdown** — transcript, chapters, speaker diarisation.
+- 🚀 **Audio and video → markdown** — transcript, chapters, speaker diarization.
+  `faster-whisper` (CTranslate2, no torch; PyAV bundles FFmpeg) behind a `transcribe`
+  extra modeled on the OCR engines; subtitle tracks already in the container are read
+  before anything is transcribed. The costs are a model download on first use,
+  non-deterministic output for tests, and CPU speed; diarization needs torch and stays
+  a separate engine.
 - 🚀 **Spreadsheet semantics** — formulas, named ranges and cross-sheet references, not
   only rendered values.
 - 🌙 **Diagram intelligence** — Mermaid renders in `view`/`serve` since v1.8.0; parsing and
