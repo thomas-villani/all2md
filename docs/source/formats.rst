@@ -304,6 +304,7 @@ Archive Formats (TAR/7Z/RAR)
 *Parser:* ``ArchiveToAstConverter``
 
 - Supports TAR (including .tgz, .tar.gz, .tbz2, .tar.bz2, .txz, .tar.xz), 7Z, and RAR archives
+- A single compressed file that is not a tar (``ls.1.gz``, ``data.csv.gz``, ``page.html.bz2``, ``x.json.xz``) is decompressed, within the archive size limits, and converted as the file it holds
 - Recursively extracts and converts parseable files to AST using appropriate format parsers
 - Automatically detects and processes nested archives
 - Supports file filtering with include/exclude patterns for selective extraction

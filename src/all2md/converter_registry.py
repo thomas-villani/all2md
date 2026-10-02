@@ -741,9 +741,11 @@ class ConverterRegistry:
                     # No content detector or no content available - trust extension match
                     return format_name
 
-        # Check MIME type
-        mime_type, _ = mimetypes.guess_type(filename)
-        if mime_type:
+        # Check MIME type. With an encoding (notes.md.gz -> text/markdown, gzip) the
+        # MIME type names the file inside the compression, not the bytes we hold;
+        # leave those to content detection, which finds the compression signature.
+        mime_type, encoding = mimetypes.guess_type(filename)
+        if mime_type and encoding is None:
             for format_name, metadata in sorted_converters:
                 if metadata.matches_mime_type(mime_type):
                     return format_name
