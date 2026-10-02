@@ -223,6 +223,60 @@ def _link_title(title: str) -> str:
     return '"' + _escape_backslashes(title).replace('"', '\\"') + '"'
 
 
+# The two styles written with ``*``: their delimiters are the ones that fuse.
+_STAR_STYLES = (Strong, Emphasis)
+
+
+def _style_runs(nodes: list[Node], styles: tuple[type[Node], ...] = ()) -> list[tuple[tuple[type[Node], ...], Node]]:
+    """Flatten nested Strong/Emphasis into (styles, node) runs, outermost style first."""
+    runs: list[tuple[tuple[type[Node], ...], Node]] = []
+    for node in nodes:
+        if type(node) in _STAR_STYLES:
+            inner = styles if type(node) in styles else (*styles, type(node))
+            runs.extend(_style_runs(node.content, inner))  # type: ignore[attr-defined]
+        else:
+            runs.append((styles, node))
+    return runs
+
+
+def _nest_runs(runs: list[tuple[tuple[type[Node], ...], Node]]) -> list[Node]:
+    """Rebuild runs into nodes, each style opened once over the longest stretch sharing it."""
+    out: list[Node] = []
+    index = 0
+    while index < len(runs):
+        styles, node = runs[index]
+        if not styles:
+            out.append(node)
+            index += 1
+            continue
+        best, best_end = styles[0], index
+        for style in styles:  # outermost first, so a tie keeps the original nesting
+            end = index
+            while end < len(runs) and style in runs[end][0]:
+                end += 1
+            if end > best_end:
+                best, best_end = style, end
+        inner = [(tuple(s for s in run_styles if s is not best), run) for run_styles, run in runs[index:best_end]]
+        out.append(best(content=_nest_runs(inner)))  # type: ignore[call-arg]
+        index = best_end
+    return out
+
+
+def _merge_star_runs(content: list[Node]) -> list[Node]:
+    """Merge neighboring Strong/Emphasis runs that share a style (#529).
+
+    Two spans written side by side put their delimiters in one run:
+    ``Emphasis[Strong("Meta")]`` then ``Strong("-analysis")`` is
+    ``***Meta*****-analysis**``, and the five stars read as one run, so the bold
+    comes back as literal ``**``. Opening each style once over every neighbor that
+    shares it writes ``***Meta*-analysis**`` instead. A style nested in itself is
+    opened once: ``*`` inside ``*`` would be ``**``, which reads as strong.
+    """
+    if not any(type(node) in _STAR_STYLES for node in content):
+        return content
+    return _nest_runs(_style_runs(content))
+
+
 def _interrupts_paragraph(node: Node) -> bool:
     """Report whether an ordered list may not follow a paragraph line directly.
 
@@ -1915,11 +1969,11 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         content = self._render_inline_content(node.content)
-        lead, core, trail = self._split_boundary_breaks(content)
+        lead, core, trail = self._split_boundary(content)
         if not core.strip():
             self._output.append(content)
             return
-        symbol = self.options.emphasis_symbol
+        symbol = self._unfused_delimiter(self.options.emphasis_symbol, lead)
         self._output.append(f"{lead}{symbol}{core}{symbol}{trail}")
 
     def visit_strong(self, node: Strong) -> None:
@@ -1932,11 +1986,12 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         """
         content = self._render_inline_content(node.content)
-        lead, core, trail = self._split_boundary_breaks(content)
+        lead, core, trail = self._split_boundary(content)
         if not core.strip():
             self._output.append(content)
             return
-        self._output.append(f"{lead}**{core}**{trail}")
+        symbol = self._unfused_delimiter("**", lead)
+        self._output.append(f"{lead}{symbol}{core}{symbol}{trail}")
 
     def visit_code(self, node: Code) -> None:
         """Render a Code node.
@@ -2032,6 +2087,23 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             # puts a visible character on the line, so the paragraph holds.
             self._output.append("\\\n")
 
+    def _render_inline_content(self, content: list[Node]) -> str:
+        """Render inline nodes, with neighboring emphasis runs merged first."""
+        return super()._render_inline_content(_merge_star_runs(content))
+
+    def _unfused_delimiter(self, symbol: str, lead: str) -> str:
+        """Return ``symbol``, or its ``_`` / ``*`` twin if it would fuse with the output before it.
+
+        A span that opens right where another closes puts both delimiters in one
+        run: ``**x *a***`` then ``*b*`` is ``**x *a****b*``, which reads back as
+        literal stars. Merging neighbor runs (_merge_star_runs) removes the case
+        where the two spans share a style, but not where styles cross. Opening the
+        second span with the other character keeps the runs apart.
+        """
+        if lead or not self._output or not self._output[-1].endswith(symbol[0]):
+            return symbol
+        return symbol.replace(symbol[0], "_" if symbol[0] == "*" else "*")
+
     def _current_line_has_visible_text(self) -> bool:
         """Whether the output line currently being built holds any non-whitespace."""
         for fragment in reversed(self._output):
@@ -2043,37 +2115,39 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         return False
 
     @staticmethod
-    def _split_boundary_breaks(content: str) -> tuple[str, str, str]:
-        """Split rendered inline content into leading breaks, core, trailing breaks.
+    def _split_boundary(content: str) -> tuple[str, str, str]:
+        """Split rendered inline content into leading space, core, trailing space.
 
-        A line break at the edge of an emphasis/strong/strikethrough span puts a
-        delimiter run alone at a line start, where it stops being inline syntax:
-        ``***`` on its own line is a thematic break, ``~~~~`` opens a tilde code
-        fence (#391), and a closing run right after a newline is not
-        right-flanking, so it does not close at all. The break is hoisted outside
-        the delimiters instead -- a span over a line break marks nothing visible,
-        so nothing is lost, and the delimiters stay glued to the text they mark.
+        A delimiter run must touch the text it marks. One next to whitespace does not
+        delimit: ``**bold **after`` and ``before** bold**`` read back as literal stars
+        (#529). A line break at the edge is worse: it puts the run alone at a line
+        start, where ``***`` is a thematic break, ``~~~~`` opens a tilde code fence
+        (#391), and a closing run right after a newline does not close at all. So
+        whitespace and breaks at either edge of an emphasis, strong or strikethrough
+        span go outside its delimiters; they mark nothing visible, so nothing is lost.
         """
-        spellings = ("  \n", "\\\n", "<br>", "\n")
-        lead = ""
-        stripped = True
-        while stripped:
-            stripped = False
-            for spelling in spellings:
-                if content.startswith(spelling):
-                    lead += spelling
-                    content = content[len(spelling) :]
-                    stripped = True
-        trail = ""
-        stripped = True
-        while stripped:
-            stripped = False
-            for spelling in spellings:
-                if content.endswith(spelling):
-                    trail = spelling + trail
-                    content = content[: -len(spelling)]
-                    stripped = True
-        return lead, content, trail
+        start, end = 0, len(content)
+        while start < end:
+            if content.startswith("\\\n", start, end):
+                start += 2
+            elif content.startswith("<br>", start, end):
+                start += 4
+            elif content[start].isspace():
+                start += 1
+            else:
+                break
+        while end > start:
+            # A backslash break first: its newline alone is whitespace, and taking it
+            # by itself would strand the backslash at the end of the core.
+            if content.endswith("\\\n", start, end):
+                end -= 2
+            elif content.endswith("<br>", start, end):
+                end -= 4
+            elif content[end - 1].isspace():
+                end -= 1
+            else:
+                break
+        return content[:start], content[start:end], content[end:]
 
     def visit_strikethrough(self, node: Strikethrough) -> None:
         """Render a Strikethrough node.
@@ -2098,8 +2172,8 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # delimiters at all, because ``~~~~`` over empty content is the same
         # fence with nothing to protect. Breaks at the span's boundary are
         # hoisted outside the delimiters for the same reason -- see
-        # _split_boundary_breaks.
-        lead, core, trail = self._split_boundary_breaks(content)
+        # _split_boundary.
+        lead, core, trail = self._split_boundary(content)
         if self._strikethrough_depth or not core.strip():
             self._output.append(content)
             return
