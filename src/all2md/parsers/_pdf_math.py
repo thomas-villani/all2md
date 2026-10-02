@@ -34,6 +34,7 @@ __all__ = [
     "MATH_REGION_MAX_GAP",
     "MATH_REGION_MAX_WORDS_PER_LINE",
     "MATH_REGION_MIN_LINES",
+    "decode_tex_symbol_fonts",
     "is_equation_block",
     "is_equation_line",
     "mark_equation_blocks",
@@ -215,3 +216,73 @@ def mark_equation_blocks(blocks: "Sequence[dict]") -> list[bool]:
                     spreading = True
                     break
     return flags
+
+
+# TeX's math symbol (OMS, cmsy) and math extension (OMX, cmex) encodings put glyphs at
+# codes 0x00-0x1F. A font embedded without a ToUnicode map reaches us with those codes
+# as they are: "Scoring \x1550%" where the page prints "Scoring ≥50%". Only that range
+# is mapped. A printable code may already have been decoded by the PDF's own map, and
+# the published tables are the only safe source; a document-specific subset (Elsevier's
+# AdvP fonts, Springer's re-encoded Symbol) assigns its codes per document, and is left
+# alone. Characters that can't be decoded are removed by the DOCX and EPUB renderers.
+_CMSY_LOW = (
+    "\u2212\u22c5\u00d7\u2217\u00f7\u22c4\u00b1\u2213"  # − ⋅ × ∗ ÷ ⋄ ± ∓
+    "\u2295\u2296\u2297\u2298\u2299\u25ef\u2218\u2022"  # ⊕ ⊖ ⊗ ⊘ ⊙ ◯ ∘ •
+    "\u224d\u2261\u2286\u2287\u2264\u2265\u2aaf\u2ab0"  # ≍ ≡ ⊆ ⊇ ≤ ≥ ⪯ ⪰
+    "\u223c\u2248\u2282\u2283\u226a\u226b\u227a\u227b"  # ∼ ≈ ⊂ ⊃ ≪ ≫ ≺ ≻
+)
+# cmex: the same delimiters at growing sizes, so a size is read as its plain delimiter.
+_CMEX_LOW = (
+    "()[]\u230a\u230b\u2308\u2309{}\u27e8\u27e9|\u2016/\\"  # ( ) [ ] ⌊ ⌋ ⌈ ⌉ { } ⟨ ⟩ | ‖ / \
+    "()()[]\u230a\u230b\u2308\u2309{}\u27e8\u27e9/\\"  # ( ) ( ) [ ] ⌊ ⌋ ⌈ ⌉ { } ⟨ ⟩ / \
+)
+_TEX_SYMBOL_FONTS = (
+    (re.compile(r"(?:^|\+)(?:cmsy\d*|tex_cm_maths_symbols)", re.I), str.maketrans(dict(enumerate(_CMSY_LOW)))),
+    (re.compile(r"(?:^|\+)(?:cmex\d*|tex_cm_maths_extension)", re.I), str.maketrans(dict(enumerate(_CMEX_LOW)))),
+)
+_LOW_CODE = re.compile(r"[\x00-\x1f]")
+# Tab, line feed and carriage return are whitespace in every other font.
+_WHITESPACE_CODES = (0x09, 0x0A, 0x0D)
+_STRAY_CODE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+
+
+def decode_tex_symbol_fonts(blocks: "Sequence[dict]") -> dict[int, str] | None:
+    """Map TeX math-font codes 0x00-0x1F to the characters they print, in place.
+
+    Parameters
+    ----------
+    blocks : sequence of dict
+        Blocks from ``page.get_text("dict")``; their spans' text is rewritten.
+
+    Returns
+    -------
+    dict or None
+        The translation table for the page's other text, when every low code on the
+        page came from TeX fonts of one kind. Table cells are read through
+        ``Table.extract()`` and the page's words, which carry no font, so this is how
+        they are decoded; on a page that mixes kinds, or carries low codes in any other
+        font, it is None and they are left alone.
+
+    """
+    used: set[int] = set()
+    ambiguous = False
+    for block in blocks:
+        for line in block.get("lines", ()):
+            for span in line.get("spans", ()):
+                text = span.get("text", "")
+                if not _LOW_CODE.search(text):
+                    continue
+                font = span.get("font", "")
+                for index, (pattern, table) in enumerate(_TEX_SYMBOL_FONTS):
+                    if pattern.search(font):
+                        span["text"] = text.translate(table)
+                        used.add(index)
+                        break
+                else:
+                    ambiguous = ambiguous or bool(_STRAY_CODE.search(text))
+    if ambiguous or len(used) != 1:
+        return None
+    table = dict(_TEX_SYMBOL_FONTS[used.pop()][1])
+    for code in _WHITESPACE_CODES:  # outside a TeX span these are whitespace
+        del table[code]
+    return table

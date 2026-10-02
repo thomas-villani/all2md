@@ -59,6 +59,7 @@ from all2md.ast import (
 from all2md.ast import (
     extract_text as extract_node_text,
 )
+from all2md.ast.nodes import get_node_children
 from all2md.ast.transforms import InlineFormattingConsolidator, extract_nodes
 from all2md.constants import (
     DEPS_PDF,
@@ -85,7 +86,12 @@ from all2md.parsers._pdf_layout import (
     native_find_tables,
     predict_page_layout,
 )
-from all2md.parsers._pdf_math import is_equation_block, is_equation_line, mark_equation_blocks
+from all2md.parsers._pdf_math import (
+    decode_tex_symbol_fonts,
+    is_equation_block,
+    is_equation_line,
+    mark_equation_blocks,
+)
 from all2md.parsers._pdf_numbering import parse_numbering_prefix
 from all2md.parsers._pdf_ocr import (
     dehyphenate_blocks,
@@ -242,6 +248,15 @@ _SPLIT_NUMBER_MAX_INDENT = 120.0
 #: An ordered marker at the start of a line: the number, ``.`` or ``)``, and the space that
 #: keeps ``2024`` and ``1.5`` from being markers. Group 1 is the printed number.
 _ORDERED_MARKER = re.compile(r"^\s*(\d+)[.)]\s")
+
+
+def _translate_text(nodes: list[Node], table: dict[int, str]) -> None:
+    """Translate every Text node under ``nodes`` in place."""
+    for node in nodes:
+        if isinstance(node, Text):
+            node.content = node.content.translate(table)
+        else:
+            _translate_text(get_node_children(node), table)
 
 
 def _carry_list_starts(nodes: list[Node], printed_numbers: dict[int, int]) -> None:
@@ -2356,6 +2371,9 @@ class PdfToAstConverter(BaseParser):
             )
             return []
 
+        # TeX math fonts embedded without a ToUnicode map arrive as their raw codes.
+        tex_table = decode_tex_symbol_fonts(all_blocks)
+
         # Deliberately outside the try. dehyphenate_blocks() is defensive internally and
         # operates on blocks we have already read successfully, so an exception from it
         # is a bug in our own code, not an unreadable page -- and the catch above would
@@ -2536,6 +2554,9 @@ class PdfToAstConverter(BaseParser):
         # Process columns and tables (the figure plan is already empty when OCR
         # replaced page content or placement markers are off)
         nodes = self._process_columns_and_tables(columns, table_info, page, page_num, figure_plan=figure_plan)
+        if tex_table:
+            # Table cells are read without fonts; see decode_tex_symbol_fonts.
+            _translate_text(nodes, tex_table)
 
         return nodes
 
