@@ -15,6 +15,7 @@ For large PST/OST files, streaming processing is used to minimize memory usage.
 from __future__ import annotations
 
 import datetime
+import email.utils
 import logging
 import tempfile
 from email import policy
@@ -135,6 +136,100 @@ def _reject_non_message_cfb(input_data: Union[str, Path, IO[bytes], bytes]) -> N
     )
 
 
+def _msg_recipient_headers(msg_obj: Any) -> dict[str, str]:
+    """Build To and Cc header values from an extract-msg message's recipients.
+
+    The message's own ``to``/``cc`` strings join recipients with ``;``, which the
+    email package reads as the end of an address group, so every recipient after
+    the first was dropped; and a recipient Outlook never resolved prints as
+    ``alice@example.com <None>``. The structured recipient list has neither problem.
+
+    Parameters
+    ----------
+    msg_obj : extract_msg.Message
+        Message object from extract-msg.
+
+    Returns
+    -------
+    dict[str, str]
+        ``"To"`` and/or ``"Cc"`` mapped to comma-separated addresses.
+
+    """
+    headers: dict[str, list[str]] = {}
+    for recipient in getattr(msg_obj, "recipients", None) or []:
+        # ``type`` is a RecipientType enum (TO = 1, CC = 2, BCC = 3), not an int.
+        kind = getattr(recipient, "type", None)
+        kind_value = getattr(kind, "value", kind)
+        header = {1: "To", 2: "Cc"}.get(kind_value) if isinstance(kind_value, int) else None
+        if header is None:
+            continue
+        name = getattr(recipient, "name", None) or ""
+        address = getattr(recipient, "smtpAddress", None) or getattr(recipient, "email", None) or ""
+        if not address and "@" in name:
+            address = name
+        if name.strip().lower() == address.strip().lower():
+            name = ""  # a display name that only repeats the address adds nothing
+        if not address and not name:
+            continue
+        headers.setdefault(header, []).append(email.utils.formataddr((name, address)) if address else name)
+    if not headers:
+        # No structured recipients: fall back to the joined strings.
+        for header, attribute in (("To", "to"), ("Cc", "cc")):
+            value = getattr(msg_obj, attribute, None)
+            if value:
+                headers[header] = [part.strip() for part in str(value).split(";") if part.strip()]
+    return {header: ", ".join(values) for header, values in headers.items()}
+
+
+def _msg_html_body(msg_obj: Any) -> bytes | str | None:
+    """Return an extract-msg message's HTML body, or None when it cannot be read.
+
+    Outlook usually stores HTML inside the compressed RTF body, and extract-msg
+    de-encapsulates it on access, so reading ``htmlBody`` runs a parser that can
+    fail on one message. A failure costs the HTML alternative, not the message,
+    and is logged rather than swallowed.
+
+    Parameters
+    ----------
+    msg_obj : extract_msg.Message
+        Message object from extract-msg.
+
+    Returns
+    -------
+    bytes, str or None
+        The HTML body as extract-msg returns it.
+
+    """
+    try:
+        return msg_obj.htmlBody
+    except Exception as e:
+        logger.warning(f"Could not read the HTML body of the message: {e!r}")
+        return None
+
+
+def _decode_html_body(html_body: bytes | str) -> str:
+    """Decode an extract-msg HTML body, which is bytes in every supported version.
+
+    Parameters
+    ----------
+    html_body : bytes or str
+        The ``htmlBody`` of an extract-msg message.
+
+    Returns
+    -------
+    str
+        The HTML as text: UTF-8 when it decodes, otherwise Windows-1252, the
+        code page Outlook writes when it does not write UTF-8.
+
+    """
+    if isinstance(html_body, str):
+        return html_body
+    try:
+        return html_body.decode("utf-8")
+    except UnicodeDecodeError:
+        return html_body.decode("cp1252", errors="replace")
+
+
 def _convert_msg_to_email_message(msg_obj: Any) -> EmailMessage:
     """Convert extract-msg Message to stdlib EmailMessage.
 
@@ -155,23 +250,34 @@ def _convert_msg_to_email_message(msg_obj: Any) -> EmailMessage:
     # Set headers
     if msg_obj.sender:
         email_msg["From"] = msg_obj.sender
-    if msg_obj.to:
-        email_msg["To"] = msg_obj.to
-    if msg_obj.cc:
-        email_msg["Cc"] = msg_obj.cc
+    recipients = _msg_recipient_headers(msg_obj)
+    if recipients.get("To"):
+        email_msg["To"] = recipients["To"]
+    if recipients.get("Cc"):
+        email_msg["Cc"] = recipients["Cc"]
     if msg_obj.subject:
         email_msg["Subject"] = msg_obj.subject
-    if msg_obj.date:
-        # msg_obj.date is a datetime object
-        email_msg["Date"] = msg_obj.date.strftime("%a, %d %b %Y %H:%M:%S %z")
-    if msg_obj.message_id:
-        email_msg["Message-ID"] = msg_obj.message_id
+    # extract-msg's API moved under us: up to the 0.4x series ``date`` is an
+    # RFC 2822 string (only once the message was sent), later a datetime; the id
+    # was always ``messageId``, never ``message_id``.
+    date = getattr(msg_obj, "date", None)
+    if isinstance(date, datetime.datetime):
+        email_msg["Date"] = email.utils.format_datetime(date)
+    elif date:
+        email_msg["Date"] = str(date)
+    message_id = getattr(msg_obj, "messageId", None)
+    if message_id:
+        email_msg["Message-ID"] = message_id
 
-    # Set body content
+    # Both bodies are kept as alternatives, as in an .eml, so the EML options
+    # (``convert_html_to_markdown``, ``include_html_parts``) choose between them.
+    html_body = _msg_html_body(msg_obj)
     if msg_obj.body:
         email_msg.set_content(msg_obj.body, subtype="plain")
-    elif msg_obj.htmlBody:
-        email_msg.set_content(msg_obj.htmlBody, subtype="html")
+        if html_body:
+            email_msg.add_alternative(_decode_html_body(html_body), subtype="html")
+    elif html_body:
+        email_msg.set_content(_decode_html_body(html_body), subtype="html")
 
     # Add attachments
     if msg_obj.attachments:

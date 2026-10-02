@@ -298,3 +298,140 @@ class TestOutlookMessageNodes:
         assert "## Attachments" in markdown
         assert "![pic.png](https://example.com/pic.png)" in markdown
         assert r"\##" not in markdown
+
+
+def _fake_recipient(name, address, kind):
+    """A recipient shaped like extract-msg's: ``type`` is an enum, not an int."""
+    import types
+
+    return types.SimpleNamespace(name=name, email=address, smtpAddress=address, type=types.SimpleNamespace(value=kind))
+
+
+def _fake_message(**overrides):
+    """A message exposing the attributes extract-msg 0.56 really has."""
+    import types
+
+    fields = {
+        "sender": "Alice <alice@example.com>",
+        "to": None,
+        "cc": None,
+        "recipients": [],
+        "subject": "Subject",
+        "date": None,
+        "messageId": None,
+        "body": "Plain body.",
+        "htmlBody": None,
+        "attachments": [],
+    }
+    fields.update(overrides)
+    return types.SimpleNamespace(**fields)
+
+
+@pytest.mark.unit
+class TestExtractMsgApiContract:
+    """The parser's view of extract-msg must match the installed library.
+
+    The test stubs used to invent ``message_id`` and a ``str`` HTML body, so every
+    real ``.msg`` failed with AttributeError while the suite passed.
+    """
+
+    def test_message_attributes_exist(self):
+        extract_msg = pytest.importorskip("extract_msg")
+        for attribute in ("sender", "subject", "date", "messageId", "body", "htmlBody", "recipients", "attachments"):
+            assert hasattr(extract_msg.Message, attribute), attribute
+
+    def test_recipient_type_values(self):
+        pytest.importorskip("extract_msg")
+        from extract_msg.enums import RecipientType
+
+        assert (RecipientType.TO.value, RecipientType.CC.value) == (1, 2)
+
+
+@pytest.mark.unit
+class TestConvertMsgToEmailMessage:
+    """extract-msg's message becomes the EmailMessage the EML pipeline reads."""
+
+    def test_message_id_comes_from_message_id_attribute(self):
+        from all2md.parsers.outlook import _convert_msg_to_email_message
+
+        email_msg = _convert_msg_to_email_message(_fake_message(messageId="<abc@example.com>"))
+        assert email_msg["Message-ID"] == "<abc@example.com>"
+
+    def test_datetime_date(self):
+        from all2md.parsers.outlook import _convert_msg_to_email_message
+
+        sent = datetime.datetime(2026, 9, 30, 14, 5, tzinfo=datetime.timezone.utc)
+        email_msg = _convert_msg_to_email_message(_fake_message(date=sent))
+        assert email_msg["Date"].datetime == sent
+
+    def test_string_date_kept(self):
+        from all2md.parsers.outlook import _convert_msg_to_email_message
+
+        email_msg = _convert_msg_to_email_message(_fake_message(date="Wed, 30 Sep 2026 14:05:00 +0000"))
+        assert email_msg["Date"].datetime.day == 30
+
+    def test_every_recipient_kept(self):
+        """Joined with ``;``, all recipients after the first used to be dropped."""
+        from all2md.parsers.outlook import _convert_msg_to_email_message
+
+        recipients = [
+            _fake_recipient("alice@example.com", None, 1),  # unresolved: the name is the address
+            _fake_recipient("Bob Jones", "bob@example.com", 1),
+            _fake_recipient("carol@example.com", "carol@example.com", 2),
+            _fake_recipient("Hidden", "hidden@example.com", 3),  # Bcc is not shown
+        ]
+        email_msg = _convert_msg_to_email_message(
+            _fake_message(recipients=recipients, to="alice@example.com <None>; Bob Jones <bob@example.com>")
+        )
+        assert str(email_msg["To"]) == "alice@example.com, Bob Jones <bob@example.com>"
+        assert str(email_msg["Cc"]) == "carol@example.com"
+        assert "hidden" not in str(email_msg).lower()
+
+    def test_joined_strings_used_without_structured_recipients(self):
+        from all2md.parsers.outlook import _convert_msg_to_email_message
+
+        email_msg = _convert_msg_to_email_message(_fake_message(to="a@example.com; b@example.com"))
+        assert str(email_msg["To"]) == "a@example.com, b@example.com"
+
+    def test_html_body_bytes_kept_as_alternative(self):
+        from all2md.parsers.outlook import _convert_msg_to_email_message
+
+        email_msg = _convert_msg_to_email_message(_fake_message(htmlBody=b"<p>Caf\xc3\xa9 <b>bold</b></p>"))
+        assert email_msg.get_content_type() == "multipart/alternative"
+        html = email_msg.get_body(preferencelist=("html",))
+        assert html is not None and "Café <b>bold</b>" in html.get_content()
+        assert email_msg.get_body(preferencelist=("plain",)).get_content().strip() == "Plain body."
+
+    def test_html_only_body_in_windows_1252(self):
+        from all2md.parsers.outlook import _convert_msg_to_email_message
+
+        email_msg = _convert_msg_to_email_message(_fake_message(body=None, htmlBody=b"<p>Caf\xe9</p>"))
+        assert email_msg.get_content_type() == "text/html"
+        assert "Café" in email_msg.get_content()
+
+    def test_failing_html_body_logged_and_plain_kept(self, caplog):
+        import types
+
+        from all2md.parsers.outlook import _convert_msg_to_email_message
+
+        class _Message(types.SimpleNamespace):
+            @property
+            def htmlBody(self):
+                raise AttributeError("'bytes' object has no attribute 'encode'")
+
+        fields = vars(_fake_message())
+        del fields["htmlBody"]
+        with caplog.at_level("WARNING", logger="all2md.parsers.outlook"):
+            email_msg = _convert_msg_to_email_message(_Message(**fields))
+        assert email_msg.get_content().strip() == "Plain body."
+        assert "HTML body" in caplog.text
+
+    def test_html_route_through_eml_options(self):
+        from all2md.parsers.eml import extract_message_content
+        from all2md.parsers.outlook import _convert_msg_to_email_message
+
+        email_msg = _convert_msg_to_email_message(_fake_message(htmlBody=b"<h1>Title</h1><p>Text <b>bold</b></p>"))
+        content, is_markdown = extract_message_content(
+            email_msg, OutlookOptions(include_plain_parts=False, convert_html_to_markdown=True)
+        )
+        assert is_markdown and "# Title" in content and "**bold**" in content
