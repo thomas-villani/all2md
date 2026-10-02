@@ -319,8 +319,8 @@ requires-dist = [
     { name = "easyocr", marker = "extra == 'ocr-easyocr'", specifier = ">=1.7.0" },
     { name = "ebooklib", marker = "extra == 'all'", specifier = ">=0.20" },
     { name = "ebooklib", marker = "extra == 'epub'", specifier = ">=0.20" },
-    { name = "extract-msg", marker = "extra == 'all'", specifier = ">=0.37.1" },
-    { name = "extract-msg", marker = "extra == 'outlook'", specifier = ">=0.37.1" },
+    { name = "extract-msg", marker = "extra == 'all'", specifier = ">=0.56.1" },
+    { name = "extract-msg", marker = "extra == 'outlook'", specifier = ">=0.56.1" },
     { name = "faiss-cpu", marker = "extra == 'search'", specifier = ">=1.7.4" },
     { name = "fastmcp", marker = "extra == 'all'", specifier = ">=2.0.0" },
     { name = "fastmcp", marker = "extra == 'mcp'", specifier = ">=2.0.0" },
@@ -1572,21 +1572,20 @@ wheels = [
 
 [[package]]
 name = "extract-msg"
-version = "0.37.1"
+version = "0.56.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "beautifulsoup4" },
-    { name = "chardet" },
     { name = "compressed-rtf" },
     { name = "ebcdic" },
-    { name = "imapclient" },
     { name = "olefile" },
+    { name = "red-black-tree-mod" },
     { name = "rtfde" },
     { name = "tzlocal" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/13/67/4659faa25f9cc15e2565cf77d7a308690bf722e5827a344e8b0c24fa12e9/extract_msg-0.37.1.tar.gz", hash = "sha256:3ec88641d799065daebc02076cc17fdc381f79baf6e90994effd01523727bc7c", size = 160190, upload-time = "2022-11-28T06:41:55.996Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/aa/4a/da047195138a0ebf9876f44ab48b29c0400c137229e196f2b6e6b12de5ee/extract_msg-0.56.1.tar.gz", hash = "sha256:de94121cf5503377d932d503280293837baf630cd51ce36de901936b3172c43a", size = 333244, upload-time = "2026-08-14T03:51:58.322Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4c/13/73a46c76fd62617ed8f3a291caf70ae10bfb312b703a01803efebec747de/extract_msg-0.37.1-py2.py3-none-any.whl", hash = "sha256:0bac3b8f25d81ac5d57fcfeed5e1350dcd29a438d5ac8247a247f0c217516377", size = 161296, upload-time = "2022-11-28T06:41:54.346Z" },
+    { url = "https://files.pythonhosted.org/packages/41/ee/4007423b630f583d18e653023a3c9cd0b90b0bc235482145df13d442f3a3/extract_msg-0.56.1-py3-none-any.whl", hash = "sha256:3690ee28cbc5a8affa9c07d5e902464743949fcf2033f24b926d7c08485b42a9", size = 337639, upload-time = "2026-08-14T03:51:57.054Z" },
 ]
 
 [[package]]
@@ -1888,15 +1887,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/6c/e6/7bf14eeb8f8b7251141944835abd42eb20a658d89084b7e1f3e5fe394090/imagesize-2.0.0.tar.gz", hash = "sha256:8e8358c4a05c304f1fccf7ff96f036e7243a189e9e42e90851993c558cfe9ee3", size = 1773045, upload-time = "2026-03-03T14:18:29.941Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5f/53/fb7122b71361a0d121b669dcf3d31244ef75badbbb724af388948de543e2/imagesize-2.0.0-py2.py3-none-any.whl", hash = "sha256:5667c5bbb57ab3f1fa4bc366f4fbc971db3d5ed011fd2715fd8001f782718d96", size = 9441, upload-time = "2026-03-03T14:18:27.892Z" },
-]
-
-[[package]]
-name = "imapclient"
-version = "3.1.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/58/79/8138f8c91e791f49cf4c2269b1eaaaddb93013d162e92ddc249b84d38105/imapclient-3.1.0.tar.gz", hash = "sha256:b0413a516ffcc4b4d69f2c611c0e95da57968edf5a5c78ac82d1bf882305facc", size = 199675, upload-time = "2026-01-17T18:50:12.186Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/8a/a8/a0f86ed51f792d9e6afcc062db2766033be7d1028d1fd5deaf38b075430a/imapclient-3.1.0-py2.py3-none-any.whl", hash = "sha256:34c192ffe82936e940a998ac89c474296942cd7c4f6c208f0fccfcd972946038", size = 182536, upload-time = "2026-01-17T18:49:09.105Z" },
 ]
 
 [[package]]
@@ -4686,6 +4676,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/55/3e/dc87d97532ddad58a
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c7/75/2cc58965097e351415af420be81c4665cf80da52a17ef43c01ffbe2caf91/readability_lxml-0.8.4.1-py3-none-any.whl", hash = "sha256:874c0cea22c3bf2b78c7f8df831bfaad3c0a89b7301d45a188db581652b4b465", size = 19912, upload-time = "2025-05-03T21:11:43.993Z" },
 ]
+
+[[package]]
+name = "red-black-tree-mod"
+version = "1.22"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/48/75/bfa342a2ebfc9623b701f1c6995b9906fd6dd2cedf6bce777d09e23303ac/red-black-tree-mod-1.22.tar.gz", hash = "sha256:38e3652903a2bf96379c27c2082ca0b7b905158662dd7ef0c97f4fd93a9aa908", size = 34173, upload-time = "2023-12-26T14:00:22.056Z" }
 
 [[package]]
 name = "referencing"

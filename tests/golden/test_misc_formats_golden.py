@@ -81,18 +81,38 @@ def _install_extract_msg_stub(monkeypatch: pytest.MonkeyPatch) -> None:
             self.longFilename = filename
             self.shortFilename = filename
 
+    class _StubRecipient:
+        def __init__(self, address: str, kind: int) -> None:
+            self.name = address
+            self.email = address
+            self.smtpAddress = address
+            self.type = types.SimpleNamespace(value=kind)  # a RecipientType enum in extract-msg
+
     class _StubMessage:
+        """Mirror extract-msg's real API: ``messageId``, bytes ``htmlBody``, ``recipients``.
+
+        The stub used to expose ``message_id`` and a ``str`` HTML body, attributes
+        extract-msg never had, so every real ``.msg`` failed while these tests passed.
+        """
+
         def __init__(self, path: str | Path) -> None:
             payload = json.loads(Path(path).read_text())
             self.sender = payload.get("from")
             self.to = payload.get("to")
             self.cc = payload.get("cc")
+            self.recipients = [
+                _StubRecipient(address.strip(), kind)
+                for field, kind in (("to", 1), ("cc", 2))
+                for address in (payload.get(field) or "").replace(";", ",").split(",")
+                if address.strip()
+            ]
             self.subject = payload.get("subject")
             date_value = payload.get("date")
             self.date = datetime.datetime.fromisoformat(date_value) if date_value else None
             self.body = payload.get("body") or payload.get("body_text") or ""
-            self.htmlBody = payload.get("body_html")
-            self.message_id = payload.get("message_id")
+            body_html = payload.get("body_html")
+            self.htmlBody = body_html.encode("utf-8") if body_html else None
+            self.messageId = payload.get("message_id")
             attachments = payload.get("attachments") or []
             self.attachments = [_StubAttachment(item) for item in attachments]
 
