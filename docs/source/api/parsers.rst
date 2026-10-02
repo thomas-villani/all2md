@@ -100,6 +100,9 @@ Text markup languages with semantic conversion:
    * - DokuWiki
      - :doc:`all2md.parsers.dokuwiki`
      - DokuWiki syntax
+   * - Man pages
+     - :doc:`all2md.parsers.man`
+     - Unix manual pages (man(7) macros)
 
 E-book & Document Formats
 -------------------------

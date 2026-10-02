@@ -188,6 +188,7 @@ DocumentFormat = Literal[
     "jinja",
     "json",
     "latex",
+    "man",
     "markdown",
     "mbox",
     "mediawiki",

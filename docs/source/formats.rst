@@ -202,6 +202,19 @@ Textile
 - Rendering offers extended block syntax, HTML passthrough controls, and line-wrapping preferences
 - Options: ``TextileParserOptions`` / ``TextileRendererOptions``
 
+Man pages
+~~~~~~~~~
+
+*Parser:* ``ManParser``
+
+- Reads Unix manual pages written with the man(7) macros (``.TH``, ``.SH``, ``.TP``, ``.IP``, ...) directly, without a roff installation
+- Detected by extension (``.1`` to ``.9``, ``.man``) and confirmed by content: the first macro after comments and any preamble must be ``.TH``, so a rotated log such as ``app.log.1`` still reads as plain text
+- Tagged paragraphs become definition lists, ``.IP`` bullets and numbers become lists, ``.RS``/``.RE`` nests them, ``.nf``/``.EX`` regions become code blocks, ``.UR``/``.MT`` become links and simple ``tbl`` tables become tables
+- ``.TH`` fills the title, date and section metadata; the NAME line's description becomes the subject
+- Reads the preamble pod2man writes (conditionals, string and macro definitions); other roff programming is ignored, and ``.so`` includes are reported but not followed
+- mdoc(7) pages (``.Dd``/``.Sh``, as BSD systems use) are not read yet
+- Options: ``ManParserOptions`` (``title_heading``, ``normalize_heading_case``)
+
 Org Mode
 ~~~~~~~~
 
