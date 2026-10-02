@@ -161,6 +161,68 @@ def _comment_header(
     return header
 
 
+# ASCII punctuation: the characters a backslash escapes in CommonMark.
+_ASCII_PUNCTUATION = frozenset("!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~")
+
+
+def _escape_backslashes(text: str) -> str:
+    """Double each backslash that would otherwise escape the character after it.
+
+    A backslash before ASCII punctuation, or last of all (before the closing
+    delimiter), is consumed by the reparse; any other backslash reads back literally,
+    so a Windows path keeps its single backslashes.
+    """
+    if "\\" not in text:
+        return text
+    out = []
+    for index, char in enumerate(text):
+        out.append(char)
+        if char == "\\" and (index + 1 == len(text) or text[index + 1] in _ASCII_PUNCTUATION):
+            out.append("\\")
+    return "".join(out)
+
+
+_CONTROL_CHARACTERS = re.compile(r"[\x00-\x1f\x7f]")
+_POINTED_UNSAFE = re.compile(r"[<>\\]")
+
+
+def _percent_encode(match: re.Match[str]) -> str:
+    return f"%{ord(match.group()):02X}"
+
+
+def _parens_balanced(url: str) -> bool:
+    if "(" not in url and ")" not in url:
+        return True
+    depth = 0
+    for char in url:
+        depth += {"(": 1, ")": -1}.get(char, 0)
+        if depth < 0:
+            return False
+    return depth == 0
+
+
+def _link_destination(url: str) -> str:
+    """Write ``url`` as a link destination that reads back as the same URL.
+
+    The bare form ``(url)`` ends at the first space and needs balanced parentheses,
+    so a URL with a space or an unmatched parenthesis is written in the pointed form
+    ``(<url>)``. Neither form allows a line break or a control character, so those
+    are percent-encoded. So are ``<``, ``>`` and a backslash in the pointed form:
+    CommonMark would take them backslash-escaped, but mistune refuses a pointed
+    destination holding any of them, and it percent-encodes all three when it reads
+    a URL anyway.
+    """
+    url = _CONTROL_CHARACTERS.sub(_percent_encode, url)
+    if " " in url or url.startswith("<") or not _parens_balanced(url):
+        return "<" + _POINTED_UNSAFE.sub(_percent_encode, url) + ">"
+    return _escape_backslashes(url)
+
+
+def _link_title(title: str) -> str:
+    """Write ``title`` as a double-quoted link title."""
+    return '"' + _escape_backslashes(title).replace('"', '\\"') + '"'
+
+
 # The two styles written with ``*``: their delimiters are the ones that fuse.
 _STAR_STYLES = (Strong, Emphasis)
 
@@ -352,7 +414,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         ):
             self._output.append("\n\n")
             for url, ref_id in sorted(self._link_references.items(), key=lambda x: x[1]):
-                self._output.append(f"[{ref_id}]: {url}\n")
+                self._output.append(f"[{ref_id}]: {_link_destination(url)}\n")
 
         result = "".join(self._output)
 
@@ -741,7 +803,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         self._output.append("\n\n")
         for url, ref_id in sorted(self._block_link_references.items(), key=lambda x: x[1]):
-            self._output.append(f"[{ref_id}]: {url}\n")
+            self._output.append(f"[{ref_id}]: {_link_destination(url)}\n")
 
         # Clear block references after emitting
         self._block_link_references.clear()
@@ -1972,9 +2034,9 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         else:
             # Inline-style links: [text](url)
             if node.title:
-                self._output.append(f'[{content}]({node.url} "{node.title}")')
+                self._output.append(f"[{content}]({_link_destination(node.url)} {_link_title(node.title)})")
             else:
-                self._output.append(f"[{content}]({node.url})")
+                self._output.append(f"[{content}]({_link_destination(node.url)})")
 
     def visit_image(self, node: Image) -> None:
         """Render an Image node.
@@ -1990,9 +2052,9 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             # Alt-text only (no URL)
             self._output.append(f"![{alt}]()")
         elif node.title:
-            self._output.append(f'![{alt}]({node.url} "{node.title}")')
+            self._output.append(f"![{alt}]({_link_destination(node.url)} {_link_title(node.title)})")
         else:
-            self._output.append(f"![{alt}]({node.url})")
+            self._output.append(f"![{alt}]({_link_destination(node.url)})")
 
     def visit_line_break(self, node: LineBreak) -> None:
         """Render a LineBreak node.

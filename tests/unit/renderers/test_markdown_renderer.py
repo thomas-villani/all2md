@@ -15,6 +15,7 @@ import itertools
 
 import pytest
 
+from all2md import to_ast
 from all2md.ast import (
     BlockQuote,
     Code,
@@ -450,6 +451,56 @@ class TestImages:
         renderer = MarkdownRenderer()
         result = renderer.render_to_string(doc)
         assert result == '![An image](image.png "Image Title")'
+
+
+def _reparsed_urls(doc: Document, link_style: str = "inline") -> list[tuple[str, str | None]]:
+    markdown = MarkdownRenderer(MarkdownRendererOptions(link_style=link_style)).render_to_string(doc)
+    paragraph = to_ast(markdown.encode(), source_format="markdown").children[0]
+    return [(node.url, node.title) for node in paragraph.content if isinstance(node, (Link, Image))]
+
+
+@pytest.mark.unit
+class TestLinkDestinations:
+    """A destination the bare ``(url)`` form cannot hold is written so it reads back.
+
+    The expected URLs are what the Markdown parser stores, which percent-encodes a
+    space, ``<``, ``>`` and a backslash; before the fix these links did not read back
+    as links at all, or were cut short at the unmatched parenthesis.
+    """
+
+    @pytest.mark.parametrize(
+        "url, written, read_back",
+        [
+            ("file:///C:/My Docs/a.pdf", "(<file:///C:/My Docs/a.pdf>)", "file:///C:/My%20Docs/a.pdf"),
+            ("https://a.example/x)y", "(<https://a.example/x)y>)", "https://a.example/x)y"),
+            ("https://a.example/x(y", "(<https://a.example/x(y>)", "https://a.example/x(y"),
+            ("https://a.example/(x)", "(https://a.example/(x))", "https://a.example/(x)"),
+            ("https://a.example/x\ny", "(https://a.example/x%0Ay)", "https://a.example/x%0Ay"),
+            ("https://a.example/a b\\", "(<https://a.example/a b%5C>)", "https://a.example/a%20b%5C"),
+            ("https://a.example/b\\", "(https://a.example/b\\\\)", "https://a.example/b%5C"),
+            ("C:\\Users\\x", "(C:\\Users\\x)", "C:%5CUsers%5Cx"),
+        ],
+    )
+    @pytest.mark.parametrize("node_type", [Link, Image])
+    def test_destination_reads_back(self, url, written, read_back, node_type):
+        node = Link(url=url, content=[Text(content="t")]) if node_type is Link else Image(url=url, alt_text="t")
+        doc = Document(children=[Paragraph(content=[node])])
+
+        assert MarkdownRenderer().render_to_string(doc).endswith(written)
+        assert _reparsed_urls(doc) == [(read_back, None)]
+
+    def test_reference_definition_reads_back(self):
+        doc = Document(children=[Paragraph(content=[Link(url="https://a.example/x y", content=[Text(content="t")])])])
+
+        assert _reparsed_urls(doc, link_style="reference") == [("https://a.example/x%20y", None)]
+
+    def test_title_with_quotes_and_backslash_reads_back(self):
+        title = 'say "hi"\\'
+        doc = Document(
+            children=[Paragraph(content=[Link(url="https://a.example", title=title, content=[Text(content="t")])])]
+        )
+
+        assert _reparsed_urls(doc) == [("https://a.example", title)]
 
 
 @pytest.mark.unit
