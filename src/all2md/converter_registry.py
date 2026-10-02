@@ -16,12 +16,16 @@ import logging
 import mimetypes
 from collections.abc import Iterable
 from pathlib import Path
-from typing import IO, Dict, List, NoReturn, Optional, Tuple, Union
+from typing import IO, Any, Dict, List, NoReturn, Optional, Tuple, Union
 
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import DependencyError, FormatError
+from all2md.utils.cfb import CFB_SIGNATURE, sniff_cfb_kind
 
 logger = logging.getLogger(__name__)
+
+# The registered format for each kind of CFB (OLE2) container; see utils.cfb.
+_CFB_KIND_FORMATS = {"msg": "outlook", "doc": "doc", "ppt": "ppt", "xls": "xls"}
 
 
 def _sanitize_for_log(value: str) -> str:
@@ -669,6 +673,19 @@ class ConverterRegistry:
                 logger.debug(f"Format detected from filename: {format_name}")
                 return format_name
 
+        # A CFB (OLE2) container is shared by .msg, .doc, .ppt and .xls, so its
+        # signature cannot route it; the root stream names can. They sit past the
+        # 1 KB sample, so the whole input is consulted. A kind with no registered
+        # parser falls through to the signature match below (today, outlook, whose
+        # parser names the real format in its error).
+        if isinstance(content, bytes) and content.startswith(CFB_SIGNATURE):
+            format_name = self._detect_cfb_format(
+                input_data if opened_as_file or not isinstance(input_data, str) else content
+            )
+            if format_name:
+                logger.debug(f"Format detected from CFB root streams: {format_name}")
+                return format_name
+
         # Try content-based detection
         if content:
             format_name = self._detect_by_content(content)
@@ -731,6 +748,29 @@ class ConverterRegistry:
                 if metadata.matches_mime_type(mime_type):
                     return format_name
 
+        return None
+
+    def _detect_cfb_format(self, source: Any) -> Optional[str]:
+        """Route a CFB container by its root streams to a registered format, if any.
+
+        Parameters
+        ----------
+        source : str, Path, bytes or binary file-like
+            The whole input, not the detection sample.
+
+        Returns
+        -------
+        str or None
+            The registered format for the container's kind, or None when the kind
+            is unknown or no parser for it is registered.
+
+        """
+        if not isinstance(source, (str, Path, bytes)) and not (hasattr(source, "seek") and hasattr(source, "tell")):
+            return None
+        kind = sniff_cfb_kind(source)
+        format_name = _CFB_KIND_FORMATS.get(kind) if kind else None
+        if format_name and format_name in self._converters:
+            return format_name
         return None
 
     def _detect_by_content(self, content: bytes) -> Optional[str]:
@@ -1151,7 +1191,7 @@ class ConverterRegistry:
 
                 except Exception as e:
                     dist_name = entry_point.dist.name if entry_point.dist else "unknown"
-                    logger.warning(f"Failed to load plugin '{entry_point.name}' from " f"'{dist_name}': {e}")
+                    logger.warning(f"Failed to load plugin '{entry_point.name}' from '{dist_name}': {e}")
 
         except Exception as e:
             logger.debug(f"No plugins found or error discovering plugins: {e}")

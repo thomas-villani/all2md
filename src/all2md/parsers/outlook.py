@@ -25,7 +25,7 @@ from typing import IO, Any, Optional, Union
 from all2md.ast import Document, Heading, Node, Paragraph, Text, ThematicBreak
 from all2md.constants import DEPS_OUTLOOK
 from all2md.converter_metadata import ConverterMetadata
-from all2md.exceptions import DependencyError, MalformedFileError, ParsingError, ValidationError
+from all2md.exceptions import DependencyError, FormatError, MalformedFileError, ParsingError, ValidationError
 from all2md.options.outlook import OutlookOptions
 from all2md.parsers.base import BaseParser
 from all2md.parsers.eml import (
@@ -37,6 +37,7 @@ from all2md.parsers.eml import (
     parse_single_message,
 )
 from all2md.progress import ProgressCallback
+from all2md.utils.cfb import describe_cfb_kind, sniff_cfb_kind
 from all2md.utils.decorators import requires_dependencies
 from all2md.utils.metadata import DocumentMetadata
 
@@ -99,6 +100,39 @@ def _detect_outlook_format(input_data: Union[str, Path, IO[bytes], bytes]) -> st
         return "pst"
     else:
         return "msg"  # Default fallback
+
+
+def _reject_non_message_cfb(input_data: Union[str, Path, IO[bytes], bytes]) -> None:
+    """Raise FormatError when a CFB container is a legacy Office file, not a message.
+
+    Word, PowerPoint and Excel 97-2003 files share the ``.msg`` signature, and
+    extract-msg reports them as a damaged message ("does not contain a properties
+    stream"). Naming the real format tells the user what to do instead.
+
+    Parameters
+    ----------
+    input_data : str, Path, IO[bytes], or bytes
+        The input handed to the Outlook parser.
+
+    Raises
+    ------
+    FormatError
+        If the container holds a Word, PowerPoint or Excel 97-2003 file.
+
+    """
+    if not isinstance(input_data, (str, Path, bytes)) and not (
+        hasattr(input_data, "seek") and hasattr(input_data, "tell")
+    ):
+        return
+    kind = sniff_cfb_kind(input_data)
+    if kind is None or kind == "msg":
+        return
+    name, modern_extension = describe_cfb_kind(kind)
+    raise FormatError(
+        f"This file is a {name}, not an Outlook message. all2md cannot read this format yet; "
+        f"save it as {modern_extension} and convert that instead.",
+        format_type=kind,
+    )
 
 
 def _convert_msg_to_email_message(msg_obj: Any) -> EmailMessage:
@@ -260,6 +294,7 @@ class OutlookToAstConverter(BaseParser):
 
             # Route to appropriate parser
             if format_type == "msg":
+                _reject_non_message_cfb(input_data)
                 return self._parse_msg(input_data)
             elif format_type in ("pst", "ost"):
                 return self._parse_pst(input_data)
@@ -271,7 +306,7 @@ class OutlookToAstConverter(BaseParser):
                 )
 
         except Exception as e:
-            if isinstance(e, (ValidationError, MalformedFileError, ParsingError, DependencyError)):
+            if isinstance(e, (ValidationError, MalformedFileError, ParsingError, DependencyError, FormatError)):
                 raise
             raise ParsingError(
                 f"Failed to process Outlook file: {str(e)}",
@@ -690,7 +725,6 @@ class OutlookToAstConverter(BaseParser):
                 header_lines.append(f"CC: {msg['cc']}")
 
             if "date" in msg and msg["date"] is not None:
-
                 formatted_date = format_eml_date(msg["date"], self.options)
                 if formatted_date:
                     header_lines.append(f"Date: {formatted_date}")
