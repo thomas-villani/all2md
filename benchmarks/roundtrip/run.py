@@ -52,19 +52,6 @@ MAN_EXPECTED_FAILURES: dict[tuple[str, str], str] = {
         "Inherent: a man page cannot hold HTML, so raw HTML is dropped. Not projected: the reference "
         "HTML cannot tell raw HTML from HTML that Markdown produced."
     ),
-    ("inline-formatting", "html_equivalence"): (
-        "Defect (man parser): fonts are read as runs, so bold-with-italic-inside comes back as "
-        "Strong, Emphasis(Strong), Strong rather than one Strong holding an Emphasis."
-    ),
-    ("lists-nested", "html_equivalence"): (
-        "Defect (man parser): an item holding a nested list (.RS/.RE) makes the list loose, so "
-        "tight nested lists come back with every item in a paragraph."
-    ),
-    ("tables", "html_equivalence"): (
-        "Defect: a link in a tbl cell is written as 'text <url>', which reads back as plain text and "
-        "then renders to Markdown as a broken autolink. Needs T{ T} text blocks with .UR in the "
-        "renderer and T{ support in the parser (which falls back to a code block today)."
-    ),
     ("kitchen-sink", "html_equivalence"): "Inherent: holds a footnote; see the footnotes entry above.",
 }
 

@@ -35,7 +35,7 @@ from all2md.ast import (
     ThematicBreak,
     Underline,
 )
-from all2md.options.man import ManRendererOptions
+from all2md.options.man import ManParserOptions, ManRendererOptions
 from all2md.parsers.man import ManParser
 from all2md.renderers.man import ManRenderer
 
@@ -291,6 +291,30 @@ class TestBlocks:
         out = render(Document(children=[Table(header=header, rows=rows)]))
         assert body(out) == [".TS", "allbox;", "lB s", "l l.", "wide", "tall\t1", "\\^\t2", ".TE"]
 
+    def test_table_cell_with_a_link_is_a_text_block(self) -> None:
+        out = render_md("| A | B |\n|:--|:--|\n| x | see [docs](https://e.org) now |\n")
+        assert body(out)[5:] == ["x\tT{", "see", ".UR https://e.org", "docs", ".UE", "now", "T}", ".TE"]
+
+    def test_text_block_protects_a_closing_marker(self) -> None:
+        doc = Document(
+            children=[
+                Table(
+                    header=TableRow(cells=[TableCell(content=[Text(content="h")])], is_header=True),
+                    rows=[TableRow(cells=[TableCell(content=[Text(content="a"), LineBreak(), Text(content="T} b")])])],
+                )
+            ]
+        )
+        assert body(render(doc))[5:10] == ["T{", "a", ".br", "\\&T} b", "T}"]
+
+    def test_rule_character_cell_mid_row_is_protected(self) -> None:
+        out = render_md("| a | b |\n|---|---|\n| x | _ |\n| = | y |\n")
+        assert body(out)[5:7] == ["x\t\\&_", "\\&=\ty"]
+
+    def test_table_cells_round_trip(self) -> None:
+        markdown = "| Feature | Notes |\n|:--|--:|\n| links | see [docs](https://e.org) now |\n| **b** | x  \ny |\n"
+        parsed = ManParser(ManParserOptions(title_heading=False)).parse(render_md(markdown).encode())
+        assert parsed.children == to_ast(markdown.encode(), source_format="markdown").children
+
     def test_table_cell_safety(self) -> None:
         header = TableRow(cells=[TableCell(content=[Text(content=".x\ty")])], is_header=True)
         rows = [TableRow(cells=[TableCell(content=[Text(content="_")])])]
@@ -354,6 +378,17 @@ class TestRoundTrip:
         markdown = "# X(1)\n\n## NAME\n\nx - do things\n\n## OPTIONS\n\n-v\n: verbose output\n"
         rendered = render_md(markdown)
         parsed = ManParser().parse(rendered.encode())
+        assert parsed.children == to_ast(markdown.encode(), source_format="markdown").children
+
+    @pytest.mark.parametrize(
+        "markdown",
+        [
+            "**bold with *italic* inside** and *italic with **bold** inside*.\n",
+            "***both***, **bold `code` bold**, *it `c`*.\n",
+        ],
+    )
+    def test_nested_inline_formatting_round_trips(self, markdown: str) -> None:
+        parsed = ManParser(ManParserOptions(title_heading=False)).parse(render_md(markdown).encode())
         assert parsed.children == to_ast(markdown.encode(), source_format="markdown").children
 
 

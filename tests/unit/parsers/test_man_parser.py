@@ -204,6 +204,10 @@ class TestDetection:
 class TestTitleAndHeadings:
     """.TH metadata, section headings and their options."""
 
+    def test_name_description_keeps_formatted_words(self) -> None:
+        doc = parse(".TH FOO 1\n.SH NAME\n\\fBfoo\\fR \\- list \\fBall\\fR \\fIthe\\fR files\n")
+        assert doc.metadata["description"] == "list all the files"
+
     def test_th_fills_metadata_and_title_heading(self) -> None:
         doc = parse(
             '.TH LS 1 2024-03-01 "GNU coreutils 9.4" "User Commands"\n.SH NAME\nls \\- list directory contents\n'
@@ -252,6 +256,25 @@ class TestInline:
     def test_previous_font(self) -> None:
         # Spaces at the edge of a font run move outside the formatting.
         assert first_paragraph(parse("\\fBbold \\fIitalic\\fP back\\fR plain\n")) == "B[bold] I[italic] B[back] plain"
+
+    def test_bold_italic_nests_inside_bold(self) -> None:
+        source = "\\fBbold with \\f(BIitalic\\fB inside\\fR plain\n"
+        assert first_paragraph(parse(source)) == "B[bold with I[italic] inside] plain"
+
+    def test_bold_italic_nests_inside_italic(self) -> None:
+        source = "\\fIitalic with \\f(BIbold\\fI inside\\fR\n"
+        assert first_paragraph(parse(source)) == "I[italic with B[bold] inside]"
+
+    def test_bold_italic_alone_puts_italic_outside(self) -> None:
+        # The CommonMark nesting of ***x***.
+        assert first_paragraph(parse("\\f(BIboth\\fR\n")) == "I[B[both]]"
+
+    def test_constant_width_inside_bold(self) -> None:
+        source = "\\fBbold \\f(CBcode\\fB bold\\fR and \\fIit \\f(CIc\\fR\n"
+        assert first_paragraph(parse(source)) == "B[bold C[code] bold] and I[it C[c]]"
+
+    def test_separate_bold_runs_stay_separate(self) -> None:
+        assert first_paragraph(parse("\\fBa\\fR \\fBb\\fR\n")) == "B[a] B[b]"
 
     def test_font_macros(self) -> None:
         doc = parse(".B bold words\n.I italic\n.BR ls (1),\n.IR file .txt\n")
@@ -341,6 +364,21 @@ class TestBlocks:
         assert items.items[0].task_status is None
         assert inline_shape(items.items[0].children[0].content) == text
 
+    @pytest.mark.parametrize(
+        ("source", "tight"),
+        [
+            (".IP \\(bu 2\none\n.IP \\(bu 2\ntwo\n", True),
+            (".IP \\(bu 2\none\n.RS\n.IP \\(bu 2\ninner\n.RE\n.IP \\(bu 2\ntwo\n", True),
+            (".IP \\(bu 2\none\n.IP\nmore\n.IP \\(bu 2\ntwo\n", False),
+            (".IP \\(bu 2\none\n.RS\n.EX\ncode\n.EE\n.RE\n.IP \\(bu 2\ntwo\n", False),
+        ],
+        ids=["single-paragraphs", "nested-list", "second-paragraph", "code-block"],
+    )
+    def test_list_tightness(self, source: str, tight: bool) -> None:
+        # Only a second non-list block loosens a list: Markdown's "- a" + "  - b" is tight.
+        (top,) = blocks(parse(source), List)
+        assert top.tight is tight
+
     def test_other_ip_tags_become_definitions(self) -> None:
         (dl,) = blocks(parse('.IP "\\fBFOO\\fR" 4\nan environment variable\n'), DefinitionList)
         assert inline_shape(dl.items[0][0].content) == "B[FOO]"
@@ -381,10 +419,45 @@ class TestBlocks:
         ]
         assert table.alignments == ["left", "center", "right"]
 
-    def test_table_with_text_blocks_falls_back_to_code(self) -> None:
-        source = ".TS\nl l.\nkey\tT{\nlong text\nT}\n.TE\n"
-        (code,) = blocks(parse(source), CodeBlock)
-        assert "long text" in code.content
+    def test_table_text_blocks_are_cells(self) -> None:
+        # The ATTRIBUTES-table shape: a T{ T} block with requests, then more fields
+        # on the T} line, and a block in the middle of a row.
+        source = (
+            ".TS\nallbox;\nlbx lb lb\nl l l.\nInterface\tAttribute\tValue\n"
+            "T{\n.na\n.nh\n.BR printf (),\n.BR fprintf ()\nT}\tThread safety\tMT-Safe\n"
+            "key\tT{\nsee\n.UR https://example.com\nthe docs\n.UE .\nT}\tend\n"
+            "x\tT{\none\n.br\ntwo\nT}\ty\n.TE\n"
+        )
+        (table,) = blocks(parse(source), Table)
+        assert [[inline_shape(cell.content) for cell in row.cells] for row in table.rows] == [
+            ["B[printf](), B[fprintf]()", "Thread safety", "MT-Safe"],
+            ["key", "see L<https://example.com>[the docs].", "end"],
+            ["x", "oneBRtwo", "y"],
+        ]
+
+    def test_table_text_block_keeps_nested_list_text(self) -> None:
+        source = (
+            ".TS\nl l.\nh1\th2\n"
+            "T{\n.TP\n.B \\-a\nall entries\n.TP\n.B \\-l\nlong form\nT}\tT{\n.IP \\(bu 2\none\n.IP \\(bu 2\ntwo\nT}\n"
+            ".TE\n"
+        )
+        (table,) = blocks(parse(source), Table)
+        assert [inline_shape(cell.content) for cell in table.rows[0].cells] == [
+            "B[-a] all entries B[-l] long form",
+            "one two",
+        ]
+
+    def test_table_format_change_is_skipped(self) -> None:
+        source = ".TS\nl l.\na\tb\n.T&\nc s.\nspanning\n.T&\nl l.\nc\td\n.TE\n"
+        (table,) = blocks(parse(source), Table)
+        assert [[inline_shape(cell.content) for cell in row.cells] for row in table.rows] == [
+            ["spanning", ""],
+            ["c", "d"],
+        ]
+
+    def test_table_cells_carry_the_column_alignment(self) -> None:
+        (table,) = blocks(parse(".TS\nl r.\na\tb\nc\td\n.TE\n"), Table)
+        assert [cell.alignment for cell in table.rows[0].cells] == ["left", "right"]
 
 
 class TestRoffRequests:
@@ -431,6 +504,22 @@ class TestRoffRequests:
         with caplog.at_level(logging.WARNING, logger="all2md.parsers.man"):
             parse(".Dd January 1, 2024\n.Dt LS 1\n.Sh NAME\n")
         assert "mdoc" in caplog.text
+
+    def test_ig_with_an_end_marker_skips_past_dot_dot(self) -> None:
+        # .ig XX ends at .XX, not at the first "..", which is just ignored text.
+        doc = parse(".TH X 1\n.ig XX\nhidden\n..\nstill hidden\n.XX\nshown\n")
+        assert [inline_shape(p.content) for p in blocks(doc, Paragraph)] == ["shown"]
+
+    @pytest.mark.parametrize(
+        "escape",
+        ["\\[u110000]", "\\[char1114112]", "\\N'99999999'", "\\[uD800]", "\\N'\u00b2'"],
+        ids=["u-past-unicode", "char-past-unicode", "N-past-unicode", "surrogate", "N-non-ascii-digit"],
+    )
+    def test_out_of_range_character_references_do_not_raise(self, escape: str) -> None:
+        text = first_paragraph(parse(f"a {escape} b\n"))
+        assert text.startswith("a ") and text.endswith(" b")
+        text.encode("utf-8")  # no lone surrogate survives
+        assert all(ord(ch) < 0xD800 or ord(ch) > 0xDFFF for ch in text)
 
     def test_unknown_macros_are_ignored(self) -> None:
         assert first_paragraph(parse(".XYZ some args\ntext\n")) == "text"

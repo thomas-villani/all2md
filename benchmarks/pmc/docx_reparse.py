@@ -13,9 +13,10 @@ the same on both sides by construction.
 **What it cannot do is say which half of that leg lost something.** The re-read goes
 through our own DOCX parser, so a renderer defect and a parser defect look identical here,
 and the two can also *agree* on a reading Word itself rejects. Separating them is the job
-of the Word read-back instrument (``wordlive``, run by hand). The DOCX parser has been
-through its own defect stream against a Word-generated corpus (``benchmarks/docx``), which
-is why this instrument is worth running now rather than before that batch.
+of the Word read-back instrument (`benchmarks.pmc.docx_word`, run by hand). The DOCX parser
+has been through its own defect stream against a Word-generated corpus
+(``benchmarks/docx``), which is why this instrument is worth running now rather than before
+that batch.
 
 Three readings, from coarse to sharp:
 
