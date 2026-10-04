@@ -466,6 +466,16 @@ _MANIFEST_RECORDS: list[ConverterMetadata] = [
         priority=1,
     ),
     ConverterMetadata(
+        format_name="ppt",
+        extensions=[".ppt", ".pps", ".pot"],
+        mime_types=["application/vnd.ms-powerpoint"],
+        content_detector_path="all2md.parsers.ppt._is_powerpoint_presentation",
+        parser_class="all2md.parsers.ppt.PptParser",
+        parser_options_class="all2md.options.ppt.PptOptions",
+        description="Parse PowerPoint 97-2003 presentations (.ppt) with the standard library",
+        priority=10,
+    ),
+    ConverterMetadata(
         format_name="pptx",
         extensions=[".pptx"],
         mime_types=["application/vnd.openxmlformats-officedocument.presentationml.presentation"],

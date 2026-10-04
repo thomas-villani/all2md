@@ -32,6 +32,9 @@ The most commonly used document formats with full-featured parsing support:
    * - PPTX
      - :doc:`all2md.parsers.pptx`
      - PowerPoint slide-by-slide extraction
+   * - PPT
+     - :doc:`all2md.parsers.ppt`
+     - PowerPoint 97-2003 binary presentations (.ppt)
    * - EML
      - :doc:`all2md.parsers.eml`
      - Email with chain detection and attachments

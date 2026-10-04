@@ -9128,6 +9128,61 @@ is stripped, leaving only the text content.
    :Choices: ``visible``, ``ignore``
    :Importance: core
 
+PPT Options
+~~~~~~~~~~~
+
+
+PPT Parser Options
+^^^^^^^^^^^^^^^^^^
+
+Configuration options for PowerPoint 97-2003 (.ppt) to AST parsing.
+
+**include_slide_numbers**
+
+   Include slide numbers in output
+
+   :Type: ``bool``
+   :CLI flag: ``--ppt-include-slide-numbers``
+   :Default: ``False``
+   :Importance: core
+
+**include_notes**
+
+   Include speaker notes from slides
+
+   :Type: ``bool``
+   :CLI flag: ``--ppt-no-include-notes``
+   :Default: ``True``
+   :Importance: core
+
+**comment_mode**
+
+   How to parse speaker notes: content (regular nodes with H3 heading), comment (Comment AST nodes with metadata), or ignore (skip entirely)
+
+   :Type: ``Literal['content', 'comment', 'ignore']``
+   :CLI flag: ``--ppt-comment-mode``
+   :Default: ``'content'``
+   :Choices: ``content``, ``comment``, ``ignore``
+   :Importance: core
+
+**slides**
+
+   Slide selection (e.g., '1,3-5,8' for slides 1, 3-5, and 8)
+
+   :Type: ``str | None``
+   :CLI flag: ``--ppt-slides``
+   :Default: ``None``
+   :Importance: core
+
+**include_titles_as_h2**
+
+   Include slide titles as H2 headings
+
+   :Type: ``bool``
+   :CLI flag: ``--ppt-no-include-titles-as-h2``
+   :Default: ``True``
+   :Importance: core
+
 PPTX Options
 ~~~~~~~~~~~~
 

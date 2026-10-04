@@ -164,12 +164,12 @@ class TestCfbRouting:
     def test_doc_routes_to_doc_parser(self):
         assert registry.detect_format(build_cfb(DOC)) == "doc"
 
-    def test_ppt_routes_to_ppt_parser_when_registered(self, monkeypatch):
-        monkeypatch.setitem(registry._converters, "ppt", registry._converters["outlook"])
+    def test_ppt_routes_to_ppt_parser(self):
         assert registry.detect_format(build_cfb(PPT)) == "ppt"
 
-    def test_ppt_without_a_parser_still_reaches_outlook(self):
-        assert registry.detect_format(build_cfb(PPT)) == "outlook"
+    def test_xls_without_a_parser_still_reaches_outlook(self):
+        """No parser reads .xls yet; the Outlook parser's error names the real format."""
+        assert registry.detect_format(build_cfb(["Workbook", "\x05SummaryInformation"])) == "outlook"
 
     def test_doc_extension_on_another_container_routes_by_streams(self, tmp_path):
         """The root streams decide before the extension: a message named .doc is a message."""
@@ -184,7 +184,11 @@ class TestCfbRouting:
 
     @pytest.mark.parametrize(
         ("names", "expected"),
-        [(DOC, r"Word 97-2003 document.*\.docx"), (PPT, r"PowerPoint 97-2003 presentation.*\.pptx")],
+        [
+            (DOC, r"Word 97-2003 document.*convert it as 'doc'"),
+            (PPT, r"PowerPoint 97-2003 presentation.*convert it as 'ppt'"),
+            (["Workbook"], r"Excel 97-2003 workbook.*\.xlsx"),
+        ],
     )
     def test_outlook_parser_names_legacy_office_files(self, names, expected):
         with pytest.raises(FormatError, match=expected):
