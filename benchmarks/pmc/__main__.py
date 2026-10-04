@@ -298,6 +298,51 @@ def _docx(args: argparse.Namespace) -> int:
     return 0
 
 
+def _word(args: argparse.Namespace) -> int:
+    from benchmarks.pmc.benchmark import write_result
+    from benchmarks.pmc.docx_word import STRUCTURES, run
+
+    snapshot = corpus.load_corpus(
+        Path(args.cache),
+        manifest_path=None if args.manifest is None else Path(args.manifest),
+        limit=args.limit,
+        workers=args.workers,
+    )
+    payload = run(
+        snapshot,
+        Path(args.workdir),
+        all2md_commit=args.commit,
+        progress=None if args.quiet else lambda line: print(line, flush=True),
+    )
+    if args.out:
+        print(f"written    : {write_result(payload, Path(args.out))}")
+
+    print(f"pin        : {payload['provenance']['corpus_pin']}")
+    print(f"word       : build {payload['provenance']['word_build']}")
+    print(f"articles   : {payload['articles_read']} read by all three of {payload['articles']}")
+    for stage, failed in payload["failures"].items():
+        if failed:
+            print(f"  {stage} failed: {', '.join(failed)}")
+    print()
+    print("structure  : kept / lost / gained, Word against the direct AST; losses split by reader")
+    for name in STRUCTURES:
+        counts = payload["structure"][name]["direct_vs_word"]
+        lost_by = payload["structure"][name]["lost_by"]
+        print(
+            f"    {name:13s} {counts['kept']}/{counts['lost']}/{counts['gained']} of {counts['before']}"
+            f"   word only {lost_by['word_only']}, parser only {lost_by['parser_only']}, both {lost_by['both']}"
+        )
+    print()
+    facts = payload["word"]["facts"]
+    modes = ", ".join(f"{mode}: {n}" for mode, n in payload["word"]["compatibility_modes"].items())
+    print(f"compat     : {modes}")
+    print(f"pictures   : AST {facts.get('ast_pictures', 0)}, Word {facts.get('word_pictures', 0)}")
+    print(f"equations  : AST {facts.get('ast_equations', 0)}, Word {facts.get('word_equations', 0)}")
+    print(f"captions   : {facts.get('captions', 0)}, numbered by a SEQ field: {facts.get('sequence_fields', 0)}")
+    print(f"title      : promoted in {facts.get('title_promoted', 0)} documents")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """Run the PMC corpus command line.
 
@@ -385,6 +430,20 @@ def main(argv: list[str] | None = None) -> int:
     docx.add_argument("--keep-docx", default=None, help="directory to keep each rendered DOCX in")
     docx.add_argument("--quiet", action="store_true", help="suppress per-article progress")
     docx.set_defaults(handler=_docx)
+
+    word = subparsers.add_parser(
+        "word",
+        help="read each article's DOCX back through a hidden Microsoft Word (Windows + Word only)",
+    )
+    word.add_argument("--manifest", default=None, help="manifest path (default: the committed one)")
+    word.add_argument("--cache", default=str(DEFAULT_CACHE), help="cache directory")
+    word.add_argument("--limit", type=int, default=None, help="evenly spaced subset size")
+    word.add_argument("--workers", type=int, default=8, help="concurrent download workers")
+    word.add_argument("--out", default=None, help="write the ledger payload here")
+    word.add_argument("--commit", default="unknown", help="all2md commit being measured")
+    word.add_argument("--workdir", required=True, help="directory the rendered DOCX files are written to")
+    word.add_argument("--quiet", action="store_true", help="suppress per-article progress")
+    word.set_defaults(handler=_word)
 
     show = subparsers.add_parser("show", help="summarize the committed manifest without any network access")
     show.add_argument("--manifest", default=None, help="manifest path (default: the committed one)")

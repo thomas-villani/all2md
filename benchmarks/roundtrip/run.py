@@ -52,10 +52,6 @@ MAN_EXPECTED_FAILURES: dict[tuple[str, str], str] = {
         "Inherent: a man page cannot hold HTML, so raw HTML is dropped. Not projected: the reference "
         "HTML cannot tell raw HTML from HTML that Markdown produced."
     ),
-    ("lists-nested", "html_equivalence"): (
-        "Defect (man parser): an item holding a nested list (.RS/.RE) makes the list loose, so "
-        "tight nested lists come back with every item in a paragraph."
-    ),
     ("task-lists", "html_equivalence"): (
         "Defect (man parser): the renderer writes task items as '[ ] text' / '[x] text', and the "
         "parser does not read the marker back into a task status."

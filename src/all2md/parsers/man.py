@@ -928,7 +928,9 @@ class ManParser(BaseParser):
         if frame.list_kind == "dl" and frame.dl_items:
             frame.blocks.append(DefinitionList(items=frame.dl_items))
         elif frame.list_kind in ("ul", "ol") and frame.list_items:
-            tight = all(len(item.children) <= 1 for item in frame.list_items)
+            # A nested list does not loosen its item (Markdown's "- a" + "  - b" is
+            # tight); any other second block, a paragraph or code, does.
+            tight = all(sum(not isinstance(child, List) for child in item.children) <= 1 for item in frame.list_items)
             frame.blocks.append(
                 List(ordered=frame.list_kind == "ol", items=frame.list_items, start=frame.list_start, tight=tight)
             )
