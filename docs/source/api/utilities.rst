@@ -16,6 +16,7 @@ Modules for loading and processing input sources:
    all2md.utils.inputs
    all2md.utils.encoding
    all2md.utils.cfb
+   all2md.utils.ole_properties
    all2md.utils.io_utils
 
 Content Processing

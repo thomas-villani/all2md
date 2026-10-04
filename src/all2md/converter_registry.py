@@ -666,24 +666,25 @@ class ConverterRegistry:
         if isinstance(content, str):
             content = content.encode("utf-8", errors="ignore")
 
-        # Try filename-based detection with content validation
-        if filename:
-            format_name = self._detect_by_filename(filename, content)
-            if format_name:
-                logger.debug(f"Format detected from filename: {format_name}")
-                return format_name
-
         # A CFB (OLE2) container is shared by .msg, .doc, .ppt and .xls, so its
         # signature cannot route it; the root stream names can. They sit past the
         # 1 KB sample, so the whole input is consulted. A kind with no registered
         # parser falls through to the signature match below (today, outlook, whose
-        # parser names the real format in its error).
+        # parser names the real format in its error). The streams decide before the
+        # extension does: an Outlook message saved as report.doc is still a message.
         if isinstance(content, bytes) and content.startswith(CFB_SIGNATURE):
             format_name = self._detect_cfb_format(
                 input_data if opened_as_file or not isinstance(input_data, str) else content
             )
             if format_name:
                 logger.debug(f"Format detected from CFB root streams: {format_name}")
+                return format_name
+
+        # Try filename-based detection with content validation
+        if filename:
+            format_name = self._detect_by_filename(filename, content)
+            if format_name:
+                logger.debug(f"Format detected from filename: {format_name}")
                 return format_name
 
         # Try content-based detection
@@ -744,10 +745,15 @@ class ConverterRegistry:
         # Check MIME type. With an encoding (notes.md.gz -> text/markdown, gzip) the
         # MIME type names the file inside the compression, not the bytes we hold;
         # leave those to content detection, which finds the compression signature.
+        # A MIME match is validated like an extension match: letter.doc maps to
+        # application/msword, but when it holds RTF the .doc detector says no.
         mime_type, encoding = mimetypes.guess_type(filename)
         if mime_type and encoding is None:
             for format_name, metadata in sorted_converters:
                 if metadata.matches_mime_type(mime_type):
+                    detector = metadata.resolve_content_detector() if content else None
+                    if detector and content is not None and not detector(content):
+                        continue
                     return format_name
 
         return None

@@ -40,6 +40,11 @@
      - ✓
      - ``.csv``, ``.tsv``
      - built-in
+   * - ``doc``
+     - ✓
+     - —
+     - ``.doc``, ``.dot``
+     - built-in
    * - ``docx``
      - ✓
      - ✓
