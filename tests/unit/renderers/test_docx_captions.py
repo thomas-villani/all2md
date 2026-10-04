@@ -47,6 +47,14 @@ def _render(document: Document, options: DocxRendererOptions | None = None) -> b
     return buffer.getvalue()
 
 
+_W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+
+
+def _text(element) -> str:
+    """A paragraph's visible text, field results included (python-docx's ``.text`` skips them)."""
+    return "".join(node.text or "" for node in element.iter(f"{_W}t"))
+
+
 def _body(data: bytes) -> list[tuple[str, str, str]]:
     """Return the body as (kind, style, text): kind is p, pic (a picture paragraph) or tbl."""
     body = []
@@ -58,8 +66,8 @@ def _body(data: bytes) -> list[tuple[str, str, str]]:
         elif tag == "p":
             paragraph = docx.text.paragraph.Paragraph(element, word)
             has_picture = bool(element.findall(".//{http://schemas.openxmlformats.org/drawingml/2006/picture}pic"))
-            if has_picture or paragraph.text:
-                body.append(("pic" if has_picture else "p", paragraph.style.name, paragraph.text))
+            if has_picture or _text(element):
+                body.append(("pic" if has_picture else "p", paragraph.style.name, _text(element)))
     return body
 
 
@@ -121,6 +129,70 @@ class TestRenderer:
         caption = next(paragraph for paragraph in word.paragraphs if paragraph.text == "Figure 2.")
         assert caption.style.name == "Normal"
         assert caption.runs[0].italic
+
+
+def _sequence_fields(data: bytes) -> list[tuple[str, str]]:
+    """Return ``(instr, cached result)`` of every ``w:fldSimple`` in the body."""
+    word = docx.Document(BytesIO(data))
+    return [(field.get(f"{_W}instr"), _text(field)) for field in word.element.body.iter(f"{_W}fldSimple")]
+
+
+class TestSequenceFields:
+    """A caption's number is Word's SEQ field, where Word would compute the same number."""
+
+    def test_numbers_are_seq_fields_per_label(self) -> None:
+        document = Document(
+            children=[
+                Figure(caption="Figure 1. A cat"),
+                Table(header=_row("a"), rows=[_row("1")], caption="TABLE 1 Counts"),
+                Figure(caption="Fig. 2: A dog"),
+            ]
+        )
+        data = _render(document)
+        assert _sequence_fields(data) == [
+            (" SEQ Figure \\* ARABIC ", "1"),
+            (" SEQ Table \\* ARABIC ", "1"),
+            (" SEQ Figure \\* ARABIC ", "2"),
+        ]
+        # The text reads as printed, and comes back the same through the parser.
+        assert [text for kind, _style, text in _body(data) if kind == "p"] == [
+            "Figure 1. A cat",
+            "TABLE 1 Counts",
+            "Fig. 2: A dog",
+        ]
+        assert [getattr(node, "caption", None) for node in _parse(data)] == [
+            "Figure 1. A cat",
+            "TABLE 1 Counts",
+            "Fig. 2: A dog",
+        ]
+
+    def test_a_broken_sequence_stops_numbering_its_label(self) -> None:
+        """Word renumbers SEQ fields 1, 2, 3 on update; "Figure 3" after "Figure 1" would become 2."""
+        figures = [Figure(caption=f"Figure {n}.") for n in (1, 3, 4)]
+        assert _sequence_fields(_render(Document(children=figures))) == [(" SEQ Figure \\* ARABIC ", "1")]
+
+    @pytest.mark.parametrize("caption", ["Figure S1. Supplement", "Figure 1A. Panel", "Table 1.2 Nested", "Plot 1"])
+    def test_numbers_word_could_not_compute_stay_text(self, caption: str) -> None:
+        data = _render(Document(children=[Figure(caption=caption)]))
+        assert _sequence_fields(data) == []
+        assert _body(data) == [("p", "Caption", caption)]
+
+    def test_each_render_counts_from_one(self) -> None:
+        renderer = DocxRenderer()
+        for _ in range(2):
+            buffer = BytesIO()
+            renderer.render(Document(children=[Figure(caption="Figure 1.")]), buffer)
+            assert _sequence_fields(buffer.getvalue()) == [(" SEQ Figure \\* ARABIC ", "1")]
+
+    def test_a_template_without_the_style_italicizes_the_field_too(self, tmp_path: Path) -> None:
+        template = docx.Document()
+        template.styles["Caption"].delete()
+        template.save(tmp_path / "template.docx")
+        options = DocxRendererOptions(template_path=str(tmp_path / "template.docx"))
+        word = docx.Document(BytesIO(_render(Document(children=[Figure(caption="Figure 1. Cat")]), options)))
+        runs = list(word.element.body.iter(f"{_W}r"))
+        assert len(runs) == 3
+        assert all(run.find(f"{_W}rPr/{_W}i") is not None for run in runs)
 
 
 class TestRoundTrip:
