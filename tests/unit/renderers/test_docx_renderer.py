@@ -1577,6 +1577,38 @@ class TestSubscriptSuperscript:
 
 @pytest.mark.unit
 @pytest.mark.docx
+class TestListInstances:
+    """Each list gets a restarting numbering instance, so Word sees one list per AST list."""
+
+    @staticmethod
+    def _bullets(*texts):
+        return List(ordered=False, items=[ListItem(children=[Paragraph(content=[Text(content=t)])]) for t in texts])
+
+    def test_adjacent_bullet_lists_read_back_as_two(self):
+        from all2md import to_ast
+
+        doc = Document(children=[self._bullets("a", "b"), self._bullets("c")])
+        result = DocxRenderer().render_to_bytes(doc)
+        lists = [child for child in to_ast(result, source_format="docx").children if isinstance(child, List)]
+        assert [(lst.ordered, len(lst.items)) for lst in lists] == [(False, 2), (False, 1)]
+
+    def test_each_bullet_list_has_its_own_restarting_instance(self):
+        from docx.oxml.ns import qn
+
+        doc = Document(children=[self._bullets("a"), Paragraph(content=[Text(content="between")]), self._bullets("b")])
+        docx_doc = DocxDocument(BytesIO(DocxRenderer().render_to_bytes(doc)))
+        num_ids = [
+            p._p.pPr.numPr.numId.val for p in docx_doc.paragraphs if p._p.pPr is not None and p._p.pPr.numPr is not None
+        ]
+        assert len(num_ids) == 2 and num_ids[0] != num_ids[1]
+        numbering = docx_doc.part.numbering_part.element
+        for num_id in num_ids:
+            (num,) = [el for el in numbering.findall(qn("w:num")) if el.get(qn("w:numId")) == str(num_id)]
+            assert num.find(qn("w:lvlOverride")) is not None
+
+
+@pytest.mark.unit
+@pytest.mark.docx
 class TestNestedLists:
     """Tests for nested list rendering."""
 

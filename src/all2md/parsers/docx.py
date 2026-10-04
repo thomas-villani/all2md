@@ -359,7 +359,8 @@ class DocxToAstConverter(BaseParser):
         self.options: DocxOptions = options
 
         # Internally used to stash info between functions
-        self._list_stack: list[tuple[str, int, list[ListItem], int]] = []  # (type, level, items, start)
+        # (type, level, items, start, the list Word puts the items in -- see _ListCounters.list_identity)
+        self._list_stack: list[tuple[str, int, list[ListItem], int, str | None]] = []
         self._numbering_defs: dict[str, dict[str, str]] | None = None
         self._list_counters: _ListCounters | None = None
         self._footnote_collector: FootnoteCollector | None = None
@@ -1237,7 +1238,9 @@ class DocxToAstConverter(BaseParser):
         number : int or None
             The number Word prints on this item, when its numbering definition is known.
             An ordered item whose number does not follow on from the list it would join
-            starts a new list at that number instead: Word restarted the count.
+            starts a new list at that number instead: Word restarted the count. A bullet
+            carries no count, so a bullet item starts a new list when Word puts it in a
+            different list from the one it would join (`_ListCounters.list_identity`).
 
         Returns
         -------
@@ -1253,6 +1256,12 @@ class DocxToAstConverter(BaseParser):
         if self._is_effectively_empty(content):
             return None
         item_node = ListItem(children=[AstParagraph(content=content)])
+        identity = None
+        if self._list_counters is not None:
+            try:
+                identity = self._list_counters.list_identity(_effective_numbering_props(paragraph)[1])
+            except Exception:
+                identity = None
 
         finished: List | None = None
         # Close every list nested deeper than this item. A list that opened deeper than
@@ -1262,15 +1271,18 @@ class DocxToAstConverter(BaseParser):
             finished = self._close_innermost_list() or finished
 
         if self._list_stack and self._list_stack[-1][1] == level:
-            open_type, _, open_items, open_start = self._list_stack[-1]
-            follows_on = list_type != "number" or number is None or number == open_start + len(open_items)
+            open_type, _, open_items, open_start, open_identity = self._list_stack[-1]
+            if list_type == "number":
+                follows_on = number is None or number == open_start + len(open_items)
+            else:
+                follows_on = identity is None or open_identity is None or identity == open_identity
             if open_type == list_type and follows_on:
                 open_items.append(item_node)
                 return finished
             finished = self._close_innermost_list() or finished
 
         start = number if list_type == "number" and number is not None else 1
-        self._list_stack.append((list_type, level, [item_node], start))
+        self._list_stack.append((list_type, level, [item_node], start, identity))
         return finished
 
     def _close_innermost_list(self) -> List | None:
@@ -1282,7 +1294,7 @@ class DocxToAstConverter(BaseParser):
             The closed list when it was the outermost one, with no item to nest under
 
         """
-        list_type, _, items, start = self._list_stack.pop()
+        list_type, _, items, start, _ = self._list_stack.pop()
         closed = List(ordered=list_type == "number", items=items, start=start, tight=True)
         if not self._list_stack:
             return closed
@@ -2679,6 +2691,21 @@ class _ListCounters:
                     overrides[ilvl] = start
             if overrides:
                 self._overrides[num_id] = overrides
+
+    def list_identity(self, num_id: str | None) -> str | None:
+        """Name the list Word puts the paragraphs of instance ``num_id`` in.
+
+        Word's lists follow the counters: instances of one abstract are one list, so two
+        bullet runs on two such instances are one list to Word's list commands. An instance
+        with a ``w:startOverride`` restarts, and is a list of its own. None when the
+        instance has no definition to read.
+        """
+        if not num_id:
+            return None
+        if num_id in self._overrides:
+            return f"num:{num_id}"
+        abstract_id = self._abstract_of.get(num_id)
+        return f"abstract:{abstract_id}" if abstract_id else None
 
     def advance(self, num_id: str | None, ilvl: int) -> int | None:
         """Count one paragraph at ``ilvl`` of instance ``num_id`` and return its number."""

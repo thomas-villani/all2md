@@ -893,14 +893,17 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
         self._list_level += 1
         style = self._list_item_style(node.ordered, self._list_level)
-        # Every numbered list gets a numbering instance of its own that restarts at its
-        # start. Sharing the style's instance carries the count on from the list before,
-        # and Word -- and the parser -- then read two adjacent lists as one.
+        # Every list gets a numbering instance of its own, restarting at its start. Word's
+        # lists follow its counters, so instances that share a definition without a restart
+        # are one list: a numbered list carries its count on from the list before, and a
+        # document's bullet lists are one list to Word's list commands. A bullet prints no
+        # count, but the restart is still what makes Word, and the parser, see a new list.
         num_id = None
-        numbering = self._style_numbering(style) if style and node.ordered else None
+        numbering = self._style_numbering(style) if style else None
         if numbering is not None:
             abstract_id, ilvl = numbering
-            num_id = self._add_num(abstract_id, restart=(ilvl, node.start if node.start is not None else 1))
+            start = node.start if node.ordered and node.start is not None else 1
+            num_id = self._add_num(abstract_id, restart=(ilvl, start))
         self._list_format_stack.append((style, num_id))
 
         for item in node.items:
