@@ -9,4 +9,5 @@
   `app.log.1` still reads as plain text, and a page with any other extension, such as
   Perl's `.3pm`, is found by content alone. The preamble pod2man writes before `.TH`
   (conditionals, string and macro definitions) is read rather than printed. Not yet:
-  mdoc(7) pages (`.Dd`/`.Sh`), `.so` includes (reported, not followed) and gzipped pages.
+  mdoc(7) pages (`.Dd`/`.Sh`) and `.so` includes (reported, not followed). Gzipped pages
+  (`ls.1.gz`) read through the single-compressed-file fix below.

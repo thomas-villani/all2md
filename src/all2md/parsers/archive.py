@@ -39,6 +39,13 @@ from all2md.options.archive import ArchiveOptions
 from all2md.options.base import BaseParserOptions
 from all2md.parsers.base import BaseParser
 from all2md.progress import ProgressCallback
+from all2md.utils.compression import (
+    compression_kind,
+    decompress_single,
+    decompressed_prefix,
+    gzip_original_name,
+    looks_like_tar,
+)
 from all2md.utils.metadata import DocumentMetadata
 from all2md.utils.security import (
     validate_7z_archive,
@@ -48,6 +55,39 @@ from all2md.utils.security import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Archive types that may instead be one compressed file, and how much compressed
+# input to read to see the first decompressed tar block (a bzip2 block is up to 900 KB).
+_COMPRESSED_TAR_TYPES = frozenset({"tar.gz", "tar.bz2", "tar.xz"})
+_PREFIX_READ_SIZE = 1024 * 1024
+_SINGLE_FILE_SUFFIXES = (".gz", ".bz2", ".xz", ".tgz", ".tbz2", ".tb2", ".txz")
+
+
+def _inner_file_name(input_data: str | Path | IO[bytes] | bytes, data: bytes) -> str:
+    """Name the file inside a single compressed stream, for format detection.
+
+    ``ls.1.gz`` gives ``ls.1``. A name that claims a tar (``x.tar.gz``, ``x.tgz``)
+    loses that part too, since the content was found not to be one. Without an
+    outer name, the name a gzip header stores is used.
+
+    """
+    outer: str | None = None
+    if isinstance(input_data, (str, Path)):
+        outer = str(input_data)
+    elif not isinstance(input_data, bytes):
+        name = getattr(input_data, "name", None)
+        outer = name if isinstance(name, str) else None
+    if outer:
+        base = Path(outer).name
+        lower = base.lower()
+        for suffix in _SINGLE_FILE_SUFFIXES:
+            if lower.endswith(suffix):
+                base = base[: -len(suffix)]
+                break
+        if base.lower().endswith(".tar"):
+            base = base[: -len(".tar")]
+        return base
+    return gzip_original_name(data) or ""
 
 
 def _process_archive_file_worker(
@@ -199,6 +239,12 @@ class ArchiveToAstConverter(BaseParser):
         self._archive_type = archive_type
         logger.debug(f"Detected archive type: {archive_type}")
 
+        # A .gz/.bz2/.xz holding one file rather than a tar (ls.1.gz, data.csv.gz)
+        if archive_type in _COMPRESSED_TAR_TYPES:
+            prefix = decompressed_prefix(self._read_magic_bytes(input_data, _PREFIX_READ_SIZE))
+            if prefix is not None and not looks_like_tar(prefix):
+                return self._parse_single_compressed(input_data)
+
         # Handle different input types and open archive
         try:
             if archive_type.startswith("tar"):
@@ -232,6 +278,54 @@ class ArchiveToAstConverter(BaseParser):
             # Cleanup archive object
             if cleanup_func:
                 cleanup_func()
+
+    def _parse_single_compressed(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
+        """Decompress a single compressed file and parse what it holds.
+
+        The inner file is named by dropping the compression suffix from the outer
+        name (``ls.1.gz`` -> ``ls.1``), or, without an outer name, by the name a
+        gzip header stores; its format is then detected like any other input.
+
+        Parameters
+        ----------
+        input_data : str, Path, IO[bytes], or bytes
+            The compressed input.
+
+        Returns
+        -------
+        Document
+            The inner file's document, as if it had not been compressed.
+
+        Raises
+        ------
+        ArchiveSecurityError
+            If the file expands beyond the size or ratio limits.
+        MalformedFileError
+            If the compressed data is corrupt, or holds another compressed stream.
+
+        """
+        data = self._load_bytes_content(input_data)
+        content = decompress_single(data)
+        inner_name = _inner_file_name(input_data, data)
+        if compression_kind(content) is not None:
+            raise MalformedFileError(
+                "The file is compressed twice; decompress the outer layer and convert the result instead"
+            )
+
+        file_obj = io.BytesIO(content)
+        if inner_name:
+            file_obj.name = inner_name
+        detected_format = registry.detect_format(file_obj)
+        logger.debug(f"Single compressed file {inner_name or '(unnamed)'} holds format {detected_format}")
+        file_obj.seek(0)
+        doc = to_ast(
+            file_obj,
+            source_format=cast(DocumentFormat, detected_format),
+            parser_options=self._create_nested_parser_options(detected_format),
+            progress_callback=self.progress_callback,
+        )
+        self._emit_progress("finished", "Decompressed and converted file", current=1, total=1)
+        return doc
 
     def _detect_archive_type(self, input_data: str | Path | IO[bytes] | bytes) -> str:
         """Detect specific archive type from input.
