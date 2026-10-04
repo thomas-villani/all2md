@@ -50,6 +50,7 @@ if TYPE_CHECKING:
         OCROptions,
     )
     from all2md.options.csv import CsvOptions, CsvRendererOptions
+    from all2md.options.doc import DocOptions
     from all2md.options.docx import DocxOptions, DocxRendererOptions
     from all2md.options.dokuwiki import DokuWikiOptions, DokuWikiParserOptions
     from all2md.options.eml import EmlOptions
@@ -105,6 +106,7 @@ _LAZY_EXPORTS: dict[str, str] = {
     "CloneFrozenMixin": "base",
     "CsvOptions": "csv",
     "CsvRendererOptions": "csv",
+    "DocOptions": "doc",
     "DocxOptions": "docx",
     "DocxRendererOptions": "docx",
     "DokuWikiOptions": "dokuwiki",
@@ -241,6 +243,7 @@ __all__ = [
     "ChmOptions",
     "CsvOptions",
     "CsvRendererOptions",
+    "DocOptions",
     "DocxOptions",
     "DocxRendererOptions",
     "DokuWikiOptions",
