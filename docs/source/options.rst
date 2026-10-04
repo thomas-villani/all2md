@@ -5093,6 +5093,98 @@ Configuration options for man(7) page to AST parsing.
    :Default: ``False``
    :Importance: advanced
 
+MAN Renderer Options
+^^^^^^^^^^^^^^^^^^^^
+
+Configuration options for AST to man(7) page rendering.
+
+The ``.TH`` line is built from the document: the name (and section) come from
+a leading level-1 heading such as ``LS(1)``, else from the ``title`` metadata;
+the date, source and manual come from the ``modification_date``, ``source``
+and ``manual`` metadata a parsed man page carries. Each option below
+overrides the value read from the document.
+
+**fail_on_resource_errors**
+
+   Raise RenderingError on resource failures (images, etc.) instead of logging warnings
+
+   :Type: ``bool``
+   :CLI flag: ``--man-renderer-fail-on-resource-errors``
+   :Default: ``False``
+   :Importance: advanced
+
+**max_asset_size_bytes**
+
+   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
+
+   :Type: ``int``
+   :CLI flag: ``--man-renderer-max-asset-size-bytes``
+   :Default: ``52428800``
+   :Importance: security
+
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--man-renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
+
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--man-renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
+
+**section**
+
+   Manual section for .TH (default: from the title or metadata, else 1)
+
+   :Type: ``str | None``
+   :CLI flag: ``--man-renderer-section``
+   :Default: ``None``
+   :Importance: core
+
+**date**
+
+   Date for .TH (default: the document's modification date)
+
+   :Type: ``str | None``
+   :CLI flag: ``--man-renderer-date``
+   :Default: ``None``
+   :Importance: core
+
+**source**
+
+   Source for .TH, such as 'GNU coreutils 9.4'
+
+   :Type: ``str | None``
+   :CLI flag: ``--man-renderer-source``
+   :Default: ``None``
+   :Importance: advanced
+
+**manual**
+
+   Manual title for .TH, such as 'User Commands'
+
+   :Type: ``str | None``
+   :CLI flag: ``--man-renderer-manual``
+   :Default: ``None``
+   :Importance: advanced
+
+**uppercase_section_headings**
+
+   Write .SH headings in uppercase
+
+   :Type: ``bool``
+   :CLI flag: ``--man-renderer-no-uppercase-section-headings``
+   :Default: ``True``
+   :Importance: advanced
+
 MARKDOWN Options
 ~~~~~~~~~~~~~~~~
 

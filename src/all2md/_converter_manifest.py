@@ -281,8 +281,11 @@ _MANIFEST_RECORDS: list[ConverterMetadata] = [
         mime_types=["text/troff", "text/x-troff-man", "application/x-troff-man"],
         content_detector_path="all2md.parsers.man._is_man_content",
         parser_class="all2md.parsers.man.ManParser",
+        renderer_class="all2md.renderers.man.ManRenderer",
+        renders_as_string=True,
         parser_options_class="all2md.options.man.ManParserOptions",
-        description="Parse Unix manual pages written with the man(7) macros",
+        renderer_options_class="all2md.options.man.ManRendererOptions",
+        description="Parse and render Unix manual pages written with the man(7) macros",
         priority=10,
     ),
     ConverterMetadata(

@@ -113,7 +113,7 @@ if TYPE_CHECKING:
     from all2md.options.jinja import JinjaRendererOptions  # noqa: F401
     from all2md.options.json import JsonParserOptions, JsonRendererOptions  # noqa: F401
     from all2md.options.latex import LatexOptions, LatexRendererOptions  # noqa: F401
-    from all2md.options.man import ManParserOptions  # noqa: F401
+    from all2md.options.man import ManParserOptions, ManRendererOptions  # noqa: F401
     from all2md.options.markdown import MarkdownParserOptions, MarkdownRendererOptions  # noqa: F401
     from all2md.options.mbox import MboxOptions  # noqa: F401
     from all2md.options.mediawiki import MediaWikiOptions, MediaWikiParserOptions  # noqa: F401
@@ -209,6 +209,7 @@ _lazy_options = {
     "LatexOptions": ("all2md.options.latex", "LatexOptions"),
     "LatexRendererOptions": ("all2md.options.latex", "LatexRendererOptions"),
     "ManParserOptions": ("all2md.options.man", "ManParserOptions"),
+    "ManRendererOptions": ("all2md.options.man", "ManRendererOptions"),
     "MarkdownParserOptions": ("all2md.options.markdown", "MarkdownParserOptions"),
     "MarkdownRendererOptions": ("all2md.options.markdown", "MarkdownRendererOptions"),
     "MboxOptions": ("all2md.options.mbox", "MboxOptions"),
@@ -317,6 +318,7 @@ __all__ = [
     "LatexOptions",
     "LatexRendererOptions",
     "ManParserOptions",
+    "ManRendererOptions",
     "MarkdownParserOptions",
     "MarkdownRendererOptions",
     "MboxOptions",

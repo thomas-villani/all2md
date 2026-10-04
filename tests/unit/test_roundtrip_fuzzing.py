@@ -150,6 +150,7 @@ TEXT_FORMATS = (
     "mediawiki",
     "dokuwiki",
     "latex",
+    "man",
     "plaintext",
 )
 
