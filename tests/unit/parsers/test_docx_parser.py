@@ -1598,6 +1598,37 @@ class TestListStartAndRestart:
         lists = self._lists(doc)
         assert [(lst.start, len(lst.items)) for lst in lists] == [(1, 3)]
 
+    def test_bullets_on_instances_of_one_definition_are_one_list(self) -> None:
+        """Word's lists follow its counters: a second instance without a restart joins the first."""
+        doc = self._doc('<w:num w:numId="96"><w:abstractNumId w:val="91"/></w:num>')
+        self._cells._list_paragraph(doc, "a", num_id=91)
+        self._cells._list_paragraph(doc, "b", num_id=96)
+
+        assert [len(lst.items) for lst in self._lists(doc)] == [2]
+
+    @pytest.mark.parametrize(
+        "second",
+        [
+            '<w:num w:numId="97"><w:abstractNumId w:val="91"/>'
+            '<w:lvlOverride w:ilvl="0"><w:startOverride w:val="1"/></w:lvlOverride></w:num>',
+            '<w:num w:numId="97"><w:abstractNumId w:val="98"/></w:num>',
+        ],
+        ids=["restarted-instance", "other-definition"],
+    )
+    def test_bullets_word_puts_in_another_list_start_a_new_list(self, second: str) -> None:
+        """Two bullet lists back to back stay two when Word sees two: a restart or another definition."""
+        doc = self._doc(
+            '<w:abstractNum w:abstractNumId="98"><w:lvl w:ilvl="0"><w:numFmt w:val="bullet"/>'
+            '<w:lvlText w:val="-"/></w:lvl></w:abstractNum>',
+            second,
+        )
+        self._cells._list_paragraph(doc, "a", num_id=91)
+        self._cells._list_paragraph(doc, "b", num_id=91)
+        self._cells._list_paragraph(doc, "c", num_id=97)
+
+        lists = self._lists(doc)
+        assert [(lst.ordered, len(lst.items)) for lst in lists] == [(False, 2), (False, 1)]
+
     def test_numbering_in_a_table_cell_continues_from_the_body(self) -> None:
         """Word's counter runs through table cells in document order."""
         doc = self._doc()
