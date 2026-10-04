@@ -205,7 +205,7 @@ Textile
 Man pages
 ~~~~~~~~~
 
-*Parser:* ``ManParser``
+*Parser & Renderer:* ``ManParser`` / ``ManRenderer``
 
 - Reads Unix manual pages written with the man(7) macros (``.TH``, ``.SH``, ``.TP``, ``.IP``, ...) directly, without a roff installation
 - Detected by extension (``.1`` to ``.9``, ``.man``) and confirmed by content: the first macro after comments and any preamble must be ``.TH``, so a rotated log such as ``app.log.1`` still reads as plain text
@@ -213,7 +213,9 @@ Man pages
 - ``.TH`` fills the title, date and section metadata; the NAME line's description becomes the subject
 - Reads the preamble pod2man writes (conditionals, string and macro definitions); other roff programming is ignored, and ``.so`` includes are reported but not followed
 - mdoc(7) pages (``.Dd``/``.Sh``, as BSD systems use) are not read yet
-- Options: ``ManParserOptions`` (``title_heading``, ``normalize_heading_case``)
+- Renders any document as a man(7) page that groff and mandoc display: a leading ``# LS(1)`` heading (or the title metadata) fills ``.TH``, the next heading levels become ``.SH`` and ``.SS``, lists become ``.IP``, definition lists ``.TP``, code ``.EX``/``.EE``, links ``.UR``/``.UE`` and tables ``tbl``
+- Rendering is lossy where man(7) has no counterpart: deeper headings become bold paragraphs, images their alt text, footnotes ``.TP`` items, and raw HTML is dropped; text is escaped (``\e``, ``\-`` for options, ``\[uXXXX]`` outside ASCII) so the page needs no preconv
+- Options: ``ManParserOptions`` (``title_heading``, ``normalize_heading_case``) / ``ManRendererOptions`` (``section``, ``date``, ``source``, ``manual``, ``uppercase_section_headings``)
 
 Org Mode
 ~~~~~~~~

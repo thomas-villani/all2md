@@ -93,6 +93,9 @@ Markup language renderers:
    * - DokuWiki
      - :doc:`all2md.renderers.dokuwiki`
      - DokuWiki syntax output
+   * - Man page
+     - :doc:`all2md.renderers.man`
+     - Unix manual page output (man(7) macros)
 
 Document & E-book Formats
 -------------------------
