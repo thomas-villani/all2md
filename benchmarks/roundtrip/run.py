@@ -52,11 +52,7 @@ MAN_EXPECTED_FAILURES: dict[tuple[str, str], str] = {
         "Inherent: a man page cannot hold HTML, so raw HTML is dropped. Not projected: the reference "
         "HTML cannot tell raw HTML from HTML that Markdown produced."
     ),
-    ("task-lists", "html_equivalence"): (
-        "Defect (man parser): the renderer writes task items as '[ ] text' / '[x] text', and the "
-        "parser does not read the marker back into a task status."
-    ),
-    ("kitchen-sink", "html_equivalence"): ("Combines the footnotes (inherent) and task-lists (defect) entries above."),
+    ("kitchen-sink", "html_equivalence"): "Inherent: holds a footnote; see the footnotes entry above.",
 }
 
 # Expected failures per --via format. A format with no table here has none.

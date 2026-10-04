@@ -350,6 +350,20 @@ class TestBlocks:
         assert not bullets.ordered and len(bullets.items) == 2
         assert numbers.ordered and numbers.start == 3 and len(numbers.items) == 2
 
+    def test_task_markers_become_task_status(self) -> None:
+        source = ".IP \\(bu 2\n[ ] open\n.IP \\(bu 2\n[x] \\fBdone\\fR\n.IP \\(bu 2\n[X]\n.IP \\(bu 2\nplain\n"
+        (items,) = blocks(parse(source), List)
+        assert [item.task_status for item in items.items] == ["unchecked", "checked", "checked", None]
+        assert inline_shape(items.items[0].children[0].content) == "open"
+        assert inline_shape(items.items[1].children[0].content) == "B[done]"
+        assert items.items[2].children == []
+
+    @pytest.mark.parametrize("text", ["[x]no-space", "[link] text", "[ y ] wide"])
+    def test_bracketed_text_is_not_a_task(self, text: str) -> None:
+        (items,) = blocks(parse(f".IP \\(bu 2\n{text}\n"), List)
+        assert items.items[0].task_status is None
+        assert inline_shape(items.items[0].children[0].content) == text
+
     @pytest.mark.parametrize(
         ("source", "tight"),
         [
