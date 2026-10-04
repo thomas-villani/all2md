@@ -367,10 +367,45 @@ class TestBlocks:
         ]
         assert table.alignments == ["left", "center", "right"]
 
-    def test_table_with_text_blocks_falls_back_to_code(self) -> None:
-        source = ".TS\nl l.\nkey\tT{\nlong text\nT}\n.TE\n"
-        (code,) = blocks(parse(source), CodeBlock)
-        assert "long text" in code.content
+    def test_table_text_blocks_are_cells(self) -> None:
+        # The ATTRIBUTES-table shape: a T{ T} block with requests, then more fields
+        # on the T} line, and a block in the middle of a row.
+        source = (
+            ".TS\nallbox;\nlbx lb lb\nl l l.\nInterface\tAttribute\tValue\n"
+            "T{\n.na\n.nh\n.BR printf (),\n.BR fprintf ()\nT}\tThread safety\tMT-Safe\n"
+            "key\tT{\nsee\n.UR https://example.com\nthe docs\n.UE .\nT}\tend\n"
+            "x\tT{\none\n.br\ntwo\nT}\ty\n.TE\n"
+        )
+        (table,) = blocks(parse(source), Table)
+        assert [[inline_shape(cell.content) for cell in row.cells] for row in table.rows] == [
+            ["B[printf](), B[fprintf]()", "Thread safety", "MT-Safe"],
+            ["key", "see L<https://example.com>[the docs].", "end"],
+            ["x", "oneBRtwo", "y"],
+        ]
+
+    def test_table_text_block_keeps_nested_list_text(self) -> None:
+        source = (
+            ".TS\nl l.\nh1\th2\n"
+            "T{\n.TP\n.B \\-a\nall entries\n.TP\n.B \\-l\nlong form\nT}\tT{\n.IP \\(bu 2\none\n.IP \\(bu 2\ntwo\nT}\n"
+            ".TE\n"
+        )
+        (table,) = blocks(parse(source), Table)
+        assert [inline_shape(cell.content) for cell in table.rows[0].cells] == [
+            "B[-a] all entries B[-l] long form",
+            "one two",
+        ]
+
+    def test_table_format_change_is_skipped(self) -> None:
+        source = ".TS\nl l.\na\tb\n.T&\nc s.\nspanning\n.T&\nl l.\nc\td\n.TE\n"
+        (table,) = blocks(parse(source), Table)
+        assert [[inline_shape(cell.content) for cell in row.cells] for row in table.rows] == [
+            ["spanning", ""],
+            ["c", "d"],
+        ]
+
+    def test_table_cells_carry_the_column_alignment(self) -> None:
+        (table,) = blocks(parse(".TS\nl r.\na\tb\nc\td\n.TE\n"), Table)
+        assert [cell.alignment for cell in table.rows[0].cells] == ["left", "right"]
 
 
 class TestRoffRequests:
