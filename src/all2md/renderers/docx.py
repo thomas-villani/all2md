@@ -118,6 +118,32 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
     # paragraph in it with the figure or table beside it, so a caption written in it
     # comes back a caption rather than an italic paragraph.
     _CAPTION_STYLE = "Caption"
+    # Word's compatibility mode for a document it creates today (Word 2013 and later).
+    # python-docx's default template names 14, Word 2010's, so every document opened with
+    # "[Compatibility Mode]" in the title bar and the newer layout rules off.
+    _COMPATIBILITY_MODE = "15"
+    _WORD_COMPAT_URI = "http://schemas.microsoft.com/office/word"
+    # The w:settings children the schema puts after w:compat. Word refuses them out of
+    # order, so a new w:compat goes before the first of these present.
+    _COMPAT_SUCCESSORS = (
+        "w:docVars",
+        "w:rsids",
+        "m:mathPr",
+        "w:attachedSchema",
+        "w:themeFontLang",
+        "w:clrSchemeMapping",
+        "w:doNotIncludeSubdocsInStats",
+        "w:doNotAutoCompressPictures",
+        "w:forceUpgrade",
+        "w:captions",
+        "w:readModeInkLockDown",
+        "w:smartTagType",
+        "sl:schemaLibrary",
+        "w:shapeDefaults",
+        "w:doNotEmbedSmartTags",
+        "w:decimalSymbol",
+        "w:listSeparator",
+    )
     _W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     # Indent per depth of a list style the renderer creates: the 0.25" step of Word's own
     # "List Number 2" and "List Number 3". Word numbering definitions stop at nine levels.
@@ -194,6 +220,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
             # Set default font
             self._set_document_defaults()
+            self._set_compatibility_mode()
 
             # python-docx refuses a whole document over one character XML cannot carry, and
             # PDF text layers routinely hold them (a glyph whose font encoding maps nowhere).
@@ -269,6 +296,35 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             self.document.core_properties.last_modified_by = self.options.creator
             # Set default author to creator if not overridden by document metadata
             self.document.core_properties.author = self.options.creator
+
+    def _set_compatibility_mode(self) -> None:
+        """Write Word's current compatibility mode, keeping a mode a user's template names.
+
+        The default template's mode is python-docx's, not a choice, so it is replaced. A
+        template passed in ``template_path`` keeps its own: an older mode there may be
+        deliberate. One that names none gets the current mode.
+        """
+        if not self.document:
+            return
+        qn = self._qn
+        settings = self.document.settings.element
+        compat = settings.find(qn("w:compat"))
+        if compat is None:
+            compat = self._OxmlElement("w:compat")
+            settings.insert_element_before(compat, *self._COMPAT_SUCCESSORS)
+        mode = next(
+            (el for el in compat.findall(qn("w:compatSetting")) if el.get(qn("w:name")) == "compatibilityMode"),
+            None,
+        )
+        if mode is None:
+            mode = self._OxmlElement("w:compatSetting")
+            mode.set(qn("w:name"), "compatibilityMode")
+            mode.set(qn("w:uri"), self._WORD_COMPAT_URI)
+            # compatSetting elements close the w:compat sequence.
+            compat.append(mode)
+        elif self.options.template_path:
+            return
+        mode.set(qn("w:val"), self._COMPATIBILITY_MODE)
 
     def _has_style(self, name: str) -> bool:
         """Check whether the document contains a style with the given name."""
