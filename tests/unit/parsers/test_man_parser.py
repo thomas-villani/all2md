@@ -327,6 +327,21 @@ class TestBlocks:
         assert not bullets.ordered and len(bullets.items) == 2
         assert numbers.ordered and numbers.start == 3 and len(numbers.items) == 2
 
+    @pytest.mark.parametrize(
+        ("source", "tight"),
+        [
+            (".IP \\(bu 2\none\n.IP \\(bu 2\ntwo\n", True),
+            (".IP \\(bu 2\none\n.RS\n.IP \\(bu 2\ninner\n.RE\n.IP \\(bu 2\ntwo\n", True),
+            (".IP \\(bu 2\none\n.IP\nmore\n.IP \\(bu 2\ntwo\n", False),
+            (".IP \\(bu 2\none\n.RS\n.EX\ncode\n.EE\n.RE\n.IP \\(bu 2\ntwo\n", False),
+        ],
+        ids=["single-paragraphs", "nested-list", "second-paragraph", "code-block"],
+    )
+    def test_list_tightness(self, source: str, tight: bool) -> None:
+        # Only a second non-list block loosens a list: Markdown's "- a" + "  - b" is tight.
+        (top,) = blocks(parse(source), List)
+        assert top.tight is tight
+
     def test_other_ip_tags_become_definitions(self) -> None:
         (dl,) = blocks(parse('.IP "\\fBFOO\\fR" 4\nan environment variable\n'), DefinitionList)
         assert inline_shape(dl.items[0][0].content) == "B[FOO]"

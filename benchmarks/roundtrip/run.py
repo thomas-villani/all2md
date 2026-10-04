@@ -56,10 +56,6 @@ MAN_EXPECTED_FAILURES: dict[tuple[str, str], str] = {
         "Defect (man parser): fonts are read as runs, so bold-with-italic-inside comes back as "
         "Strong, Emphasis(Strong), Strong rather than one Strong holding an Emphasis."
     ),
-    ("lists-nested", "html_equivalence"): (
-        "Defect (man parser): an item holding a nested list (.RS/.RE) makes the list loose, so "
-        "tight nested lists come back with every item in a paragraph."
-    ),
     ("task-lists", "html_equivalence"): (
         "Defect (man parser): the renderer writes task items as '[ ] text' / '[x] text', and the "
         "parser does not read the marker back into a task status."
