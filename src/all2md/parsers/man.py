@@ -23,7 +23,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import IO, Any, Literal, Optional, Union
+from typing import IO, Any, Callable, Literal, Optional, Union
 
 from all2md.ast import (
     BlockQuote,
@@ -56,8 +56,9 @@ from all2md.utils.metadata import DocumentMetadata
 
 logger = logging.getLogger(__name__)
 
-# Fonts a run of text can carry. "C" is any constant-width font (CW, CR, CB, ...).
-_Font = Literal["R", "B", "I", "BI", "C"]
+# Fonts a run of text can carry. "C" is any constant-width font (CW, CR, ...);
+# "CB", "CI" and "CBI" are constant width inside bold and/or italic text.
+_Font = Literal["R", "B", "I", "BI", "C", "CB", "CI", "CBI"]
 _LINE_BREAK = "\n"  # text of the sentinel run that stands for .br
 
 _FONT_NAMES: dict[str, _Font] = {
@@ -72,9 +73,9 @@ _FONT_NAMES: dict[str, _Font] = {
     "C": "C",
     "CW": "C",
     "CR": "C",
-    "CB": "C",
-    "CI": "C",
-    "CBI": "C",
+    "CB": "CB",
+    "CI": "CI",
+    "CBI": "CBI",
     "CO": "C",
     "TT": "C",
 }
@@ -841,9 +842,17 @@ class ManParser(BaseParser):
         nodes: list[Node] = []
         link_nodes: list[Node] = []
         current_link: Optional[str] = None
+        # Runs of the current stretch (same link, no line break), nested on flush.
+        pending: list[tuple[str, frozenset[str]]] = []
+
+        def flush() -> None:
+            out = link_nodes if current_link is not None else nodes
+            out.extend(_nest_runs(pending, frozenset()))
+            pending.clear()
 
         def close_link() -> None:
             nonlocal current_link
+            flush()
             if current_link is not None:
                 content = link_nodes[:] or [Text(content=current_link)]
                 nodes.append(Link(url=current_link, content=_merge_text(content)))
@@ -854,22 +863,11 @@ class ManParser(BaseParser):
             if link != current_link:
                 close_link()
                 current_link = link
-            out = link_nodes if link is not None else nodes
             if text == _LINE_BREAK:
-                out.append(LineBreak())
+                flush()
+                (link_nodes if link is not None else nodes).append(LineBreak())
                 continue
-            text = re.sub(r"[ \t]+", " ", text)
-            core = text.strip(" ")
-            if font == "R" or not core:
-                out.append(Text(content=text))
-                continue
-            lead = text[: len(text) - len(text.lstrip(" "))]
-            trail = text[len(text.rstrip(" ")) :]
-            if lead:
-                out.append(Text(content=lead))
-            out.append(_styled(core, font))
-            if trail:
-                out.append(Text(content=trail))
+            pending.append((re.sub(r"[ \t]+", " ", text), _FONT_ATTRIBUTES[font]))
         close_link()
         return _trim(_merge_text(nodes))
 
@@ -1358,15 +1356,74 @@ def _evaluate_condition(text: str) -> tuple[bool, str]:
     return negate, body
 
 
-def _styled(text: str, font: _Font) -> Node:
-    inner = Text(content=text)
-    if font == "B":
-        return Strong(content=[inner])
-    if font == "I":
-        return Emphasis(content=[inner])
-    if font == "BI":
-        return Strong(content=[Emphasis(content=[inner])])
-    return Code(content=text)
+# What each font contributes when runs are nested: bold, italic, or constant width.
+_FONT_ATTRIBUTES: dict[_Font, frozenset[str]] = {
+    "R": frozenset(),
+    "B": frozenset("B"),
+    "I": frozenset("I"),
+    "BI": frozenset("BI"),
+    "C": frozenset("C"),
+    "CB": frozenset("CB"),
+    "CI": frozenset("CI"),
+    "CBI": frozenset("CBI"),
+}
+
+
+def _nest_runs(runs: list[tuple[str, frozenset[str]]], active: frozenset[str]) -> list[Node]:
+    r"""Build nested inline nodes from font runs.
+
+    ``\fBbold \f(BIboth\fB bold\fR`` is one Strong holding an Emphasis, not
+    three siblings: at each level the attribute (bold or italic) whose stretch
+    from the current run is longest becomes the outer node, and the runs inside
+    it are nested the same way, down to constant-width runs, which become Code.
+    Whitespace at the edges of a stretch stays outside the formatting.
+    """
+    out: list[Node] = []
+    index = 0
+    while index < len(runs):
+        text, attributes = runs[index]
+        extra = attributes - active
+        if not extra or not text.strip(" "):
+            out.append(Text(content=text))
+            index += 1
+            continue
+        styles = extra - {"C"}
+        if not styles:
+            out.extend(_edge_split(text, lambda core: Code(content=core)))
+            index += 1
+            continue
+        best, end = "", index
+        # On a tie italic goes outside, as CommonMark nests ***x*** (<em><strong>).
+        for attribute in sorted(styles, reverse=True):
+            stop = index
+            while stop < len(runs) and attribute in runs[stop][1]:
+                stop += 1
+            if stop > end:
+                best, end = attribute, stop
+        stretch = list(runs[index:end])
+        first_text, first_attributes = stretch[0]
+        lead = first_text[: len(first_text) - len(first_text.lstrip(" "))]
+        stretch[0] = (first_text[len(lead) :], first_attributes)
+        last_text, last_attributes = stretch[-1]
+        trail = last_text[len(last_text.rstrip(" ")) :]
+        stretch[-1] = (last_text[: len(last_text) - len(trail)], last_attributes)
+        if lead:
+            out.append(Text(content=lead))
+        inner = _merge_text(_nest_runs(stretch, active | {best}))
+        out.append(Strong(content=inner) if best == "B" else Emphasis(content=inner))
+        if trail:
+            out.append(Text(content=trail))
+        index = end
+    return out
+
+
+def _edge_split(text: str, wrap: Callable[[str], Node]) -> list[Node]:
+    """Wrap the core of ``text``, keeping its edge spaces outside as plain text."""
+    core = text.strip(" ")
+    lead = text[: len(text) - len(text.lstrip(" "))]
+    trail = text[len(text.rstrip(" ")) :]
+    nodes = [Text(content=lead), wrap(core), Text(content=trail)]
+    return [node for node in nodes if not isinstance(node, Text) or node.content]
 
 
 def _merge_text(nodes: list[Node]) -> list[Node]:

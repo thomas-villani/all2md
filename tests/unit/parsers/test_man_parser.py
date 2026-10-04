@@ -253,6 +253,25 @@ class TestInline:
         # Spaces at the edge of a font run move outside the formatting.
         assert first_paragraph(parse("\\fBbold \\fIitalic\\fP back\\fR plain\n")) == "B[bold] I[italic] B[back] plain"
 
+    def test_bold_italic_nests_inside_bold(self) -> None:
+        source = "\\fBbold with \\f(BIitalic\\fB inside\\fR plain\n"
+        assert first_paragraph(parse(source)) == "B[bold with I[italic] inside] plain"
+
+    def test_bold_italic_nests_inside_italic(self) -> None:
+        source = "\\fIitalic with \\f(BIbold\\fI inside\\fR\n"
+        assert first_paragraph(parse(source)) == "I[italic with B[bold] inside]"
+
+    def test_bold_italic_alone_puts_italic_outside(self) -> None:
+        # The CommonMark nesting of ***x***.
+        assert first_paragraph(parse("\\f(BIboth\\fR\n")) == "I[B[both]]"
+
+    def test_constant_width_inside_bold(self) -> None:
+        source = "\\fBbold \\f(CBcode\\fB bold\\fR and \\fIit \\f(CIc\\fR\n"
+        assert first_paragraph(parse(source)) == "B[bold C[code] bold] and I[it C[c]]"
+
+    def test_separate_bold_runs_stay_separate(self) -> None:
+        assert first_paragraph(parse("\\fBa\\fR \\fBb\\fR\n")) == "B[a] B[b]"
+
     def test_font_macros(self) -> None:
         doc = parse(".B bold words\n.I italic\n.BR ls (1),\n.IR file .txt\n")
         assert first_paragraph(doc) == "B[bold words] I[italic] B[ls](1), I[file].txt"

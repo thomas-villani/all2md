@@ -35,7 +35,7 @@ from all2md.ast import (
     ThematicBreak,
     Underline,
 )
-from all2md.options.man import ManRendererOptions
+from all2md.options.man import ManParserOptions, ManRendererOptions
 from all2md.parsers.man import ManParser
 from all2md.renderers.man import ManRenderer
 
@@ -354,6 +354,17 @@ class TestRoundTrip:
         markdown = "# X(1)\n\n## NAME\n\nx - do things\n\n## OPTIONS\n\n-v\n: verbose output\n"
         rendered = render_md(markdown)
         parsed = ManParser().parse(rendered.encode())
+        assert parsed.children == to_ast(markdown.encode(), source_format="markdown").children
+
+    @pytest.mark.parametrize(
+        "markdown",
+        [
+            "**bold with *italic* inside** and *italic with **bold** inside*.\n",
+            "***both***, **bold `code` bold**, *it `c`*.\n",
+        ],
+    )
+    def test_nested_inline_formatting_round_trips(self, markdown: str) -> None:
+        parsed = ManParser(ManParserOptions(title_heading=False)).parse(render_md(markdown).encode())
         assert parsed.children == to_ast(markdown.encode(), source_format="markdown").children
 
 
