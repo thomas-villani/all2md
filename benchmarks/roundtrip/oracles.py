@@ -36,6 +36,7 @@ from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 import all2md
+from all2md.constants import DocumentFormat
 
 from .via import profile_for
 
@@ -68,7 +69,7 @@ def _roundtrip_once(md: str, renderer_options: Optional["MarkdownRendererOptions
     render, so the oracles judge the format's renderer and parser together.
     """
     if via != "markdown":
-        fmt = cast("DocumentFormat", via)
+        fmt = cast(DocumentFormat, via)
         intermediate = all2md.convert(
             md,
             source_format="markdown",
