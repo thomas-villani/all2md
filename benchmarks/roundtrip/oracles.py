@@ -40,7 +40,6 @@ import all2md
 from .via import profile_for
 
 if TYPE_CHECKING:
-    from all2md.constants import DocumentFormat
     from all2md.options.markdown import MarkdownRendererOptions
 
 
