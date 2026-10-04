@@ -52,10 +52,6 @@ MAN_EXPECTED_FAILURES: dict[tuple[str, str], str] = {
         "Inherent: a man page cannot hold HTML, so raw HTML is dropped. Not projected: the reference "
         "HTML cannot tell raw HTML from HTML that Markdown produced."
     ),
-    ("inline-formatting", "html_equivalence"): (
-        "Defect (man parser): fonts are read as runs, so bold-with-italic-inside comes back as "
-        "Strong, Emphasis(Strong), Strong rather than one Strong holding an Emphasis."
-    ),
     ("task-lists", "html_equivalence"): (
         "Defect (man parser): the renderer writes task items as '[ ] text' / '[x] text', and the "
         "parser does not read the marker back into a task status."

@@ -380,6 +380,17 @@ class TestRoundTrip:
         parsed = ManParser().parse(rendered.encode())
         assert parsed.children == to_ast(markdown.encode(), source_format="markdown").children
 
+    @pytest.mark.parametrize(
+        "markdown",
+        [
+            "**bold with *italic* inside** and *italic with **bold** inside*.\n",
+            "***both***, **bold `code` bold**, *it `c`*.\n",
+        ],
+    )
+    def test_nested_inline_formatting_round_trips(self, markdown: str) -> None:
+        parsed = ManParser(ManParserOptions(title_heading=False)).parse(render_md(markdown).encode())
+        assert parsed.children == to_ast(markdown.encode(), source_format="markdown").children
+
 
 class TestOutput:
     def test_render_to_bytes_stream(self) -> None:
