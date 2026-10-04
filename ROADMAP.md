@@ -163,35 +163,54 @@ no file Word opens fails.
 
 Three format families, chosen 2026-10-01 for value per effort: man pages, the formats
 PyMuPDF already opens, and legacy binary Office. Each is a run of small PRs that touches
-none of the PDF → DOCX work, so they interleave with it.
+none of the PDF → DOCX work, so they interleave with it. Decided 2026-10-03: everything
+stays pure Python on the standard library where it can. There is no LibreOffice backend,
+no `olefile` dependency and no new install extra.
 
-1. **OLE routing fix first — a live bug.** The Outlook parser claims the OLE magic
-   `D0 CF 11 E0` outright, so a `.doc`, `.ppt` or `.xls` detected by content is read as a
-   `.msg`. One shared detector reads the compound file's stream names (`WordDocument`,
-   `PowerPoint Document`, `Workbook`, `__substg1.0_*`) and routes each to its parser, or to
-   a clear unsupported-format error; mislabeled `.doc` files that are really RTF, Word
-   2003 XML, MHTML or `.docx` go to the parsers that already read them.
-2. **Man pages, both directions.** A pure-Python man(7) parser, then a markdown → man
-   renderer with a `--via man` route in `benchmarks/roundtrip`, then mdoc(7). The
-   extension-only `.1`–`.9` match is confirmed by a `.TH`/`.Dd` content detector. Roff
-   beyond the two macro sets (`.de`, conditionals, `eqn`) degrades to text; we do not
-   emulate roff. `mandoc -T markdown` is the independent oracle for a later corpus lane.
+1. ✅ **OLE routing** (#548). One shared detector reads the compound file's root stream
+   names (`WordDocument`, `PowerPoint Document`, `Workbook`, `__substg1.0_*`) and routes
+   each to its parser, or to a clear unsupported-format error, instead of the Outlook
+   parser claiming the OLE signature outright. Real `.msg` files, which had all been
+   failing on `message_id`, read again (#549).
+2. ✅ **Man pages, both directions.** The man(7) parser (#550) and renderer (#553), and
+   `--via man` in `benchmarks/roundtrip` (#554): 36 cases pass, and the 3 expected
+   failures are what man cannot express (footnotes, raw HTML). Review fixes:
+   #555, #557–#560. Gzipped pages read through the archive fix (#551). Still to do:
+   **mdoc(7)**, the BSD macro set, and later a corpus lane with `mandoc -T markdown` as
+   the independent oracle.
 3. **XPS and OXPS through the PDF pipeline.** The parser hardcodes `filetype="pdf"` on
    stream input; parameterizing it makes each format a thin subclass with no new
-   dependency. MOBI is undecided: PyMuPDF lays reflowable text into pages and loses the
-   real headings, so unpacking its HTML for the HTML parser is likely the better route.
-4. **Legacy `.doc` and `.ppt`, native, in fidelity tiers.** A pure-Python reader on
-   `olefile`: tier 1 is text, paragraphs, notes and flattened tables from the piece table
-   (`.doc`) or the slide text atoms (`.ppt`); tier 2 adds headings (built-in style ids,
-   language-independent), bold/italic, lists and real tables; tier 3 images. Fields keep
-   cached results and comments go to metadata, as the DOCX decisions set. LibreOffice
-   conversion is at most an opt-in backend, never the default. The oracle comes free:
-   save the DOCX and LibreOffice lanes' sources as `.doc`/`.ppt` and score the parse of
-   each against the parse of its `.docx`/`.pptx` twin.
+   dependency. **MOBI** (decided): we unpack it ourselves, PalmDB records and PalmDOC
+   LZ77 decompression, and hand the HTML inside to the HTML parser. PyMuPDF lays
+   reflowable text into pages and loses the headings.
+4. **Legacy `.doc` and `.ppt`, native, in fidelity tiers.** The bar for shipping `.doc`
+   (decided) is all the extractable text, not DOCX-level fidelity.
+   - ✅ **CFB stream reader** (#565): `utils/cfb.py` reads every stream, regular and
+     mini, v3 and v4. Every chain and size is checked against hostile files, and every
+     stream of Word, PowerPoint and Outlook files reads byte for byte as `olefile` reads
+     it.
+   - ✅ **`.doc` tier 1** (#566, in review): all the text through the piece table, with:
+     - footnotes and endnotes, and comments with their author;
+     - text boxes, and optionally headers and footers;
+     - field results, with `HYPERLINK` as links;
+     - tracked deletions hidden;
+     - summary-information metadata.
 
-Open: the fidelity bar for shipping `.doc` (tier 1 alone, or with headings and lists),
-whether the LibreOffice backend ships at all, the MOBI route, and whether gzipped man
-pages need their own shim.
+     On 191 LibreOffice corpus files saved as `.doc` by Word, the words read match
+     the `.docx` parse except 99 of 9,906, every one explained (equations, generated
+     list labels, unreferenced footnotes).
+   - **`.ppt` tier 1** next: slide text atoms through `Current User` → `UserEditAtom`
+     → persist directory, with the same oracle against `.pptx` twins.
+   - ⏸️ **`.doc` tier 2, parked for later:** headings (paragraph styles through the
+     STSH, built-in style ids being language-independent), real tables (`fInTable`/
+     `fTtp` from the paragraph properties, since a cell end and a row end are the same
+     `\x07` without them), lists and their numbers, and bold/italic. The character-run
+     reader tier 1 uses for deletions is the start of it. Until then, a table's cells
+     read as one paragraph each, and no text is lost. Tier 3 is images.
+
+   The oracle comes free: the scratchpad check saves corpus `.docx`/`.pptx` files as
+   `.doc`/`.ppt` with Word and scores each parse against its twin's. It is worth turning
+   into a `benchmarks/` lane when tier 2 starts.
 
 ### Then: the outward push (Theme 5)
 
@@ -340,7 +359,8 @@ is I/O. Shape when it is needed: `ato_markdown` / `aconvert` over `asyncio.to_th
 
 ## Theme 4 — New formats and domains
 
-- 🌱 **Man pages, XPS/OXPS, legacy `.doc`/`.ppt`** — in progress; see **Next**.
+- 🌱 **Man pages, XPS/OXPS, legacy `.doc`/`.ppt`, mdoc, MOBI** — in progress (man pages and
+  `.doc` tier 1 done); see **Next**.
 - 🌱 **More inbound formats**, roughly cheapest first: `.xls` (`xlrd` 2.x still reads it,
   and it slots into the OLE routing table), SRT/VTT subtitles, chat exports (Slack,
   Discord, Telegram, WhatsApp, whose timestamps follow the phone's locale), Notion and
