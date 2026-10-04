@@ -10,6 +10,7 @@ the other benchmarks: `benchmarks/corpus/` times *to-markdown* conversion and
 python -m benchmarks.roundtrip              # per-document pass/fail table
 python -m benchmarks.roundtrip --show-diff   # + unified diffs for failures
 python -m benchmarks.roundtrip --json out.json
+python -m benchmarks.roundtrip --via man     # through a man page and back
 ```
 
 Exit code is non-zero if any oracle failed (policy skips don't count), so it can
@@ -70,6 +71,38 @@ Documents containing raw HTML used to be **skipped** by the HTML oracle, because
 escaping made a difference there expected rather than a bug. Since #178 the
 Markdown renderer passes raw HTML through, so the oracle judges those documents
 like any other.
+
+## Through another format (`--via`)
+
+`--via FORMAT` routes every pass through that format, `md -> AST -> FORMAT -> AST
+-> md`, so the same two oracles judge the format's renderer and parser as a pair.
+CI runs `--via man` as a second step of the same gate.
+
+A format that cannot express a construct fails the HTML oracle on every document
+holding it, for a reason nobody can fix, and an allowlist covering nearly every
+document guards nothing. So `via.py` gives a format a **profile**:
+
+- **Renderer options** for the write into the format. For man, uppercase `.SH`
+  headings (a convention, not a loss) are turned off.
+- **A projection** applied to *both* reference HTML trees before they are
+  compared, removing what the format cannot say. For man that means code-block
+  languages, link and image titles, images (alt text), strikethrough, highlight,
+  superscript and subscript, h4-h6 (bold paragraphs), `<hr>`, default table
+  alignment, math markup, a term's several definitions (one `.TP` holds one),
+  and the `(1)` section the title gains through `.TH`. Everything else must
+  survive.
+
+A projection may only remove a limit of the *format*. A defect in our renderer or
+parser goes in the format's expected-failure table in `run.py` instead
+(`MAN_EXPECTED_FAILURES`), with the same XFAIL/XPASS/stale rules, so the fix that
+closes it turns the gate red until the entry is deleted. Inherent losses the
+projection cannot model (footnotes, raw HTML) are listed there too, marked as
+inherent. `tests/unit/test_roundtrip_benchmark.py` pins each projection rule and
+shows that losses outside them (emphasis, paragraphs, cells, list items, heading
+level, inline code) still fail.
+
+A format with no profile is judged unprojected and has no expected failures, which
+is the starting point for adding one.
 
 ## Corpus
 
