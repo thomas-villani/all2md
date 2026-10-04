@@ -691,7 +691,7 @@ class ManParser(BaseParser):
                 i = self._skip_size(text, i)
             elif esc == "N":
                 arg, i = self._read_delimited(text, i)
-                buf.append(chr(int(arg)) if arg.isdigit() else "")
+                buf.append(_code_point(int(arg)) if re.fullmatch(r"[0-9]+", arg) else "")
             elif esc in _DELIMITED_ESCAPES:
                 _arg, i = self._read_delimited(text, i)
             elif esc in _NAMED_ESCAPES:
@@ -762,10 +762,10 @@ class ManParser(BaseParser):
             return _SPECIAL_CHARS[name]
         unicode = re.fullmatch(r"u([0-9A-Fa-f]{4,6})(?:_[0-9A-Fa-f]{4,6})*", name)
         if unicode:
-            return chr(int(unicode.group(1), 16))
-        number = re.fullmatch(r"char(\d+)", name)
+            return _code_point(int(unicode.group(1), 16))
+        number = re.fullmatch(r"char([0-9]+)", name)
         if number:
-            return chr(int(number.group(1)))
+            return _code_point(int(number.group(1)))
         if len(name) == 2 and name[0] in "'`^~:," and name[1].isalpha():
             return name[1]  # accented letter, e.g. \('e; keep the base letter
         logger.debug("Unknown man special character %r", name)
@@ -893,7 +893,7 @@ class ManParser(BaseParser):
         if not nodes:
             return
         if self._in_name_section and self._metadata.subject is None:
-            plain = "".join(node.content for node in nodes if isinstance(node, Text))
+            plain = _inline_text(nodes)
             parts = re.split(r"\s+[-\u2013\u2014]\s+", plain, maxsplit=1)
             if len(parts) == 2 and parts[1].strip():
                 self._metadata.subject = parts[1].strip()
@@ -1208,7 +1208,11 @@ class ManParser(BaseParser):
 
     _m_de1 = _m_de
     _m_am = _m_de
-    _m_ig = _m_de
+
+    def _m_ig(self, rest: str) -> None:
+        # .ig [END]: unlike .de NAME [END], the end marker is the first argument.
+        args = _split_args(rest)
+        self._skip_until = args[0] if args else "."
 
     def _m_ds(self, rest: str) -> None:
         match = re.match(r"\s*(\S+)\s?(.*)$", rest)
@@ -1418,6 +1422,30 @@ def _styled(text: str, font: _Font) -> Node:
     if font == "BI":
         return Strong(content=[Emphasis(content=[inner])])
     return Code(content=text)
+
+
+def _code_point(value: int) -> str:
+    r"""Return the character for a numeric reference, or U+FFFD when it is not one.
+
+    ``\N'...'``, ``\[charNNN]`` and ``\[uXXXXXX]`` can name values past U+10FFFF,
+    which ``chr`` rejects, or surrogates, which cannot be encoded later.
+    """
+    if 0 <= value <= 0x10FFFF and not 0xD800 <= value <= 0xDFFF:
+        return chr(value)
+    return "\ufffd"
+
+
+def _inline_text(nodes: list[Node]) -> str:
+    """Concatenate the text of inline nodes, descending into formatting and links."""
+    parts: list[str] = []
+    for node in nodes:
+        if isinstance(node, (Text, Code)):
+            parts.append(node.content)
+        elif isinstance(node, LineBreak):
+            parts.append(" ")
+        else:
+            parts.append(_inline_text(list(getattr(node, "content", None) or [])))
+    return "".join(parts)
 
 
 def _flatten_inline(blocks: list[Node]) -> list[Node]:

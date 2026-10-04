@@ -204,6 +204,10 @@ class TestDetection:
 class TestTitleAndHeadings:
     """.TH metadata, section headings and their options."""
 
+    def test_name_description_keeps_formatted_words(self) -> None:
+        doc = parse(".TH FOO 1\n.SH NAME\n\\fBfoo\\fR \\- list \\fBall\\fR \\fIthe\\fR files\n")
+        assert doc.metadata["description"] == "list all the files"
+
     def test_th_fills_metadata_and_title_heading(self) -> None:
         doc = parse(
             '.TH LS 1 2024-03-01 "GNU coreutils 9.4" "User Commands"\n.SH NAME\nls \\- list directory contents\n'
@@ -467,6 +471,22 @@ class TestRoffRequests:
         with caplog.at_level(logging.WARNING, logger="all2md.parsers.man"):
             parse(".Dd January 1, 2024\n.Dt LS 1\n.Sh NAME\n")
         assert "mdoc" in caplog.text
+
+    def test_ig_with_an_end_marker_skips_past_dot_dot(self) -> None:
+        # .ig XX ends at .XX, not at the first "..", which is just ignored text.
+        doc = parse(".TH X 1\n.ig XX\nhidden\n..\nstill hidden\n.XX\nshown\n")
+        assert [inline_shape(p.content) for p in blocks(doc, Paragraph)] == ["shown"]
+
+    @pytest.mark.parametrize(
+        "escape",
+        ["\\[u110000]", "\\[char1114112]", "\\N'99999999'", "\\[uD800]", "\\N'\u00b2'"],
+        ids=["u-past-unicode", "char-past-unicode", "N-past-unicode", "surrogate", "N-non-ascii-digit"],
+    )
+    def test_out_of_range_character_references_do_not_raise(self, escape: str) -> None:
+        text = first_paragraph(parse(f"a {escape} b\n"))
+        assert text.startswith("a ") and text.endswith(" b")
+        text.encode("utf-8")  # no lone surrogate survives
+        assert all(ord(ch) < 0xD800 or ord(ch) > 0xDFFF for ch in text)
 
     def test_unknown_macros_are_ignored(self) -> None:
         assert first_paragraph(parse(".XYZ some args\ntext\n")) == "text"
