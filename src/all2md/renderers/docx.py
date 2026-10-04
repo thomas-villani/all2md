@@ -125,6 +125,31 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
     _CAPTION_NUMBER = re.compile(
         r"(?P<label>fig(?:ure|\.)?|tab(?:le|\.)?)(?P<gap>\s+)(?P<number>\d+)(?![0-9A-Za-z])(?!\.\d)",
         re.IGNORECASE,
+    # Word's compatibility mode for a document it creates today (Word 2013 and later).
+    # python-docx's default template names 14, Word 2010's, so every document opened with
+    # "[Compatibility Mode]" in the title bar and the newer layout rules off.
+    _COMPATIBILITY_MODE = "15"
+    _WORD_COMPAT_URI = "http://schemas.microsoft.com/office/word"
+    # The w:settings children the schema puts after w:compat. Word refuses them out of
+    # order, so a new w:compat goes before the first of these present.
+    _COMPAT_SUCCESSORS = (
+        "w:docVars",
+        "w:rsids",
+        "m:mathPr",
+        "w:attachedSchema",
+        "w:themeFontLang",
+        "w:clrSchemeMapping",
+        "w:doNotIncludeSubdocsInStats",
+        "w:doNotAutoCompressPictures",
+        "w:forceUpgrade",
+        "w:captions",
+        "w:readModeInkLockDown",
+        "w:smartTagType",
+        "sl:schemaLibrary",
+        "w:shapeDefaults",
+        "w:doNotEmbedSmartTags",
+        "w:decimalSymbol",
+        "w:listSeparator",
     )
     _W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     # Indent per depth of a list style the renderer creates: the 0.25" step of Word's own
@@ -205,6 +230,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
             # Set default font
             self._set_document_defaults()
+            self._set_compatibility_mode()
 
             # python-docx refuses a whole document over one character XML cannot carry, and
             # PDF text layers routinely hold them (a glyph whose font encoding maps nowhere).
@@ -280,6 +306,35 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             self.document.core_properties.last_modified_by = self.options.creator
             # Set default author to creator if not overridden by document metadata
             self.document.core_properties.author = self.options.creator
+
+    def _set_compatibility_mode(self) -> None:
+        """Write Word's current compatibility mode, keeping a mode a user's template names.
+
+        The default template's mode is python-docx's, not a choice, so it is replaced. A
+        template passed in ``template_path`` keeps its own: an older mode there may be
+        deliberate. One that names none gets the current mode.
+        """
+        if not self.document:
+            return
+        qn = self._qn
+        settings = self.document.settings.element
+        compat = settings.find(qn("w:compat"))
+        if compat is None:
+            compat = self._OxmlElement("w:compat")
+            settings.insert_element_before(compat, *self._COMPAT_SUCCESSORS)
+        mode = next(
+            (el for el in compat.findall(qn("w:compatSetting")) if el.get(qn("w:name")) == "compatibilityMode"),
+            None,
+        )
+        if mode is None:
+            mode = self._OxmlElement("w:compatSetting")
+            mode.set(qn("w:name"), "compatibilityMode")
+            mode.set(qn("w:uri"), self._WORD_COMPAT_URI)
+            # compatSetting elements close the w:compat sequence.
+            compat.append(mode)
+        elif self.options.template_path:
+            return
+        mode.set(qn("w:val"), self._COMPATIBILITY_MODE)
 
     def _has_style(self, name: str) -> bool:
         """Check whether the document contains a style with the given name."""
@@ -900,14 +955,17 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
         self._list_level += 1
         style = self._list_item_style(node.ordered, self._list_level)
-        # Every numbered list gets a numbering instance of its own that restarts at its
-        # start. Sharing the style's instance carries the count on from the list before,
-        # and Word -- and the parser -- then read two adjacent lists as one.
+        # Every list gets a numbering instance of its own, restarting at its start. Word's
+        # lists follow its counters, so instances that share a definition without a restart
+        # are one list: a numbered list carries its count on from the list before, and a
+        # document's bullet lists are one list to Word's list commands. A bullet prints no
+        # count, but the restart is still what makes Word, and the parser, see a new list.
         num_id = None
-        numbering = self._style_numbering(style) if style and node.ordered else None
+        numbering = self._style_numbering(style) if style else None
         if numbering is not None:
             abstract_id, ilvl = numbering
-            num_id = self._add_num(abstract_id, restart=(ilvl, node.start if node.start is not None else 1))
+            start = node.start if node.ordered and node.start is not None else 1
+            num_id = self._add_num(abstract_id, restart=(ilvl, start))
         self._list_format_stack.append((style, num_id))
 
         for item in node.items:
@@ -1003,6 +1061,10 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         # Word sets a table's caption above it (Insert Caption's default for tables).
         if node.caption:
             self._add_caption_paragraph(node.caption)
+        elif self._body_ends_with_table():
+            # Word shows two tables with nothing between them as one table, whatever the XML
+            # says, so keep the paragraph Word itself always keeps between two tables.
+            self.document.add_paragraph()
 
         # Create table with proper dimensions
         table = self.document.add_table(rows=grid.num_rows, cols=grid.num_cols)
@@ -1024,6 +1086,15 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 docx_cell.merge(table.rows[end_row].cells[end_col])
 
         self._in_table = False
+
+    def _body_ends_with_table(self) -> bool:
+        """Whether the last block in the document body (before its sectPr) is a table."""
+        if not self.document:
+            return False
+        for child in reversed(self.document.element.body):
+            if child.tag != self._qn("w:sectPr"):
+                return bool(child.tag == self._qn("w:tbl"))
+        return False
 
     def _render_table_cell(self, docx_cell: _Cell, ast_cell: TableCell, is_header: bool = False) -> None:
         """Render a single table cell.
