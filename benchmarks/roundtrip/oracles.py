@@ -16,6 +16,10 @@ oracles are deliberately independent so a loss has to slip past *both*:
     already occurred on the first render and is therefore stable under
     idempotency.
 
+Both oracles take a ``via`` format. With ``via="man"`` each pass goes through a
+man page (``md -> AST -> man -> AST -> md``), which judges that format's renderer
+and parser as a pair; the default ``"markdown"`` is the direct pass above.
+
 Caveat worth stating plainly: all2md *parses* with mistune too, so the HTML
 oracle is independent of the AST + render halves of the pipeline, not of the
 parse half. That is the right scope for our failure surface (the recent
@@ -29,11 +33,14 @@ import difflib
 import re
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional, cast
 
 import all2md
 
+from .via import profile_for
+
 if TYPE_CHECKING:
+    from all2md.constants import DocumentFormat
     from all2md.options.markdown import MarkdownRendererOptions
 
 
@@ -54,14 +61,37 @@ class CheckResult:
     skipped: bool = False
 
 
-def _roundtrip_once(md: str, renderer_options: Optional["MarkdownRendererOptions"]) -> str:
-    """Run one ``Markdown -> AST -> Markdown`` pass."""
-    result = all2md.convert(
-        md,
-        source_format="markdown",
-        target_format="markdown",
-        renderer_options=renderer_options,
-    )
+def _roundtrip_once(md: str, renderer_options: Optional["MarkdownRendererOptions"], via: str = "markdown") -> str:
+    """Run one ``Markdown -> AST -> Markdown`` pass, through ``via`` if it is another format.
+
+    With ``via="man"`` the pass is ``Markdown -> AST -> man -> AST -> Markdown``:
+    the document is written in that format and read back before the Markdown
+    render, so the oracles judge the format's renderer and parser together.
+    """
+    if via != "markdown":
+        fmt = cast("DocumentFormat", via)
+        intermediate = all2md.convert(
+            md,
+            source_format="markdown",
+            target_format=fmt,
+            renderer_options=profile_for(via).renderer_options,
+        )
+        if isinstance(intermediate, str):
+            intermediate = intermediate.encode("utf-8")
+        assert intermediate is not None  # a target format always returns content
+        result = all2md.convert(
+            intermediate,
+            source_format=fmt,
+            target_format="markdown",
+            renderer_options=renderer_options,
+        )
+    else:
+        result = all2md.convert(
+            md,
+            source_format="markdown",
+            target_format="markdown",
+            renderer_options=renderer_options,
+        )
     assert isinstance(result, str)  # markdown target is always text
     return result
 
@@ -70,6 +100,7 @@ def idempotency_check(
     md: str,
     *,
     renderer_options: Optional["MarkdownRendererOptions"] = None,
+    via: str = "markdown",
 ) -> CheckResult:
     """Assert the roundtrip reaches a fixed point (``once == twice``).
 
@@ -79,11 +110,11 @@ def idempotency_check(
     AST - the signature of the list/footnote roundtrip bugs (#84/#85/#91).
     """
     try:
-        once = _roundtrip_once(md, renderer_options)
+        once = _roundtrip_once(md, renderer_options, via)
     except Exception as exc:  # a construct that errors on roundtrip is itself a finding
         return CheckResult("idempotency", passed=False, detail=f"first render raised {type(exc).__name__}: {exc}")
     try:
-        twice = _roundtrip_once(once, renderer_options)
+        twice = _roundtrip_once(once, renderer_options, via)
     except Exception as exc:
         return CheckResult("idempotency", passed=False, detail=f"second render raised {type(exc).__name__}: {exc}")
 
@@ -101,6 +132,7 @@ def html_equivalence_check(
     md: str,
     *,
     renderer_options: Optional["MarkdownRendererOptions"] = None,
+    via: str = "markdown",
 ) -> CheckResult:
     """Assert the roundtrip preserves meaning, measured as reference HTML.
 
@@ -109,12 +141,13 @@ def html_equivalence_check(
     misses when the loss happens on the first render and is then stable.
     """
     try:
-        once = _roundtrip_once(md, renderer_options)
+        once = _roundtrip_once(md, renderer_options, via)
     except Exception as exc:
         return CheckResult("html_equivalence", passed=False, detail=f"render raised {type(exc).__name__}: {exc}")
 
-    original_html = _normalize_html(_reference_html(md))
-    roundtrip_html = _normalize_html(_reference_html(once))
+    project = profile_for(via).project
+    original_html = _normalize_html(_reference_html(md), project)
+    roundtrip_html = _normalize_html(_reference_html(once), project)
 
     if original_html == roundtrip_html:
         return CheckResult("html_equivalence", passed=True)
@@ -175,18 +208,21 @@ _VOID_TAGS = frozenset(
 _WS = re.compile(r"\s+")
 
 
-def _normalize_html(html: str) -> str:
+def _normalize_html(html: str, project: Optional[Callable[[Any], None]] = None) -> str:
     """Serialize HTML to a canonical, diff-friendly form.
 
     Insignificant inter-tag whitespace is dropped and text runs are collapsed to
     single spaces, so two HTML fragments that differ only in incidental
     whitespace compare equal while genuine structural differences (a missing
-    element, a changed cell) stand out line by line.
+    element, a changed cell) stand out line by line. ``project`` first rewrites
+    the parsed tree to remove what a ``via`` format cannot express.
     """
     from bs4 import BeautifulSoup
     from bs4.element import NavigableString, Tag
 
     soup = BeautifulSoup(html, "html.parser")
+    if project is not None:
+        project(soup)
     lines: list[str] = []
 
     def walk(node: object, depth: int) -> None:

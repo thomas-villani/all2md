@@ -238,11 +238,22 @@ jobs:
           set -o pipefail
           python -m benchmarks.roundtrip --json roundtrip-results.json | tee roundtrip-table.txt
 
+      # The same oracles through a man page (md -> AST -> man -> AST -> md), judging
+      # the man renderer and parser as a pair. man's inherent losses are projected
+      # away in benchmarks/roundtrip/via.py; MAN_EXPECTED_FAILURES ratchets the rest.
+      - name: Run roundtrip fidelity benchmark through man pages
+        if: success() || failure()
+        run: |
+          set -o pipefail
+          python -m benchmarks.roundtrip --via man --json roundtrip-man-results.json | tee roundtrip-man-table.txt
+
       # Only on red, so green runs stay quiet but a failure arrives with the diffs
       # already in the log instead of needing a local reproduction.
       - name: Show diffs for failures
         if: failure()
-        run: python -m benchmarks.roundtrip --show-diff
+        run: |
+          python -m benchmarks.roundtrip --show-diff || true
+          python -m benchmarks.roundtrip --via man --show-diff
 
       - name: Write summary
         if: always()
@@ -253,6 +264,12 @@ jobs:
             echo '```'
             cat roundtrip-table.txt || echo "benchmark did not produce a table"
             echo '```'
+            echo
+            echo "### Through man pages"
+            echo
+            echo '```'
+            cat roundtrip-man-table.txt || echo "benchmark did not produce a table"
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload results
@@ -260,7 +277,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: roundtrip-results-${{ github.run_number }}
-          path: roundtrip-results.json
+          path: |
+            roundtrip-results.json
+            roundtrip-man-results.json
           if-no-files-found: warn
 
   startup:
