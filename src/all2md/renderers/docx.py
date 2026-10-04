@@ -125,6 +125,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
     _CAPTION_NUMBER = re.compile(
         r"(?P<label>fig(?:ure|\.)?|tab(?:le|\.)?)(?P<gap>\s+)(?P<number>\d+)(?![0-9A-Za-z])(?!\.\d)",
         re.IGNORECASE,
+    )
     # Word's compatibility mode for a document it creates today (Word 2013 and later).
     # python-docx's default template names 14, Word 2010's, so every document opened with
     # "[Compatibility Mode]" in the title bar and the newer layout rules off.
