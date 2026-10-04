@@ -918,7 +918,7 @@ class ManParser(BaseParser):
             descriptions = [DefinitionDescription(content=frame.item_blocks)] if frame.item_blocks else []
             frame.dl_items.append((DefinitionTerm(content=frame.item_term or []), descriptions))
         else:
-            frame.list_items.append(ListItem(children=frame.item_blocks))
+            frame.list_items.append(_list_item(frame.item_blocks))
         frame.item_term = None
         frame.item_blocks = None
 
@@ -1367,6 +1367,28 @@ def _styled(text: str, font: _Font) -> Node:
     if font == "BI":
         return Strong(content=[Emphasis(content=[inner])])
     return Code(content=text)
+
+
+# A GitHub-style task marker at the start of a list item: "[ ] todo", "[x] done".
+_TASK_MARKER = re.compile(r"\[([ xX])\](?: +|$)")
+
+
+def _list_item(children: list[Node]) -> ListItem:
+    """Make a list item, reading a leading ``[ ]``/``[x]`` marker as its task status.
+
+    The man renderer writes task items that way (man has no checkboxes), and so do
+    hand-written pages, so the marker is read back as GitHub-flavored Markdown does.
+    """
+    first = children[0] if children else None
+    if isinstance(first, Paragraph) and first.content and isinstance(first.content[0], Text):
+        match = _TASK_MARKER.match(first.content[0].content)
+        if match:
+            rest = first.content[0].content[match.end() :]
+            content = ([Text(content=rest)] if rest else []) + first.content[1:]
+            status: Literal["checked", "unchecked"] = "unchecked" if match.group(1) == " " else "checked"
+            rest_blocks = ([Paragraph(content=content)] if content else []) + children[1:]
+            return ListItem(children=rest_blocks, task_status=status)
+    return ListItem(children=children)
 
 
 def _merge_text(nodes: list[Node]) -> list[Node]:
