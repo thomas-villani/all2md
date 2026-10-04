@@ -527,6 +527,44 @@ class TestTableRendering:
         docx_doc = DocxDocument(str(output_file))
         assert len(docx_doc.tables) >= 1
 
+    @staticmethod
+    def _one_cell_table(text, caption=None):
+        return Table(rows=[TableRow(cells=[TableCell(content=[Text(content=text)])])], caption=caption)
+
+    @staticmethod
+    def _body_shape(result):
+        from docx.oxml.ns import qn
+
+        body = DocxDocument(BytesIO(result)).element.body
+        names = {qn("w:tbl"): "tbl", qn("w:p"): "p"}
+        return [
+            names[child.tag] + ("" if child.tag != qn("w:p") or "".join(child.itertext()).strip() else "(empty)")
+            for child in body
+            if child.tag in names
+        ]
+
+    def test_adjacent_tables_keep_a_paragraph_between_them(self):
+        """Word reads two tables with nothing between them as one table."""
+        from all2md import to_ast
+
+        doc = Document(children=[self._one_cell_table("first"), self._one_cell_table("second")])
+        result = DocxRenderer().render_to_bytes(doc)
+        assert self._body_shape(result) == ["tbl", "p(empty)", "tbl"]
+        # The separator is not content: the parser drops it and reads two tables back.
+        children = to_ast(result, source_format="docx").children
+        assert [type(child).__name__ for child in children] == ["Table", "Table"]
+
+    @pytest.mark.parametrize(
+        "between",
+        [Paragraph(content=[Text(content="prose")]), None],
+        ids=["prose", "caption"],
+    )
+    def test_tables_already_apart_get_no_extra_paragraph(self, between):
+        second = self._one_cell_table("second", caption=None if between else "Table 2. Second")
+        children = [self._one_cell_table("first")] + ([between] if between else []) + [second]
+        result = DocxRenderer().render_to_bytes(Document(children=children))
+        assert self._body_shape(result) == ["tbl", "p", "tbl"]
+
 
 @pytest.mark.unit
 @pytest.mark.docx
