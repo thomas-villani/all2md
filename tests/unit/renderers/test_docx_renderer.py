@@ -527,6 +527,44 @@ class TestTableRendering:
         docx_doc = DocxDocument(str(output_file))
         assert len(docx_doc.tables) >= 1
 
+    @staticmethod
+    def _one_cell_table(text, caption=None):
+        return Table(rows=[TableRow(cells=[TableCell(content=[Text(content=text)])])], caption=caption)
+
+    @staticmethod
+    def _body_shape(result):
+        from docx.oxml.ns import qn
+
+        body = DocxDocument(BytesIO(result)).element.body
+        names = {qn("w:tbl"): "tbl", qn("w:p"): "p"}
+        return [
+            names[child.tag] + ("" if child.tag != qn("w:p") or "".join(child.itertext()).strip() else "(empty)")
+            for child in body
+            if child.tag in names
+        ]
+
+    def test_adjacent_tables_keep_a_paragraph_between_them(self):
+        """Word reads two tables with nothing between them as one table."""
+        from all2md import to_ast
+
+        doc = Document(children=[self._one_cell_table("first"), self._one_cell_table("second")])
+        result = DocxRenderer().render_to_bytes(doc)
+        assert self._body_shape(result) == ["tbl", "p(empty)", "tbl"]
+        # The separator is not content: the parser drops it and reads two tables back.
+        children = to_ast(result, source_format="docx").children
+        assert [type(child).__name__ for child in children] == ["Table", "Table"]
+
+    @pytest.mark.parametrize(
+        "between",
+        [Paragraph(content=[Text(content="prose")]), None],
+        ids=["prose", "caption"],
+    )
+    def test_tables_already_apart_get_no_extra_paragraph(self, between):
+        second = self._one_cell_table("second", caption=None if between else "Table 2. Second")
+        children = [self._one_cell_table("first")] + ([between] if between else []) + [second]
+        result = DocxRenderer().render_to_bytes(Document(children=children))
+        assert self._body_shape(result) == ["tbl", "p", "tbl"]
+
 
 @pytest.mark.unit
 @pytest.mark.docx
@@ -651,6 +689,81 @@ class TestDocumentMetadata:
         assert docx_doc.core_properties.title == "Test Document"
         assert docx_doc.core_properties.author == "Test Author"
         assert docx_doc.core_properties.subject == "Testing"
+
+
+def _compat_settings(docx_doc):
+    """Return ``{name: val}`` of the ``w:compatSetting`` elements in a document's settings."""
+    from docx.oxml.ns import qn
+
+    compat = docx_doc.settings.element.find(qn("w:compat"))
+    if compat is None:
+        return {}
+    return {el.get(qn("w:name")): el.get(qn("w:val")) for el in compat.findall(qn("w:compatSetting"))}
+
+
+@pytest.mark.unit
+@pytest.mark.docx
+class TestCompatibilityMode:
+    """Word opens a document naming no compatibility mode as a Word 2010 one."""
+
+    def test_default_render_replaces_the_default_templates_word_2010_mode(self):
+        from docx.oxml.ns import qn
+
+        result = DocxRenderer().render_to_bytes(Document(children=[Paragraph(content=[Text(content="x")])]))
+        docx_doc = DocxDocument(BytesIO(result))
+        assert _compat_settings(docx_doc)["compatibilityMode"] == "15"
+
+        # Word refuses settings children out of schema order: nothing before w:compat may be
+        # one the schema puts after it.
+        children = [child.tag for child in docx_doc.settings.element]
+        successors = {qn(tag) for tag in DocxRenderer._COMPAT_SUCCESSORS}
+        assert not successors & set(children[: children.index(qn("w:compat"))])
+
+    @pytest.mark.parametrize(("existing", "expected"), [("14", "14"), (None, "15")])
+    def test_a_template_mode_is_kept_and_a_missing_one_added(self, tmp_path, existing, expected):
+        from docx.oxml import OxmlElement
+        from docx.oxml.ns import qn
+
+        template_doc = DocxDocument()
+        settings = template_doc.settings.element
+        compat = OxmlElement("w:compat")
+        legacy = OxmlElement("w:doNotExpandShiftReturn")
+        compat.append(legacy)
+        if existing is not None:
+            setting = OxmlElement("w:compatSetting")
+            setting.set(qn("w:name"), "compatibilityMode")
+            setting.set(qn("w:uri"), "http://schemas.microsoft.com/office/word")
+            setting.set(qn("w:val"), existing)
+            compat.append(setting)
+        existing_compat = settings.find(qn("w:compat"))
+        settings.replace(existing_compat, compat)
+        template = tmp_path / "template.docx"
+        template_doc.save(str(template))
+
+        doc = Document(children=[Paragraph(content=[Text(content="x")])])
+        result = DocxRenderer(options=DocxRendererOptions(template_path=str(template))).render_to_bytes(doc)
+        docx_doc = DocxDocument(BytesIO(result))
+        assert _compat_settings(docx_doc) == {"compatibilityMode": expected}
+        rendered = docx_doc.settings.element.find(qn("w:compat"))
+        assert rendered.find(qn("w:doNotExpandShiftReturn")) is not None
+
+    def test_a_template_without_compat_gets_it_in_schema_order(self, tmp_path):
+        from docx.oxml.ns import qn
+
+        template_doc = DocxDocument()
+        settings = template_doc.settings.element
+        settings.remove(settings.find(qn("w:compat")))
+        template = tmp_path / "template.docx"
+        template_doc.save(str(template))
+
+        doc = Document(children=[Paragraph(content=[Text(content="x")])])
+        result = DocxRenderer(options=DocxRendererOptions(template_path=str(template))).render_to_bytes(doc)
+        docx_doc = DocxDocument(BytesIO(result))
+        assert _compat_settings(docx_doc) == {"compatibilityMode": "15"}
+        children = [child.tag for child in docx_doc.settings.element]
+        successors = {qn(tag) for tag in DocxRenderer._COMPAT_SUCCESSORS}
+        assert not successors & set(children[: children.index(qn("w:compat"))])
+        assert successors & set(children[children.index(qn("w:compat")) + 1 :])
 
 
 @pytest.mark.unit
