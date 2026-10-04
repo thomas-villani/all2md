@@ -15,6 +15,7 @@ generate DOCX content with appropriate styles and formatting.
 from __future__ import annotations
 
 import logging
+import re
 import tempfile
 from io import BytesIO
 from pathlib import Path
@@ -118,6 +119,13 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
     # paragraph in it with the figure or table beside it, so a caption written in it
     # comes back a caption rather than an italic paragraph.
     _CAPTION_STYLE = "Caption"
+    # A caption's label and number, as a PDF or a Markdown source prints them: "Figure 3",
+    # "Fig. 3", "TABLE 3". "Figure S1", "Figure 3A" and "Table 1.2" do not match: Word's SEQ
+    # field counts 1, 2, 3, and those are not numbers it could compute.
+    _CAPTION_NUMBER = re.compile(
+        r"(?P<label>fig(?:ure|\.)?|tab(?:le|\.)?)(?P<gap>\s+)(?P<number>\d+)(?![0-9A-Za-z])(?!\.\d)",
+        re.IGNORECASE,
+    )
     _W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     # Indent per depth of a list style the renderer creates: the 0.25" step of Word's own
     # "List Number 2" and "List Number 3". Word numbering definitions stop at nine levels.
@@ -141,6 +149,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         self._blockquote_depth: int = 0  # Track blockquote nesting depth
         self._captioned_figure_depth: int = 0  # Inside a Figure that writes its own caption
         self._available_styles: set[str] = set()  # Populated after document creation
+        self._caption_counts: dict[str, int] = {}  # SEQ identifier -> captions numbered so far
 
     @requires_dependencies("docx_render", DEPS_DOCX_RENDER)
     def render(self, doc: ASTDocument, output: Union[str, Path, IO[bytes]]) -> None:
@@ -184,6 +193,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                     self._clear_template_body()
             else:
                 self.document = self._Document()
+
+            self._caption_counts = {}
 
             # Cache available style names for safe lookups with templates
             self._available_styles = {s.name for s in self.document.styles}
@@ -808,6 +819,11 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         and the DOCX parser pairs it with the figure or table beside it. A template
         without the style gets the centered italic line captions were before.
 
+        The caption's number is written as the ``SEQ`` field Word's Insert Caption
+        writes, so Word numbers it, and a table of figures or a cross-reference can find
+        it (see `_caption_number`). The field's cached result is the printed number, so
+        the text reads the same, and the DOCX parser reads cached results.
+
         Parameters
         ----------
         caption : str
@@ -816,12 +832,59 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         """
         if not self.document or not caption.strip():
             return
-        if self._has_style(self._CAPTION_STYLE):
-            self.document.add_paragraph(caption, style=self._CAPTION_STYLE)
+        styled = self._has_style(self._CAPTION_STYLE)
+        caption_para = self.document.add_paragraph(style=self._CAPTION_STYLE if styled else None)
+        if not styled:
+            caption_para.alignment = self._WD_ALIGN_PARAGRAPH.CENTER
+
+        def add_text(text: str) -> None:
+            if text:
+                run = caption_para.add_run(text)
+                if not styled:
+                    run.italic = True
+
+        number = self._caption_number(caption)
+        if number is None:
+            add_text(caption)
             return
-        caption_para = self.document.add_paragraph(caption)
-        caption_para.alignment = self._WD_ALIGN_PARAGRAPH.CENTER
-        caption_para.runs[0].italic = True
+        identifier, start, end = number
+        add_text(caption[:start])
+        caption_para._p.append(self._sequence_field(identifier, caption[start:end], italic=not styled))
+        add_text(caption[end:])
+
+    def _caption_number(self, caption: str) -> tuple[str, int, int] | None:
+        """Find a caption number Word's ``SEQ`` field would print the same, and count it.
+
+        Returns ``(identifier, start, end)`` of the number in ``caption``, or None.
+
+        Word renumbers every ``SEQ`` field in order when fields update (F9, or printing), so
+        a field is written only where that changes nothing: the number continues its label's
+        sequence so far, 1, 2, 3. A caption that breaks it, say a figure the PDF printed only
+        as a graphic, or a supplementary "Figure S1", keeps its number as text, and so do
+        all later captions with that label.
+        """
+        match = self._CAPTION_NUMBER.match(caption.lstrip())
+        if match is None:
+            return None
+        identifier = "Table" if match.group("label").lower().startswith("tab") else "Figure"
+        count = self._caption_counts.get(identifier, 0)
+        if count < 0 or int(match.group("number")) != count + 1:
+            # Once broken, the label stays unnumbered: a later field would count from here.
+            self._caption_counts[identifier] = -1
+            return None
+        self._caption_counts[identifier] = count + 1
+        offset = len(caption) - len(caption.lstrip())
+        return identifier, offset + match.start("number"), offset + match.end("number")
+
+    def _sequence_field(self, identifier: str, number: str, *, italic: bool = False) -> Any:
+        """Build a ``w:fldSimple`` ``SEQ`` field whose cached result is ``number``."""
+        from docx.oxml.parser import parse_xml
+
+        run_properties = "<w:rPr><w:i/></w:rPr>" if italic else ""
+        return parse_xml(
+            f'<w:fldSimple xmlns:w="{self._W_NS}" w:instr=" SEQ {identifier} \\* ARABIC ">'
+            f"<w:r>{run_properties}<w:t>{number}</w:t></w:r></w:fldSimple>"
+        )
 
     def visit_list(self, node: List) -> None:
         """Render a List node.
