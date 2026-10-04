@@ -1581,6 +1581,61 @@ including table selection, multi-table handling, and CSV dialect options.
    :Default: ``False``
    :Importance: advanced
 
+DOC Options
+~~~~~~~~~~~
+
+
+DOC Parser Options
+^^^^^^^^^^^^^^^^^^
+
+Configuration options for Word 97-2003 (.doc) to AST parsing.
+
+**include_footnotes**
+
+   Include footnotes in output
+
+   :Type: ``bool``
+   :CLI flag: ``--doc-no-include-footnotes``
+   :Default: ``True``
+   :Importance: core
+
+**include_endnotes**
+
+   Include endnotes in output
+
+   :Type: ``bool``
+   :CLI flag: ``--doc-no-include-endnotes``
+   :Default: ``True``
+   :Importance: core
+
+**include_comments**
+
+   Include document comments in output
+
+   :Type: ``bool``
+   :CLI flag: ``--doc-include-comments``
+   :Default: ``False``
+   :Importance: core
+
+**comments_position**
+
+   Where to place Comment nodes in the AST: inline (CommentInline nodes at reference points) or footnotes (Comment block nodes appended at end)
+
+   :Type: ``Literal['inline', 'footnotes']``
+   :CLI flag: ``--doc-comments-position``
+   :Default: ``'footnotes'``
+   :Choices: ``inline``, ``footnotes``
+   :Importance: advanced
+
+**include_headers_footers**
+
+   Include page headers (before the body) and footers (after it), each distinct one once
+
+   :Type: ``bool``
+   :CLI flag: ``--doc-include-headers-footers``
+   :Default: ``False``
+   :Importance: advanced
+
 DOCX Options
 ~~~~~~~~~~~~
 

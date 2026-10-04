@@ -161,12 +161,21 @@ class TestSniffCfbKind:
 class TestCfbRouting:
     """Detection and the Outlook parser name the container's real format."""
 
-    def test_doc_routes_to_doc_parser_when_registered(self, monkeypatch):
-        monkeypatch.setitem(registry._converters, "doc", registry._converters["outlook"])
+    def test_doc_routes_to_doc_parser(self):
         assert registry.detect_format(build_cfb(DOC)) == "doc"
 
-    def test_doc_without_a_parser_still_reaches_outlook(self):
-        assert registry.detect_format(build_cfb(DOC)) == "outlook"
+    def test_ppt_routes_to_ppt_parser_when_registered(self, monkeypatch):
+        monkeypatch.setitem(registry._converters, "ppt", registry._converters["outlook"])
+        assert registry.detect_format(build_cfb(PPT)) == "ppt"
+
+    def test_ppt_without_a_parser_still_reaches_outlook(self):
+        assert registry.detect_format(build_cfb(PPT)) == "outlook"
+
+    def test_doc_extension_on_another_container_routes_by_streams(self, tmp_path):
+        """The root streams decide before the extension: a message named .doc is a message."""
+        path = tmp_path / "mail.doc"
+        path.write_bytes(build_cfb(MSG, filler_sectors=4))
+        assert registry.detect_format(str(path)) == "outlook"
 
     def test_message_routes_to_outlook(self, tmp_path):
         path = tmp_path / "mail.bin"

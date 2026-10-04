@@ -101,6 +101,7 @@ if TYPE_CHECKING:
     from all2md.options.bbcode import BBCodeParserOptions  # noqa: F401
     from all2md.options.chm import ChmOptions  # noqa: F401
     from all2md.options.csv import CsvOptions, CsvRendererOptions  # noqa: F401
+    from all2md.options.doc import DocOptions  # noqa: F401
     from all2md.options.docx import DocxOptions, DocxRendererOptions  # noqa: F401
     from all2md.options.dokuwiki import DokuWikiOptions, DokuWikiParserOptions  # noqa: F401
     from all2md.options.eml import EmlOptions  # noqa: F401
@@ -188,6 +189,7 @@ _lazy_options = {
     "ChmOptions": ("all2md.options.chm", "ChmOptions"),
     "CsvOptions": ("all2md.options.csv", "CsvOptions"),
     "CsvRendererOptions": ("all2md.options.csv", "CsvRendererOptions"),
+    "DocOptions": ("all2md.options.doc", "DocOptions"),
     "DocxOptions": ("all2md.options.docx", "DocxOptions"),
     "DocxRendererOptions": ("all2md.options.docx", "DocxRendererOptions"),
     "DokuWikiOptions": ("all2md.options.dokuwiki", "DokuWikiOptions"),
@@ -297,6 +299,7 @@ __all__ = [
     "ChmOptions",
     "CsvOptions",
     "CsvRendererOptions",
+    "DocOptions",
     "DocxOptions",
     "DocxRendererOptions",
     "DokuWikiOptions",

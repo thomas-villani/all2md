@@ -23,6 +23,9 @@ The most commonly used document formats with full-featured parsing support:
    * - DOCX
      - :doc:`all2md.parsers.docx`
      - Microsoft Word with formatting preservation
+   * - DOC
+     - :doc:`all2md.parsers.doc`
+     - Word 97-2003 binary documents (.doc)
    * - HTML
      - :doc:`all2md.parsers.html`
      - HTML/XHTML with configurable conversion

@@ -176,6 +176,7 @@ DocumentFormat = Literal[
     "bbcode",
     "chm",
     "csv",
+    "doc",
     "docx",
     "dokuwiki",
     "eml",

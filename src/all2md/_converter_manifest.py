@@ -104,6 +104,16 @@ _MANIFEST_RECORDS: list[ConverterMetadata] = [
         priority=6,
     ),
     ConverterMetadata(
+        format_name="doc",
+        extensions=[".doc", ".dot"],
+        mime_types=["application/msword"],
+        content_detector_path="all2md.parsers.doc._is_word_document",
+        parser_class="all2md.parsers.doc.DocParser",
+        parser_options_class="all2md.options.doc.DocOptions",
+        description="Parse Word 97-2003 binary documents (.doc) with the standard library",
+        priority=10,
+    ),
+    ConverterMetadata(
         format_name="docx",
         extensions=[".docx"],
         mime_types=["application/vnd.openxmlformats-officedocument.wordprocessingml.document"],

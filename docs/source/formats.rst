@@ -89,6 +89,26 @@ Common options: ``DocxOptions`` (tables, revisions, comments, notes, image handl
 measured against a Word-generated corpus with independent ground truth, described in
 :doc:`benchmarks`.
 
+Word 97-2003 Documents (DOC)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+*Parser:* ``DocParser``
+
+- Reads the binary format of Word 97 to Word 2003 directly, with the standard library: no
+  Word, LibreOffice or extra package. Detected by the ``WordDocument`` stream inside the
+  OLE2 container, so a ``.doc`` that is really RTF or HTML still goes to those parsers
+- Reads all the text: the body, footnotes and endnotes (as footnote definitions), comments
+  with their author, text boxes (after the paragraph that anchors them) and, optionally,
+  page headers and footers. Fields contribute the result Word last computed, and a
+  ``HYPERLINK`` field becomes a link
+- Title, author, keywords and dates come from the document's summary information
+- Formatting is not read yet: headings, tables and lists come back as plain paragraphs,
+  a table's cells one paragraph each, and images are skipped
+- Encrypted documents raise ``PasswordProtectedError``; Word 6 and Word 95 files are not
+  supported
+- Options: ``DocOptions`` (``include_footnotes``, ``include_endnotes``,
+  ``include_comments``, ``comments_position``, ``include_headers_footers``)
+
 PowerPoint Presentations (PPTX)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
