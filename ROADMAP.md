@@ -70,15 +70,18 @@ Instruments, cheapest first. Each is a step; the first two are the batch's spine
 1. ✅ **Re-parse scoring** (#521). Convert the PMC corpus's PDFs to DOCX, parse the DOCX
    back with our parser, run the existing JATS oracle on that AST. The delta against the
    direct PDF → AST reading isolates renderer loss with zero new ground truth. Manual, by
-   decision: no CI step. Its first reading's ledger is worked (see "Where we are"); the
-   fixes were each measured on a six-article subset, so the next step is a second full
-   reading of the development corpus to confirm them together before instrument 2.
-2. **Word as the write-side oracle.** `wordlive` reads the converted document back through
-   Word's own object model: do styles resolve, do lists number, do tables survive as
-   tables, do headings appear in the navigation pane. This is the check the re-parse
-   cannot do, because our parser and renderer can agree on a reading Word rejects. The
-   probe verified the loop end-to-end on 2026-08-23. Offline, like the DOCX corpus:
-   generated readings are committed and dated, never run in CI.
+   decision: no CI step. Its first reading's ledger is worked (see "Where we are"), and a
+   second full reading of the development corpus (2026-10-01) confirmed the fixes together.
+2. ✅ **Word as the write-side oracle** (`benchmarks.pmc word`). A hidden Word reads the
+   converted document back through its own object model: do headings reach the navigation
+   pane, do lists number, do tables survive as tables. This is the check the re-parse
+   cannot do, because our parser and renderer can agree on a reading Word rejects. Each
+   loss is split by who lost it: Word only, our parser only, or both. Windows-only and by
+   hand; readings are dated in `benchmarks/pmc/README.md`. The first reading (2026-10-03)
+   found four renderer defects our parser hides. Adjacent tables join into one. Every
+   bullet list in a document is one list to Word. Every document opens in Compatibility
+   Mode. Captions carry no `SEQ` field. Headings, list numbering, links and pictures are
+   clean.
 3. **Visual A/B.** `wordlive export-pdf` renders the converted DOCX through Word; compare
    page images against the source PDF. Layout fidelity judged on Word's rendering.
 4. **The incumbent baseline.** Word opens PDFs itself, through its reflow importer, and it
@@ -92,9 +95,9 @@ Known gaps to state before the first reading rather than discover after it:
   documented as one, not scored as a loss.
 - PDF has no structural footnote detection, so converted footnotes cannot become real
   Word footnotes until the parser finds them. A Theme 8 Stage 4 dependency; state it.
-- Figures: the PDF parser emits `Figure` nodes with bound captions since v1.13.0. Whether
-  the DOCX renderer writes them as pictures with captions Word recognises (`SEQ Figure`
-  fields) is exactly what instrument 2 answers.
+- Figures: the PDF parser emits `Figure` nodes with bound captions since v1.13.0.
+  Instrument 2's answer: every picture arrives and every caption carries Word's Caption
+  style (#524), but none has a `SEQ Figure` field, so Word does not number them.
 - Tables: the renderer already lays out colspan and rowspan (`_layout_table_grid`). The
   PDF side's row-grouping residue will show up here as the same 6.2 points and must not
   be re-chased under a new name.

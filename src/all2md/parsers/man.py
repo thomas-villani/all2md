@@ -930,7 +930,9 @@ class ManParser(BaseParser):
         if frame.list_kind == "dl" and frame.dl_items:
             frame.blocks.append(DefinitionList(items=frame.dl_items))
         elif frame.list_kind in ("ul", "ol") and frame.list_items:
-            tight = all(len(item.children) <= 1 for item in frame.list_items)
+            # A nested list does not loosen its item (Markdown's "- a" + "  - b" is
+            # tight); any other second block, a paragraph or code, does.
+            tight = all(sum(not isinstance(child, List) for child in item.children) <= 1 for item in frame.list_items)
             frame.blocks.append(
                 List(ordered=frame.list_kind == "ol", items=frame.list_items, start=frame.list_start, tight=tight)
             )
@@ -1262,8 +1264,27 @@ class ManParser(BaseParser):
         if table is not None:
             self._target().append(table)
 
+    def _table_cell(self, cell: Union[str, list[str]]) -> list[Node]:
+        """Read one tbl cell: a data field, or a text block of roff input lines."""
+        if isinstance(cell, str):
+            if cell.strip() in ("_", "=", "\\^"):
+                return []
+            runs, _continued = self._expand(cell.strip())
+            nodes = self._inline_nodes(runs)
+            self._font = self._prev_font = "R"
+            return nodes
+        # A text block can hold requests (.BR, .UR/.UE, .br), so it is read by a
+        # nested parser sharing this page's strings, and its blocks are flattened.
+        nested = ManParser(self.options)
+        nested._reset()
+        nested._strings = dict(self._strings)
+        for line in _logical_lines("\n".join(cell)):
+            nested._process_line(line)
+        nested._finish()
+        return _flatten_inline(nested._frames[0].blocks)
+
     def _build_table(self, lines: list[str]) -> Optional[Node]:
-        """Turn a simple tbl(1) table into a Table, or a code block when it is not simple."""
+        """Turn a tbl(1) table into a Table, reading T{ ... T} text blocks as cells."""
         if not lines:
             return None
         index = 0
@@ -1279,21 +1300,7 @@ class ManParser(BaseParser):
             index += 1
             if formats[-1].rstrip().endswith("."):
                 break
-        data = lines[index:]
-        if any(line.strip().startswith(("T{", ".T&")) or "T{" in line for line in data):
-            return CodeBlock(content="\n".join(self._plain(line) for line in data if line.strip() not in ("_", "=")))
-
-        rows: list[list[list[Node]]] = []
-        for line in data:
-            stripped = line.strip()
-            if stripped in ("_", "=", "") or line[:1] in (".", "'"):
-                continue
-            cells = []
-            for cell in line.split(tab):
-                runs, _continued = self._expand(cell.strip())
-                cells.append(self._inline_nodes(runs))
-            self._font = self._prev_font = "R"
-            rows.append(cells)
+        rows = [[self._table_cell(cell) for cell in row] for row in _table_rows(lines[index:], tab)]
         if not rows:
             return None
         width = max(len(row) for row in rows)
@@ -1307,10 +1314,54 @@ class ManParser(BaseParser):
         alignments.extend([None] * (width - len(alignments)))
         # tbl has no header row as such; man pages put the column titles first
         # (usually bold, or ruled off with _), and a Markdown table needs a header.
-        table_rows = [TableRow(cells=[TableCell(content=cell) for cell in row]) for row in rows]
+        table_rows = [
+            TableRow(cells=[TableCell(content=cell, alignment=alignments[col]) for col, cell in enumerate(row)])
+            for row in rows
+        ]
         header = table_rows[0]
         header.is_header = True
         return Table(header=header, rows=table_rows[1:], alignments=alignments)
+
+
+def _table_rows(data: list[str], tab: str) -> list[list[Union[str, list[str]]]]:
+    """Split tbl data lines into rows of cells.
+
+    A cell is either one field of a data line (a string) or the lines of a
+    ``T{`` ... ``T}`` text block (a list). After ``T}`` the rest of that line
+    carries on with the row's remaining fields. Rules (``_``, ``=``), requests
+    between rows and ``.T&`` format changes are skipped.
+    """
+    rows: list[list[Union[str, list[str]]]] = []
+    index = 0
+    while index < len(data):
+        line = data[index]
+        index += 1
+        stripped = line.strip()
+        if stripped == ".T&":
+            # A format change: its format lines run up to the one ending in ".".
+            while index < len(data) and not data[index].rstrip().endswith("."):
+                index += 1
+            index += 1
+            continue
+        if stripped in ("_", "=", "") or line[:1] in (".", "'"):
+            continue
+        row: list[Union[str, list[str]]] = []
+        fields = line.split(tab)
+        while fields:
+            field = fields.pop(0)
+            if field.strip() != "T{":
+                row.append(field)
+                continue
+            block: list[str] = []
+            while index < len(data) and not data[index].startswith("T}"):
+                block.append(data[index])
+                index += 1
+            row.append(block)
+            if index < len(data):
+                fields = data[index][2:].split(tab)[1:]
+                index += 1
+        rows.append(row)
+    return rows
 
 
 _FONT_MACROS: dict[str, tuple[_Font, ...]] = {
@@ -1395,6 +1446,38 @@ def _inline_text(nodes: list[Node]) -> str:
         else:
             parts.append(_inline_text(list(getattr(node, "content", None) or [])))
     return "".join(parts)
+
+
+def _flatten_inline(blocks: list[Node]) -> list[Node]:
+    """Join blocks into one inline sequence for a table cell, a space between blocks."""
+    out: list[Node] = []
+    for block in blocks:
+        if isinstance(block, Paragraph):
+            inline = list(block.content)
+        elif isinstance(block, CodeBlock):
+            inline = [Text(content=" ".join(block.content.split()))]
+        elif isinstance(block, Heading):
+            inline = list(block.content)
+        elif isinstance(block, List):
+            inline = _flatten_inline([child for item in block.items for child in item.children])
+        elif isinstance(block, DefinitionList):
+            parts: list[Node] = []
+            for term, descriptions in block.items:
+                parts.append(Paragraph(content=list(term.content)))
+                parts.extend(child for description in descriptions for child in description.content)
+            inline = _flatten_inline(parts)
+        elif isinstance(block, BlockQuote):
+            inline = _flatten_inline(list(block.children))
+        elif isinstance(block, Table):
+            rows = ([block.header] if block.header else []) + list(block.rows)
+            inline = _flatten_inline([Paragraph(content=list(cell.content)) for row in rows for cell in row.cells])
+        else:
+            inline = []
+        if inline:
+            if out:
+                out.append(Text(content=" "))
+            out.extend(inline)
+    return _merge_text(out)
 
 
 def _merge_text(nodes: list[Node]) -> list[Node]:

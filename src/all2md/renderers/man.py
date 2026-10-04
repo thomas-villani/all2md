@@ -123,6 +123,17 @@ def _quote_argument(arg: str) -> str:
     return f'"{arg}"' if not arg or any(ch.isspace() for ch in arg) else arg
 
 
+def _needs_text_block(nodes: list[Node]) -> bool:
+    """Whether inline content holds a link or a hard line break, which need requests."""
+    for node in nodes:
+        if isinstance(node, Link) or (isinstance(node, LineBreak) and not node.soft):
+            return True
+        content = getattr(node, "content", None)
+        if isinstance(content, list) and _needs_text_block(content):
+            return True
+    return False
+
+
 def _plain_text(nodes: list[Node]) -> str:
     """Concatenate the text of inline nodes, without formatting."""
     parts: list[str] = []
@@ -508,11 +519,24 @@ class ManRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             line = "\t".join(cell for cell in row_cells if cell is not None)
             if line.strip() in ("_", "="):
                 line = "\\&" + line
-            self._lines.append(_protect_line_start(line))
+            first, *rest = line.split("\n")
+            self._lines.append(_protect_line_start(first))
+            self._lines.extend(rest)
         self._lines.append(".TE")
 
     def _cell_text(self, cell: TableCell) -> str:
-        return self._line_text(cell.content).replace("\t", " ")
+        """Write a cell as one tbl field, or as a T{ T} text block when it needs requests.
+
+        A link (.UR/.UE) or a hard line break (.br) cannot sit inside a data line,
+        so such a cell becomes a text block whose lines are ordinary roff input.
+        """
+        if not _needs_text_block(cell.content):
+            text = self._line_text(cell.content).replace("\t", " ")
+            # An entry of just _ or = would draw a rule in that cell.
+            return "\\&" + text if text in ("_", "=") else text
+        lines = self._text_lines(self._render_inline_content(cell.content))
+        lines = ["\\&" + line if line.startswith("T}") else line for line in lines]
+        return "\n".join(["T{", *lines, "T}"])
 
     def visit_table_row(self, node: TableRow) -> None:
         """Render a TableRow node (handled by visit_table).

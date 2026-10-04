@@ -56,18 +56,9 @@ MAN_EXPECTED_FAILURES: dict[tuple[str, str], str] = {
         "Defect (man parser): fonts are read as runs, so bold-with-italic-inside comes back as "
         "Strong, Emphasis(Strong), Strong rather than one Strong holding an Emphasis."
     ),
-    ("lists-nested", "html_equivalence"): (
-        "Defect (man parser): an item holding a nested list (.RS/.RE) makes the list loose, so "
-        "tight nested lists come back with every item in a paragraph."
-    ),
     ("task-lists", "html_equivalence"): (
         "Defect (man parser): the renderer writes task items as '[ ] text' / '[x] text', and the "
         "parser does not read the marker back into a task status."
-    ),
-    ("tables", "html_equivalence"): (
-        "Defect: a link in a tbl cell is written as 'text <url>', which reads back as plain text and "
-        "then renders to Markdown as a broken autolink. Needs T{ T} text blocks with .UR in the "
-        "renderer and T{ support in the parser (which falls back to a code block today)."
     ),
     ("kitchen-sink", "html_equivalence"): ("Combines the footnotes (inherent) and task-lists (defect) entries above."),
 }

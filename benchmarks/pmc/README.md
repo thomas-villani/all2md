@@ -587,7 +587,7 @@ What it cannot do, stated up front:
 
 - **Renderer and DOCX parser are not separated.** The re-read goes through our own parser,
   so a defect in either looks the same, and the two can agree on a reading Word rejects.
-  Word's own read-back (`wordlive`, by hand) is the instrument that separates them.
+  Word's own read-back (`benchmarks.pmc word`, below) is the instrument that separates them.
 - **Article level only.** Page attribution rides on separator nodes a Word document has no
   reason to keep. The PDF is parsed with the library's *default* separator policy, not the
   lane's numbered one, which would reach the document as one review comment per page.
@@ -655,6 +655,83 @@ the document's words. What it loses:
   reading, which merges the links, said "BioMed", the text on the page. Heading text now
   adds nothing where one inline node meets the next; on the 6-article subset DOCX keeps
   79 of 79 headings.
+
+## Word's reading: `benchmarks.pmc word`
+
+The re-parse instrument reads our DOCX output with our own parser, so a renderer defect the
+parser forgives scores as a clean round trip. This one asks Word. Each article's AST is
+rendered once and read three ways: the AST itself (what we meant), our DOCX parser's reading
+(what `benchmarks.pmc docx` sees), and Word's reading through its object model (what a user
+gets). Every loss is then split by who lost it: **Word only** (the renderer wrote something
+our parser forgives and Word does not), **parser only** (a parser defect the re-parse
+instrument blamed on the renderer), or **both**.
+
+```bash
+.venv/Scripts/python.exe -m benchmarks.pmc word --workdir ./word-out --out word.json
+```
+
+**Windows with Word installed, by hand, never in CI.** Word is started as its own hidden
+instance (`DispatchEx`), so a reading never touches a Word you have open; each document is
+opened read-only and closed unsaved. `win32com` is imported only by `WordReader`, so the
+pairing and its tests run anywhere. A 66-article reading takes about 30 minutes, half of it
+Word: COM costs about 30 ms per paragraph.
+
+What Word's reading means, per structure:
+
+- **Headings**: paragraphs with an outline level, which is what the navigation pane shows.
+  A lone leading H1 the renderer wrote in the Title style is shifted back as the DOCX
+  parser shifts it.
+- **Lists**: Word's own `List` objects. Word groups list paragraphs by numbering instance,
+  not by adjacency. **List items** are paired separately by the number Word *displays*,
+  which is what a reader sees, however Word groups them.
+- **Tables**: `Document.Tables`, rows by widest row.
+- **Links**: hyperlink spans. Word reports addresses lowercased in the host,
+  percent-decoded, and with a bare host given its `/`; both sides are normalized the same
+  way.
+- **Captions**: paragraphs in the Caption style. Whether Word *numbers* them (a `SEQ`
+  field, which a table of figures and a cross-reference need) is counted beside them.
+
+### First reading, 2026-10-03 (development corpus, 66 articles, Word 16.0.20430)
+
+All 66 articles were read all three ways.
+
+| Word against the AST | kept / lost / gained | lost by Word only / parser only / both |
+|---|---|---|
+| headings (level and text) | 1622 / 0 / 0 of 1622 | 0 / 0 / 0 |
+| tables (rows × columns) | 161 / **10** / 5 of 171 | **10** / 0 / 0 |
+| lists (Word's grouping) | 167 / **188** / 40 of 355 | **176** / 0 / 12 |
+| list items (displayed number) | 770 / 0 / 0 of 770 | 0 / 9 / 0 |
+| links | 1443 / 0 / 0 of 1443 | 0 / 0 / 0 |
+| captions | 189 / 0 / 0 of 189 | 0 / 0 / 0 |
+
+The links row is from the instrument as committed. The first pass treated two hyperlinks to
+one URL in consecutive paragraphs as one span and scored 24 links lost, so the ten articles
+affected were read again after the fix. Pictures: 438 in the AST, 438 in Word. Equations:
+none on either side.
+
+**Found only by Word**, each a renderer defect our parser hides:
+
+- **Adjacent tables join.** Five pairs in five articles (13 × 14 and 13 × 13 become 26 × 14
+  in PMC10000026.1). The renderer writes two `w:tbl` elements with nothing between them,
+  and Word shows two tables that touch as one. Our parser reads two.
+- **Every bullet list in a document is one list to Word.** Each bullet list takes the
+  "List Bullet" style's numbering instance, so Word's `List` objects put a document's
+  bullets into one list: a corresponding-author note and a reference list three pages later
+  are the same list. Each paragraph still shows its bullet (list items: 0 lost), but
+  Word's list operations, such as restarting or converting to numbers, act on all of them
+  at once. Numbered lists, which get an instance each since #527, are clean. The parser's
+  own merge of adjacent bullet lists is the 12 under "both".
+- **Every document opens in Compatibility Mode.** All 66 report `CompatibilityMode` 14
+  (Word 2010). The renderer's template, python-docx's default, has no
+  `compatibilityMode` setting, so Word puts "[Compatibility Mode]" in the title bar and
+  turns off newer layout features.
+- **Captions are styled but not numbered.** All 189 captions carry the Caption style; none
+  has a `SEQ` field, so Insert Table of Figures and cross-references find nothing.
+
+**Clean in Word:** headings reach the navigation pane at the AST's level, including the
+three documents whose leading H1 became a Title; every numbered item displays the number
+the AST gave it; every link and picture arrives. The 9 list items lost by the parser only
+are empty list paragraphs, which the DOCX parser drops by design.
 
 ## Licences
 
