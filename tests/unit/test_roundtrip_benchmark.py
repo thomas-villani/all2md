@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from benchmarks.roundtrip import corpus, oracles, run
+from benchmarks.roundtrip import corpus, oracles, run, via
 from benchmarks.roundtrip.oracles import (
     CheckResult,
     html_equivalence_check,
@@ -69,7 +69,7 @@ def test_idempotency_flags_non_fixed_point(monkeypatch: pytest.MonkeyPatch) -> N
     # Force once != twice: first render appends a marker, second does not.
     calls = {"n": 0}
 
-    def fake_roundtrip(md: str, _opts: object) -> str:
+    def fake_roundtrip(md: str, _opts: object, _via: str) -> str:
         calls["n"] += 1
         return md if calls["n"] == 1 else md + "\nMUTATED\n"
 
@@ -80,7 +80,7 @@ def test_idempotency_flags_non_fixed_point(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 def test_idempotency_reports_render_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    def boom(md: str, _opts: object) -> str:
+    def boom(md: str, _opts: object, _via: str) -> str:
         raise ValueError("kaboom")
 
     monkeypatch.setattr(oracles, "_roundtrip_once", boom)
@@ -95,7 +95,7 @@ def test_idempotency_reports_render_error(monkeypatch: pytest.MonkeyPatch) -> No
 def test_html_equivalence_passes_on_faithful_reformatting(monkeypatch: pytest.MonkeyPatch) -> None:
     # A roundtrip that only reformats (bullet marker, blank lines) but preserves
     # meaning must PASS - otherwise the oracle would flag benign normalization.
-    def reformat(md: str, _opts: object) -> str:
+    def reformat(md: str, _opts: object, _via: str) -> str:
         return "- a\n- b\n"
 
     monkeypatch.setattr(oracles, "_roundtrip_once", reformat)
@@ -105,7 +105,7 @@ def test_html_equivalence_passes_on_faithful_reformatting(monkeypatch: pytest.Mo
 
 def test_html_equivalence_flags_semantic_loss(monkeypatch: pytest.MonkeyPatch) -> None:
     # A roundtrip that drops a paragraph must FAIL.
-    def drop_paragraph(md: str, _opts: object) -> str:
+    def drop_paragraph(md: str, _opts: object, _via: str) -> str:
         return "first\n"
 
     monkeypatch.setattr(oracles, "_roundtrip_once", drop_paragraph)
@@ -248,3 +248,98 @@ def test_summary_counts_match_the_reported_statuses(monkeypatch: pytest.MonkeyPa
         (corpus.Case(name="bad", markdown="c\n"), [_result("idempotency", passed=False)]),
     ]
     assert run._summary(rows) == {"passed": 1, "failed": 1, "xfailed": 1, "xpassed": 0, "skipped": 0}
+
+
+def test_every_via_expected_failure_records_a_reason() -> None:
+    for fmt, table in run.EXPECTED_FAILURES_BY_VIA.items():
+        for key, reason in table.items():
+            assert reason.strip(), f"{fmt}: {key} has no recorded reason"
+
+
+# --- round trips through another format (--via) -------------------------------
+#
+# A via profile projects a format's inherent losses out of both sides of the HTML
+# comparison. The danger is a projection broad enough to hide a real loss, so the
+# tests below pin each rule and show that losses outside the rules still fail.
+
+
+def _man_norm(html: str) -> str:
+    return oracles._normalize_html(html, via.profile_for("man").project)
+
+
+def test_via_round_trip_goes_through_the_format(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[str] = []
+    real_convert = oracles.all2md.convert
+
+    def spy(source: object, **kwargs: object) -> object:
+        seen.append(f"{kwargs['source_format']}->{kwargs['target_format']}")
+        return real_convert(source, **kwargs)
+
+    monkeypatch.setattr(oracles.all2md, "convert", spy)
+    once = oracles._roundtrip_once("# T(1)\n\n## Usage\n\nRun *it*.\n", None, "man")
+    assert seen == ["markdown->man", "man->markdown"]
+    assert "## Usage" in once  # the profile turns off man's uppercase .SH convention
+    assert "Run *it*." in once
+
+
+def test_man_projection_removes_inherent_losses() -> None:
+    original = (
+        "<h1>Tool</h1><p>a <del>b</del> <mark>c</mark> x<sup>2</sup> H<sub>2</sub> <ins>d</ins> "
+        '<img alt="pic" src="p.png"> <a href="u" title="t">l</a></p>'
+        '<pre><code class="language-py">x</code></pre><h4>Deep</h4><hr>'
+        '<table><tr><td style="text-align:left">1</td></tr></table>'
+        "<dl><dt>t</dt><dd>one</dd><dd>two</dd></dl>"
+    )
+    roundtrip = (
+        '<h1>Tool(1)</h1><p>a b c x2 H2 <em>d</em> pic <a href="u">l</a></p>'
+        "<pre><code>x</code></pre><p><strong>Deep</strong></p><p>* * *</p>"
+        "<table><tr><td>1</td></tr></table>"
+        "<dl><dt>t</dt><dd><p>one</p><p>two</p></dd></dl>"
+    )
+    assert _man_norm(original) == _man_norm(roundtrip)
+
+
+def test_man_projection_drops_the_untitled_placeholder() -> None:
+    assert _man_norm("<p>x</p>") == _man_norm("<h1>UNTITLED(1)</h1><p>x</p>")
+
+
+def test_man_projection_keeps_real_losses_visible() -> None:
+    # What man CAN express must still be compared: emphasis, paragraphs, cells,
+    # list structure, a heading's level and text.
+    for original, lossy in [
+        ("<p><em>a</em> b</p>", "<p>a b</p>"),
+        ("<p>first</p><p>second</p>", "<p>first second</p>"),
+        ("<table><tr><td>1</td></tr></table>", "<table><tr><td>9</td></tr></table>"),
+        ("<ul><li>a</li><li>b</li></ul>", "<ul><li>a b</li></ul>"),
+        ("<h2>Usage</h2>", "<h3>Usage</h3>"),
+        ("<h1>Tool</h1>", "<h1>Other(1)</h1>"),
+        ("<p>a <code>x</code></p>", "<p>a x</p>"),
+    ]:
+        assert _man_norm(original) != _man_norm(lossy), original
+
+
+def test_via_html_oracle_still_fails_on_semantic_loss(monkeypatch: pytest.MonkeyPatch) -> None:
+    def drop_paragraph(md: str, _opts: object, _via: str) -> str:
+        return "first\n"
+
+    monkeypatch.setattr(oracles, "_roundtrip_once", drop_paragraph)
+    assert not html_equivalence_check("first\n\nsecond\n", via="man").passed
+
+
+def test_unprofiled_format_is_judged_without_projection() -> None:
+    assert via.profile_for("rst") == via.ViaProfile()
+
+
+def test_status_and_staleness_use_the_via_table(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setitem(run.MAN_EXPECTED_FAILURES, ("doc", "html_equivalence"), "accepted for test")
+    failing = _result("html_equivalence", passed=False)
+    assert run._status("doc", failing, "man") == "XFAIL"
+    assert run._status("doc", failing) == "FAIL"  # the Markdown table is separate
+    rows = [(corpus.Case(name="other", markdown="x\n"), [failing])]
+    assert ("doc", "html_equivalence") in run._stale_expected_failures(rows, "man")
+
+
+def test_evaluate_case_via_man() -> None:
+    case = corpus.Case(name="simple", markdown="# T(1)\n\n## Name\n\nt - do *things*\n\n- a\n- b\n")
+    results = evaluate_case(case, "man")
+    assert all(r.passed for r in results), [(r.oracle, r.detail, r.diff) for r in results]
