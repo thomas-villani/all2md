@@ -940,6 +940,10 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         # Word sets a table's caption above it (Insert Caption's default for tables).
         if node.caption:
             self._add_caption_paragraph(node.caption)
+        elif self._body_ends_with_table():
+            # Word shows two tables with nothing between them as one table, whatever the XML
+            # says, so keep the paragraph Word itself always keeps between two tables.
+            self.document.add_paragraph()
 
         # Create table with proper dimensions
         table = self.document.add_table(rows=grid.num_rows, cols=grid.num_cols)
@@ -961,6 +965,15 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 docx_cell.merge(table.rows[end_row].cells[end_col])
 
         self._in_table = False
+
+    def _body_ends_with_table(self) -> bool:
+        """Whether the last block in the document body (before its sectPr) is a table."""
+        if not self.document:
+            return False
+        for child in reversed(self.document.element.body):
+            if child.tag != self._qn("w:sectPr"):
+                return bool(child.tag == self._qn("w:tbl"))
+        return False
 
     def _render_table_cell(self, docx_cell: _Cell, ast_cell: TableCell, is_header: bool = False) -> None:
         """Render a single table cell.
