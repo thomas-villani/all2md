@@ -117,9 +117,12 @@ alerts.
 render-only format `terminal` (open question 2). `render_renderables`, `render_to_string`
 and `heading_positions(doc)` (the heading map, top-level headings only) are the API. A
 merged table cell's content sits in its first cell and the cells it spans are blank (open
-question 4). The `image_mode` option waits for stage 4. Only a whole document switched:
-`--extract`, `--outline`, `--slice`, the line windows and `--line-numbers` still go through
-`rich.markdown`, since each produces Markdown text; moving them is a follow-up.
+question 4). The `image_mode` option waits for stage 4. A whole document switched first
+(#580); `--extract`, `--slice` and `--outline` followed by rendering their sub-document
+(the outline as a nested list of the headings). Line windows still choose Markdown lines,
+so the numbers agree with `--outline -ln`, then re-parse and draw them. `--line-numbers`
+prints the numbered Markdown source unstyled, since the numbers count its lines; Rich's
+Markdown reader used to reflow it into one paragraph.
 
 **Switching `--rich` over.** When the CLI is rendering Markdown for the terminal, it uses
 the terminal renderer on the AST instead of `rich.markdown.Markdown` on the text.
