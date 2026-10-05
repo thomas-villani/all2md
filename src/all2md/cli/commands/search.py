@@ -793,13 +793,16 @@ def _build_or_load_index(
             print("Error: No input documents available for indexing", file=sys.stderr)
             return None, EXIT_FILE_ERROR
         try:
-            service.build_indexes(documents, modes={resolved_mode}, progress_callback=progress_callback)
+            service.build_indexes(
+                documents, modes={resolved_mode}, progress_callback=progress_callback, skip_errors=True
+            )
         except DependencyError as exc:
             print(f"Error: {exc}", file=sys.stderr)
             return None, EXIT_DEPENDENCY_ERROR
         except Exception as exc:
             print(f"Error building index: {exc}", file=sys.stderr)
             return None, EXIT_ERROR
+        _report_skipped(service)
 
         # Skip saving index for grep mode (grep doesn't need indexing)
         if index_path and parsed.persist and resolved_mode != "grep":
@@ -998,13 +1001,14 @@ def handle_grep_command(args: list[str] | None = None) -> int:
     service = SearchService(options=options)
     try:
         with conversion_cache_from_args(parsed):
-            service.build_indexes(documents, modes={SearchMode.GREP})
+            service.build_indexes(documents, modes={SearchMode.GREP}, skip_errors=True)
     except DependencyError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return EXIT_DEPENDENCY_ERROR
     except Exception as exc:
         print(f"Error building index: {exc}", file=sys.stderr)
         return EXIT_ERROR
+    _report_skipped(service, command="grep")
 
     try:
         # Grep mode returns all results (no top_k limit)
@@ -1025,6 +1029,13 @@ def handle_grep_command(args: list[str] | None = None) -> int:
         grep_show_line_numbers=options.grep_show_line_numbers,
     )
     return EXIT_SUCCESS
+
+
+def _report_skipped(service: SearchService, command: str = "search") -> None:
+    """Warn on stderr about each input that could not be read, as ``grep`` does, and go on."""
+    for source, error in service.skipped:
+        message = str(error).splitlines()[0] if str(error) else type(error).__name__
+        print(f"all2md {command}: {source}: skipped: {message}", file=sys.stderr)
 
 
 def _apply_search_config(options: SearchOptions, config_section: Mapping[str, object]) -> SearchOptions:

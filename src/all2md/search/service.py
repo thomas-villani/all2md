@@ -13,6 +13,7 @@ from all2md.ast.nodes import Document
 from all2md.ast.sections import get_all_sections, get_preamble
 from all2md.ast.utils import extract_text
 from all2md.constants import DocumentFormat
+from all2md.exceptions import All2MdError
 from all2md.options.search import SearchOptions
 from all2md.progress import ProgressCallback, ProgressEvent
 from all2md.search.bm25 import BM25Index, KeywordIndexConfig
@@ -101,6 +102,7 @@ class SearchService:
         """Initialise the service with optional search configuration overrides."""
         self.options = options or SearchOptions()
         self._state = SearchIndexState(chunks=[])
+        self.skipped: list[tuple[str, All2MdError]] = []
 
     @property
     def state(self) -> SearchIndexState:
@@ -113,8 +115,16 @@ class SearchService:
         *,
         modes: Iterable[SearchMode] | None = None,
         progress_callback: ProgressCallback | None = None,
+        skip_errors: bool = False,
     ) -> SearchIndexState:
-        """Convert sources into chunks and materialise requested indexes."""
+        """Convert sources into chunks and materialise requested indexes.
+
+        With ``skip_errors``, a document that fails to convert with an all2md error (a
+        missing optional dependency, an unsupported or damaged file) is left out and
+        recorded in :attr:`skipped` as ``(source, error)``, as ``grep`` skips a file it
+        cannot read; the first error is raised only when every document failed.
+        """
+        self.skipped = []
         requested_modes = set(modes or {self._default_mode()})
         if SearchMode.HYBRID in requested_modes:
             requested_modes.update({SearchMode.KEYWORD, SearchMode.VECTOR})
@@ -136,11 +146,19 @@ class SearchService:
             document_id = doc_input.document_id or _derive_document_id(doc_input.source)
             document_path = Path(doc_input.source) if isinstance(doc_input.source, (str, Path)) else None
             source_fmt: DocumentFormat = cast(DocumentFormat, doc_input.source_format or "auto")
-            ast_doc = to_ast(
-                doc_input.source,
-                source_format=source_fmt,
-                progress_callback=progress_callback,
-            )
+            try:
+                ast_doc = to_ast(
+                    doc_input.source,
+                    source_format=source_fmt,
+                    progress_callback=progress_callback,
+                )
+            except All2MdError as error:
+                if not skip_errors:
+                    raise
+                self.skipped.append((str(doc_input.source), error))
+                if len(self.skipped) == len(documents):
+                    raise self.skipped[0][1] from None
+                continue
             parsed_documents.append((ast_doc, doc_input))
 
             context_metadata: MutableMapping[str, object] = {"document_index": idx}
