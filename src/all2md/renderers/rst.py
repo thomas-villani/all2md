@@ -100,7 +100,6 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         self.options: RstRendererOptions = options
         self._output: list[str] = []
         self._in_list: bool = False
-        self._list_depth: int = 0
         self._in_blockquote: int = 0
         self._in_footnote: int = 0
 
@@ -120,7 +119,6 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         self._output = []
         self._in_list = False
-        self._list_depth = 0
         # Set by a container for the list it is about to render, consumed by visit_list.
         self._alternate_list_marker = False
         self._in_blockquote = 0
@@ -412,7 +410,6 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         was_in_list = self._in_list
         self._in_list = True
-        self._list_depth += 1
         # The flag is for this list alone; a nested list starts from the default again.
         alternate = self._alternate_list_marker
         self._alternate_list_marker = False
@@ -426,29 +423,34 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 # Use bullet list format
                 marker = "- " if alternate else "* "
 
-            # Add indentation for nested lists
-            indent = "   " * (self._list_depth - 1)
-            self._output.append(f"{indent}{marker}")
+            self._output.append(marker)
 
             # Render item content
             saved_output = self._output
             self._output = []
             item.accept(self)
-            item_content = "".join(self._output)
+            item_content = "".join(self._output).rstrip("\n")
             self._output = saved_output
 
-            # Add item content (first line inline with marker, rest indented)
+            # The first line follows the marker; the rest of the item indents to the
+            # marker's text column, which is how docutils finds the item body (#517).
+            # A nested list is indented by this alone: indenting it further made
+            # docutils read the parent's text and the list as a definition list.
+            # Blank lines are kept (without trailing spaces), since they separate the
+            # item's blocks: without them a nested list or literal block fused with
+            # the paragraph above it.
+            body_indent = " " * len(marker)
             lines = item_content.split("\n")
-            if lines:
-                self._output.append(lines[0])
-                for line in lines[1:]:
-                    if line.strip():
-                        self._output.append(f"\n{indent}   {line}")
+            self._output.append(lines[0])
+            for line in lines[1:]:
+                self._output.append(f"\n{body_indent}{line}" if line.strip() else "\n")
 
             if i < len(node.items) - 1:
-                self._output.append("\n")
+                # An item with several blocks ends with an indented block; the next
+                # marker needs a blank line after it, or docutils reports an
+                # unexpected unindent.
+                self._output.append("\n\n" if len(lines) > 1 else "\n")
 
-        self._list_depth -= 1
         self._in_list = was_in_list
 
     def visit_list_item(self, node: ListItem) -> None:
@@ -468,7 +470,8 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             child.accept(self)
             previous = child
             if i < len(node.children) - 1:
-                self._output.append("\n")
+                # A blank line between an item's blocks, as between any body elements.
+                self._output.append("\n\n")
 
     def visit_table(self, node: Table) -> None:
         """Render a Table node.
