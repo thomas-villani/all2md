@@ -1,6 +1,8 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """Unit tests for new AsciiDoc parser improvements."""
 
+import pytest
+
 from all2md.ast import (
     BlockQuote,
     DefinitionDescription,
@@ -13,6 +15,8 @@ from all2md.ast import (
 )
 from all2md.options.asciidoc import AsciiDocOptions
 from all2md.parsers.asciidoc import AsciiDocParser
+
+NL = chr(10)
 
 
 class TestAsciiDocThematicBreaks:
@@ -528,82 +532,104 @@ class TestAsciiDocNamedInlineFootnotes:
 
 
 class TestAsciiDocAdmonitions:
-    """Tests for admonition block support."""
+    """Admonitions carry the metadata every parser uses (see ``BlockQuote``)."""
 
-    def test_note_admonition(self) -> None:
-        """Test [NOTE] creates BlockQuote with role='note'."""
-        asciidoc = """[NOTE]
-This is a note."""
-        parser = AsciiDocParser()
-        doc = parser.parse(asciidoc)
+    @pytest.mark.parametrize("label", ["NOTE", "TIP", "IMPORTANT", "WARNING", "CAUTION"])
+    def test_attribute_form(self, label: str) -> None:
+        doc = AsciiDocParser().parse(f"[{label}]" + NL + "Body text.")
 
         blockquote = doc.children[0]
         assert isinstance(blockquote, BlockQuote)
-        assert blockquote.metadata.get("role") == "note"
+        assert blockquote.metadata == {"admonition_type": label.lower(), "source_format": "asciidoc"}
+        assert isinstance(blockquote.children[0], Paragraph)
 
-    def test_tip_admonition(self) -> None:
-        """Test [TIP] admonition."""
-        asciidoc = """[TIP]
-Helpful tip here."""
-        parser = AsciiDocParser()
-        doc = parser.parse(asciidoc)
+    def test_attribute_form_is_case_insensitive(self) -> None:
+        doc = AsciiDocParser().parse("""[note]
+Lowercase note.""")
 
-        blockquote = doc.children[0]
-        assert isinstance(blockquote, BlockQuote)
-        assert blockquote.metadata.get("role") == "tip"
+        assert doc.children[0].metadata["admonition_type"] == "note"
 
-    def test_important_admonition(self) -> None:
-        """Test [IMPORTANT] admonition."""
-        asciidoc = """[IMPORTANT]
-Pay attention!"""
-        parser = AsciiDocParser()
-        doc = parser.parse(asciidoc)
-
-        blockquote = doc.children[0]
-        assert blockquote.metadata.get("role") == "important"
-
-    def test_warning_admonition(self) -> None:
-        """Test [WARNING] admonition."""
-        asciidoc = """[WARNING]
-Be careful!"""
-        parser = AsciiDocParser()
-        doc = parser.parse(asciidoc)
-
-        blockquote = doc.children[0]
-        assert blockquote.metadata.get("role") == "warning"
-
-    def test_caution_admonition(self) -> None:
-        """Test [CAUTION] admonition."""
-        asciidoc = """[CAUTION]
-Proceed with caution."""
-        parser = AsciiDocParser()
-        doc = parser.parse(asciidoc)
-
-        blockquote = doc.children[0]
-        assert blockquote.metadata.get("role") == "caution"
-
-    def test_admonition_case_insensitive(self) -> None:
-        """Test admonitions work with different cases."""
-        asciidoc = """[note]
-Lowercase note."""
-        parser = AsciiDocParser()
-        doc = parser.parse(asciidoc)
+    def test_paragraph_form(self) -> None:
+        """``NOTE: text`` is the form most AsciiDoc uses; the label is not body text."""
+        doc = AsciiDocParser().parse("TIP: Save often.")
 
         blockquote = doc.children[0]
         assert isinstance(blockquote, BlockQuote)
-        assert blockquote.metadata.get("role") == "note"
+        assert blockquote.metadata["admonition_type"] == "tip"
+        paragraph = blockquote.children[0]
+        assert isinstance(paragraph, Paragraph)
+        assert paragraph.content == [Text(content="Save often.")]
 
-    def test_disable_admonitions(self) -> None:
-        """Test parse_admonitions=False disables admonition parsing."""
-        asciidoc = """[NOTE]
-Should not be admonition."""
+    @pytest.mark.parametrize("text", ["Note: mixed case.", "NOTE:no space.", "A NOTE: mid-line."])
+    def test_paragraph_form_needs_the_exact_label(self, text: str) -> None:
+        doc = AsciiDocParser().parse(text)
+
+        assert isinstance(doc.children[0], Paragraph)
+
+    def test_example_block_form(self) -> None:
+        """``[WARNING]`` above ``====`` makes the whole block the admonition, not an example."""
+        doc = AsciiDocParser().parse("""[WARNING]
+====
+First.
+
+Second.
+====""")
+
+        blockquote = doc.children[0]
+        assert isinstance(blockquote, BlockQuote)
+        assert blockquote.metadata == {"admonition_type": "warning", "source_format": "asciidoc"}
+        assert len(blockquote.children) == 2
+
+    def test_plain_example_block_is_still_an_example(self) -> None:
+        doc = AsciiDocParser().parse("""====
+An example.
+====""")
+
+        assert doc.children[0].metadata == {"role": "example"}
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            """.Careful
+[WARNING]
+====
+Body.
+====""",
+            """[WARNING]
+.Careful
+====
+Body.
+====""",
+            """.Careful
+[WARNING]
+Body.""",
+            """.Careful
+WARNING: Body.""",
+        ],
+        ids=["title-then-label-block", "label-then-title-block", "title-then-label", "title-then-paragraph-form"],
+    )
+    def test_block_title_is_the_admonition_title(self, source: str) -> None:
+        doc = AsciiDocParser().parse(source)
+
+        assert len(doc.children) == 1
+        assert doc.children[0].metadata["admonition_title"] == "Careful"
+        assert doc.children[0].metadata["admonition_type"] == "warning"
+
+    def test_anchor_names_the_admonition(self) -> None:
+        doc = AsciiDocParser().parse("""[#keep]
+[NOTE]
+Anchored.""")
+
+        blockquote = doc.children[0]
+        assert blockquote.metadata["id"] == "keep"
+        assert "id" not in blockquote.children[0].metadata
+
+    @pytest.mark.parametrize("source", ["[NOTE]" + NL + "Plain.", "NOTE: Plain."])
+    def test_disable_admonitions(self, source: str) -> None:
         options = AsciiDocOptions(parse_admonitions=False)
-        parser = AsciiDocParser(options=options)
-        _ = parser.parse(asciidoc)
+        doc = AsciiDocParser(options=options).parse(source)
 
-        # Should just be a paragraph, not wrapped in BlockQuote
-        # (or the block attribute is ignored)
-        # The exact behavior depends on implementation
+        assert isinstance(doc.children[0], Paragraph)
 
 
 class TestAsciiDocAttributeContinuation:
