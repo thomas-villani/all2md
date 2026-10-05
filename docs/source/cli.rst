@@ -889,8 +889,9 @@ Key Options
 
 * ``--via FORMAT`` — the intermediate format (default ``markdown``). It must have
   both a renderer and a parser; passing an unknown value prints the valid list.
-* ``--format FORMAT`` — the source format, overriding auto-detection. Worth
-  setting for stdin: piped Markdown sniffs as plaintext.
+* ``--format FORMAT`` — the source format, overriding auto-detection. Piped
+  Markdown is recognized by its content; set it when a short snippet carries too
+  few Markdown marks to tell it from plain text.
 * ``--fail-under SCORE`` — exit non-zero if any document scores below ``SCORE``.
 * ``--max-deltas N`` — show at most ``N`` differences per document (``0`` for all).
 * ``--json`` — emit the report(s) as JSON for machine consumption.
@@ -3297,7 +3298,8 @@ Output Control
       # Force PDF processing for file without extension
       all2md mysterious_file --format pdf
 
-      # Treat binary data as markdown for rendering
+      # Piped Markdown is recognized by its content (headings, lists, links,
+      # fenced code, front matter); force it for a snippet with too few marks
       cat draft.md | all2md - --format markdown
 
 Attachment Handling

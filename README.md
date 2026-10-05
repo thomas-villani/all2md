@@ -86,6 +86,7 @@ rcat contract.pdf --pager                        # page through it (set PAGER="l
 rcat budget.xlsx --head 40                       # the first 40 lines
 rcat ls.1.gz                                     # a gzipped man page
 curl -sL https://example.com/spec.pdf | rcat -   # from stdin
+cat notes.md | rcat                              # piped Markdown, front matter and all
 ```
 
 `rcat FILE` is shorthand for `all2md FILE --rich`, so every conversion option works with it. Styling switches itself off when the output is piped, so `rcat report.docx | grep budget` sees plain text; `--force-rich` keeps it. Code themes (`--rich-code-theme dracula`) and the colors of headings, links and quotes (a `[rich]` table in the config file) are yours to set.
