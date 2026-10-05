@@ -2,14 +2,14 @@
 <!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
 "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <article>
-  {% if metadata.title %}
-  <title>{{ metadata.title|escape_xml }}</title>
+  {% if metadata.get('title') %}
+  <title>{{ metadata.get('title')|escape_xml }}</title>
   {% endif %}
 
-  {% if metadata.author %}
+  {% if metadata.get('author') %}
   <articleinfo>
     <author>
-      <firstname>{{ metadata.author|escape_xml }}</firstname>
+      <firstname>{{ metadata.get('author')|escape_xml }}</firstname>
     </author>
   </articleinfo>
   {% endif %}

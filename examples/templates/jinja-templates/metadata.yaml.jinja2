@@ -1,10 +1,10 @@
 ---
-title: {{ metadata.title|escape_yaml }}
-{% if metadata.author -%}
-author: {{ metadata.author|escape_yaml }}
+title: {{ metadata.get('title')|escape_yaml }}
+{% if metadata.get('author') -%}
+author: {{ metadata.get('author')|escape_yaml }}
 {% endif -%}
-{% if metadata.date -%}
-date: {{ metadata.date|escape_yaml }}
+{% if metadata.get('date') -%}
+date: {{ metadata.get('date')|escape_yaml }}
 {% endif -%}
 
 document_structure:

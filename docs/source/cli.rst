@@ -228,8 +228,8 @@ Common grep-style options:
 * ``-C`` / ``--context`` – Print N lines of leading and trailing context
 * ``-e`` / ``--regex`` – Interpret query as a regular expression
 * ``-M`` / ``--max-columns`` – Maximum display width for long lines (default: 150, 0 = unlimited)
-* ``--rich`` – Enable colorized output with match highlighting
-* ``--recursive`` – Recurse into directories when searching
+* ``--rich`` – Enable colorized output with match highlighting (on a terminal; plain when piped)
+* ``-r`` / ``--recursive`` – Recurse into directories when searching
 * ``--exclude`` – Glob pattern to exclude files (repeatable)
 
 The grep command provides section-based output, grouping matches by document structure
@@ -1147,7 +1147,7 @@ applies in place — see :ref:`auto-fix` below.
 
 Common options:
 
-* ``-R`` / ``--recursive`` – recurse into directories when collecting inputs
+* ``-r`` / ``-R`` / ``--recursive`` – recurse into directories when collecting inputs
 * ``--profile NAME`` – start from a curated rule bundle, then layer config-file
   and CLI settings on top (see :ref:`lint-profiles` below)
 * ``--list-profiles`` – print the available profiles with descriptions and exit
@@ -1598,7 +1598,7 @@ Arguments
    Subdirectory within content dir for output
    (e.g., "posts" creates content/posts/ for Hugo)
 
-``--recursive``
+``-r``, ``--recursive``
    Recursively process directories
 
 ``--exclude PATTERN``
@@ -2470,7 +2470,10 @@ Use Cases
       all2md user-manual.pdf --outline --out manual-toc.md
 
       # Share document structure with team
-      all2md specification.docx --outline --rich --out spec-outline.txt
+      all2md specification.docx --outline --out spec-outline.md
+
+      # ...or read it in the terminal, styled
+      all2md specification.docx --outline --rich
 
 **Batch Analysis:**
 
@@ -3418,12 +3421,23 @@ Markdown Formatting
 Rich Terminal Output
 ~~~~~~~~~~~~~~~~~~~~
 
-``--rich``
-   Enable Rich-rendered Markdown with colour, hyperlinks, and tables. Automatically disables itself when stdout is
-   redirected, unless ``--force-rich`` is present.
+Rich output needs the ``rich`` package, which the ``cli_extras`` and ``all`` extras install
+(``pip install "all2md[cli_extras]"``).
 
-``--force-rich``
-   Force Rich formatting even when piping or redirecting output. Useful for capturing styled console logs.
+``--rich``
+   Enable Rich-rendered Markdown with color, hyperlinks, and tables. Automatically disables itself when stdout is
+   redirected, unless ``--force-rich`` is present. Only a single document written to stdout is styled: with
+   ``--out``, ``--output-dir`` or several inputs, ``--rich`` styles the progress display and summary instead.
+   With a target other than Markdown (``--to html``, ``--to json``, ...), the output is syntax-highlighted.
+
+``rcat``
+   A second command installed beside ``all2md``: ``rcat FILE`` is ``all2md FILE --rich``, a ``cat`` for any
+   document format. Every other flag works with it (``rcat report.docx --pager``, ``rcat deck.pptx --outline``,
+   ``rcat paper.pdf --extract "Methods"``).
+
+``--force-rich`` (``-f``)
+   Force Rich formatting even when piping or redirecting output. Useful for capturing styled console logs. When
+   stdout is not a terminal, Rich lays the text out 80 columns wide.
 
 ``--rich-code-theme`` / ``--rich-inline-code-theme``
    Pick Pygments themes for fenced code blocks and inline code. ``monokai`` is the default. List available styles with
@@ -3439,8 +3453,9 @@ Rich Terminal Output
    Control text justification for Rich Markdown (``left`` | ``center`` | ``right`` | ``full``).
 
 The related environment variables are ``ALL2MD_RICH``, ``ALL2MD_FORCE_RICH``, ``ALL2MD_RICH_CODE_THEME``,
-``ALL2MD_RICH_INLINE_CODE_THEME``, ``ALL2MD_RICH_WORD_WRAP``, ``ALL2MD_RICH_HYPERLINKS`` (set to ``false`` to disable),
-and ``ALL2MD_RICH_JUSTIFY``.
+``ALL2MD_RICH_INLINE_CODE_THEME``, ``ALL2MD_RICH_NO_WORD_WRAP``, ``ALL2MD_RICH_HYPERLINKS`` (set to ``false`` to disable),
+``ALL2MD_RICH_JUSTIFY`` and ``ALL2MD_PAGER``. The colors of Markdown elements are set in the ``[rich]`` table of a
+config file (see :doc:`configuration`).
 
 Configuration and Debugging
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3961,7 +3976,8 @@ Processing and Output Control
       all2md document.pdf --rich
 
 ``--pager``
-   Display output using system pager for long documents (stdout only). Uses the system's default pager (``less`` on Unix, ``more`` on Windows) or the pager specified in ``PAGER`` or ``MANPAGER`` environment variables.
+   Display output through the system pager (stdout only). Paging happens only when you ask for it; nothing pages
+   automatically by length. Uses the system's default pager (``less`` on Unix, ``more`` on Windows) or the pager specified in ``PAGER`` or ``MANPAGER`` environment variables.
 
    .. note::
 
@@ -3985,7 +4001,8 @@ Processing and Output Control
       export PAGER="less -R"
       all2md document.pdf --pager --rich
 
-      # Same on Windows (PowerShell / cmd)
+      # Same on Windows: PowerShell, then cmd
+      $env:PAGER = "less -R"
       set PAGER=less -R
       all2md document.pdf --pager --rich
 

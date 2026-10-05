@@ -148,6 +148,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("inputs", nargs="*", help="Files, directories, or globs to lint")
     parser.add_argument(
         "-R",
+        "-r",
         "--recursive",
         action="store_true",
         help="Recurse into directories",

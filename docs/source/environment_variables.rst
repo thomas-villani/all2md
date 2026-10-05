@@ -597,6 +597,9 @@ Pattern: ALL2MD_<OPTION_NAME>
    * - ``ALL2MD_RICH_JUSTIFY``
      - ``--rich-justify``
      - ``full``
+   * - ``ALL2MD_PAGER``
+     - ``--pager``
+     - ``true`` (page single-document output through ``PAGER``)
 
 **Format-Specific Options:**
 

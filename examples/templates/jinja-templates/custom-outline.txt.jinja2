@@ -1,12 +1,12 @@
 ========================================
-{{ metadata.title|upper if metadata.title else "DOCUMENT OUTLINE" }}
+{{ metadata.get('title')|upper if metadata.get('title') else "DOCUMENT OUTLINE" }}
 ========================================
 
-{% if metadata.author -%}
-Author: {{ metadata.author }}
+{% if metadata.get('author') -%}
+Author: {{ metadata.get('author') }}
 {% endif -%}
-{% if metadata.date -%}
-Date: {{ metadata.date }}
+{% if metadata.get('date') -%}
+Date: {{ metadata.get('date') }}
 {% endif -%}
 
 TABLE OF CONTENTS

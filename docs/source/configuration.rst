@@ -373,7 +373,7 @@ Terminal (Rich) Styling
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 When you render to the terminal with ``--rich`` (requires ``pip install
-all2md[rich]``), the colors used for Markdown elements — headings, links, block
+all2md[cli_extras]``), the colors used for Markdown elements — headings, links, block
 quotes, list bullets, inline code, and so on — can be customized under a
 ``[rich]`` table. Each key is a `Rich style name
 <https://rich.readthedocs.io/en/stable/style.html>`_ and each value is a Rich

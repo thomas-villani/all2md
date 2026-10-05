@@ -60,7 +60,7 @@ def _create_generate_site_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--content-subdir", default="", help="Subdirectory within content/ or _posts/ (e.g., 'posts', 'docs')"
     )
-    parser.add_argument("--recursive", action="store_true", help="Process directories recursively")
+    parser.add_argument("-r", "--recursive", action="store_true", help="Process directories recursively")
     parser.add_argument("--exclude", action="append", help="Glob patterns to exclude (can be used multiple times)")
     parser.add_argument(
         "--config",
