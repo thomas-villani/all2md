@@ -104,11 +104,13 @@ directly, with no Markdown string in between.
 | `Comment`, `CommentInline` | dim, prefixed with the author when there is one; hidden with an option |
 | `LineBreak` | newline inside the `Text` |
 
-**One finding to settle first.** Admonitions are not represented one way: the RST parser
-puts `admonition_type` in a `BlockQuote`'s metadata, the AsciiDoc parser uses
-`admonition`, and the Markdown parser does not recognize GitHub's `> [!NOTE]` at all.
-The renderer should read one key. Normalizing it is a small preceding PR (and teaching
-the Markdown parser the GitHub alert syntax is a second, optional one).
+**One finding to settle first.** Admonitions were not represented one way: the RST and
+MkDocs (`!!!`) parsers put `admonition_type` and `admonition_title` in a `BlockQuote`'s
+metadata, the AsciiDoc parser used `role`, and the Markdown parser does not recognize
+GitHub's `> [!NOTE]` at all. The renderer should read one key. ✅ Normalized in its own
+PR: every parser now writes `admonition_type` / `admonition_title` (the contract is on
+`BlockQuote`'s docstring), and the AsciiDoc parser reads all three of its forms. Teaching
+the Markdown parser the GitHub alert syntax is the second, optional PR.
 
 **Switching `--rich` over.** When the CLI is rendering Markdown for the terminal, it uses
 the terminal renderer on the AST instead of `rich.markdown.Markdown` on the text.

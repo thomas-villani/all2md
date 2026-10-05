@@ -1246,11 +1246,11 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         Handles three cases:
 
-        - A Material for MkDocs admonition (``source_format == "mkdocs"``)
-          rendered to a flavor that supports admonitions becomes a native
-          ``!!!`` / ``???`` block.
-        - Any other admonition (RST, or mkdocs on a non-supporting flavor)
-          degrades to a quote with a bold label (e.g. ``> **Note:** ...``).
+        - An admonition (a quote with ``admonition_type`` metadata, from any
+          parser) rendered to a flavor that supports admonitions becomes a
+          native ``!!!`` / ``???`` block.
+        - An admonition on any other flavor degrades to a quote with a bold
+          label (e.g. ``> **Note:** ...``).
         - A plain block quote is quoted as usual.
 
         Parameters
@@ -1261,10 +1261,9 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         metadata = node.metadata or {}
         admonition_type = metadata.get("admonition_type")
-        source_format = metadata.get("source_format")
 
-        # Native mkdocs admonition output when the flavor supports it.
-        if admonition_type and source_format == "mkdocs" and self._flavor.supports_admonitions():
+        # Native admonition output when the flavor supports it.
+        if admonition_type and self._flavor.supports_admonitions():
             self._render_mkdocs_admonition(node)
             if self.options.link_style == "reference" and self.options.reference_link_placement == "after_block":
                 self._emit_block_references()
@@ -1276,9 +1275,8 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         quoted = self._render_children_to_string(node)
         lines = quoted.split("\n")
 
-        # Prepend admonition label for RST admonitions and for mkdocs
-        # admonitions degrading onto a flavor without admonition support.
-        if admonition_type and source_format in ("rst", "mkdocs"):
+        # Prepend the admonition's label on a flavor without admonition support.
+        if admonition_type:
             # Use custom title if available, otherwise capitalize admonition type
             if admonition_title:
                 label = admonition_title

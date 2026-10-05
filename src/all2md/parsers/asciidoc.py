@@ -63,6 +63,26 @@ from all2md.utils.parser_helpers import parse_delimited_block
 
 logger = logging.getLogger(__name__)
 
+#: The five admonition labels AsciiDoc defines.
+_ADMONITION_TYPES = frozenset({"NOTE", "TIP", "IMPORTANT", "WARNING", "CAUTION"})
+
+#: The paragraph form, ``NOTE: text``. The label is case-sensitive, as in Asciidoctor.
+_ADMONITION_PARAGRAPH = re.compile(r"^(?P<label>NOTE|TIP|IMPORTANT|WARNING|CAUTION):[ \t]+(?P<rest>.*)$")
+
+
+def _admonition_metadata(admonition_type: str, attrs: dict[str, Any]) -> dict[str, Any]:
+    """Build the admonition metadata every parser puts on its ``BlockQuote``.
+
+    See :class:`all2md.ast.nodes.BlockQuote` for the keys. A ``.Title`` line above
+    the admonition becomes its title, as Asciidoctor shows it.
+    """
+    metadata: dict[str, Any] = {"admonition_type": admonition_type.lower(), "source_format": "asciidoc"}
+    if attrs.get("title"):
+        metadata["admonition_title"] = attrs["title"]
+    if "id" in attrs:
+        metadata["id"] = attrs["id"]
+    return metadata
+
 
 class TokenType(Enum):
     """Token types for AsciiDoc lexer."""
@@ -669,7 +689,7 @@ class AsciiDocParser(BaseParser):
         - [#anchor-id] -> id: anchor-id
         - [.role-name] -> role: role-name
         - [options="header"] -> options: ["header"]
-        - [NOTE], [TIP], etc. -> admonition: note/tip/etc.
+        - [NOTE], [TIP], etc. -> admonition: NOTE/TIP/etc.
 
         Parameters
         ----------
@@ -690,11 +710,10 @@ class AsciiDocParser(BaseParser):
             return
 
         # Check for admonitions
-        admonition_types = {"NOTE", "TIP", "IMPORTANT", "WARNING", "CAUTION"}
         attr_upper = attr_content.upper()
-        if attr_upper in admonition_types and self.options.parse_admonitions:
+        if attr_upper in _ADMONITION_TYPES and self.options.parse_admonitions:
             # Mark this as an admonition
-            self.pending_block_attrs["admonition"] = attr_upper.lower()
+            self.pending_block_attrs["admonition"] = attr_upper
             return
 
         # Parse positional and named attributes
@@ -817,20 +836,30 @@ class AsciiDocParser(BaseParser):
         Returns
         -------
         str or None
-            ``"table"``, ``"image"``, or None if this is not a block title
+            ``"table"``, ``"image"``, ``"admonition"``, or None if this is not a
+            block title
 
         """
         token = self._current_token()
         if token.type != TokenType.TEXT_LINE or not self._block_title_match(token.content):
             return None
         offset = 1
-        while self._peek_token(offset).type == TokenType.BLOCK_ATTRIBUTE:
+        # The admonition label may come before the title (``[NOTE]`` then ``.Title``)
+        # as well as after it; Asciidoctor takes either order.
+        admonition_label = "admonition" in self.pending_block_attrs
+        while (attribute := self._peek_token(offset)).type == TokenType.BLOCK_ATTRIBUTE:
+            admonition_label = admonition_label or attribute.content.strip().upper() in _ADMONITION_TYPES
             offset += 1
         following = self._peek_token(offset)
         if following.type == TokenType.TABLE_DELIMITER:
             return "table"
         if following.type == TokenType.TEXT_LINE and self.image_block_pattern.match(following.content.strip()):
             return "image"
+        if self.options.parse_admonitions:
+            if admonition_label and following.type in (TokenType.TEXT_LINE, TokenType.EXAMPLE_BLOCK_DELIMITER):
+                return "admonition"
+            if following.type == TokenType.TEXT_LINE and _ADMONITION_PARAGRAPH.match(following.content):
+                return "admonition"
         return None
 
     def _parse_block(self) -> Node | list[Node] | None:
@@ -1073,6 +1102,15 @@ class AsciiDocParser(BaseParser):
             if self._current_token().type == TokenType.BLANK_LINE:
                 break
 
+        # The paragraph form of an admonition, ``NOTE: text``: the label goes, and
+        # the paragraph is the admonition's body.
+        admonition = attrs.get("admonition")
+        if admonition is None and lines and self.options.parse_admonitions:
+            match = _ADMONITION_PARAGRAPH.match(lines[0])
+            if match:
+                admonition = match.group("label")
+                lines[0] = match.group("rest")
+
         content = self._inline_from_lines(lines)
 
         # `.Caption` above a block image is that figure's caption, the same way it is
@@ -1095,11 +1133,10 @@ class AsciiDocParser(BaseParser):
         else:
             paragraph = Paragraph(content=content)
 
-        # If this is an admonition, wrap in BlockQuote with role
-        if "admonition" in attrs:
-            admonition_type = attrs["admonition"]
-            admonition_metadata = {"role": admonition_type}
-            return BlockQuote(children=[paragraph], metadata=admonition_metadata)
+        if admonition is not None:
+            # The anchor names the admonition, not the paragraph inside it.
+            paragraph.metadata.pop("id", None)
+            return BlockQuote(children=[paragraph], metadata=_admonition_metadata(admonition, attrs))
 
         return paragraph
 
@@ -2012,6 +2049,12 @@ class AsciiDocParser(BaseParser):
             collect_mode="blocks",
             parse_block_fn=self._parse_block,
         )
+
+        # ``[WARNING]`` above ``====`` makes the whole block that admonition.
+        if "admonition" in attrs:
+            return BlockQuote(
+                children=cast(list[Node], children), metadata=_admonition_metadata(attrs["admonition"], attrs)
+            )
 
         # Apply metadata with example role
         metadata = {"role": "example"}

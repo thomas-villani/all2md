@@ -625,14 +625,22 @@ class CodeBlock(Node):
 class BlockQuote(Node):
     """Block quote node containing other block elements.
 
-    Represents a quoted section of content.
+    Represents a quoted section of content. An admonition (a note, tip, warning
+    and so on) is a block quote whose metadata says so, with the same keys
+    whichever parser read it:
+
+    - ``admonition_type``: the kind, lowercase (``"note"``, ``"warning"``, ...).
+      Its presence is what makes the quote an admonition.
+    - ``admonition_title``: an explicit title, when the source gave one.
+    - ``source_format``: the syntax it was read from (``"rst"``, ``"mkdocs"``,
+      ``"asciidoc"``). Informational only; a renderer decides from the type.
 
     Parameters
     ----------
     children : list of Node, default = empty list
         Block-level nodes in the quote
     metadata : dict, default = empty dict
-        Block quote metadata
+        Block quote metadata, including the admonition keys above
     source_location : SourceLocation or None, default = None
         Source location information
 
