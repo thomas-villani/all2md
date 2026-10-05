@@ -127,6 +127,7 @@ if TYPE_CHECKING:
     from all2md.options.outlook import OutlookOptions  # noqa: F401
     from all2md.options.pdf import PdfOptions, PdfRendererOptions  # noqa: F401
     from all2md.options.plaintext import PlainTextOptions, PlainTextParserOptions  # noqa: F401
+    from all2md.options.ppt import PptOptions  # noqa: F401
     from all2md.options.pptx import PptxOptions, PptxRendererOptions  # noqa: F401
     from all2md.options.rst import RstParserOptions, RstRendererOptions  # noqa: F401
     from all2md.options.rtf import RtfOptions, RtfRendererOptions  # noqa: F401
@@ -231,6 +232,7 @@ _lazy_options = {
     "PdfRendererOptions": ("all2md.options.pdf", "PdfRendererOptions"),
     "PlainTextOptions": ("all2md.options.plaintext", "PlainTextOptions"),
     "PlainTextParserOptions": ("all2md.options.plaintext", "PlainTextParserOptions"),
+    "PptOptions": ("all2md.options.ppt", "PptOptions"),
     "PptxOptions": ("all2md.options.pptx", "PptxOptions"),
     "PptxRendererOptions": ("all2md.options.pptx", "PptxRendererOptions"),
     "RstParserOptions": ("all2md.options.rst", "RstParserOptions"),
@@ -341,6 +343,7 @@ __all__ = [
     "PdfRendererOptions",
     "PlainTextOptions",
     "PlainTextParserOptions",
+    "PptOptions",
     "PptxOptions",
     "PptxRendererOptions",
     "RstParserOptions",

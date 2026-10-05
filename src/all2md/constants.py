@@ -202,6 +202,7 @@ DocumentFormat = Literal[
     "outlook",
     "pdf",
     "plaintext",
+    "ppt",
     "pptx",
     "rst",
     "rtf",

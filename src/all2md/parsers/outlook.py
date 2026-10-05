@@ -129,11 +129,11 @@ def _reject_non_message_cfb(input_data: Union[str, Path, IO[bytes], bytes]) -> N
     if kind is None or kind == "msg":
         return
     name, modern_extension = describe_cfb_kind(kind)
-    raise FormatError(
-        f"This file is a {name}, not an Outlook message. all2md cannot read this format yet; "
-        f"save it as {modern_extension} and convert that instead.",
-        format_type=kind,
-    )
+    if kind in ("doc", "ppt"):
+        advice = f"convert it as {kind!r} instead (source_format={kind!r})."
+    else:
+        advice = f"all2md cannot read this format yet; save it as {modern_extension} and convert that instead."
+    raise FormatError(f"This file is a {name}, not an Outlook message. {advice}", format_type=kind)
 
 
 def _msg_recipient_headers(msg_obj: Any) -> dict[str, str]:
