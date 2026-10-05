@@ -379,9 +379,15 @@ quotes, list bullets, inline code, and so on — can be customized under a
 <https://rich.readthedocs.io/en/stable/style.html>`_ and each value is a Rich
 style string (e.g. ``"bold red"``, ``"italic green"``, ``"underline blue"``).
 
-Bare Markdown element names are accepted as a convenience and are automatically
-prefixed with ``markdown.``; fully-qualified names (anything containing a dot)
-are passed through verbatim, so you can also override non-Markdown Rich styles.
+Markdown element names are accepted as a convenience and are automatically
+prefixed with ``markdown.`` (``h1``, ``item.bullet``); any other name is passed
+through verbatim, so you can also override non-Markdown Rich styles.
+
+Besides Rich's own Markdown names, the terminal renderer behind ``--rich`` reads
+``u`` (underline), ``mark``, ``math``, ``footnote``, ``dt`` (definition terms),
+``image``, ``caption``, ``comment``, ``html``, ``task.checked``,
+``task.unchecked``, ``admonition``, and ``admonition.<kind>`` for each kind of
+admonition (``admonition.warning``, ``admonition.note``, ...).
 
 .. code-block:: toml
 
@@ -392,6 +398,7 @@ are passed through verbatim, so you can also override non-Markdown Rich styles.
    "item.bullet" = "yellow"       # markdown.item.bullet
    link = "underline blue"
    code = "bold bright_white on grey23"
+   "admonition.warning" = "bold yellow"
 
 Notes:
 

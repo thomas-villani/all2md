@@ -81,6 +81,7 @@ if TYPE_CHECKING:
     from all2md.options.rst import RstParserOptions, RstRendererOptions
     from all2md.options.rtf import RtfOptions, RtfRendererOptions
     from all2md.options.sourcecode import SourceCodeOptions
+    from all2md.options.terminal import TerminalRendererOptions
     from all2md.options.textile import TextileParserOptions, TextileRendererOptions
     from all2md.options.toml import TomlParserOptions, TomlRendererOptions
     from all2md.options.webarchive import WebArchiveOptions
@@ -163,6 +164,7 @@ _LAZY_EXPORTS: dict[str, str] = {
     "RtfOptions": "rtf",
     "RtfRendererOptions": "rtf",
     "SourceCodeOptions": "sourcecode",
+    "TerminalRendererOptions": "terminal",
     "TextileParserOptions": "textile",
     "TextileRendererOptions": "textile",
     "TomlParserOptions": "toml",
@@ -295,6 +297,7 @@ __all__ = [
     "RtfOptions",
     "RtfRendererOptions",
     "SourceCodeOptions",
+    "TerminalRendererOptions",
     "TextileParserOptions",
     "TextileRendererOptions",
     "TomlParserOptions",

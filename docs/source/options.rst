@@ -5321,7 +5321,7 @@ The Markdown format has no dedicated CLI flags. The common Markdown formatting f
 
 **parse_admonitions**
 
-   Parse Material for MkDocs admonitions (!!! note / ??? collapsible)
+   Parse admonitions: Material for MkDocs (!!! note / ??? collapsible) and GitHub alerts (> [!NOTE])
 
    :Type: ``bool``
    :Default: ``True``
@@ -10023,6 +10023,123 @@ including language detection, formatting options, and output customization.
    :CLI flag: ``--sourcecode-include-filename``
    :Default: ``False``
    :Importance: advanced
+
+TERMINAL Options
+~~~~~~~~~~~~~~~~
+
+
+TERMINAL Renderer Options
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Configuration options for AST to terminal (ANSI) rendering.
+
+**fail_on_resource_errors**
+
+   Raise RenderingError on resource failures (images, etc.) instead of logging warnings
+
+   :Type: ``bool``
+   :CLI flag: ``--terminal-renderer-fail-on-resource-errors``
+   :Default: ``False``
+   :Importance: advanced
+
+**max_asset_size_bytes**
+
+   Maximum allowed size in bytes for any single asset (images, downloads, attachments, etc.)
+
+   :Type: ``int``
+   :CLI flag: ``--terminal-renderer-max-asset-size-bytes``
+   :Default: ``52428800``
+   :Importance: security
+
+**metadata_policy**
+
+   Metadata rendering policy controlling which fields appear in output
+
+   :Type: ``MetadataRenderPolicy``
+   :CLI flag: ``--terminal-renderer-metadata-policy``
+   :Default factory: ``MetadataRenderPolicy``
+   :Importance: advanced
+
+**creator**
+
+   Creator application name for document metadata (e.g., 'all2md'). Set to None to disable creator metadata.
+
+   :Type: ``str | None``
+   :CLI flag: ``--terminal-renderer-creator``
+   :Default: ``'all2md'``
+   :Importance: core
+
+**width**
+
+   Width in columns (default: the terminal's width, else 80)
+
+   :Type: ``int | None``
+   :CLI flag: ``--terminal-renderer-width``
+   :Default: ``None``
+
+**code_theme**
+
+   Pygments theme for code blocks
+
+   :Type: ``str``
+   :CLI flag: ``--terminal-renderer-code-theme``
+   :Default: ``'monokai'``
+   :Importance: core
+
+**inline_code_theme**
+
+   Pygments theme for inline code (default: the markdown.code style)
+
+   :Type: ``str | None``
+   :CLI flag: ``--terminal-renderer-inline-code-theme``
+   :Default: ``None``
+   :Importance: advanced
+
+**hyperlinks**
+
+   Clickable links (OSC 8)
+
+   :Type: ``bool``
+   :CLI flag: ``--terminal-renderer-no-hyperlinks``
+   :Default: ``True``
+   :Importance: advanced
+
+**justify**
+
+   Paragraph justification
+
+   :Type: ``Literal['left', 'center', 'right', 'full'] | None``
+   :CLI flag: ``--terminal-renderer-justify``
+   :Default: ``None``
+   :Choices: ``left``, ``center``, ``right``, ``full``
+
+**word_wrap**
+
+   Word wrapping
+
+   :Type: ``bool``
+   :CLI flag: ``--terminal-renderer-no-word-wrap``
+   :Default: ``True``
+   :Importance: advanced
+
+**color_system**
+
+   Color depth of the output
+
+   :Type: ``Literal['auto', 'standard', '256', 'truecolor', 'windows', 'none']``
+   :CLI flag: ``--terminal-renderer-color-system``
+   :Default: ``'auto'``
+   :Choices: ``auto``, ``standard``, ``256``, ``truecolor``, ``windows``, ``none``
+   :Importance: core
+
+**comment_mode**
+
+   Show comments or leave them out
+
+   :Type: ``Literal['visible', 'ignore']``
+   :CLI flag: ``--terminal-renderer-comment-mode``
+   :Default: ``'visible'``
+   :Choices: ``visible``, ``ignore``
 
 TEXTILE Options
 ~~~~~~~~~~~~~~~
