@@ -8,7 +8,7 @@ metadata:
 
 # all2md
 
-`all2md` converts between 40+ document formats and Markdown, from both the command line and a Python API. It reads PDF, DOCX, PPTX, XLSX, HTML, EML, EPUB, ODT/ODP/ODS, RTF, Jupyter notebooks, images, and 100+ source-code and config file types; renders Markdown back out to DOCX, PDF, PPTX, HTML, EPUB, LaTeX, RST, and more; and ships task commands for search, grep, diff, and static-site generation.
+`all2md` converts between 40+ document formats and Markdown, from both the command line and a Python API. It reads PDF, DOCX, PPTX, legacy Word/PowerPoint (.doc/.ppt), XLSX, HTML, EML, EPUB, ODT/ODP/ODS, RTF, man pages, Jupyter notebooks, images, and 100+ source-code and config file types; renders Markdown back out to DOCX, PDF, PPTX, HTML, EPUB, LaTeX, RST, and more; and ships task commands for search, grep, diff, and static-site generation.
 
 This file is the overview and index. Pick the task below and read the matching reference file for full CLI flags, Python API, and examples.
 
