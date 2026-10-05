@@ -368,6 +368,14 @@ class TestRejected:
         with pytest.raises(MalformedFileError, match="piece table"):
             _parse(bytes(data))
 
+    def test_fib_count_past_end_of_stream(self):
+        """A damaged count in the FIB is a malformed file, not a struct.error (found by the fuzz test)."""
+        data = bytearray(build_doc([("text\r", True)]))
+        fib = data.find(struct.pack("<H", 0xA5EC))
+        struct.pack_into("<H", data, fib + 32, 0xFFFF)  # csw: 64 K words of FibRgW97
+        with pytest.raises(MalformedFileError, match="FIB"):
+            _parse(bytes(data))
+
     @settings(max_examples=150, deadline=None, suppress_health_check=[HealthCheck.too_slow])
     @given(st.data())
     def test_mutations_raise_only_all2md_errors(self, draw):

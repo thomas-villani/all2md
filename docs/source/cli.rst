@@ -232,6 +232,11 @@ Common grep-style options:
 * ``-r`` / ``--recursive`` – Recurse into directories when searching
 * ``--exclude`` – Glob pattern to exclude files (repeatable)
 
+A file that cannot be read (a format whose optional dependency is not installed, or a
+damaged or encrypted file) is skipped with a one-line warning on stderr, as ``grep`` skips
+an unreadable file, and the rest are searched. The command fails only when no input could
+be read.
+
 The grep command provides section-based output, grouping matches by document structure
 (headings, preambles) for better context. Line numbers are relative to each section when
 using ``-n``.
