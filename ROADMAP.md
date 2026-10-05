@@ -212,6 +212,25 @@ no `olefile` dependency and no new install extra.
    `.doc`/`.ppt` with Word and scores each parse against its twin's. It is worth turning
    into a `benchmarks/` lane when tier 2 starts.
 
+### Alongside: reading documents in the terminal (Theme 5)
+
+The README now leads with `rcat`, and a class of tools exists only to do this (doxx for
+`.docx`, glow and mdcat for Markdown). Our path renders the AST to Markdown text and lets
+`rich.markdown` parse it again in a smaller dialect, so footnotes, math, task lists,
+definition lists and admonitions print as raw syntax, and display math loses its `\,`.
+Decided 2026-10-05, in this order, design in `docs/plans/terminal-viewer.md`:
+
+1. 🌱 **A terminal renderer from the AST.** rich renderables built from the nodes
+   themselves, no Markdown string between; `--rich` switches to it. Fixes `rcat` on its
+   own, needs no new dependency. Preceded by one small PR that gives admonitions a single
+   metadata key (RST and AsciiDoc disagree today).
+2. 🌱 **An interactive viewer on Wijjit**: a `ContentView` body, a `Tree` outline that
+   jumps to headings, a status bar, default/vim/less keys. A `tui` extra, Python 3.11+
+   only, since Wijjit needs it; testable headless in CI.
+3. **Search** in the viewer, best done upstream in Wijjit's `ContentView`.
+4. **Images** through the Kitty, iTerm2 and Sixel protocols, with Wijjit's half-block
+   `ImageView` as the fallback.
+
 ### Then: the outward push (Theme 5)
 
 Mostly writing, so it interleaves with the batch above rather than occupying one. It has
@@ -394,6 +413,8 @@ Shipped: one-click `uv` install scripts (v1.8.0), the GitHub Action as a convers
 gate (v1.10.1), `all2md view`/`serve` with mermaid and syntax highlighting.
 
 - 🌱 **The outward push** — see **Next**.
+- 🌱 **Reading documents in the terminal** — an AST-native terminal renderer, then an
+  interactive viewer on Wijjit; see **Next** and `docs/plans/terminal-viewer.md`.
 - 🌱 **Rich `--help` by default** — `rich-argparse` plus one shared parser factory and
   `NO_COLOR` wiring, so every subcommand's help is the colour-grouped layout without `--rich`.
 - 🚀 **Hosted conversion API** — a freemium endpoint; the backend for a Node client and a
