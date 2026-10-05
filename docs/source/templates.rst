@@ -380,6 +380,14 @@ Creates colorful, formatted terminal output with Unicode box drawing characters.
 
 **Use case:** Terminal documentation viewers, CLI help systems, README rendering
 
+.. code-block:: bash
+
+   all2md report.docx --to jinja \
+       --jinja-renderer-template-file examples/templates/jinja-templates/ansi-terminal.txt.jinja2
+
+For everyday reading in the terminal, ``rcat report.docx`` (``all2md report.docx --rich``) needs no
+template; this one shows how far a template alone can take the same idea.
+
 Custom Outline
 ~~~~~~~~~~~~~~
 

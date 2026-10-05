@@ -1014,7 +1014,7 @@ def _apply_rich_formatting(markdown_content: str, args: argparse.Namespace) -> t
             console.print(Markdown(markdown_content, **rich_kwargs), no_wrap=no_wrap)
         return capture.get(), True
     except ImportError:
-        print("Warning: Rich library not installed. Install with: pip install all2md[rich]", file=sys.stderr)
+        print("Warning: Rich library not installed. Install with: pip install all2md[cli_extras]", file=sys.stderr)
         return markdown_content, False
 
 
@@ -1054,7 +1054,7 @@ def _render_rich_text_output(text: str, args: argparse.Namespace, target_format:
         from rich.console import Console
         from rich.syntax import Syntax
     except ImportError:
-        print("Warning: Rich library not installed. Install with: pip install all2md[rich]", file=sys.stderr)
+        print("Warning: Rich library not installed. Install with: pip install all2md[cli_extras]", file=sys.stderr)
         print(text)
         return False
 

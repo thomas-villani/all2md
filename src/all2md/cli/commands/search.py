@@ -555,7 +555,7 @@ def _build_search_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--top-k", type=int, default=10, help="Maximum number of results to return")
     parser.add_argument("--json", action="store_true", help="Emit search results as JSON")
     parser.add_argument("--progress", action="store_true", help="Print progress updates during indexing/search")
-    parser.add_argument("--recursive", action="store_true", help="Recurse into directories when indexing inputs")
+    parser.add_argument("-r", "--recursive", action="store_true", help="Recurse into directories when indexing inputs")
     parser.add_argument("--exclude", action="append", help="Glob pattern to exclude (repeatable)")
     parser.add_argument("--rich", action="store_true", help="Enable rich-style output formatting when printing")
     parser.add_argument(
@@ -944,7 +944,7 @@ def handle_grep_command(args: list[str] | None = None) -> int:
         type=int,
         help="Maximum display width for long lines (default: 150, 0 = unlimited)",
     )
-    parser.add_argument("--recursive", action="store_true", help="Recurse into directories when searching")
+    parser.add_argument("-r", "--recursive", action="store_true", help="Recurse into directories when searching")
     parser.add_argument("--exclude", action="append", help="Glob pattern to exclude (repeatable)")
     parser.add_argument("--rich", action="store_true", help="Enable rich-style output formatting")
     add_cache_arguments(parser)

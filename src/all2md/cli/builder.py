@@ -2310,7 +2310,8 @@ def create_parser() -> argparse.ArgumentParser:
     # Create Rich output options group
     rich_group = parser.add_argument_group(
         "Rich output customization",
-        "Customize rich terminal output with syntax highlighting and formatting. Requires: `pip install all2md[rich]`. "
+        "Customize rich terminal output with syntax highlighting and formatting. "
+        "Requires: `pip install all2md[cli_extras]`. "
         "Markdown element colors (headings, links, block quotes, ...) can be themed via a `[rich]` table in your "
         "config file; run `all2md config generate` for a commented example.",
     )
