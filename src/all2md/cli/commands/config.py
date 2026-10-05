@@ -260,7 +260,7 @@ def _rich_theme_example_lines() -> List[str]:
     """
     return [
         "",
-        "# Terminal styling for `--rich` output (requires: pip install all2md[rich]).",
+        "# Terminal styling for `--rich` output (requires: pip install all2md[cli_extras]).",
         "# Values are Rich style strings; uncomment and edit to customize colors.",
         "# [rich]",
         '# h1 = "bold magenta"',

@@ -57,6 +57,23 @@ renderer = JinjaRenderer(options)
 output = renderer.render_to_string(document)
 ```
 
+### 4. `ansi-terminal.txt.jinja2` - ANSI Terminal
+
+Prints a document to the terminal with ANSI colors and Unicode box drawing: a title
+banner, a table of contents, styled headings and framed code blocks.
+
+**Usage:**
+```bash
+all2md report.docx --to jinja \
+    --jinja-renderer-template-file examples/templates/jinja-templates/ansi-terminal.txt.jinja2
+```
+
+For everyday terminal reading, `rcat report.docx` (`all2md report.docx --rich`) needs no template.
+
+Metadata is read with `metadata.get('title')` rather than `metadata.title` in all four
+templates: the renderer's `strict_undefined` is on by default, so an attribute a document
+does not have is an error, not an empty string.
+
 ## Template Features
 
 All templates have access to:

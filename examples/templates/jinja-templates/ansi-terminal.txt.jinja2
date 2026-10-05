@@ -60,21 +60,21 @@
 
 {# Title Box #}
 {{ BOLD }}{{ CYAN }}{{ DBOX_TL }}{{ DBOX_H * 78 }}{{ DBOX_TR }}{{ RESET }}
-{% if metadata.title -%}
-{{ BOLD }}{{ CYAN }}{{ DBOX_V }}{{ RESET }} {{ BOLD }}{{ BRIGHT_WHITE }}{{ metadata.title.center(76) }}{{ RESET }} {{ BOLD }}{{ CYAN }}{{ DBOX_V }}{{ RESET }}
+{% if metadata.get('title') -%}
+{{ BOLD }}{{ CYAN }}{{ DBOX_V }}{{ RESET }} {{ BOLD }}{{ BRIGHT_WHITE }}{{ metadata.get('title').center(76) }}{{ RESET }} {{ BOLD }}{{ CYAN }}{{ DBOX_V }}{{ RESET }}
 {% else -%}
 {{ BOLD }}{{ CYAN }}{{ DBOX_V }}{{ RESET }} {{ BOLD }}{{ BRIGHT_WHITE }}{{ "DOCUMENT".center(76) }}{{ RESET }} {{ BOLD }}{{ CYAN }}{{ DBOX_V }}{{ RESET }}
 {% endif -%}
 {{ BOLD }}{{ CYAN }}{{ DBOX_BL }}{{ DBOX_H * 78 }}{{ DBOX_BR }}{{ RESET }}
 
 {# Metadata Section #}
-{% if metadata.author or metadata.date -%}
+{% if metadata.get('author') or metadata.get('date') -%}
 {{ BRIGHT_BLACK }}{{ BOX_TL }}{{ BOX_H * 78 }}{{ BOX_TR }}{{ RESET }}
-{% if metadata.author -%}
-{{ BRIGHT_BLACK }}{{ BOX_V }}{{ RESET }} {{ DIM }}{{ ITALIC }}Author:{{ RESET }} {{ metadata.author }}{{ " " * (69 - metadata.author|length) }}{{ BRIGHT_BLACK }}{{ BOX_V }}{{ RESET }}
+{% if metadata.get('author') -%}
+{{ BRIGHT_BLACK }}{{ BOX_V }}{{ RESET }} {{ DIM }}{{ ITALIC }}Author:{{ RESET }} {{ metadata.get('author') }}{{ " " * (69 - metadata.get('author')|length) }}{{ BRIGHT_BLACK }}{{ BOX_V }}{{ RESET }}
 {% endif -%}
-{% if metadata.date -%}
-{{ BRIGHT_BLACK }}{{ BOX_V }}{{ RESET }} {{ DIM }}{{ ITALIC }}Date:{{ RESET }}   {{ metadata.date }}{{ " " * (69 - metadata.date|length) }}{{ BRIGHT_BLACK }}{{ BOX_V }}{{ RESET }}
+{% if metadata.get('date') -%}
+{{ BRIGHT_BLACK }}{{ BOX_V }}{{ RESET }} {{ DIM }}{{ ITALIC }}Date:{{ RESET }}   {{ metadata.get('date') }}{{ " " * (69 - metadata.get('date')|length) }}{{ BRIGHT_BLACK }}{{ BOX_V }}{{ RESET }}
 {% endif -%}
 {{ BRIGHT_BLACK }}{{ BOX_BL }}{{ BOX_H * 78 }}{{ BOX_BR }}{{ RESET }}
 

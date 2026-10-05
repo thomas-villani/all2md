@@ -4,7 +4,7 @@
 
 # all2md
 
-**Convert PDFs, Office files, HTML, emails, spreadsheets, and 40+ other formats into clean, LLM-ready Markdown — and back again.**
+**Convert PDFs, Office files, HTML, emails, spreadsheets, and 40+ other formats into clean, LLM-ready Markdown — and back again. Or just read them, right in your terminal.**
 
 [![PyPI version](https://img.shields.io/pypi/v/all2md.svg)](https://pypi.org/project/all2md/)
 [![CI](https://github.com/thomas-villani/all2md/actions/workflows/ci.yml/badge.svg)](https://github.com/thomas-villani/all2md/actions/workflows/ci.yml)
@@ -13,7 +13,7 @@
 [![License](https://img.shields.io/pypi/l/all2md.svg)](https://opensource.org/licenses/MIT)
 [![Python Versions](https://img.shields.io/pypi/pyversions/all2md.svg)](https://pypi.org/project/all2md/)
 
-`all2md` is a Python library **and** command-line tool for turning many document formats into structured, LLM-friendly Markdown — and converting Markdown back into rich formats like DOCX, PDF, and HTML. Built on an AST-based pipeline, it's designed for RAG ingestion, LLM preprocessing, batch automation, and embedding document conversion directly into Python applications.
+`all2md` is a Python library **and** command-line tool for turning many document formats into structured, LLM-friendly Markdown — and converting Markdown back into rich formats like DOCX, PDF, and HTML. Built on an AST-based pipeline, it's designed for RAG ingestion, LLM preprocessing, batch automation, and embedding document conversion directly into Python applications. Its `rcat` command is a `cat` for documents: any of those formats, rendered in the terminal.
 
 📦 **[PyPI](https://pypi.org/project/all2md/)** · 📖 **[Documentation](https://all2md.readthedocs.io/)** · 💡 **[Examples](examples/)**
 
@@ -28,6 +28,9 @@ all2md report.pdf > report.md
 
 # Go the other way — Markdown back to a rich format
 all2md notes.md --out notes.docx
+
+# Or read a document in the terminal, styled (needs the cli_extras extra)
+rcat report.docx
 ```
 
 In Python:
@@ -68,12 +71,41 @@ Every file command supports stdin/stdout via `-`, so you can pipe and chain:
 curl -s https://example.com/doc.pdf | all2md - | grep "important"
 ```
 
+## Read any document in your terminal
+
+`rcat` is `cat` for documents. It renders PDFs, Word and PowerPoint files (the 97-2003 `.doc` and `.ppt` too), spreadsheets, e-books, emails, notebooks, man pages and the rest of the formats below as styled Markdown: headings, emphasis, tables, syntax-highlighted code and clickable links, right where you are working. No browser, no office suite. If you reach for [glow](https://github.com/charmbracelet/glow) or [mdcat](https://github.com/swsnr/mdcat) to read Markdown, or [doxx](https://github.com/bgreenwell/doxx) to read Word files, `rcat` is the same idea for every format all2md reads.
+
+```bash
+pip install "all2md[pdf,docx,pptx,cli_extras]"   # cli_extras brings rich, which does the styling
+
+rcat report.docx                                 # read a Word document
+rcat legacy.doc                                  # Word 97-2003, read with the standard library
+rcat deck.pptx --outline                         # just the slide titles
+rcat handbook.pdf --extract "Installation"       # one section, by heading
+rcat contract.pdf --pager                        # page through it (set PAGER="less -R" for color)
+rcat budget.xlsx --head 40                       # the first 40 lines
+rcat ls.1.gz                                     # a gzipped man page
+curl -sL https://example.com/spec.pdf | rcat -   # from stdin
+```
+
+`rcat FILE` is shorthand for `all2md FILE --rich`, so every conversion option works with it. Styling switches itself off when the output is piped, so `rcat report.docx | grep budget` sees plain text; `--force-rich` keeps it. Code themes (`--rich-code-theme dracula`) and the colors of headings, links and quotes (a `[rich]` table in the config file) are yours to set.
+
+The rest of the toolkit reads well in a terminal too:
+
+```bash
+all2md grep -C 2 "deadline" contracts/ -r --rich           # highlighted matches, any format
+all2md search "termination clause" ./contracts --rich       # ranked keyword search
+all2md diff draft-v1.docx draft-v2.pdf                      # colored diff across formats
+all2md report scan.pdf                                      # how far to trust the conversion
+```
+
 ## Why all2md?
 
 - **Clean, LLM-friendly Markdown** for RAG, search, and preprocessing pipelines.
 - **Bidirectional** — convert *to* Markdown and *back* to rich formats (DOCX, PDF, PPTX, HTML, EPUB, …).
 - **Python-native API** designed for embedding in apps and pipelines, not just CLI usage.
 - **A genuinely powerful CLI** — batch conversion, preview, grep, semantic search, diff, and chunking.
+- **A document reader for the terminal** — `rcat` renders any supported format as styled Markdown, with paging, outlines and section extraction.
 - **Lightweight by default** — the core has no dependencies; install only the extras you need.
 - **Extensible** — add custom formats and AST transforms via a simple entry-point plugin system.
 
@@ -83,6 +115,7 @@ curl -s https://example.com/doc.pdf | all2md - | grep "important"
 
 - **LLM / RAG builders** — convert source documents into chunkable Markdown with section and page provenance, ready for retrieval.
 - **CLI / automation users** — batch-process mixed document collections, watch directories, and pipe conversions into any workflow.
+- **Terminal dwellers** — read the PDF, Word file or slide deck someone sent you without leaving the shell, or over SSH.
 - **Python developers** — embed document parsing and conversion directly into applications with a clean, typed API.
 - **Knowledge & documentation workflows** — move content between formats and into portable Markdown, or generate static sites.
 
@@ -113,12 +146,12 @@ Word documents come out as Word shows them: tracked changes resolved by policy (
 
 `all2md` uses a modular system — dependencies are only required for the formats you actually process.
 
-- **Documents:** PDF, DOCX, PPTX, ODT, ODP, RTF, EPUB, FB2, CHM
-- **Web & markup:** HTML, MHTML, Markdown, reStructuredText, AsciiDoc, Org-Mode, LaTeX, MediaWiki, Textile, DokuWiki, BBCode
+- **Documents:** PDF, DOCX, DOC (Word 97-2003), PPTX, PPT (PowerPoint 97-2003), ODT, ODP, RTF, EPUB, FB2, CHM
+- **Web & markup:** HTML, MHTML, Markdown, reStructuredText, AsciiDoc, Org-Mode, LaTeX, MediaWiki, Textile, DokuWiki, BBCode, man pages
 - **Data & spreadsheets:** XLSX, ODS, CSV/TSV, JSON, YAML, TOML, INI, OpenAPI/Swagger
 - **Email:** EML, MBOX, Outlook (MSG/PST/OST), Evernote (ENEX)
 - **Notebooks & code:** Jupyter (IPYNB), plus nearly 200 source-code and config file types
-- **Archives:** ZIP, TAR, TGZ, 7Z, RAR, and more
+- **Archives:** ZIP, TAR, TGZ, 7Z, RAR, and more; a single compressed file (`.gz`, `.bz2`, `.xz`) converts as the file it holds
 - **Custom output:** any text format via Jinja2 templates (DocBook XML, YAML, ANSI, …)
 
 Run `all2md list-formats` to see everything on your install, or browse the [full formats matrix](https://all2md.readthedocs.io/en/latest/formats.html).
@@ -130,7 +163,9 @@ Run `all2md list-formats` to see everything on your install, or browse the [full
 | ----------------------------- | --------------------------------------------- | :-----------: | :-------------: | ------------------ |
 | **PDF**                       | `.pdf`                                        |       ✅       |        ✅      | `pdf`, `pdf_render`|
 | **Word Document**             | `.docx`                                       |       ✅       |        ✅      | `docx`             |
+| **Word 97-2003 Document**     | `.doc`, `.dot`                                |       ✅       |       (N/A)    | (built-in)         |
 | **PowerPoint Presentation**   | `.pptx`                                       |       ✅       |        ✅      | `pptx`             |
+| **PowerPoint 97-2003**        | `.ppt`, `.pps`, `.pot`                        |       ✅       |       (N/A)    | (built-in)         |
 | **HTML**                      | `.html`, `.htm`                               |       ✅       |        ✅      | `html`             |
 | **MHTML Web Archive**         | `.mhtml`, `.mht`                              |       ✅       |       (N/A)    | `html`             |
 | **Email Message**             | `.eml`                                        |       ✅       |       (N/A)    | (built-in)         |
@@ -154,6 +189,7 @@ Run `all2md list-formats` to see everything on your install, or browse the [full
 | **Textile**                   | `.textile`                                    |       ✅       |        ✅      | (built-in)         |
 | **BBCode**                    | `.bbcode`, `.bb`                              |       ✅       |       (N/A)    | (built-in)         |
 | **DokuWiki**                  | `.doku`, `.dokuwiki`                          |       ✅       |        ✅      | (built-in)         |
+| **Man Page (man(7))**         | `.1` to `.9`, `.man`                          |       ✅       |        ✅      | (built-in)         |
 | **Evernote Export**           | `.enex`                                       |       ✅       |       (N/A)    | `enex`             |
 | **Safari Web Archive**        | `.webarchive`                                 |       ✅       |       (N/A)    | `html`             |
 | **JSON**                      | `.json`                                       |       ✅       |        ✅      | (built-in)         |
@@ -164,6 +200,7 @@ Run `all2md list-formats` to see everything on your install, or browse the [full
 | **Plain Text**                | `.txt`, `.text`                               |       ✅       |        ✅      | (built-in)         |
 | **Source Code**               | nearly 200 extensions (`.py`, `.js`, etc.)    |       ✅       |       (N/A)    | (built-in)         |
 | **Archive Formats**           | `.tar`, `.tgz`, `.7z`, `.rar`, etc.           |       ✅       |       (N/A)    | (built-in)         |
+| **Single Compressed File**    | `.gz`, `.bz2`, `.xz` (e.g. `ls.1.gz`)         |       ✅       |       (N/A)    | (built-in)         |
 | **ZIP Archive**               | `.zip`                                        |       ✅       |       (N/A)    | (built-in)         |
 | **Jinja2 Templates (Custom)** | User-defined (`.jinja2`, `.j2`)               |       ❌       |        ✅      | `jinja2`           |
 
@@ -180,6 +217,8 @@ The core library has no dependencies — install support for formats as you need
 ```bash
 uv tool install "all2md[all]"
 ```
+
+This installs two commands: `all2md`, and `rcat` for reading documents in the terminal.
 
 **Python library:**
 
@@ -224,6 +263,9 @@ Both scripts install the `all` extra by default. To slim it down, download the s
 # Spreadsheets and ODF documents
 pip install "all2md[xlsx,odf]"
 
+# Terminal rendering for --rich / rcat (rich), progress bars and watch mode
+pip install "all2md[cli_extras]"
+
 # PDF with OCR for scanned documents (Tesseract engine; needs the system binary)
 pip install "all2md[pdf,ocr]"
 
@@ -252,7 +294,7 @@ all2md document.pdf                       # convert to Markdown on stdout
 all2md report.docx --out report.md        # write to a file
 all2md notes.md --out notes.docx          # Markdown → rich format (bidirectional)
 all2md ./docs -r --output-dir ./out       # recursively batch-convert a directory
-all2md document.pdf --rich                # render in the terminal (fancy `cat`)
+rcat document.pdf                         # render in the terminal (= all2md document.pdf --rich)
 all2md view document.pdf --theme docs     # HTML preview in the browser
 all2md grep "search term" documents/*.pdf # grep through any document format
 ```
@@ -262,7 +304,8 @@ all2md grep "search term" documents/*.pdf # grep through any document format
 
 ```bash
 # View & edit
-all2md doc.pdf --rich                 # rich terminal rendering (rcat = shorthand)
+rcat doc.pdf                          # rich terminal rendering (= all2md doc.pdf --rich)
+rcat doc.pdf --pager                  # ...through your pager
 all2md view document.pdf              # instant HTML preview in the browser
 all2md serve ./docs --recursive       # serve a directory over HTTP with live preview
 all2md edit notes.md                  # browser-based Markdown/WYSIWYG editor, saves back
@@ -507,6 +550,9 @@ Yes. Install OCR support (`pip install "all2md[pdf,ocr]"`) and use `--pdf-ocr-en
 
 **Can I customize the output beyond Markdown?**
 Yes — use Jinja2 templates to render any text-based format. See [examples/templates/](examples/templates/) for DocBook XML, YAML, ANSI terminal output, and more.
+
+**Can I just read a document without converting it?**
+Yes: `rcat report.docx` renders it in the terminal (install `all2md[cli_extras]` for the styling), and `all2md view report.docx` opens an HTML preview in the browser.
 
 **How do I add support for a new file format?**
 Create a parser class, define a `ConverterMetadata` object, and register it via the `all2md.converters` entry point in your `pyproject.toml`. See [examples/plugins/](examples/plugins/) for a complete example.
