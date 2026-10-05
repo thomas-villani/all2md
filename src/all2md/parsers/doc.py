@@ -186,18 +186,23 @@ class _WordBinary:
 
         # FibBase (32 bytes), then three counted arrays: csw 16-bit words,
         # cslw 32-bit words (the story lengths), cbRgFcLcb fc/lcb pairs.
-        csw = struct.unpack_from("<H", word, 32)[0]
-        longs_at = 34 + 2 * csw
-        cslw = struct.unpack_from("<H", word, longs_at)[0]
-        if cslw < 11:
-            raise MalformedFileError("Word document's FIB has too few story lengths")
-        longs = struct.unpack_from(f"<{cslw}i", word, longs_at + 2)
-        if any(length < 0 for length in longs[3:11]):
-            raise MalformedFileError("Word document's FIB has a negative story length")
-        self.story_lengths = longs[3:11]
-        pairs_at = longs_at + 2 + 4 * cslw
-        count = struct.unpack_from("<H", word, pairs_at)[0]
-        self.pairs = [struct.unpack_from("<II", word, pairs_at + 2 + 8 * n) for n in range(count)]
+        # Each count comes from the file, so a damaged one can point past the
+        # end of the stream; that is a malformed file, not a struct error.
+        try:
+            csw = struct.unpack_from("<H", word, 32)[0]
+            longs_at = 34 + 2 * csw
+            cslw = struct.unpack_from("<H", word, longs_at)[0]
+            if cslw < 11:
+                raise MalformedFileError("Word document's FIB has too few story lengths")
+            longs = struct.unpack_from(f"<{cslw}i", word, longs_at + 2)
+            if any(length < 0 for length in longs[3:11]):
+                raise MalformedFileError("Word document's FIB has a negative story length")
+            self.story_lengths = longs[3:11]
+            pairs_at = longs_at + 2 + 4 * cslw
+            count = struct.unpack_from("<H", word, pairs_at)[0]
+            self.pairs = [struct.unpack_from("<II", word, pairs_at + 2 + 8 * n) for n in range(count)]
+        except struct.error as error:
+            raise MalformedFileError("Word document's FIB runs past the end of the WordDocument stream") from error
 
     def pair(self, index: int) -> tuple[int, int]:
         return self.pairs[index] if index < len(self.pairs) else (0, 0)
