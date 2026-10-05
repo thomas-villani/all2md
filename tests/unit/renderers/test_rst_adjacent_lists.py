@@ -87,19 +87,18 @@ class TestTheSwitchIsLocalToTheSiblingRun:
         outer = List(ordered=False, items=[_item("b", _bullets("nested"))])
         rendered = _render(_bullets("a"), outer)
 
-        assert rendered == "* a\n\n- b\n      * nested"
+        assert rendered == "* a\n\n- b\n\n  * nested"
 
     def test_adjacent_lists_inside_an_item_switch_too(self):
         outer = List(ordered=False, items=[_item("parent", _numbered("x"), _numbered("y", start=2))])
 
         rendered = _render(outer)
 
-        # Only the rendering is asserted: a nested list is written without a blank line
-        # before it and six columns in, which docutils reads back as a definition list.
-        # That is a pre-existing nesting defect of this renderer, separate from #496;
-        # written with a blank line and two columns in, the same text reparses as two
-        # lists with starts 1 and 2.
-        assert rendered == "* parent\n      1. x\n      2) y"
+        # Nested lists sit a blank line below the item's text, at its text column (#517).
+        assert rendered == "* parent\n\n  1. x\n\n  2) y"
+        item = to_ast(io.BytesIO(rendered.encode("utf-8")), source_format="rst").children[0].items[0]
+        assert [type(child).__name__ for child in item.children] == ["Paragraph", "List", "List"]
+        assert [child.start for child in item.children[1:]] == [1, 2]
 
     def test_a_list_inside_a_block_quote_after_a_list_outside_it_is_not_adjacent(self):
         rendered = _render(_bullets("a"), BlockQuote(children=[_bullets("quoted")]))

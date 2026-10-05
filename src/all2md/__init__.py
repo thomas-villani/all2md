@@ -24,7 +24,7 @@ Key Features
 
 Supported Formats
 -----------------
-- **Documents**: PDF, DOCX, PPTX, HTML, EML, EPUB
+- **Documents**: PDF, DOCX, DOC, PPTX, PPT, ODT, ODP, RTF, HTML, EML, EPUB, man pages
 - **Notebooks**: IPYNB (Jupyter Notebooks)
 - **Spreadsheets**: XLSX, CSV, TSV
 - **Images**: PNG, JPEG, GIF (embedded as base64)

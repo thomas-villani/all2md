@@ -108,13 +108,14 @@ Example output:
    --------------------------------------------------------------------------------
    ARCHIVE      [OK]     N/A        .tar, .tgz, .tar.gz, .tbz2 +6
    ASCIIDOC     [OK]     [OK]       .adoc, .asciidoc, .asc
+   DOC          [OK]     N/A        .doc, .dot
    DOCX         [OK]     [OK]       .docx
    HTML         [OK]     [OK]       .html, .htm, .xhtml
    PDF          [OK]     [OK]       .pdf
    XLSX         [OK]     N/A        .xlsx
    ...
 
-   Total: 40 formats
+   Total: 43 formats
 
    Legend: [OK] = Available, [X] = Dependencies missing, N/A = Not implemented
    Use 'all2md list-formats <format>' for detailed information
