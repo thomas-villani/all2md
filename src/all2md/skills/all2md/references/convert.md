@@ -133,7 +133,7 @@ convert(
 ## Supported Output Formats
 
 **Documents**: Markdown, HTML, DOCX, PPTX, EPUB, PDF
-**Markup**: RST, AsciiDoc, Org-Mode, MediaWiki, Textile, LaTeX
+**Markup**: RST, AsciiDoc, Org-Mode, MediaWiki, Textile, LaTeX, man pages (`--to man`)
 **Data**: JSON, YAML, TOML, INI, CSV, PlainText
 
 Run `all2md list-formats` to see all formats with dependency status.

@@ -207,13 +207,13 @@ markdown = to_markdown(
 
 ## Supported Input Formats
 
-**Documents**: PDF, DOCX, PPTX, HTML, MHTML, EPUB, ODT, ODP, ODS, RTF
+**Documents**: PDF, DOCX, DOC (Word 97-2003), PPTX, PPT (PowerPoint 97-2003), HTML, MHTML, EPUB, ODT, ODP, ODS, RTF
 **Email**: EML, MBOX, MSG, PST, OST
 **Data**: XLSX, CSV, TSV, JSON, YAML, TOML, INI
 **Markup**: Markdown, reStructuredText, AsciiDoc, LaTeX, Org-Mode, MediaWiki, Textile
 **Notebooks**: Jupyter (.ipynb)
 **Code**: 100+ source-code and config file types
-**Other**: FB2, CHM, OpenAPI, ZIP/TAR/7Z archives
+**Other**: Man pages (man(7), `.1`-`.9`), FB2, CHM, OpenAPI, ZIP/TAR/7Z archives, single compressed files (`.gz`, `.bz2`, `.xz`)
 
 Run `all2md list-formats` to see all formats with dependency status.
 

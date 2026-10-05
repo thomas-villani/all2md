@@ -26,10 +26,13 @@ Intelligent Format Detection
 
 The library uses a multi-layered format detection strategy:
 
-1. **Filename extension analysis** (most reliable)
-2. **MIME type detection** (secondary verification)
-3. **Content-based magic bytes** (for file objects without names)
-4. **Fallback to plain text** (graceful degradation)
+1. **OLE2 container streams**: Word, PowerPoint and Outlook 97-2003 files share one
+   signature, so the names of the streams inside decide which they are, before the
+   extension does
+2. **Filename extension analysis**, confirmed by the format's content check where it has one
+3. **MIME type detection**, confirmed the same way
+4. **Content-based magic bytes** (for file objects without names)
+5. **Fallback to plain text** (graceful degradation)
 
 This ensures accurate conversion even when file extensions are missing or incorrect.
 
@@ -124,10 +127,17 @@ Format Detection
 Detection runs in priority order to ensure accurate format identification:
 
 1. **Explicit hint**: When format is explicitly specified, bypass detection
-2. **Filename extension**: Analyze file extension for immediate format identification
-3. **MIME type detection**: Use ``mimetypes.guess_type()`` for secondary verification
-4. **Magic bytes/content detectors**: Examine file headers and content patterns for files without reliable names
-5. **Fallback to plain text**: Graceful degradation when no specific format is detected
+2. **OLE2 container streams**: A CFB (OLE2) file is routed by the streams under its root
+   (``WordDocument``, ``PowerPoint Document``, ``__substg1.0_*``), so an Outlook message
+   named ``report.doc`` still reads as a message
+3. **Filename extension**: Analyze file extension for immediate format identification. A
+   format with a content detector must confirm the match, so a rotated ``app.log.1`` is not
+   read as a man page and a ``.doc`` holding RTF goes to the RTF parser
+4. **MIME type detection**: Use ``mimetypes.guess_type()`` for secondary verification, confirmed
+   by content the same way. A MIME type that comes with a compression encoding
+   (``notes.md.gz``) is ignored, and the archive parser decompresses the file instead
+5. **Magic bytes/content detectors**: Examine file headers and content patterns for files without reliable names
+6. **Fallback to plain text**: Graceful degradation when no specific format is detected
 
 You can use the ``list-formats`` CLI command to explore which formats are supported and check which dependencies are available in your environment:
 
