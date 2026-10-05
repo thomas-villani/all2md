@@ -66,6 +66,7 @@ from all2md.ast import (
 from all2md.ast.utils import extract_text
 from all2md.constants import (
     DEPS_MARKDOWN,
+    GITHUB_ALERT_TYPES,
     MARKDOWN_FIGURE_CAPTION_MARKER,
     MARKDOWN_FIGURE_END_MARKER,
     MARKDOWN_FIGURE_MARKER,
@@ -184,6 +185,42 @@ def _parse_admonition_block(block: Any, m: re.Match[str], state: Any) -> int:
         }
     )
     return last_content_end
+
+
+def _github_alert(blocks: list[Node]) -> tuple[str, list[Node]] | None:
+    """Recognize a GitHub alert from a block quote's parsed children.
+
+    An alert is a quote whose first line is ``[!NOTE]`` (or TIP, IMPORTANT,
+    WARNING, CAUTION) and nothing else, with its body after it. As on GitHub, a
+    marker sharing its line with text, or a quote holding only the marker, is
+    an ordinary quote.
+
+    Returns
+    -------
+    tuple of (str, list of Node) or None
+        The alert's type and its body without the marker, or None.
+
+    """
+    if not blocks or not isinstance(blocks[0], Paragraph) or not blocks[0].content:
+        return None
+    first = blocks[0]
+    marker = first.content[0]
+    if not isinstance(marker, Text):
+        return None
+    label = marker.content.strip()
+    if not (label.startswith("[!") and label.endswith("]")) or label[2:-1].lower() not in GITHUB_ALERT_TYPES:
+        return None
+
+    rest = first.content[1:]
+    if not rest:
+        body = blocks[1:]
+    elif isinstance(rest[0], LineBreak) and len(rest) > 1:
+        body = [Paragraph(content=rest[1:], metadata=first.metadata), *blocks[1:]]
+    else:
+        return None
+    if not body:
+        return None
+    return label[2:-1].lower(), body
 
 
 def _plugin_admonition(md: Any) -> None:
@@ -929,6 +966,12 @@ class MarkdownToAstConverter(BaseParser):
         """
         children = token.get("children", [])
         content = self._process_tokens(children)
+
+        if self.options.parse_admonitions:
+            alert = _github_alert(content)
+            if alert is not None:
+                admonition_type, body = alert
+                return BlockQuote(children=body, metadata={"admonition_type": admonition_type, "source_format": "gfm"})
 
         return BlockQuote(children=content)
 

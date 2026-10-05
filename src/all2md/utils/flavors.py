@@ -221,6 +221,21 @@ class MarkdownFlavor(ABC):
         """
         pass
 
+    def supports_github_alerts(self) -> bool:
+        """Check if this flavor supports GitHub alerts.
+
+        An alert is a block quote whose first line is ``[!NOTE]``, ``[!TIP]``,
+        ``[!IMPORTANT]``, ``[!WARNING]`` or ``[!CAUTION]``. Elsewhere the marker
+        shows as text, so only a flavor that renders it should write it.
+
+        Returns
+        -------
+        bool
+            True if ``> [!NOTE]`` alerts are supported
+
+        """
+        return False
+
 
 class CommonMarkFlavor(MarkdownFlavor):
     """Strict CommonMark specification flavor.
@@ -497,6 +512,17 @@ class GFMFlavor(MarkdownFlavor):
 
         """
         return False
+
+    def supports_github_alerts(self) -> bool:
+        """GFM writes admonitions as GitHub alerts (``> [!NOTE]``).
+
+        Returns
+        -------
+        bool
+            True
+
+        """
+        return True
 
 
 class MultiMarkdownFlavor(MarkdownFlavor):

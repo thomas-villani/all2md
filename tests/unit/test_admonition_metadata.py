@@ -14,30 +14,56 @@ import pytest
 from all2md import to_ast, to_markdown
 from all2md.ast import BlockQuote
 
+#: The same warning in every syntax that has one: name -> (source format, text).
 WARNINGS = {
-    "rst": """.. warning::
+    "rst": (
+        "rst",
+        """.. warning::
 
    Mind the gap.
 """,
-    "markdown": """!!! warning
+    ),
+    "mkdocs": (
+        "markdown",
+        """!!! warning
     Mind the gap.
 """,
-    "asciidoc": """WARNING: Mind the gap.
+    ),
+    "github-alert": (
+        "markdown",
+        """> [!WARNING]
+> Mind the gap.
 """,
+    ),
+    "asciidoc": (
+        "asciidoc",
+        """WARNING: Mind the gap.
+""",
+    ),
 }
 
+#: The same titled warning (GitHub alerts have no titles).
 TITLED = {
-    "rst": """.. admonition:: Careful
+    "rst": (
+        "rst",
+        """.. admonition:: Careful
 
    Mind the gap.
 """,
-    "markdown": """!!! warning "Careful"
+    ),
+    "mkdocs": (
+        "markdown",
+        """!!! warning "Careful"
     Mind the gap.
 """,
-    "asciidoc": """.Careful
+    ),
+    "asciidoc": (
+        "asciidoc",
+        """.Careful
 [WARNING]
 Mind the gap.
 """,
+    ),
 }
 
 
@@ -49,32 +75,46 @@ def _only_quote(source: str, source_format: str) -> BlockQuote:
     return quote
 
 
+def _markdown(case: tuple[str, str], flavor: str) -> str:
+    source_format, source = case
+    return to_markdown(source.encode(), source_format=source_format, flavor=flavor).strip()
+
+
 @pytest.mark.unit
 class TestOneRepresentation:
-    @pytest.mark.parametrize("source_format", list(WARNINGS))
-    def test_type(self, source_format):
-        quote = _only_quote(WARNINGS[source_format], source_format)
+    @pytest.mark.parametrize("name", list(WARNINGS))
+    def test_type(self, name):
+        source_format, source = WARNINGS[name]
+        quote = _only_quote(source, source_format)
         assert quote.metadata["admonition_type"] == "warning"
         assert "role" not in quote.metadata
 
-    @pytest.mark.parametrize("source_format", list(TITLED))
-    def test_title(self, source_format):
-        assert _only_quote(TITLED[source_format], source_format).metadata["admonition_title"] == "Careful"
+    @pytest.mark.parametrize("name", list(TITLED))
+    def test_title(self, name):
+        source_format, source = TITLED[name]
+        assert _only_quote(source, source_format).metadata["admonition_title"] == "Careful"
 
 
 @pytest.mark.unit
 class TestMarkdownRendersAnyAdmonition:
     """The Markdown renderer used to label only RST and MkDocs admonitions."""
 
-    @pytest.mark.parametrize("source_format", list(WARNINGS))
-    def test_labeled_quote_on_a_plain_flavor(self, source_format):
-        output = to_markdown(WARNINGS[source_format].encode(), source_format=source_format, flavor="gfm")
-        assert output.strip() == "> **Warning:** Mind the gap."
+    @pytest.mark.parametrize("name", list(WARNINGS))
+    def test_labeled_quote_on_a_plain_flavor(self, name):
+        assert _markdown(WARNINGS[name], "commonmark") == "> **Warning:** Mind the gap."
 
-    @pytest.mark.parametrize("source_format", list(WARNINGS))
-    def test_native_block_where_the_flavor_has_one(self, source_format):
-        output = to_markdown(WARNINGS[source_format].encode(), source_format=source_format, flavor="markdown_plus")
-        assert output.strip().splitlines() == ["!!! warning", "    Mind the gap."]
+    @pytest.mark.parametrize("name", list(WARNINGS))
+    def test_github_alert_on_gfm(self, name):
+        assert _markdown(WARNINGS[name], "gfm").splitlines() == ["> [!WARNING]", "> Mind the gap."]
+
+    @pytest.mark.parametrize("name", list(WARNINGS))
+    def test_native_block_where_the_flavor_has_one(self, name):
+        assert _markdown(WARNINGS[name], "markdown_plus").splitlines() == ["!!! warning", "    Mind the gap."]
+
+    @pytest.mark.parametrize("name", list(TITLED))
+    def test_a_titled_admonition_keeps_its_title_on_gfm(self, name):
+        """A GitHub alert has no title, so a titled admonition stays a labeled quote."""
+        assert _markdown(TITLED[name], "gfm") == "> **Careful:** Mind the gap."
 
     def test_asciidoc_note_survives_markdown_plus_and_back(self):
         markdown = to_markdown(b"NOTE: Kept.", source_format="asciidoc", flavor="markdown_plus")

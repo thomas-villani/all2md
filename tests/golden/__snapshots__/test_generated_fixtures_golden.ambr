@@ -457,7 +457,8 @@
   '''
   # Fixture Document
   
-  > **Note:** This demonstrates typical reStructuredText constructs.
+  > [!NOTE]
+  > This demonstrates typical reStructuredText constructs.
   
   ## Section Heading
   

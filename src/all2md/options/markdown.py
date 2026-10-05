@@ -79,8 +79,10 @@ class MarkdownParserOptions(BaseParserOptions):
         pymdownx: highlight (``==text==``), insert/underline (``^^text^^``),
         superscript (``^text^``) and subscript (``~text~``).
     parse_admonitions : bool, default True
-        Whether to parse Material for MkDocs admonitions (``!!! note "Title"``)
-        and collapsible admonitions (``??? note`` / ``???+ note``).
+        Whether to parse Material for MkDocs admonitions (``!!! note "Title"``),
+        collapsible admonitions (``??? note`` / ``???+ note``) and GitHub alerts
+        (a quote opening with ``[!NOTE]``, ``[!TIP]``, ``[!IMPORTANT]``,
+        ``[!WARNING]`` or ``[!CAUTION]``).
 
     """
 
@@ -147,7 +149,7 @@ class MarkdownParserOptions(BaseParserOptions):
     parse_admonitions: bool = field(
         default=True,
         metadata={
-            "help": "Parse Material for MkDocs admonitions (!!! note / ??? collapsible)",
+            "help": "Parse admonitions: Material for MkDocs (!!! note / ??? collapsible) and GitHub alerts (> [!NOTE])",
             "cli_name": "no-parse-admonitions",
             "importance": "core",
         },
