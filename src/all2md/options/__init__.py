@@ -76,6 +76,7 @@ if TYPE_CHECKING:
     from all2md.options.outlook import OutlookOptions
     from all2md.options.pdf import PdfOptions, PdfRendererOptions
     from all2md.options.plaintext import PlainTextOptions, PlainTextParserOptions
+    from all2md.options.ppt import PptOptions
     from all2md.options.pptx import PptxOptions, PptxRendererOptions
     from all2md.options.rst import RstParserOptions, RstRendererOptions
     from all2md.options.rtf import RtfOptions, RtfRendererOptions
@@ -154,6 +155,7 @@ _LAZY_EXPORTS: dict[str, str] = {
     "PdfRendererOptions": "pdf",
     "PlainTextOptions": "plaintext",
     "PlainTextParserOptions": "plaintext",
+    "PptOptions": "ppt",
     "PptxOptions": "pptx",
     "PptxRendererOptions": "pptx",
     "RstParserOptions": "rst",
@@ -285,6 +287,7 @@ __all__ = [
     "PdfRendererOptions",
     "PlainTextOptions",
     "PlainTextParserOptions",
+    "PptOptions",
     "PptxOptions",
     "PptxRendererOptions",
     "RstParserOptions",

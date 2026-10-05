@@ -118,6 +118,29 @@ PowerPoint Presentations (PPTX)
 - Pulls text from shapes, tables, and grouped items; captures alt text for accessibility
 - Works well with ``--collate`` to assemble slide decks into long-form markdown
 
+PowerPoint 97-2003 Presentations (PPT)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+*Parser:* ``PptParser``
+
+- Reads the binary format of PowerPoint 97 to PowerPoint 2003 directly, with the standard
+  library: no PowerPoint, LibreOffice or extra package. Detected by the
+  ``PowerPoint Document`` stream inside the OLE2 container; ``.ppt``, ``.pps`` and ``.pot``
+- Follows the edit chain, so an incrementally saved presentation reads as last saved
+- Reads each slide's text boxes in drawing order: the title as a level 2 heading, body
+  placeholders as bullet lists nested by indent level, other text as paragraphs, and
+  hyperlinks as links. Also reads speaker notes and review comments
+- A slide number field takes the slide's number; a box holding only a field (the slide
+  number or date placeholder) is skipped
+- Title, author, keywords and dates come from the summary information, plus ``slide_count``
+- Not read yet: character formatting, numbered lists (they come back as bullets), tables
+  (each cell is read as a paragraph), pictures and charts. Text that PowerPoint saved as a
+  picture, such as WordArt or multi-column text it could not express in the old format,
+  is not in the file
+- Encrypted presentations raise ``PasswordProtectedError``
+- Options: ``PptOptions``, the PPTX parser's (``include_slide_numbers``, ``include_notes``,
+  ``comment_mode``, ``slides``, ``include_titles_as_h2``)
+
 OpenDocument Suite (ODT & ODP)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

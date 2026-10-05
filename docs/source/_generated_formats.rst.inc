@@ -170,6 +170,11 @@
      - ✓
      - ``.txt``, ``.text``
      - built-in
+   * - ``ppt``
+     - ✓
+     - —
+     - ``.ppt``, ``.pps``, ``.pot``
+     - built-in
    * - ``pptx``
      - ✓
      - ✓
