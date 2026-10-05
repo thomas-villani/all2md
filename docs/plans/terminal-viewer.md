@@ -1,6 +1,6 @@
 # Design: reading documents in the terminal
 
-Status: proposed, 2026-10-05. Tracked in `ROADMAP.md` under **Next**.
+Status: stage 1 done (2026-10-05); stages 2-4 proposed. Tracked in `ROADMAP.md` under **Next**.
 
 `rcat report.docx` (or `all2md report.docx --rich`) is the path the README now leads
 with, and a whole class of tools exists only to do this one thing: doxx for `.docx`,
@@ -113,6 +113,14 @@ PR: every parser now writes `admonition_type` / `admonition_title` (the contract
 Markdown parser reads GitHub alerts too, and GFM writes untitled admonitions back as
 alerts.
 
+**As built.** `renderers/terminal.py` and `options/terminal.py`, registered as the
+render-only format `terminal` (open question 2). `render_renderables`, `render_to_string`
+and `heading_positions(doc)` (the heading map, top-level headings only) are the API. A
+merged table cell's content sits in its first cell and the cells it spans are blank (open
+question 4). The `image_mode` option waits for stage 4. Only a whole document switched:
+`--extract`, `--outline`, `--slice`, the line windows and `--line-numbers` still go through
+`rich.markdown`, since each produces Markdown text; moving them is a follow-up.
+
 **Switching `--rich` over.** When the CLI is rendering Markdown for the terminal, it uses
 the terminal renderer on the AST instead of `rich.markdown.Markdown` on the text.
 `--rich` with another `--to` target keeps today's behavior (syntax-highlighting that
@@ -188,11 +196,11 @@ parser side needs nothing new.
 ## Open questions
 
 1. Command name for the viewer: `all2md tui`, `all2md read`, or `rcat -i`.
-2. Format name for stage 1's renderer: `terminal` or `ansi`. It should be listed in
-   `list-formats` either way, so `--to terminal > out.ans` is discoverable.
+2. ✅ Format name for stage 1's renderer: `terminal`, listed in `list-formats`, so
+   `--to terminal > out.ans` is discoverable.
 3. Stage 3 and 4 upstream in Wijjit, or local first and upstreamed later.
-4. Merged table cells in the terminal: repeat the content or leave the spanned cells
-   blank. rich has no spans.
+4. ✅ Merged table cells in the terminal: the content sits in the first cell and the
+   spanned cells are blank (rich has no spans; repeating the content reads as data).
 
 ## Sources
 

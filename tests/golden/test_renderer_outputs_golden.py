@@ -162,3 +162,72 @@ class TestMarkdownRendererGolden:
         renderer = MarkdownRenderer()
         output = renderer.render_to_string(renderer_sample_document)
         assert output == snapshot
+
+
+#: The document that showed what the old ``rich.markdown`` path lost: each
+#: construct here came out as raw source, and the ``BACKSLASH,`` in the formula
+#: lost its backslash.
+TERMINAL_PROBE = """# Probe
+
+A footnote[^1], inline $E=mc^2$, ~~gone~~, <u>under</u>, `code`, and a [link](https://example.com).
+
+- [x] done
+- [ ] todo
+  - nested item
+
+1. first
+2. second
+
+Term
+: Definition here
+
+| Left | Center | Right |
+|:-----|:------:|------:|
+| a | b | c |
+
+![A cat](cat.png)
+
+$$
+BACKSLASHint_0^1 xBACKSLASH,dx
+$$
+
+> [!NOTE]
+> An admonition
+
+> plain quote
+> second line
+
+```python
+def f():
+    return 1
+```
+
+---
+
+H~2~O and x^2^
+
+[^1]: The footnote body.
+"""
+
+
+def _terminal_plain(doc: Document) -> str:
+    from all2md.options.terminal import TerminalRendererOptions
+    from all2md.renderers.terminal import TerminalRenderer
+
+    output = TerminalRenderer(TerminalRendererOptions(width=60, color_system="none")).render_to_string(doc)
+    return "\n".join(line.rstrip() for line in output.split("\n"))
+
+
+@pytest.mark.golden
+@pytest.mark.unit
+class TestTerminalRendererGolden:
+    """Snapshot tests for the terminal renderer (plain export at 60 columns)."""
+
+    def test_terminal_renderer_complex_document(self, snapshot, renderer_sample_document):
+        assert _terminal_plain(renderer_sample_document) == snapshot
+
+    def test_terminal_renderer_probe_document(self, snapshot):
+        from all2md import to_ast
+
+        source = TERMINAL_PROBE.replace("BACKSLASH", chr(92))
+        assert _terminal_plain(to_ast(source.encode(), source_format="markdown")) == snapshot

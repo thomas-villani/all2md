@@ -73,7 +73,7 @@ curl -s https://example.com/doc.pdf | all2md - | grep "important"
 
 ## Read any document in your terminal
 
-`rcat` is `cat` for documents. It renders PDFs, Word and PowerPoint files (the 97-2003 `.doc` and `.ppt` too), spreadsheets, e-books, emails, notebooks, man pages and the rest of the formats below as styled Markdown: headings, emphasis, tables, syntax-highlighted code and clickable links, right where you are working. No browser, no office suite. If you reach for [glow](https://github.com/charmbracelet/glow) or [mdcat](https://github.com/swsnr/mdcat) to read Markdown, or [doxx](https://github.com/bgreenwell/doxx) to read Word files, `rcat` is the same idea for every format all2md reads.
+`rcat` is `cat` for documents. It renders PDFs, Word and PowerPoint files (the 97-2003 `.doc` and `.ppt` too), spreadsheets, e-books, emails, notebooks, man pages and the rest of the formats below with headings, emphasis, tables, syntax-highlighted code, clickable links, numbered footnotes, math, task lists and admonition panels, right where you are working. No browser, no office suite. If you reach for [glow](https://github.com/charmbracelet/glow) or [mdcat](https://github.com/swsnr/mdcat) to read Markdown, or [doxx](https://github.com/bgreenwell/doxx) to read Word files, `rcat` is the same idea for every format all2md reads.
 
 ```bash
 pip install "all2md[pdf,docx,pptx,cli_extras]"   # cli_extras brings rich, which does the styling

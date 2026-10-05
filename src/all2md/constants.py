@@ -207,6 +207,7 @@ DocumentFormat = Literal[
     "rst",
     "rtf",
     "sourcecode",
+    "terminal",
     "textile",
     "toml",
     "webarchive",

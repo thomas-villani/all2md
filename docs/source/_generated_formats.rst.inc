@@ -195,6 +195,11 @@
      - —
      - ``.py``, ``.pyx``, ``.pyi``, ``.js``, ``.mjs``, ``.cjs`` (+105 more)
      - built-in
+   * - ``terminal``
+     - —
+     - ✓
+     - —
+     - rich
    * - ``textile``
      - ✓
      - ✓

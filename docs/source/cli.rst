@@ -3432,10 +3432,20 @@ Rich output needs the ``rich`` package, which the ``cli_extras`` and ``all`` ext
 (``pip install "all2md[cli_extras]"``).
 
 ``--rich``
-   Enable Rich-rendered Markdown with color, hyperlinks, and tables. Automatically disables itself when stdout is
-   redirected, unless ``--force-rich`` is present. Only a single document written to stdout is styled: with
+   Show the document in the terminal with color, hyperlinks, and tables. Automatically disables itself when stdout
+   is redirected, unless ``--force-rich`` is present. Only a single document written to stdout is styled: with
    ``--out``, ``--output-dir`` or several inputs, ``--rich`` styles the progress display and summary instead.
    With a target other than Markdown (``--to html``, ``--to json``, ...), the output is syntax-highlighted.
+
+   A whole document is drawn by the ``terminal`` renderer straight from the parsed document, so footnotes
+   (numbered, collected at the end), math (verbatim), task lists, definition lists, admonitions and GitHub alerts
+   (titled panels), underline, and sub/superscripts all show as what they are. ``--extract``, ``--outline``,
+   ``--slice``, the line windows and ``--line-numbers`` still style the Markdown text with Rich's own Markdown
+   reader, which shows those constructs as Markdown source.
+
+   The same renderer is a regular output format: ``all2md report.docx --to terminal > report.ans`` writes the
+   ANSI text, with ``--terminal-renderer-width`` and ``--terminal-renderer-color-system`` (``none`` for plain
+   text) among its options.
 
 ``rcat``
    A second command installed beside ``all2md``: ``rcat FILE`` is ``all2md FILE --rich``, a ``cat`` for any
@@ -3462,7 +3472,10 @@ Rich output needs the ``rich`` package, which the ``cli_extras`` and ``all`` ext
 The related environment variables are ``ALL2MD_RICH``, ``ALL2MD_FORCE_RICH``, ``ALL2MD_RICH_CODE_THEME``,
 ``ALL2MD_RICH_INLINE_CODE_THEME``, ``ALL2MD_RICH_NO_WORD_WRAP``, ``ALL2MD_RICH_HYPERLINKS`` (set to ``false`` to disable),
 ``ALL2MD_RICH_JUSTIFY`` and ``ALL2MD_PAGER``. The colors of Markdown elements are set in the ``[rich]`` table of a
-config file (see :doc:`configuration`).
+config file (see :doc:`configuration`). Besides Rich's Markdown names (``h1``, ``block_quote``, ``code``, ...), the
+terminal renderer reads ``u``, ``mark``, ``math``, ``footnote``, ``dt``, ``image``, ``caption``, ``comment``,
+``html``, ``task.checked``, ``task.unchecked``, ``admonition`` and ``admonition.<kind>`` (``admonition.warning``,
+...).
 
 Configuration and Debugging
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

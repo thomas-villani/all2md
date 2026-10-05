@@ -132,6 +132,7 @@ if TYPE_CHECKING:
     from all2md.options.rst import RstParserOptions, RstRendererOptions  # noqa: F401
     from all2md.options.rtf import RtfOptions, RtfRendererOptions  # noqa: F401
     from all2md.options.sourcecode import SourceCodeOptions  # noqa: F401
+    from all2md.options.terminal import TerminalRendererOptions  # noqa: F401
     from all2md.options.textile import TextileParserOptions, TextileRendererOptions  # noqa: F401
     from all2md.options.toml import TomlParserOptions, TomlRendererOptions  # noqa: F401
     from all2md.options.webarchive import WebArchiveOptions  # noqa: F401
@@ -240,6 +241,7 @@ _lazy_options = {
     "RtfOptions": ("all2md.options.rtf", "RtfOptions"),
     "RtfRendererOptions": ("all2md.options.rtf", "RtfRendererOptions"),
     "SourceCodeOptions": ("all2md.options.sourcecode", "SourceCodeOptions"),
+    "TerminalRendererOptions": ("all2md.options.terminal", "TerminalRendererOptions"),
     "TextileParserOptions": ("all2md.options.textile", "TextileParserOptions"),
     "TextileRendererOptions": ("all2md.options.textile", "TextileRendererOptions"),
     "TomlParserOptions": ("all2md.options.toml", "TomlParserOptions"),
@@ -351,6 +353,7 @@ __all__ = [
     "RtfOptions",
     "RtfRendererOptions",
     "SourceCodeOptions",
+    "TerminalRendererOptions",
     "TextileParserOptions",
     "TextileRendererOptions",
     "TomlParserOptions",

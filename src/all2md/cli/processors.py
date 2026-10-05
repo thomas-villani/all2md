@@ -920,8 +920,8 @@ def _build_rich_theme(styles: Optional[Dict[str, Any]]) -> Any:
     resolved: Dict[str, Style] = {}
     for raw_key, raw_value in styles.items():
         key = str(raw_key).strip()
-        # Auto-prefix bare markdown element names; leave dotted keys verbatim.
-        if "." not in key and f"markdown.{key}" in _RICH_MARKDOWN_STYLE_KEYS:
+        # Auto-prefix markdown element names (``h1``, ``item.bullet``); leave other keys verbatim.
+        if f"markdown.{key}" in _RICH_MARKDOWN_STYLE_KEYS:
             key = f"markdown.{key}"
 
         if not isinstance(raw_value, str):
@@ -979,6 +979,32 @@ def _get_rich_markdown_kwargs(args: argparse.Namespace) -> dict:
         kwargs["justify"] = args.rich_justify
 
     return kwargs
+
+
+def _terminal_renderer_options(args: argparse.Namespace) -> Any:
+    """Map the ``--rich-*`` flags and the ``[rich]`` config styles onto terminal renderer options.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Parsed command line arguments
+
+    Returns
+    -------
+    TerminalRendererOptions
+
+    """
+    from all2md.options.terminal import TerminalRendererOptions
+
+    styles = getattr(args, "_rich_theme_styles", None)
+    return TerminalRendererOptions(
+        code_theme=getattr(args, "rich_code_theme", None) or "monokai",
+        inline_code_theme=getattr(args, "rich_inline_code_theme", None) or None,
+        hyperlinks=getattr(args, "rich_hyperlinks", True),
+        justify=getattr(args, "rich_justify", None) or None,
+        word_wrap=not getattr(args, "rich_no_word_wrap", False),
+        styles=dict(styles) if isinstance(styles, dict) and styles else None,
+    )
 
 
 def _apply_rich_formatting(markdown_content: str, args: argparse.Namespace) -> tuple[str, bool]:
@@ -3500,6 +3526,14 @@ def _render_markdown_mode(
 ) -> int:
     """Handle markdown format rendering."""
     line_numbers = getattr(args, "line_numbers", False)
+    if should_use_rich and not extract_specs and not line_numbers:
+        # Render the AST for the terminal directly; rich's own Markdown reader
+        # would re-parse our Markdown text with a smaller dialect.
+        doc = to_ast(item.raw_input, source_format=cast(DocumentFormat, format_arg), **effective_options)
+        rendered = from_ast(doc, "terminal", renderer_options=_terminal_renderer_options(args), transforms=transforms)
+        assert isinstance(rendered, str), "Terminal renderer should return str"
+        _output_text_with_options(rendered, args, is_rich=True)
+        return EXIT_SUCCESS
     if extract_specs:
         markdown_content = _convert_with_extraction(
             item, effective_options, format_arg, extract_specs, transforms, "markdown", line_numbers

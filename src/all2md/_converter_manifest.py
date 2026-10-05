@@ -667,6 +667,16 @@ _MANIFEST_RECORDS: list[ConverterMetadata] = [
         priority=1,
     ),
     ConverterMetadata(
+        format_name="terminal",
+        renderer_class="all2md.renderers.terminal.TerminalRenderer",
+        renderer_required_packages=[("rich", "rich", ">=14.2.0")],
+        renders_as_string=True,
+        import_error_message="The terminal renderer requires rich. Install with: pip install 'all2md[cli_extras]'",
+        renderer_options_class="all2md.options.terminal.TerminalRendererOptions",
+        description="Render documents for the terminal with rich (ANSI styling)",
+        priority=10,
+    ),
+    ConverterMetadata(
         format_name="textile",
         extensions=[".textile"],
         mime_types=["text/x-textile"],
