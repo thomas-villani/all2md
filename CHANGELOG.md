@@ -7,6 +7,112 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-10-05
+
+### Added
+
+- **benchmarks/libreoffice: real DOCX files, scored against what Word shows.**
+  LibreOffice's Writer regression corpus (1,526 `.docx`, many attached to bug reports)
+  is read by all2md and compared, as word multisets, with Word's own reading of each
+  file over COM: main story, notes and text-box stories. It is the noisy counterpart to
+  the scripted `benchmarks/docx` lane, and its first reading opened the DOCX fix stream
+  of #531-#538 (export words missed 3,908 → 657, 267 of them math glyphs that all2md
+  writes as LaTeX). `python -m benchmarks.libreoffice sweep` reads the corpus from a LibreOffice
+  checkout, `compare` scores a sweep and, with `--against`, lists every file two sweeps
+  read differently, which is how a reader change is judged. A manual instrument: no CI
+  step. The Word reading is committed, dated and digest-pinned, since taking it needs
+  Word; `word` re-records it.
+- **`all2md.utils.cfb.CfbReader`: read the streams of an OLE2 (CFB) container with the
+  standard library.** The groundwork for reading Word 97-2003 `.doc` and PowerPoint
+  97-2003 `.ppt` files without a new dependency. It lists every stream and storage and
+  reads a stream whole, from regular sectors or the mini stream, in version 3 (512-byte)
+  and version 4 (4096-byte) containers, DIFAT sectors included. Every chain, size and
+  index comes from the file, so each is checked first: a chain that loops, leaves the
+  FAT, ends early or points past the end of the file, and a stream claiming more bytes
+  than the file holds, raise `MalformedFileError`, and a file cut short never reads back
+  as zero-padded data. Format detection (`sniff_cfb_kind`) now uses the same reader. On
+  Word, PowerPoint and Outlook files made over COM, every stream reads byte for byte as
+  olefile reads it, and 3,000 mutated copies raise nothing but `MalformedFileError`.
+- **Word 97-2003 documents (`.doc`) are read, with the standard library.** The new `doc`
+  parser reads the binary format directly: no Word, LibreOffice or extra package. It
+  reads all the text, using the piece table (fast-saved files included, cp1252 and
+  UTF-16 pieces, characters outside the BMP):
+  - the body, with field results and `HYPERLINK` fields as links;
+  - footnotes and endnotes, as footnote definitions referenced where their marks stand;
+  - comments, with their author;
+  - text boxes, after the paragraph that anchors them;
+  - page headers and footers (`include_headers_footers`).
+
+  Text deleted with tracked changes is hidden, as the DOCX parser's default policy hides
+  it. Title, author, keywords and dates come from the summary information. Encrypted
+  files raise `PasswordProtectedError`, and Word 6/95 files raise a `FormatError` that
+  says so. On 191 files from LibreOffice's DOCX regression corpus saved as `.doc` by
+  Word, the words read match those the DOCX parser reads from the originals except 99 of
+  9,906. Those 99 are equations, generated list numbers, and footnotes the `.docx` never
+  referenced. Formatting is not read yet: headings, tables and lists come back as
+  paragraphs, a table's cells one paragraph each.
+- **Detection routes CFB containers by their streams before their extension**, so an
+  Outlook message named `report.doc` still reads as a message. **MIME-type matches are
+  now checked by content, as extension matches are**, so a `.doc` that holds RTF or HTML
+  goes to that parser.
+- **Man pages: a parser for the man(7) macros.** `all2md ls.1` reads Unix manual pages
+  directly, with no roff installation: `.TH` becomes the title, date and section
+  metadata (and an `LS(1)` heading, which `--man-no-title-heading` turns off), `.SH`
+  and `.SS` become headings, `.TP` and tagged `.IP` paragraphs become definition lists,
+  `.IP` bullets and numbers become lists, `.RS`/`.RE` nests them, `.nf` and `.EX`
+  regions become code blocks, `.UR`/`.MT` become links and simple `tbl` tables become
+  tables. The font escapes and macros map to bold, italic and code. Extensions `.1` to
+  `.9` and `.man` are confirmed by content (the first macro must be `.TH`), so a rotated
+  `app.log.1` still reads as plain text, and a page with any other extension, such as
+  Perl's `.3pm`, is found by content alone. The preamble pod2man writes before `.TH`
+  (conditionals, string and macro definitions) is read rather than printed. Not yet:
+  mdoc(7) pages (`.Dd`/`.Sh`) and `.so` includes (reported, not followed). Gzipped pages
+  (`ls.1.gz`) read through the single-compressed-file fix below.
+- **Write man pages.** `all2md README.md --to man` (or `from_ast(doc, "man")`) renders any
+  document as a man(7) page that `man`, `groff -man` and `mandoc` display. A leading
+  `# LS(1)` heading or the title metadata fills `.TH`, with the date, source and manual
+  taken from the metadata or the new `ManRendererOptions` (`section`, `date`, `source`,
+  `manual`, `uppercase_section_headings`). The next two heading levels become `.SH` and
+  `.SS`. Lists become `.IP`, definition lists `.TP`, code `.EX`/`.EE`, links `.UR`/`.UE`
+  and tables tbl, with column and row spans. Text is escaped for roff: `\e`, `\-` for
+  options, `\&` before a leading `.` or `'`, and `\[uXXXX]` outside ASCII, so groff needs
+  no preconv. Reading a page and writing it back reproduces the same document: six real
+  pages (CPython's `python.1` and man-pages' `open.2`, `ldd.1`, `ascii.7`, `printf.3`,
+  `signal.7`) convert to identical Markdown either way, and the output passes
+  `groff -ww` without a warning.
+- **PowerPoint 97-2003 presentations (`.ppt`, `.pps`, `.pot`) are read, with the standard
+  library.** The new `ppt` parser reads the binary format directly: no PowerPoint,
+  LibreOffice or extra package. It follows the edit chain, so an incrementally saved file
+  reads as last saved, and reads each slide's text boxes in drawing order, including the
+  placeholder text older versions of PowerPoint keep in the slide list:
+  - the title, as a level 2 heading;
+  - body placeholders, as bullet lists nested by indent level, and other text as paragraphs;
+  - hyperlinks, as links, and slide number fields, as the slide's number;
+  - speaker notes and review comments.
+
+  The options and their defaults are the PPTX parser's (`PptOptions`). Title, author and
+  dates come from the summary information. Encrypted files raise `PasswordProtectedError`.
+  On 416 of LibreOffice's Impress test decks saved as `.ppt` by PowerPoint, the words
+  read match those the PPTX parser reads from the originals except 684 of 4,810. Of
+  those, 653 are not in the `.ppt` at all: PowerPoint saved charts as embedded objects and
+  WordArt and multi-column text as pictures. Character formatting, numbered lists, tables
+  and pictures are not read yet.
+- **The Outlook parser's error for a `.doc` or `.ppt` now names the format that reads it**,
+  instead of saying all2md cannot read the file.
+- **`-r` is short for `--recursive` in `grep`, `search`, `lint` and `generate-site`**, as it
+  already was for `all2md` itself and `serve`. `all2md grep -r "deadline" contracts/` works as
+  `grep -r` does; `lint` keeps `-R` too.
+- **The round-trip fidelity gate now also runs through man pages.**
+  `python -m benchmarks.roundtrip --via man` sends each corpus document through a man
+  page and back (`md -> AST -> man -> AST -> md`), and CI runs it beside the direct pass.
+  Every document is a fixed point through man. A per-format profile in
+  `benchmarks/roundtrip/via.py` projects man's inherent losses out of the HTML
+  comparison: code languages, strikethrough, h4-h6, images, math markup and the like.
+  The remaining failures are ratcheted in `MAN_EXPECTED_FAILURES`. Two are inherent
+  (footnotes, raw HTML). Four are man-parser defects, each now visible: nested
+  emphasis splits into runs, nested lists turn loose, task markers stay text, and
+  links in table cells break.
+
 ### Fixed
 
 - **docx: a table nested in a table cell is read.** A cell was read as its own
@@ -67,6 +173,265 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   at 4 prints 4. The parser now counts a list paragraph at the level its numbering
   names, as Word does, rather than at the depth its style or indent implies, which kept
   a nested list's start from reading back.
+- **A `.doc` whose FIB counts run past the end of the stream raises `MalformedFileError`**,
+  not a raw `struct.error`. The counts of the FIB's three arrays come from the file, and the
+  `.doc` parser's mutation test found a damaged `csw` that pointed past the end. A further
+  40,000 random mutations of builder-made and Word-saved `.doc` and `.ppt` files raised only
+  all2md errors.
+- **docx: two tables in a row stay two tables in Word.** The renderer wrote adjacent
+  tables with nothing between them, and Word shows two tables that touch as one, so
+  a 13 × 14 table followed by a 13 × 13 one opened as a single 26 × 14 table. The
+  DOCX parser read them back as two, so only Word saw the join. The renderer now keeps
+  an empty paragraph between them, as Word itself does. A caption or any other block
+  between two tables already separates them and adds nothing. Found by the PDF → DOCX
+  Word read-back (`benchmarks.pmc word`): 5 pairs in 5 of 66 development-corpus
+  articles.
+- **docx: each bullet list is its own list, in Word and when read back.** Every bullet
+  list the renderer wrote shared the "List Bullet" style's numbering instance, so Word
+  treated all of a document's bullets as one list: restarting it or converting it to
+  numbers changed every bullet list at once. And two bullet lists in a row read back
+  as one. The renderer now gives every list, bulleted or numbered, a numbering instance
+  that restarts, which is what makes Word see a new list. The parser now splits two
+  runs of bullets where Word does: where the second run's instance restarts or uses
+  another definition. Runs on instances that share a definition with no restart
+  remain one list, as in Word. Found by the PDF → DOCX Word read-back
+  (`benchmarks.pmc word`): 176 bullet lists in the development corpus were merged in
+  Word.
+- **docx: Word numbers figure and table captions.** Captions carried Word's Caption
+  style but their numbers were plain text, so Insert Table of Figures and
+  cross-references found nothing. A caption's number is now the `SEQ Figure` or
+  `SEQ Table` field Word's Insert Caption writes, with the printed number as its cached
+  result, so the text reads and parses back unchanged. Word renumbers these fields 1, 2,
+  3 when fields update, so a field is written only where that changes nothing: a plain
+  integer after "Figure", "Fig." or "Table" that continues the label's sequence. After a
+  break (a figure printed only as a graphic, "Figure S1", "Figure 1A", "Table 1.2"), that
+  label's later numbers stay text. On a 12-article PMC subset, 24 of 29 captions get a
+  field, and updating every field in Word changes none of the 29.
+- **docx: rendered documents no longer open in Compatibility Mode.** python-docx's
+  default template sets Word 2010's compatibility mode (14), so Word opened every
+  document the renderer wrote with "[Compatibility Mode]" in the title bar and its
+  newer layout rules off. The renderer now writes mode 15, the one Word gives a document
+  it creates. This turns on Word 2013's layout rules, so line breaking and table layout
+  can shift slightly. A template passed as `template_path` keeps its own mode, and gets
+  15 only if it sets none. Found by the PDF → DOCX Word read-back (`benchmarks.pmc
+  word`): all 66 development-corpus documents opened in mode 14.
+- **docx: a package that names a part it does not contain is read instead of
+  rejected.** python-docx loads every part the package's relationships reach as it
+  opens the file, so one relationship to a missing footer, font table, numbering part
+  or image -- or an internal bookmark written as if it were a file -- failed the whole
+  document with `MalformedFileError`. Word opens these files and shows what is there.
+  When an open fails, the parser now rebuilds the package in memory without the
+  relationships to missing parts, logs a warning naming them, and reads it again; the
+  missing part simply reads as absent. A sound package never takes this path, and one
+  the repair cannot help still reports its original error. Sixteen files in
+  LibreOffice's Writer regression corpus that failed now read.
+- **docx: Strict Open XML documents are read instead of rejected.** A file saved as
+  "Strict Open XML Document" names its namespaces and relationship types under
+  `http://purl.oclc.org/ooxml/` rather than `http://schemas.openxmlformats.org/`, so
+  python-docx found no main document and the parser raised `MalformedFileError`. When
+  an open fails, the parser now renames the Strict names to their Transitional
+  equivalents in memory and reads the package again; the elements themselves are the
+  same in both. A Transitional package never takes this path. The seven Strict files
+  in LibreOffice's Writer regression corpus that Word opens now read, and match Word's
+  text.
+- **docx: heading levels survive a round trip when the leading H1 is not the title.**
+  The renderer writes a leading H1 in Word's Title style and moves the headings after
+  it up one level, and the parser undoes that shift when the title leads. Two shapes
+  broke it:
+  - **A second H1.** It was written as "Heading 1", the same as the old H2s, so H1 and
+    H2 came back as one level.
+  - **A picture ahead of the H1.** A journal logo counted as an empty spacer when
+    writing, but is content when reading back, so the shift was not undone and every
+    heading came back a level too high.
+
+  Title promotion now applies only when the leading H1 is the document's only top-level
+  H1 and nothing but blank paragraphs comes before it. Found by the second full reading
+  of the PDF → DOCX re-parse ledger (PMC10000026.1, PMC8000039.1).
+- **docx: text inside `w:dir`, `w:bdo`, `w:smartTag` and `w:customXml` is read.** Each
+  of these wraps ordinary runs to set their direction (Word writes `w:dir` and `w:bdo`
+  around Arabic and Hebrew text), tag a recognized name or date, or bind them to a
+  custom schema, and each put its runs one level below where the paragraph reader
+  looked, so the text vanished from the middle of its sentence. A block-level
+  `w:customXml` hid a whole paragraph, table, row or cell the same way. They are now
+  unwrapped on the element tree before reading, as content controls already were; the
+  wrapper's own properties are dropped, and right-to-left text is written in the reading
+  order Word stores it in. On LibreOffice's Writer regression corpus one Arabic file had
+  lost all 71 of its words, and the words missed overall fell from 781 to 653.
+- **`grep` and `search` skip a file they cannot read and search the rest.** One file in a
+  folder whose format needed a missing optional dependency (a `.chm` without pychm, say),
+  or that was damaged or encrypted, ended a recursive `all2md grep` with exit 2 and no
+  results at all. Like `grep`, both commands now print `all2md grep: FILE: skipped: REASON`
+  on stderr for that file and search the others. A run in which every input fails still
+  fails as before. `SearchService.build_indexes(..., skip_errors=True)` does the same for
+  the Python API and records what it left out in `service.skipped`; its default is
+  unchanged.
+- **Man page lists with nested lists stay tight.** A list item holding a nested list
+  (`.IP` text followed by `.RS` … `.RE`) made the whole list loose, so `- a` with
+  `  - b` written to a man page and read back gained a blank line between every
+  item. A nested list no longer loosens its item; a second paragraph or a code
+  block still does.
+- **Man pages keep nested bold and italic.** `\fBbold with \f(BIitalic\fB inside\fR`
+  came back as three siblings (bold, bold-italic, bold), so `**bold with *italic*
+  inside**` written to a man page and read back lost its nesting. Font runs are now
+  nested: the longest bold or italic stretch becomes the outer node, with italic
+  outside on a tie as CommonMark nests `***x***`. Constant width inside bold or italic
+  (`\f(CB`, `\f(CI`, `\f[CBI]`) is now read as code inside that formatting instead of
+  dropping it.
+- **Three man page parser edge cases.** `.ig XX` now skips up to `.XX`, as roff does,
+  instead of stopping at the first `..` and printing the rest of the ignored block.
+  Numeric character references outside Unicode (`\[u110000]`, `\[char1114112]`,
+  `\N'99999999'`), surrogates (`\[uD800]`) and `\N'…'` with a non-ASCII digit raised an
+  unhandled error; they now read as U+FFFD. The NAME section's description keeps
+  formatted words: `foo \- list \fBall\fR files` gave "list  files".
+- **Man page task items read back as tasks.** man has no checkboxes, so the man
+  renderer writes a task item as `[ ] text` or `[x] text`. The parser now reads a
+  leading `[ ]`, `[x]` or `[X]` marker on a list item as its task status, as
+  GitHub-flavored Markdown does, so `- [x] done` survives a man round trip instead of
+  coming back as the literal text `\[x\] done`.
+- **Man page tables with `T{` text blocks are read as tables.** Any tbl table holding a
+  `T{` ... `T}` text block, as nearly every man-pages ATTRIBUTES table does, became a
+  code block of raw roff. Text blocks are now read as cells, through a nested parse,
+  so requests inside them (`.BR`, `.UR`/`.UE`, `.br`, even lists) work. Fields after
+  `T}` continue the row, and `.T&` format changes are skipped. `syscalls(2)`, with 133
+  text blocks, now converts to a Markdown table. In the other direction, the man
+  renderer writes a cell that holds a link or a hard line break as a text block, so a
+  link in a table survives a man round trip. A cell of just `_` or `=` is protected so
+  tbl does not draw a rule, and table cells carry their column's alignment.
+- **markdown: emphasis and strong delimiters are written so they close (#529).** Three
+  shapes came back as literal stars:
+  - **Whitespace at a span's edge.** `Strong("bold ")` then `"after"` was written
+    `**bold **after`, and a `**` next to a space does not delimit. Whitespace at either
+    edge of an emphasis, strong or strikethrough span now goes outside it:
+    `**bold** after`.
+  - **Neighbor spans sharing a style.** `Emphasis[Strong("Meta")]` then
+    `Strong("-analysis")` was written `***Meta*****-analysis**`, and the five stars
+    read as one run. Neighbor runs are now merged so each style opens once:
+    `***Meta*-analysis**`. An emphasis nested in an emphasis is no longer written `**x**`,
+    which read as strong.
+  - **Crossing spans.** Where one span closes and another opens with no shared style
+    (`**x *a***` then `*b*`), the second is written with `_` (`_b_`).
+
+  A style change in the middle of a word, with no space, still cannot always be
+  written: CommonMark reads `***a*b*c***` and `*q.*a` differently from what was meant.
+- **markdown: a link or image whose URL holds a space, an unmatched parenthesis or a
+  line break is written so it reads back.** The renderer wrote every URL bare, as
+  `[text](url)`, so `file:///C:/My Docs/a.pdf` read back as plain text and
+  `https://example.com/x)y` as a link cut short at the `)`. Such a URL is now written in
+  the pointed form `[text](<url>)`, line breaks and control characters are
+  percent-encoded, and a backslash that would escape the next character is doubled. The
+  same applies to images and reference definitions. A title holding a `"` is escaped
+  instead of ending the title early.
+- **A Word, PowerPoint or Excel 97-2003 file is no longer reported as a broken
+  Outlook message.** All four formats are OLE2 compound files with one shared
+  signature, and the Outlook parser claimed that signature outright, so `all2md
+  report.doc` failed with "Failed to parse MSG file: does not contain a properties
+  stream". Detection now reads the names of the streams under the container's root
+  (`WordDocument`, `PowerPoint Document`, `Workbook`, `__substg1.0_*`) with a small
+  standard-library reader, `all2md.utils.cfb`, that seeks past the 1 KB detection
+  sample to the directory. A message is still routed to the Outlook parser, a `.doc`
+  to the new `doc` parser and a `.ppt` to the new `ppt` parser (both below). An Excel
+  97-2003 workbook, which nothing reads yet, fails with a `FormatError` that names its
+  format and suggests saving it as `.xlsx`. Only the root's own children count, so a
+  message carrying an embedded Word file stays a message.
+- **Outlook `.msg` files convert again; every real one used to fail.** The parser
+  read `message_id` from extract-msg's message, an attribute that library has
+  never had (it is `messageId`), so any message got as far as its headers and then
+  stopped with "Failed to parse MSG file: AttributeError". The test suite stubbed
+  extract-msg with the same wrong attribute, so it passed. Three further mismatches
+  surfaced once real files were read:
+  - `To`/`Cc` are now built from extract-msg's structured recipient list. Its
+    joined strings use `;`, which the email package reads as the end of an address
+    group, so every recipient after the first was dropped.
+  - A display name that only repeats the address is omitted.
+  - The HTML body arrives as bytes. It is now decoded and kept beside the plain body
+    as an alternative, as in an `.eml`, so the EML options (`include_plain_parts`,
+    `convert_html_to_markdown`) can choose it. A failure reading it is logged, not
+    swallowed.
+
+  The `outlook` extra now requires `extract-msg>=0.56.1`. With 0.37.1, the previous
+  floor and the locked version, reading the HTML body of an RTF-encapsulated
+  message (which is how Outlook usually stores HTML) crashes inside extract-msg
+  under current RTFDE. The stub in the golden tests now mirrors extract-msg's real
+  API, and a contract test checks the attributes the parser uses against the
+  installed library.
+- **pdf: a link is one link, not one per text span.** A PDF link annotation covers a
+  rectangle, and every span inside it became a link of its own: "BioMed Central" came
+  out as `[Bio](u)[Med](u)[ ](u)[Central](u)`, and a wrapped reference as one link per
+  printed line. Neighboring links to the same URL and title, with only whitespace or
+  line breaks between them, are now merged into one. On PMC2500011.1 that takes 43
+  links to 18, with the same 16 URLs.
+- **pdf: TeX math symbols embedded without a Unicode map are read.** TeX's math symbol
+  (cmsy) and extension (cmex) fonts put glyphs at codes 0x00-0x1F, and a PDF that
+  embeds them without a ToUnicode map gave those codes as they are: "Scoring ≥50%"
+  arrived as "Scoring" followed by a control character, which the DOCX and EPUB
+  renderers then dropped. Codes 0x00-0x1F in those fonts are now mapped through the
+  published tables (≥, ≤, −, ∗, •, ±, ×, … and cmex's delimiters), in body text and,
+  on a page with one such font, in table cells. Fonts re-encoded per document are left
+  as they are.
+- **pdf: a year at the start of a line is no longer read as a list number.** A
+  reference whose year wrapped onto a line of its own ("... Wageningen Press;" then
+  "2001.") became an ordered list starting at 2001, with one empty item, and the year
+  left its reference. An ordered-list number now has at most three digits, so the year
+  stays prose and joins the reference again.
+- **reStructuredText: nested lists read back as nested lists** (#517). The renderer wrote a
+  nested list on the line after its parent item, six columns in, and docutils read the
+  parent's text and the list as a definition list, so the item lost both its paragraph and
+  its list. A nested list now sits a blank line below the item's text at the item's text
+  column (three columns for `1.`, four for `10.`). The other blocks of a list item keep the
+  blank lines between them, so a code block or a second paragraph inside an item no longer
+  fuses with the text above it either.
+- **A single compressed file now converts as what it holds.** `ls.1.gz`, `data.csv.gz`,
+  `notes.md.gz`, `page.html.bz2` and `x.json.xz` all failed or came out as garbage.
+  The archive parser took every gzip, bzip2 and xz signature to be a compressed tar
+  ("Invalid TAR archive"). Worse, detection trusted the MIME type of the name inside
+  the compression, so `notes.md.gz` went to the Markdown parser, `report.txt.gz` to the
+  DokuWiki parser and `x.json.xz` into a code block, each reading compressed bytes as
+  text. Detection now ignores a MIME type that comes with a compression encoding, and
+  the archive parser checks the first decompressed block: a tar is read as before,
+  anything else is decompressed and detected as `ls.1`, `data.csv` and so on. With no
+  outer name it uses the name stored in the gzip header. Decompression runs under the
+  archive limits (1 GB, and a 100:1 ratio once past 10 MB). Concatenated members are
+  joined as `gzip -d` does. A truncated, corrupt or doubly compressed file fails with a
+  `MalformedFileError`.
+- **Markdown piped to stdin is read as Markdown.** Detection by content had no test for
+  Markdown, so `cat notes.md | rcat` (or `| all2md -`) read it as plain text and printed
+  `\# Heading`. Nameless text that every content detector declined is now read as Markdown
+  when it carries two kinds of Markdown mark (ATX headings set off by blank lines, lists,
+  links, strong emphasis, tables, fenced code, block quotes, inline code) and nothing of
+  another language's syntax (program statements, reST directives and roles, Org keywords,
+  minified JavaScript); fenced code is set aside first, so a README full of shell examples
+  still counts. Markdown that opens with YAML (`---`) or TOML (`+++`) front matter is
+  recognized before the YAML detector, which used to claim it, and a Markdown note that is
+  only a heading and a bullet list is no longer read as a YAML list. Over the repository's
+  own files the test says yes to 84 of 104 `.md` files (the rest are short snippets with one
+  kind of mark, which stay plain text) and to 2 of 1,390 other text files. Without the
+  Markdown parser installed (mistune), nameless text stays plain text as before; a named
+  file is unaffected.
+- **Rich output's install hint named an extra that does not exist.** The CLI said
+  `pip install all2md[rich]`, in the warning printed when rich is missing, the `--rich`
+  option group's help and the `config generate` template; `rich` comes with `cli_extras`
+  (and `all`), and the hints now say so. The docs had the same mistake.
+- **The example Jinja templates render with the default options.** All four
+  (`ansi-terminal`, `custom-outline`, `docbook`, `metadata.yaml`) read `metadata.title`,
+  which `strict_undefined` (on by default) turns into an error for any document without a
+  title. They now use `metadata.get(...)`, and a test renders each one.
+- **Docs: reading documents in the terminal.** The README introduces `rcat` (`all2md FILE
+  --rich`) as a terminal reader for every supported format, and `cli.rst` documents it,
+  along with `-f` for `--force-rich`, `ALL2MD_PAGER`, the correct `ALL2MD_RICH_NO_WORD_WRAP`
+  (it said `ALL2MD_RICH_WORD_WRAP`) and PowerShell's `$env:PAGER`. `--pager` is described as
+  the explicit opt-in it is, not as automatic paging for long documents.
+
+### Security
+
+- **pyjwt 2.13.0 → 2.15.0, urllib3 2.7.0 → 2.8.0 and virtualenv 21.5.1 → 21.7.13 in the
+  lock file** (#537, #552), closing 20 advisories between them, among them PyJWT's
+  CVE-2026-102268 (asymmetric-PEM confusion-guard bypass) and urllib3's CVE-2026-97687
+  (HTTPS proxy TLS configuration ignored). None of the three is a direct dependency:
+  pyjwt arrives with the `mcp` extra through fastmcp, urllib3 with the `chunk` extra
+  through tiktoken and requests, and virtualenv only with the pre-commit development
+  tool. all2md calls none of the affected functions itself; a fresh install resolves
+  their newest releases regardless, and the bump brings CI and development environments
+  in line.
 
 ## [1.15.1] - 2026-09-18
 
@@ -4377,7 +4742,8 @@ surfaced one real conversion bug, which is the reason to take the release.
 - NumPy-style docstrings
 - Modular architecture with clear separation of concerns
 
-[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.15.1...HEAD
+[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.16.0...HEAD
+[1.16.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.16.0
 [1.15.1]: https://github.com/thomas-villani/all2md/releases/tag/v1.15.1
 [1.15.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.15.0
 [1.14.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.14.0
