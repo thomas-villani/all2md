@@ -233,11 +233,11 @@ class TestRoundTripCli:
         result = _run_cli(str(tmp_path / "absent.md"))
         assert result.returncode == 4
 
-    def test_stdin_needs_an_explicit_format_to_be_markdown(self):
-        """Piped Markdown sniffs as plaintext; --format is how a caller says otherwise."""
+    def test_stdin_markdown_is_recognized(self):
+        """Piped Markdown is read as Markdown (it used to sniff as plaintext); --format still decides."""
         sniffed = _run_cli("-", stdin=RICH_MARKDOWN.encode())
         assert sniffed.returncode == 0
-        assert b"parse plaintext" in sniffed.stdout
+        assert b"parse markdown" in sniffed.stdout
 
         told = _run_cli("-", "--format", "markdown", stdin=RICH_MARKDOWN.encode())
         assert told.returncode == 0

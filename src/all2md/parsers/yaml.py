@@ -584,6 +584,15 @@ def _detect_yaml_content(content: bytes) -> bool:
         if isinstance(result, (str, int, float, bool)) or result is None:
             return False
 
+        # A Markdown note that is a heading and a bullet list parses as a YAML list of
+        # strings, the heading read as a comment. A flat list of strings that also
+        # carries Markdown's marks is the Markdown list it looks like.
+        if isinstance(result, list) and all(isinstance(item, str) for item in result):
+            from all2md.utils.markdown_sniff import looks_like_markdown
+
+            if looks_like_markdown(content):
+                return False
+
         return True
     except (yaml.YAMLError, UnicodeDecodeError):
         return False

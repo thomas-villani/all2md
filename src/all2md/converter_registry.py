@@ -689,14 +689,56 @@ class ConverterRegistry:
 
         # Try content-based detection
         if content:
+            # Markdown opening with YAML front matter starts like a YAML document, and
+            # the YAML detector would claim it; front matter followed by a Markdown body
+            # is a Markdown document, so it is asked first.
+            if self._looks_like_markdown(content, front_matter_only=True):
+                logger.debug("Format detected from content: markdown with front matter")
+                return "markdown"
             format_name = self._detect_by_content(content)
             if format_name:
                 logger.debug(f"Format detected from content: {format_name}")
                 return format_name
+            if self._looks_like_markdown(content):
+                logger.debug("Format detected from content: markdown (last guess before plaintext)")
+                return "markdown"
 
         # Default fallback
         logger.debug("No format detected, defaulting to plaintext")
         return "plaintext"
+
+    def _looks_like_markdown(self, content: bytes, *, front_matter_only: bool = False) -> bool:
+        """Return whether nameless content is Markdown.
+
+        Markdown's marks (``#`` lines, ``- `` lists) also open shell comments and YAML
+        lists, so the general test is the last guess before plaintext, made after every
+        content detector declined, rather than a detector in the priority order, where
+        it would run ahead of YAML and CSV. Front matter followed by a Markdown body is
+        the exception, asked before the detectors (``front_matter_only``). Either is only
+        made when the Markdown parser can run: without mistune the content stays
+        plaintext, which reads it as it always did.
+
+        Parameters
+        ----------
+        content : bytes
+            The detection sample.
+        front_matter_only : bool, default False
+            Ask only whether the content is front matter followed by a Markdown body.
+
+        Returns
+        -------
+        bool
+            True to route the content to the Markdown parser.
+
+        """
+        if "markdown" not in self._converters:
+            return False
+        from importlib.util import find_spec
+
+        from all2md.utils.markdown_sniff import has_markdown_front_matter, looks_like_markdown
+
+        test = has_markdown_front_matter if front_matter_only else looks_like_markdown
+        return test(content) and find_spec("mistune") is not None
 
     def _detect_by_filename(self, filename: str, content: Optional[bytes] = None) -> Optional[str]:
         """Detect format from filename with optional content validation.

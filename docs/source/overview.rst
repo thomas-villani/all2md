@@ -32,7 +32,8 @@ The library uses a multi-layered format detection strategy:
 2. **Filename extension analysis**, confirmed by the format's content check where it has one
 3. **MIME type detection**, confirmed the same way
 4. **Content-based magic bytes** (for file objects without names)
-5. **Fallback to plain text** (graceful degradation)
+5. **Markdown by its marks**, the last guess for nameless text such as stdin
+6. **Fallback to plain text** (graceful degradation)
 
 This ensures accurate conversion even when file extensions are missing or incorrect.
 
@@ -136,8 +137,12 @@ Detection runs in priority order to ensure accurate format identification:
 4. **MIME type detection**: Use ``mimetypes.guess_type()`` for secondary verification, confirmed
    by content the same way. A MIME type that comes with a compression encoding
    (``notes.md.gz``) is ignored, and the archive parser decompresses the file instead
-5. **Magic bytes/content detectors**: Examine file headers and content patterns for files without reliable names
-6. **Fallback to plain text**: Graceful degradation when no specific format is detected
+5. **Magic bytes/content detectors**: Examine file headers and content patterns for files without reliable names.
+   Markdown that opens with YAML or TOML front matter is recognized first, before the YAML detector
+6. **Markdown by its marks**: Nameless text (piped to stdin, say) that every detector declined is read as
+   Markdown when it carries two kinds of Markdown mark (headings, lists, links, emphasis, tables, fenced code)
+   and nothing of another language's syntax, and when the Markdown parser is installed
+7. **Fallback to plain text**: Graceful degradation when no specific format is detected
 
 You can use the ``list-formats`` CLI command to explore which formats are supported and check which dependencies are available in your environment:
 
