@@ -109,8 +109,9 @@ MkDocs (`!!!`) parsers put `admonition_type` and `admonition_title` in a `BlockQ
 metadata, the AsciiDoc parser used `role`, and the Markdown parser does not recognize
 GitHub's `> [!NOTE]` at all. The renderer should read one key. ✅ Normalized in its own
 PR: every parser now writes `admonition_type` / `admonition_title` (the contract is on
-`BlockQuote`'s docstring), and the AsciiDoc parser reads all three of its forms. Teaching
-the Markdown parser the GitHub alert syntax is the second, optional PR.
+`BlockQuote`'s docstring), and the AsciiDoc parser reads all three of its forms. ✅ The
+Markdown parser reads GitHub alerts too, and GFM writes untitled admonitions back as
+alerts.
 
 **Switching `--rich` over.** When the CLI is rendering Markdown for the terminal, it uses
 the terminal renderer on the AST instead of `rich.markdown.Markdown` on the text.

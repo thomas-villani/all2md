@@ -171,12 +171,13 @@ class TestAdmonitions:
         out = _render(_parse('!!! note "Heads up"\n    Body text.\n'), flavor="gfm")
         assert "> **Heads up:** Body text." in out
 
-    def test_gfm_degradation_puts_label_on_own_line_before_list(self) -> None:
+    def test_degradation_puts_label_on_own_line_before_list(self) -> None:
         # When the admonition body opens with a non-paragraph block (a list),
         # inlining the label would fold the list into the label's paragraph
         # ("> **Tip:** * item") and break the roundtrip. The label must land on
         # its own line so the list stays a list. See #104.
-        out = _render(_parse("!!! tip\n    - one\n    - two\n"), flavor="gfm")
+        # CommonMark, because GFM writes an untitled tip as a GitHub alert instead.
+        out = _render(_parse("!!! tip\n    - one\n    - two\n"), flavor="commonmark")
         assert "> **Tip:** *" not in out
         assert "> **Tip:**\n" in out
         assert "> * one" in out

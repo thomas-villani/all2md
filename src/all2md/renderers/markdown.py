@@ -62,6 +62,7 @@ from all2md.ast.nodes import (
 )
 from all2md.ast.visitors import NodeVisitor
 from all2md.constants import (
+    GITHUB_ALERT_TYPES,
     MARKDOWN_FIGURE_CAPTION_MARKER,
     MARKDOWN_FIGURE_END_MARKER,
     MARKDOWN_FIGURE_MARKER,
@@ -1275,8 +1276,15 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         quoted = self._render_children_to_string(node)
         lines = quoted.split("\n")
 
-        # Prepend the admonition's label on a flavor without admonition support.
-        if admonition_type:
+        if admonition_type in GITHUB_ALERT_TYPES and not admonition_title and self._flavor.supports_github_alerts():
+            # A GitHub alert: the marker alone on the quote's first line. A
+            # paragraph may follow on the next line; any other block needs a
+            # blank line between, since not every block can interrupt a paragraph.
+            first_child = node.children[0] if node.children else None
+            marker = f"[!{admonition_type.upper()}]"
+            lines = [marker, *lines] if isinstance(first_child, Paragraph) else [marker, "", *lines]
+        # Otherwise prepend the admonition's label (a GitHub alert has no title).
+        elif admonition_type:
             # Use custom title if available, otherwise capitalize admonition type
             if admonition_title:
                 label = admonition_title

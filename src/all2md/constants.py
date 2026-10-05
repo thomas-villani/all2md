@@ -381,6 +381,9 @@ DEFAULT_PDF_COMMENT_MODE: PdfCommentMode = "ignore"
 
 # Flavor and compatibility settings
 DEFAULT_FLAVOR: FlavorType = "gfm"
+
+#: The five GitHub alert kinds (``> [!NOTE]``), as ``admonition_type`` values.
+GITHUB_ALERT_TYPES: tuple[str, ...] = ("note", "tip", "important", "warning", "caution")
 # Use "force" as flavor-naive default (most markdown-like, works in most parsers)
 # Flavor-specific defaults are applied via get_flavor_defaults() when flavor is chosen
 DEFAULT_UNSUPPORTED_TABLE_MODE: UnsupportedTableMode = "force"
