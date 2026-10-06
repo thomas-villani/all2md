@@ -87,3 +87,110 @@ jobs:
           # Idempotent: if this version is already on PyPI (e.g. a tag push and
           # a manual UI release both fired), skip instead of failing the run.
           skip-existing: true
+
+  publish-mcp-registry:
+    name: Publish to the MCP Registry
+    # The registry stores metadata only, and it verifies it against PyPI: the
+    # package must exist and its README must carry `mcp-name: <server name>`. So
+    # this runs after the upload, and waits for PyPI to serve the new version.
+    needs: build-and-publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # mcp-publisher login github-oidc
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag || github.event.workflow_run.head_branch }}
+      # Pinned like the mcpb CLI in ci.yml: bump deliberately, and update the
+      # checksum check below with it.
+      MCP_PUBLISHER_VERSION: "1.8.1"
+      REGISTRY_API: https://registry.modelcontextprotocol.io/v0
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Decide whether to publish
+        id: decide
+        run: |
+          # Releases before 1.17 have no server.json, and their CLI has no `mcp`
+          # subcommand, so the entry would install a server that cannot start.
+          if [ ! -f server.json ]; then
+            echo "::notice::$RELEASE_TAG has no server.json; nothing to publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          NAME=$(jq -r .name server.json)
+          VERSION=$(jq -r .version server.json)
+          if [ "$VERSION" != "${RELEASE_TAG#v}" ]; then
+            echo "Error: server.json version ($VERSION) does not match tag ($RELEASE_TAG)"
+            echo "Run 'bumpversion' to sync it (see [tool.bumpversion] in pyproject.toml)."
+            exit 1
+          fi
+          # Registry versions are immutable, so a re-run (tag push plus a manual
+          # UI release, or workflow_dispatch) must skip rather than fail.
+          STATUS=$(curl -s -o /dev/null -w '%{http_code}' "$REGISTRY_API/servers/${NAME/\//%2F}/versions/$VERSION")
+          if [ "$STATUS" = "200" ]; then
+            echo "::notice::$NAME $VERSION is already in the registry; skipping."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for PyPI to serve the release
+        if: steps.decide.outputs.publish == 'true'
+        env:
+          NAME: ${{ steps.decide.outputs.name }}
+          VERSION: ${{ steps.decide.outputs.version }}
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl -sf "https://pypi.org/pypi/all2md/$VERSION/json" \
+                | jq -r .info.description | grep -q "mcp-name: $NAME"; then
+              echo "PyPI serves all2md $VERSION with the ownership marker."
+              exit 0
+            fi
+            echo "Attempt $attempt: not yet; waiting 20s."
+            sleep 20
+          done
+          echo "Error: PyPI never served all2md $VERSION with 'mcp-name: $NAME' in its README."
+          exit 1
+
+      - name: Add the .mcpb bundle to the entry
+        if: steps.decide.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.decide.outputs.version }}
+        run: |
+          # ci.yml attaches all2md.mcpb to the release. Its checksum exists only
+          # once that build has run, so the entry is completed here, not in git.
+          if ! gh release download "$RELEASE_TAG" --pattern all2md.mcpb --dir mcpb-asset; then
+            echo "::warning::$RELEASE_TAG has no all2md.mcpb asset; publishing the PyPI package only."
+            exit 0
+          fi
+          SHA256=$(sha256sum mcpb-asset/all2md.mcpb | cut -d' ' -f1)
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/all2md.mcpb"
+          jq --arg url "$URL" --arg sha "$SHA256" --arg version "$VERSION" \
+            '.packages += [{registryType: "mcpb", identifier: $url, version: $version,
+                            fileSha256: $sha, transport: {type: "stdio"}}]' \
+            server.json > server.json.tmp
+          mv server.json.tmp server.json
+          cat server.json
+
+      - name: Install mcp-publisher
+        if: steps.decide.outputs.publish == 'true'
+        run: |
+          BASE="https://github.com/modelcontextprotocol/registry/releases/download/v${MCP_PUBLISHER_VERSION}"
+          curl -sfLO "$BASE/mcp-publisher_linux_amd64.tar.gz"
+          curl -sfLO "$BASE/registry_${MCP_PUBLISHER_VERSION}_checksums.txt"
+          sha256sum --check --ignore-missing "registry_${MCP_PUBLISHER_VERSION}_checksums.txt"
+          tar xzf mcp-publisher_linux_amd64.tar.gz mcp-publisher
+
+      - name: Publish
+        if: steps.decide.outputs.publish == 'true'
+        run: |
+          ./mcp-publisher validate
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish
