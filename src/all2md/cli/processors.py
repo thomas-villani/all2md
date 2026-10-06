@@ -12,6 +12,7 @@ import logging
 import os
 import platform
 import pydoc
+import re
 import shutil
 import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -981,6 +982,40 @@ def _get_rich_markdown_kwargs(args: argparse.Namespace) -> dict:
     return kwargs
 
 
+#: Characters a terminal acts on rather than draws: the C0 controls other than tab and line
+#: feed, DEL, and the C1 controls. ESC (and its C1 form, U+009B CSI) starts the sequences
+#: that set the window title, clear or reset the screen, forge an OSC 8 hyperlink or, in
+#: some terminals, write the clipboard; carriage return and backspace redraw text already
+#: shown.
+TERMINAL_UNSAFE_CHARACTERS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
+
+
+def terminal_safe(text: str, paging: bool = False) -> str:
+    """Remove the control characters a terminal would act on, when the text goes to one.
+
+    A converted document is untrusted input: printed to a terminal, an ESC in it is
+    executed rather than shown. Text bound for a terminal (stdout is a TTY, or the
+    pager) loses every character in ``TERMINAL_UNSAFE_CHARACTERS``; text bound for a
+    file or a pipe is returned exactly as converted.
+
+    Parameters
+    ----------
+    text : str
+        Unstyled document text about to be written.
+    paging : bool, default False
+        The text goes to the pager, which shows it in the terminal.
+
+    Returns
+    -------
+    str
+
+    """
+    is_terminal = getattr(sys.stdout, "isatty", None)
+    if paging or (is_terminal is not None and is_terminal()):
+        return TERMINAL_UNSAFE_CHARACTERS.sub("", text)
+    return text
+
+
 def _apply_rich_formatting(markdown_content: str, args: argparse.Namespace) -> tuple[str, bool]:
     """Apply Rich formatting to markdown content if requested.
 
@@ -998,6 +1033,8 @@ def _apply_rich_formatting(markdown_content: str, args: argparse.Namespace) -> t
         Returns (plain_markdown, False) if rich is unavailable or not requested
 
     """
+    # Rich draws the document for a terminal, so its control characters go first.
+    markdown_content = TERMINAL_UNSAFE_CHARACTERS.sub("", markdown_content)
     try:
         from rich.console import Console
         from rich.markdown import Markdown
@@ -1050,6 +1087,9 @@ def _determine_syntax_language(target_format: str) -> str:
 
 def _render_rich_text_output(text: str, args: argparse.Namespace, target_format: str) -> bool:
     """Attempt to render non-markdown text with Rich Syntax."""
+    # Drawn for a terminal either way (highlighted, or printed as is when Rich cannot
+    # highlight it), so the document's control characters go first.
+    text = TERMINAL_UNSAFE_CHARACTERS.sub("", text)
     try:
         from rich.console import Console
         from rich.syntax import Syntax
@@ -1950,7 +1990,7 @@ def _write_merged_output(
             sys.stdout.buffer.write(result)
             sys.stdout.buffer.flush()
         else:
-            print(result)
+            print(terminal_safe(result))
     elif output_path is None and result is None:
         print("", end="")
 
@@ -2261,9 +2301,9 @@ def _render_collated_document(
 
         if result is not None and output_path is None:
             if isinstance(result, bytes):
-                print(result.decode("utf-8", errors="replace"))
+                print(terminal_safe(result.decode("utf-8", errors="replace")))
             else:
-                print(result)
+                print(terminal_safe(result))
         elif output_path is None and result is None:
             print("", end="")
 
@@ -2674,7 +2714,7 @@ def _output_result_to_stdout(result: Any) -> None:
         sys.stdout.buffer.write(result)
         sys.stdout.buffer.flush()
     elif isinstance(result, str):
-        print(result)
+        print(terminal_safe(result))
 
 
 def _write_result_to_path(result: Any, output_path: Path) -> None:
@@ -2874,7 +2914,7 @@ def _handle_normal_conversion(
         if output_path is not None:
             output_path.write_text(numbered, encoding="utf-8")
         else:
-            print(numbered)
+            print(terminal_safe(numbered))
         return EXIT_SUCCESS, display_name, None
 
     result = convert(
@@ -3384,6 +3424,8 @@ def process_files_unified(
 
 def _output_text_with_options(content: str, args: argparse.Namespace, is_rich: bool) -> None:
     """Output text content respecting pager settings."""
+    if not is_rich:
+        content = terminal_safe(content, paging=bool(args.pager))
     if args.pager:
         if not _page_content(content, is_rich=is_rich):
             print(content)

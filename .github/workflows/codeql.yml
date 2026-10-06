@@ -4,9 +4,14 @@ on:
   push:
     branches:
       - main
+      - 'release/**'
+  # A pull request's base must match, and the ruleset requires CodeQL results on
+  # `main` and on `release/**`. Without `release/**` here, a patch PR into a release
+  # branch never got a scan and could not merge without bypassing the rules.
   pull_request:
     branches:
       - main
+      - 'release/**'
   schedule:
     # Run weekly on Sundays at midnight UTC
     - cron: '0 0 * * 0'
