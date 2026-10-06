@@ -416,7 +416,10 @@ all2md provides powerful APIs for manipulating document structure at the section
 Working with Sections
 ~~~~~~~~~~~~~~~~~~~~~
 
-A section consists of a heading and all content until the next heading of equal or higher level:
+``get_all_sections()`` returns one section per heading, holding the content up to the next
+heading of any level, so the sections partition the document. A section's subsections follow it
+as sections of their own; ``extract_sections()`` (and ``--extract``) takes them in, running a
+section up to the next heading of equal or higher level:
 
 .. code-block:: python
 

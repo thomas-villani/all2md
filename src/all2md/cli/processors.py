@@ -563,7 +563,7 @@ def _extract_sections_with_line_numbers(
 ) -> str:
     """Render a name/index extraction as numbered original Markdown lines."""
     from all2md.ast.line_map import map_sections_to_lines, number_text_lines
-    from all2md.ast.sections import get_all_sections, resolve_section_indices
+    from all2md.ast.sections import get_all_sections, resolve_section_indices, subsection_ranges
 
     rendered_markdown = _render_reference_markdown(doc, effective_options)
     md_lines = rendered_markdown.split("\n")
@@ -575,13 +575,14 @@ def _extract_sections_with_line_numbers(
     selected = resolve_section_indices(all_sections, extract_spec)
     line_map = map_sections_to_lines(all_sections, rendered_markdown)
 
-    # Each selected section spans from its heading line up to the next heading.
+    # Each selected section spans from its heading line up to the next heading
+    # at its level or above, so its subsections come with it.
     spans: List[Tuple[int, int]] = []
-    for i in sorted(set(selected)):
+    for i, after in sorted(subsection_ranges(all_sections, selected)):
         start = line_map[i]
         if start is None:
             continue
-        end = next((line_map[j] for j in range(i + 1, len(all_sections)) if line_map[j] is not None), None)
+        end = next((line_map[j] for j in range(after, len(all_sections)) if line_map[j] is not None), None)
         if end is None:
             end = len(md_lines) + 1
         spans.append((start, end))

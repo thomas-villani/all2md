@@ -648,6 +648,59 @@ def resolve_section_indices(
     raise TypeError(f"Invalid spec type: {type(spec).__name__}. Expected str, int, or list of int.")
 
 
+def subsection_ranges(sections: list[Section], indices: list[int]) -> list[tuple[int, int]]:
+    """Widen each selected section over its subsections.
+
+    :func:`get_all_sections` ends a section at the next heading of any level, so
+    a section's subsections follow it in ``sections`` as sections of their own.
+    Extracting a section means taking them too: up to the next heading at the
+    section's level or above.
+
+    Parameters
+    ----------
+    sections : list of Section
+        All sections of a document, as :func:`get_all_sections` returns them
+        with the default level range
+    indices : list of int
+        Selected 0-based indices into ``sections``
+
+    Returns
+    -------
+    list of tuple of (int, int)
+        Half-open ``(start, end)`` ranges of indices into ``sections``, in
+        selection order. A selection that falls inside another selected range
+        is dropped, so no content is taken twice.
+
+    """
+    ranges: list[tuple[int, int]] = []
+    for index in indices:
+        end = index + 1
+        while end < len(sections) and sections[end].level > sections[index].level:
+            end += 1
+        if (index, end) not in ranges:
+            ranges.append((index, end))
+    return [
+        (start, end)
+        for start, end in ranges
+        if not any(
+            (other_start, other_end) != (start, end) and other_start <= start and end <= other_end
+            for other_start, other_end in ranges
+        )
+    ]
+
+
+def _widened_section(doc: Document, sections: list[Section], start: int, end: int) -> Section:
+    """Return ``sections[start]`` with its content running to the end of ``sections[end - 1]``."""
+    first, last = sections[start], sections[end - 1]
+    return Section(
+        heading=first.heading,
+        content=list(doc.children[first.start_index + 1 : last.end_index]),
+        level=first.level,
+        start_index=first.start_index,
+        end_index=last.end_index,
+    )
+
+
 def extract_sections(
     doc: Document,
     spec: str | int | list[int],
@@ -717,7 +770,9 @@ def extract_sections(
 
     # Resolve the spec to concrete section indices (shared selection core).
     indices = resolve_section_indices(sections, spec, case_sensitive=case_sensitive)
-    extracted_sections: list[Section] = [sections[i] for i in indices]
+    extracted_sections: list[Section] = [
+        _widened_section(doc, sections, start, end) for start, end in subsection_ranges(sections, indices)
+    ]
 
     # If not combining, return just the first section
     if not combine:
@@ -1112,6 +1167,7 @@ __all__ = [
     "query_sections",
     "find_heading",
     "resolve_section_indices",
+    "subsection_ranges",
     "extract_sections",
     "count_sections",
     "section_or_doc_to_nodes",

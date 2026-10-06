@@ -1210,7 +1210,8 @@ Examples:
             metavar="SPEC",
             help="Extract specific content from a document. May be given multiple times; "
             "results are emitted in the order the flags appear, separated by '---'. "
-            "Supports: section by name/pattern ('Introduction', 'Chapter*'), "
+            "Supports: section by name/pattern ('Introduction', 'Chapter*'; a section "
+            "includes its subsections), "
             "section index ('#:1', '#:1-3', '#:1,3,5', '#:3-'), "
             "tables ('table:2', 'table:1-3', 'table:*'), "
             "figures/images ('figure:1', 'image:*'). "

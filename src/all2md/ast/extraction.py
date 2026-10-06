@@ -46,7 +46,7 @@ from all2md.ast.nodes import (
     ThematicBreak,
     get_node_children,
 )
-from all2md.ast.sections import get_all_sections, parse_section_ranges, resolve_section_indices
+from all2md.ast.sections import get_all_sections, parse_section_ranges, resolve_section_indices, subsection_ranges
 from all2md.ast.utils import extract_text
 
 # Separator between a selector body and its optional word limit (``Intro::500``).
@@ -196,7 +196,10 @@ def _section_nodes(doc: Document, spec: str) -> list[Node]:
         raise ValueError("Document contains no sections (headings)")
 
     indices = resolve_section_indices(sections, spec, case_sensitive=False)
-    groups = [[sections[i].heading, *sections[i].content] for i in indices]
+    groups = [
+        list(doc.children[sections[start].start_index : sections[end - 1].end_index])
+        for start, end in subsection_ranges(sections, indices)
+    ]
     return _join_groups(groups)
 
 
