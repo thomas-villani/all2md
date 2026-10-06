@@ -1,6 +1,7 @@
 # Design: reading documents in the terminal
 
-Status: stage 1 done (2026-10-05); stages 2-4 proposed. Tracked in `ROADMAP.md` under **Next**.
+Status: stage 1 done (2026-10-05); stage 2 decided (2026-10-06), starting with fixes in Wijjit;
+stages 3-4 proposed. Tracked in `ROADMAP.md` under **Next**.
 
 `rcat report.docx` (or `all2md report.docx --rich`) is the path the README now leads
 with, and a whole class of tools exists only to do this one thing: doxx for `.docx`,
@@ -148,26 +149,68 @@ nearly every piece:
 
 | Viewer need | Wijjit |
 |---|---|
-| Scrollable document body | `ContentView` in ANSI mode, with `scroll_to()` |
+| Scrollable document body | `ContentView` in ANSI mode (see the spike: it needs a width hook) |
 | Outline that jumps (doxx's `o`) | `Tree`, built from stage 1's heading map; selecting a node scrolls the body |
 | Status line: file, position, match count | `StatusBar` |
 | Key presets: default, vim, less | `@app.on_key`, one binding table per preset |
 | Copy view / selection | built in, through `pyperclip` |
 | Images | `ImageView` (`wijjit[images]`, Pillow) |
 
-**The command.** Either `all2md tui FILE` or `rcat -i FILE`; open question below. It
+**The command.** `all2md read FILE`, with `rcat -i FILE` as a shortcut for it. It
 parses once, renders once per terminal width (re-render on resize, keeping the scroll
-position anchored to the nearest heading), and opens the viewer. Piped input and
-multiple files work as they do for `rcat`.
+position anchored to the nearest heading), and opens the viewer. The first version takes
+one file or piped input; several files come later.
 
 **Packaging.** Wijjit requires Python 3.11; all2md supports 3.10. A `tui` extra with a
-marker: `wijjit>=0.1.1,<0.2; python_version >= "3.11"`. Without it the command exits
+marker: `wijjit>=0.1.2,<0.2; python_version >= "3.11"` (0.1.2 carries the fixes below). Without it the command exits
 with an install hint (and on 3.10, says why); `rcat` keeps working everywhere. Pin below
 0.2 until Wijjit's API settles.
 
 **Tests.** Wijjit's headless harness (`wijjit.testing`, `wijjit render --keys`) drives
 the real event loop without a terminal, so CI can script "open, press `o`, select the
 third heading, assert the body scrolled" with no TTY.
+
+**What a spike found (2026-10-06).** A throwaway app put the stage 1 renderer's output in
+a `ContentView` beside an outline `Tree`, driven with `wijjit render --keys` and
+`WijjitHarness`. The shape works: the ANSI output displays faithfully, picking a leaf
+heading scrolls the body to it, a resize re-runs the view and re-wraps, and app-wide keys
+fire while the tree has focus but not while a text input does. Five things need fixing in
+Wijjit first, each a small PR there, released together as 0.1.2:
+
+1. `ContentView` in ANSI mode neither wraps nor tells the app its inner width, so the app
+   has to guess the borders, scrollbar and outer margin (the spike guessed one or two
+   columns wide and clipped text). Fix: let it take a function of the width (or a rich
+   renderable) and call it at its real width, which also handles resize.
+2. Enter on a tree node with children only expands or collapses it, so an outline cannot
+   jump to a section that has subsections. Fix: an option where Enter activates the node
+   and the arrow keys expand and collapse.
+3. The `tree` tag drops its `id`, so `get_element_by_id` and `focus_element_by_id` cannot
+   find it.
+4. `{% tree height="fill" %}` crashes, though the docstring allows `"fill"`. (An
+   `expanded=[...]` list also seemed not to apply at start; check whether that was misuse.)
+5. Rich and Wijjit measure some emoji differently (`⏸️`, `🌱`), so those lines pad wrong.
+
+Note for the app itself: an element's `id` binds it to the state key of the same name, so
+the viewer's element ids must not collide with its own state keys.
+
+Speed, on `CHANGELOG.md` (372 KB): parsing 0.57 s, paging instant, a resize 1.46 s,
+because the text and the heading positions were each laid out separately. One pass that
+returns both, cached per width, should roughly halve that; a burst of resizes should
+re-render once.
+
+**Layout in all2md.** A `src/all2md/tui/` package:
+
+- `layout.py`: document and width to lines plus heading positions, one pass, cached. No
+  Wijjit import, so it is tested on 3.10 too.
+- `keys.py`: the key presets as data.
+- `app.py`: builds the Wijjit app from a `Document`, so tests drive it through
+  `WijjitHarness` without a file. Tests that need Wijjit skip when it is not installed.
+
+**First version.** Body and outline (`o` toggles it, Tab moves focus); a status bar with
+the file, the current section and the position; default and less/vim presets (`j`/`k`,
+Space/`b`, `g`/`G`, `[`/`]` for the previous or next heading, `q`); scroll anchored to the
+nearest heading on resize. The outline uses the tree; if it proves clunky, a flat indented
+list in the style of doxx replaces it. Search, images and several files wait.
 
 ### Stage 3: search
 
@@ -198,10 +241,11 @@ parser side needs nothing new.
 
 ## Open questions
 
-1. Command name for the viewer: `all2md tui`, `all2md read`, or `rcat -i`.
+1. ✅ Command name for the viewer: `all2md read`, with `rcat -i` as a shortcut.
 2. ✅ Format name for stage 1's renderer: `terminal`, listed in `list-formats`, so
    `--to terminal > out.ans` is discoverable.
-3. Stage 3 and 4 upstream in Wijjit, or local first and upstreamed later.
+3. Stage 3 and 4 upstream in Wijjit, or local first and upstreamed later. (Stage 2's
+   gaps go upstream first.)
 4. ✅ Merged table cells in the terminal: the content sits in the first cell and the
    spanned cells are blank (rich has no spans; repeating the content reads as data).
 

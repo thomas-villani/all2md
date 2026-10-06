@@ -226,8 +226,9 @@ Decided 2026-10-05, in this order, design in `docs/plans/terminal-viewer.md`:
    `--to terminal` writes it. Needs no new dependency. Preceded by #578 and #579, which
    gave admonitions a single metadata key and read GitHub alerts.
 2. 🌱 **An interactive viewer on Wijjit**: a `ContentView` body, a `Tree` outline that
-   jumps to headings, a status bar, default/vim/less keys. A `tui` extra, Python 3.11+
-   only, since Wijjit needs it; testable headless in CI.
+   jumps to headings, a status bar, default/vim/less keys, as `all2md read` (or
+   `rcat -i`). A `tui` extra, Python 3.11+ only, since Wijjit needs it; testable headless
+   in CI. Starts with a few fixes in Wijjit itself (see the plan).
 3. **Search** in the viewer, best done upstream in Wijjit's `ContentView`.
 4. **Images** through the Kitty, iTerm2 and Sixel protocols, with Wijjit's half-block
    `ImageView` as the fallback.
