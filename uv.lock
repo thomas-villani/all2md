@@ -221,7 +221,21 @@ markdown = [
     { name = "mistune" },
 ]
 mcp = [
+    { name = "beautifulsoup4" },
+    { name = "chardet" },
+    { name = "defusedxml" },
+    { name = "docutils" },
+    { name = "ebooklib" },
     { name = "fastmcp" },
+    { name = "httpx" },
+    { name = "mistune" },
+    { name = "odfpy" },
+    { name = "openpyxl" },
+    { name = "pymupdf" },
+    { name = "python-docx" },
+    { name = "python-pptx" },
+    { name = "rank-bm25" },
+    { name = "reportlab" },
 ]
 ocr = [
     { name = "pillow" },
@@ -296,6 +310,7 @@ xlsx = [
 [package.metadata]
 requires-dist = [
     { name = "all2md", extras = ["all"], marker = "extra == 'dev'" },
+    { name = "all2md", extras = ["pdf", "pdf-render", "docx", "html", "xlsx", "pptx", "epub", "rst", "markdown", "odf"], marker = "extra == 'mcp'" },
     { name = "bandit", extras = ["toml"], marker = "extra == 'dev'", specifier = ">=1.9.4" },
     { name = "beautifulsoup4", marker = "extra == 'all'", specifier = ">=4.15.0" },
     { name = "beautifulsoup4", marker = "extra == 'html'", specifier = ">=4.15.0" },
@@ -377,6 +392,7 @@ requires-dist = [
     { name = "pyyaml", marker = "extra == 'openapi'", specifier = ">=6.0" },
     { name = "radon", marker = "extra == 'dev'", specifier = ">=6.0.1" },
     { name = "rank-bm25", marker = "extra == 'all'", specifier = ">=0.2.2" },
+    { name = "rank-bm25", marker = "extra == 'mcp'", specifier = ">=0.2.2" },
     { name = "rank-bm25", marker = "extra == 'search'", specifier = ">=0.2.2" },
     { name = "rarfile", marker = "extra == 'all'", specifier = ">=4.2" },
     { name = "rarfile", marker = "extra == 'archive'", specifier = ">=4.2" },
