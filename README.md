@@ -450,9 +450,15 @@ all2md is built to sit inside LLM and agent workflows.
 <summary><b>MCP server setup (Claude Desktop one-click + manual config)</b></summary>
 
 ```bash
-pip install "all2md[mcp]"
+pip install "all2md[all]"
 all2md-mcp --temp --enable-from-md
 ```
+
+`[all]` includes the server and every format parser. The `[mcp]` extra alone adds only the server, so on its own it reads plain text and nothing else; pair it with the formats you need, such as `all2md[mcp,pdf,docx]`.
+
+`all2md mcp` runs the same server with the same options.
+
+<!-- mcp-name: io.github.thomas-villani/all2md -->
 
 **Tools:** `read_document_as_markdown`, `save_document_from_markdown`, `edit_document`, plus three read-only query tools enabled by default — `search_documents` (grep + keyword/BM25 across a corpus), `diff_documents`, and `get_document_outline`.
 

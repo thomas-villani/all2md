@@ -1,0 +1,38 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.thomas-villani/all2md",
+  "title": "all2md",
+  "description": "Read, convert, search, diff and outline PDF, Word, PowerPoint, HTML and 40+ formats as Markdown.",
+  "repository": {
+    "url": "https://github.com/thomas-villani/all2md",
+    "source": "github"
+  },
+  "websiteUrl": "https://all2md.readthedocs.io/en/latest/mcp.html",
+  "version": "1.16.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "all2md",
+      "version": "1.16.0",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "runtimeArguments": [
+        {
+          "type": "named",
+          "name": "--with",
+          "value": "all2md[mcp,pdf,pdf_render,docx,html,xlsx,pptx,epub,rst,markdown,odf]==1.16.0",
+          "description": "The server and the format parsers it reads with; the same extras as the .mcpb bundle"
+        }
+      ],
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp"
+        }
+      ]
+    }
+  ]
+}

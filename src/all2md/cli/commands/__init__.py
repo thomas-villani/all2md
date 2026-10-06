@@ -162,6 +162,14 @@ def dispatch_command(args: list[str] | None = None) -> int | None:  # noqa: C901
 
         return handle_install_skills_command(args[1:])
 
+    # Check for mcp command: the same server as the all2md-mcp script. MCP registry
+    # clients launch a PyPI server as `uvx all2md@<version> <args>` and cannot name
+    # another executable, so the server must be reachable through `all2md` itself.
+    if args[0] == "mcp":
+        from all2md.mcp.server import main as mcp_main
+
+        return mcp_main(args[1:], prog="all2md mcp")
+
     # Check for llm-help command (prints the bundled CLI guide for LLMs/agents)
     if args[0] == "llm-help":
         from all2md.cli.commands.skills import handle_llm_help_command
