@@ -24,7 +24,7 @@ import logging
 import shutil
 from dataclasses import dataclass, fields, is_dataclass
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Iterator, Mapping, Optional, Union
+from typing import IO, TYPE_CHECKING, Any, Iterator, Mapping, Optional, Union, cast
 
 from all2md.ast.nodes import (
     BlockQuote,
@@ -61,6 +61,7 @@ from all2md.ast.nodes import (
     ThematicBreak,
     Underline,
 )
+from all2md.ast.transforms import remove_terminal_unsafe_characters
 from all2md.ast.utils import extract_text
 from all2md.options.terminal import TerminalRendererOptions
 from all2md.renderers.base import BaseRenderer
@@ -321,6 +322,10 @@ class TerminalRenderer(BaseRenderer):
         collected and appended at the end under a rule, numbered in the order
         they are first referenced.
 
+        A document is untrusted input, so every control character a terminal
+        would act on (ESC, the C1 controls, carriage return...) is removed from
+        its text, alt text and link targets first; tab and line feed stay.
+
         Parameters
         ----------
         doc : Document
@@ -331,6 +336,8 @@ class TerminalRenderer(BaseRenderer):
         list of rich renderables
 
         """
+        cleaned, _removed = remove_terminal_unsafe_characters(doc)
+        doc = cast(Document, cleaned)
         self._number_footnotes(doc)
         self._heading_renderables = {}
         blocks = self._blocks(doc.children)
