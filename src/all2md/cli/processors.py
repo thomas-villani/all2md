@@ -23,6 +23,7 @@ from typing import Any, Dict, List, Optional, Tuple, TypedDict, cast
 from all2md.api import convert, from_ast, to_ast, to_markdown
 from all2md.ast.nodes import Comment, Document, Heading, Node, Text, ThematicBreak
 from all2md.ast.nodes import Document as ASTDocument
+from all2md.ast.transforms import TERMINAL_UNSAFE_CHARACTERS
 
 # Import detection/dry-run functions from submodule
 from all2md.cli._processors_detect import process_detect_only
@@ -2119,7 +2120,7 @@ def _write_merged_output(
             sys.stdout.buffer.write(result)
             sys.stdout.buffer.flush()
         else:
-            print(result)
+            print(terminal_safe(result))
     elif output_path is None and result is None:
         print("", end="")
 
@@ -2431,9 +2432,9 @@ def _render_collated_document(
 
         if result is not None and output_path is None:
             if isinstance(result, bytes):
-                print(result.decode("utf-8", errors="replace"))
+                print(terminal_safe(result.decode("utf-8", errors="replace")))
             else:
-                print(result)
+                print(terminal_safe(result))
         elif output_path is None and result is None:
             print("", end="")
 
@@ -2840,7 +2841,7 @@ def _output_result_to_stdout(result: Any) -> None:
         sys.stdout.buffer.write(result)
         sys.stdout.buffer.flush()
     elif isinstance(result, str):
-        print(result)
+        print(terminal_safe(result))
 
 
 def _write_result_to_path(result: Any, output_path: Path) -> None:
@@ -3040,7 +3041,7 @@ def _handle_normal_conversion(
         if output_path is not None:
             output_path.write_text(numbered, encoding="utf-8")
         else:
-            print(numbered)
+            print(terminal_safe(numbered))
         return EXIT_SUCCESS, display_name, None
 
     result = convert(
@@ -3548,8 +3549,38 @@ def process_files_unified(
     return max_exit_code if failures else EXIT_SUCCESS
 
 
+def terminal_safe(text: str, paging: bool = False) -> str:
+    """Remove the control characters a terminal would act on, when the text goes to one.
+
+    A converted document is untrusted input: printed to a terminal, an ESC in it is
+    executed rather than shown. Text bound for a terminal (stdout is a TTY, or the
+    pager) loses every character in ``TERMINAL_UNSAFE_CHARACTERS``; text bound for a
+    file or a pipe is returned exactly as converted. Styled output from the terminal
+    renderer is cleaned in the renderer and must not pass through here, since its own
+    escape sequences would be removed too.
+
+    Parameters
+    ----------
+    text : str
+        Unstyled document text about to be written.
+    paging : bool, default False
+        The text goes to the pager, which shows it in the terminal.
+
+    Returns
+    -------
+    str
+
+    """
+    is_terminal = getattr(sys.stdout, "isatty", None)
+    if paging or (is_terminal is not None and is_terminal()):
+        return TERMINAL_UNSAFE_CHARACTERS.sub("", text)
+    return text
+
+
 def _output_text_with_options(content: str, args: argparse.Namespace, is_rich: bool) -> None:
     """Output text content respecting pager settings."""
+    if not is_rich:
+        content = terminal_safe(content, paging=bool(args.pager))
     if args.pager:
         if not _page_content(content, is_rich=is_rich):
             print(content)
