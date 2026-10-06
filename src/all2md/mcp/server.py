@@ -20,7 +20,7 @@ import threading
 from collections.abc import Callable, Iterator
 from typing import TYPE_CHECKING, Annotated, Any, cast
 
-from all2md import DependencyError
+from all2md import DependencyError, __version__
 from all2md.logging_utils import configure_logging as configure_root_logging
 
 if TYPE_CHECKING:
@@ -122,10 +122,11 @@ def create_server(
         from fastmcp import FastMCP
     except ImportError as e:
         print("Error: FastMCP not installed. Install with: pip install 'all2md[mcp]'", file=sys.stderr)
-        raise DependencyError("mcp", [("fastmcp", ">=2.0.0")]) from e
+        raise DependencyError("mcp", [("fastmcp", ">=2.9.0")]) from e
 
-    # Create MCP server
-    mcp: FastMCP = FastMCP(name="all2md")
+    # Create MCP server. Without `version`, the initialize handshake reports
+    # fastmcp's own version as the server's.
+    mcp: FastMCP = FastMCP(name="all2md", version=__version__)
 
     # Conditionally register read_document_as_markdown tool
     if config.enable_to_md:

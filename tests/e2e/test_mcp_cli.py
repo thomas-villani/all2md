@@ -14,6 +14,8 @@ import threading
 
 import pytest
 
+from all2md import __version__
+
 pytest.importorskip("fastmcp")
 
 HANDSHAKE_TIMEOUT = 60.0
@@ -83,7 +85,8 @@ class TestMcpSubcommand:
             )
             init = _receive(lines, 1)
             assert "result" in init, init
-            assert init["result"]["serverInfo"]["name"]
+            server_info = init["result"]["serverInfo"]
+            assert (server_info["name"], server_info["version"]) == ("all2md", __version__)
 
             _send(proc, {"jsonrpc": "2.0", "method": "notifications/initialized"})
             _send(proc, {"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
