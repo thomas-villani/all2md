@@ -173,6 +173,7 @@ _SUBCOMMAND_SUMMARIES: Sequence[tuple[str, str]] = (
     ("generate-site", "Generate Hugo, Jekyll, MkDocs, Zola, or Eleventy static site from documents"),
     ("arxiv", "Generate an ArXiv-ready LaTeX submission package from a document"),
     ("install-skills", "Install bundled agent skills to a skills directory"),
+    ("mcp", "Run the MCP server over stdio (same as all2md-mcp; needs the [mcp] extra)"),
 )
 
 

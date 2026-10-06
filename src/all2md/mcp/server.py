@@ -20,7 +20,7 @@ import threading
 from collections.abc import Callable, Iterator
 from typing import TYPE_CHECKING, Annotated, Any, cast
 
-from all2md import DependencyError
+from all2md import DependencyError, __version__
 from all2md.logging_utils import configure_logging as configure_root_logging
 
 if TYPE_CHECKING:
@@ -122,10 +122,11 @@ def create_server(
         from fastmcp import FastMCP
     except ImportError as e:
         print("Error: FastMCP not installed. Install with: pip install 'all2md[mcp]'", file=sys.stderr)
-        raise DependencyError("mcp", [("fastmcp", ">=2.0.0")]) from e
+        raise DependencyError("mcp", [("fastmcp", ">=2.9.0")]) from e
 
-    # Create MCP server
-    mcp: FastMCP = FastMCP(name="all2md")
+    # Create MCP server. Without `version`, the initialize handshake reports
+    # fastmcp's own version as the server's.
+    mcp: FastMCP = FastMCP(name="all2md", version=__version__)
 
     # Conditionally register read_document_as_markdown tool
     if config.enable_to_md:
@@ -499,8 +500,17 @@ def configure_logging(level: str) -> None:
     configure_root_logging(level, trace_mode=True)
 
 
-def main() -> int:
-    """Run all2md-mcp server."""
+def main(argv: list[str] | None = None, prog: str = "all2md-mcp") -> int:
+    """Run all2md-mcp server.
+
+    Parameters
+    ----------
+    argv : list[str], optional
+        Server arguments; ``sys.argv[1:]`` when omitted
+    prog : str, default "all2md-mcp"
+        Program name shown in usage and errors (``"all2md mcp"`` for the subcommand)
+
+    """
     try:
         # Route PyMuPDF's advisory messages to stderr (fd 2) instead of stdout,
         # which the stdio transport reserves for JSON-RPC. Must be set before
@@ -512,7 +522,7 @@ def main() -> int:
         configure_logging("INFO")
 
         # Load configuration
-        config = load_config()
+        config = load_config(argv, prog)
 
         # Reconfigure logging with user-specified level if different
         if config.log_level != "INFO":

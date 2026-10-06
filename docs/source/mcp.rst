@@ -52,13 +52,16 @@ Install all2md with MCP support:
 
 .. code-block:: bash
 
-   # Install with MCP dependencies
-   pip install 'all2md[mcp]'
-
-   # Or install all dependencies including MCP
+   # The server and every format parser
    pip install 'all2md[all]'
 
-This installs FastMCP, which provides the MCP protocol implementation.
+   # Or the server with only the formats you need
+   pip install 'all2md[mcp,pdf,docx,html]'
+
+The ``mcp`` extra installs FastMCP, which provides the MCP protocol implementation, and
+nothing else: format parsers come from their own extras (``pdf``, ``docx``, ``pptx``,
+...), so ``all2md[mcp]`` alone gives a server that reads plain text and nothing else,
+not even Markdown. ``all`` includes ``mcp``.
 
 Quick Start
 -----------
@@ -73,8 +76,15 @@ Start the MCP server with default settings (current directory access only):
    # Start server (reads/writes in current directory only)
    all2md-mcp
 
+   # Or as a subcommand of the main CLI (takes the same options)
+   all2md mcp
+
    # Or use Python module form
    python -m all2md.mcp
+
+``all2md mcp`` exists for clients that can only launch a package's own executable, such
+as those that install servers from the `MCP Registry <https://registry.modelcontextprotocol.io/>`_:
+they run ``uvx all2md@<version> mcp``.
 
 The server will start and listen on stdio, ready to accept MCP requests from AI clients.
 
