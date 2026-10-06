@@ -7,6 +7,7 @@ function to improve maintainability and testability.
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
 import argparse
+import functools
 import json
 import logging
 import os
@@ -15,6 +16,7 @@ import pydoc
 import shutil
 import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from dataclasses import fields, is_dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, TypedDict, cast
 
@@ -196,7 +198,7 @@ def is_line_extract_spec(extract_spec: Optional[str]) -> bool:
 
 def _render_reference_markdown(doc: Document, effective_options: Dict[str, Any]) -> str:
     """Render ``doc`` to Markdown to serve as the line-number reference frame."""
-    rendered = from_ast(doc, cast(DocumentFormat, "markdown"), **effective_options)
+    rendered = from_ast(doc, cast(DocumentFormat, "markdown"), **renderer_kwargs_for(effective_options, "markdown"))
     assert isinstance(rendered, str), "Markdown renderer should return str"
     return rendered
 
@@ -214,7 +216,7 @@ def _render_doc(
     """
     if terminal_options is not None:
         return from_ast(doc, cast(DocumentFormat, "terminal"), renderer_options=terminal_options)
-    return from_ast(doc, cast(DocumentFormat, render_target), **effective_options)
+    return from_ast(doc, cast(DocumentFormat, render_target), **renderer_kwargs_for(effective_options, render_target))
 
 
 def _outline_document(doc: Document, max_level: int) -> Document:
@@ -494,7 +496,9 @@ def _slice_output(
         footer = _render_doc(hint, render_target, effective_options, terminal_options)
         return f"{body}\n\n{footer}" if footer else body
 
-    result = from_ast(sliced_doc, cast(DocumentFormat, render_target), **effective_options)
+    result = from_ast(
+        sliced_doc, cast(DocumentFormat, render_target), **renderer_kwargs_for(effective_options, render_target)
+    )
 
     if render_target == "markdown" and isinstance(result, str):
         footer = _slice_footer(x, len(splits), chosen.word_count)
@@ -879,6 +883,66 @@ def prepare_options_for_execution(
     if remote_options:
         filtered["remote_input_options"] = remote_options
     return filtered
+
+
+def _option_names(options_class: Optional[type]) -> frozenset[str]:
+    """Return the keyword names an options class accepts, its nested options' names included."""
+    if options_class is None or not is_dataclass(options_class):
+        return frozenset()
+    from all2md.api import _option_type_hints
+
+    type_hints = _option_type_hints(options_class)
+    names = set()
+    for option in fields(options_class):
+        names.add(option.name)
+        option_type = type_hints.get(option.name, option.type)
+        if is_dataclass(option_type):
+            names.update(nested.name for nested in fields(option_type))
+    return frozenset(names)
+
+
+@functools.lru_cache(maxsize=64)
+def _format_option_names(getter: Any, formats: Tuple[str, ...]) -> frozenset[str]:
+    """Return the names the options classes of ``formats`` accept, read through ``getter``."""
+    names: set[str] = set()
+    for format_name in formats:
+        try:
+            names |= _option_names(getter(format_name))
+        except All2MdError:
+            continue
+    return frozenset(names)
+
+
+def renderer_kwargs_for(options: Dict[str, Any], render_target: str) -> Dict[str, Any]:
+    """Keep the options the ``render_target`` renderer accepts.
+
+    The CLI's options are one flat mapping for the parser and the renderer. The
+    modes that parse to an AST and render it themselves (``--outline``,
+    ``--extract``, ``--slice``, the line windows) split it, so neither step warns
+    about the other's options.
+    """
+    names = _format_option_names(registry.get_renderer_options_class, (render_target,))
+    return {key: value for key, value in options.items() if key in names}
+
+
+def parser_kwargs_for(options: Dict[str, Any], format_arg: str, source: Any = None) -> Dict[str, Any]:
+    """Drop the options that only renderers accept; the parser counterpart of :func:`renderer_kwargs_for`.
+
+    A name the parser accepts stays even when a renderer accepts it too (Markdown's
+    ``flavor``), and a name nothing accepts stays so the parser still warns about
+    the typo. ``source`` detects the parser format when ``format_arg`` is ``auto``;
+    when it cannot, any parser's names count.
+    """
+    parser_format: Optional[str] = format_arg if format_arg != "auto" else None
+    if parser_format is None and isinstance(source, (str, Path)) and "://" not in str(source):
+        path = Path(source)
+        parser_format = _detect_format_for_path(path) if path.is_file() else None
+    formats = tuple(registry.list_formats())
+    parser_names = _format_option_names(
+        registry.get_parser_options_class, (parser_format,) if parser_format else formats
+    )
+    renderer_names = _format_option_names(registry.get_renderer_options_class, formats)
+    return {key: value for key, value in options.items() if key in parser_names or key not in renderer_names}
 
 
 def load_converter_config_options(*, explicit_path: str | None, no_config: bool) -> Dict[str, Any]:
@@ -1900,7 +1964,7 @@ def _merge_single_entry(
             file_path,
             source_format=cast(DocumentFormat, format_arg),
             progress_callback=progress_cb,
-            **effective_options,
+            **parser_kwargs_for(effective_options, format_arg, file_path),
         )
 
         children: list[Node] = []
@@ -2036,13 +2100,9 @@ def _write_merged_output(
 
     """
     # Prepare renderer options
-    render_options = prepare_options_for_execution(
-        options,
-        None,
-        format_arg,
-        target_format,
+    render_options = renderer_kwargs_for(
+        prepare_options_for_execution(options, None, format_arg, target_format), target_format
     )
-    render_options.pop("remote_input_options", None)
 
     # Render the merged document
     result = from_ast(
@@ -2223,7 +2283,7 @@ def _convert_item_to_ast_for_collation(
             item.raw_input,
             source_format=cast(DocumentFormat, format_arg),
             progress_callback=progress_callback,
-            **effective_options,
+            **parser_kwargs_for(effective_options, format_arg, detection_hint),
         )
 
         return EXIT_SUCCESS, ast_document, None
@@ -2356,8 +2416,9 @@ def _render_collated_document(
         Exit code if rendering failed, None if successful
 
     """
-    render_options = prepare_options_for_execution(options, None, format_arg, target_format)
-    render_options.pop("remote_input_options", None)
+    render_options = renderer_kwargs_for(
+        prepare_options_for_execution(options, None, format_arg, target_format), target_format
+    )
 
     try:
         result = from_ast(
@@ -2578,7 +2639,7 @@ def process_files_with_splitting(
                     item.raw_input,
                     source_format=cast(DocumentFormat, format_arg),
                     progress_callback=progress_callback,
-                    **effective_options,
+                    **parser_kwargs_for(effective_options, format_arg, item.best_path()),
                 )
 
                 if transforms:
@@ -2620,13 +2681,9 @@ def process_files_with_splitting(
                 naming_style = getattr(args, "split_by_naming", "numeric")
                 digits = getattr(args, "split_by_digits", 3)
 
-                render_options = prepare_options_for_execution(
-                    options,
-                    None,
-                    format_arg,
-                    target_format,
+                render_options = renderer_kwargs_for(
+                    prepare_options_for_execution(options, None, format_arg, target_format), target_format
                 )
-                render_options.pop("remote_input_options", None)
 
                 for split_result in splits:
                     filename = _generate_split_filename(
@@ -2832,7 +2889,7 @@ def _handle_outline_conversion(
         source_value,
         source_format=cast(DocumentFormat, format_arg),
         progress_callback=progress_callback,
-        **effective_options,
+        **parser_kwargs_for(effective_options, format_arg, source_value),
     )
 
     outline_text = _outline_output(doc, outline_max_level, line_numbers, effective_options)
@@ -2869,7 +2926,7 @@ def _handle_extraction_conversion(
         source_value,
         source_format=cast(DocumentFormat, format_arg),
         progress_callback=progress_callback,
-        **effective_options,
+        **parser_kwargs_for(effective_options, format_arg, source_value),
     )
 
     render_target = target_format if target_format != "auto" else "markdown"
@@ -2900,7 +2957,7 @@ def _handle_slice_conversion(
         source_value,
         source_format=cast(DocumentFormat, format_arg),
         progress_callback=progress_callback,
-        **effective_options,
+        **parser_kwargs_for(effective_options, format_arg, source_value),
     )
 
     render_target = target_format if target_format != "auto" else "markdown"
@@ -2931,7 +2988,7 @@ def _handle_line_range_conversion(
         source_value,
         source_format=cast(DocumentFormat, format_arg),
         progress_callback=progress_callback,
-        **effective_options,
+        **parser_kwargs_for(effective_options, format_arg, source_value),
     )
 
     render_target = target_format if target_format != "auto" else "markdown"
@@ -3527,7 +3584,11 @@ def _render_outline_mode(
     """Handle outline mode rendering."""
     outline_max_level = getattr(args, "outline_max_level", 6)
     line_numbers = getattr(args, "line_numbers", False)
-    doc = to_ast(item.raw_input, source_format=cast(DocumentFormat, format_arg), **effective_options)
+    doc = to_ast(
+        item.raw_input,
+        source_format=cast(DocumentFormat, format_arg),
+        **parser_kwargs_for(effective_options, format_arg, item.best_path()),
+    )
     if terminal_options is not None:
         outline = _outline_document(doc, outline_max_level)
         return _output_terminal_text(_render_doc(outline, "markdown", {}, terminal_options), args)
@@ -3547,7 +3608,11 @@ def _convert_with_extraction(
     terminal_options: Any = None,
 ) -> Any:
     """Convert with content extraction (sections/tables/figures or ``line:``)."""
-    doc = to_ast(item.raw_input, source_format=cast(DocumentFormat, format_arg), **effective_options)
+    doc = to_ast(
+        item.raw_input,
+        source_format=cast(DocumentFormat, format_arg),
+        **parser_kwargs_for(effective_options, format_arg, item.best_path()),
+    )
     return _extraction_output(
         doc, extract_specs, render_target, line_numbers, effective_options, transforms, terminal_options
     )
@@ -3595,7 +3660,11 @@ def _render_slice_mode(
     terminal_options: Any = None,
 ) -> int:
     """Handle ``--slice X/Y`` rendering to stdout."""
-    doc = to_ast(item.raw_input, source_format=cast(DocumentFormat, format_arg), **effective_options)
+    doc = to_ast(
+        item.raw_input,
+        source_format=cast(DocumentFormat, format_arg),
+        **parser_kwargs_for(effective_options, format_arg, item.best_path()),
+    )
     result = _slice_output(doc, slice_spec, render_target, effective_options, transforms, terminal_options)
     return _emit_result_to_stdout(result, args, should_use_rich, render_target, terminal_options)
 
@@ -3613,7 +3682,11 @@ def _render_line_range_mode(
 ) -> int:
     """Handle ``--head``/``--tail``/``--lines`` rendering to stdout."""
     line_numbers = _line_numbers_for_target(getattr(args, "line_numbers", False), render_target)
-    doc = to_ast(item.raw_input, source_format=cast(DocumentFormat, format_arg), **effective_options)
+    doc = to_ast(
+        item.raw_input,
+        source_format=cast(DocumentFormat, format_arg),
+        **parser_kwargs_for(effective_options, format_arg, item.best_path()),
+    )
     result = _line_range_output(
         doc, line_select, render_target, line_numbers, effective_options, transforms, terminal_options
     )
@@ -3640,7 +3713,11 @@ def _render_markdown_mode(
                 item, effective_options, format_arg, extract_specs, transforms, "markdown", False, terminal_options
             )
         else:
-            doc = to_ast(item.raw_input, source_format=cast(DocumentFormat, format_arg), **effective_options)
+            doc = to_ast(
+                item.raw_input,
+                source_format=cast(DocumentFormat, format_arg),
+                **parser_kwargs_for(effective_options, format_arg, item.best_path()),
+            )
             rendered = from_ast(doc, "terminal", renderer_options=terminal_options, transforms=transforms)
         return _output_terminal_text(rendered, args)
     if extract_specs:
