@@ -203,7 +203,7 @@ docx_render = [
     "python-docx>=1.2.0",
 ]
 mcp = [
-    "fastmcp>=2.0.0",
+    "fastmcp>=2.9.0",  # 2.9 added FastMCP(version=...), reported in the handshake
 ]
 templates = [
     "jinja2>=3.1.0",
@@ -251,7 +251,7 @@ all = [
     "docutils>=0.22",
     "ebooklib>=0.20",
     "extract-msg>=0.56.1",
-    "fastmcp>=2.0.0",
+    "fastmcp>=2.9.0",
     "httpx>=0.28.1",
     "jinja2>=3.1.0",
     "mistune>=3.3.2",  # 3.3 fixes single-line $$...$$ block-math parsing
@@ -540,6 +540,19 @@ replace = 'version = "{new_version}"'
 filename = "mcpb/pyproject.toml"
 search = '>={current_version}'
 replace = '>={new_version}'
+
+# MCP registry entry: the server version, the PyPI package version, and the
+# `--with all2md[...]==X` pin that installs the extras. All three must name the
+# release being published, or registry clients install an older server.
+[[tool.bumpversion.files]]
+filename = "server.json"
+search = '"version": "{current_version}"'
+replace = '"version": "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "server.json"
+search = ']=={current_version}"'
+replace = ']=={new_version}"'
 
 # The composite action lives in this repository, so its documented pin has to
 # move with the release or users are gated at an old library version -- the pin

@@ -318,8 +318,13 @@ def load_config_from_env() -> MCPConfig:
     )
 
 
-def create_argument_parser() -> argparse.ArgumentParser:
+def create_argument_parser(prog: str = "all2md-mcp") -> argparse.ArgumentParser:
     """Create argument parser for MCP server CLI.
+
+    Parameters
+    ----------
+    prog : str, default "all2md-mcp"
+        Program name shown in usage and errors (``"all2md mcp"`` for the subcommand)
 
     Returns
     -------
@@ -328,7 +333,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
 
     """
     parser = argparse.ArgumentParser(
-        prog="all2md-mcp",
+        prog=prog,
         description="MCP server for all2md document conversion library",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
@@ -620,8 +625,15 @@ def load_config_from_args(args: argparse.Namespace) -> MCPConfig:
     return config
 
 
-def load_config() -> MCPConfig:
+def load_config(argv: list[str] | None = None, prog: str = "all2md-mcp") -> MCPConfig:
     """Load and validate configuration from CLI args and environment.
+
+    Parameters
+    ----------
+    argv : list[str], optional
+        Arguments to parse; ``sys.argv[1:]`` when omitted
+    prog : str, default "all2md-mcp"
+        Program name shown in usage and errors
 
     Returns
     -------
@@ -634,8 +646,8 @@ def load_config() -> MCPConfig:
         If configuration is invalid
 
     """
-    parser = create_argument_parser()
-    args = parser.parse_args()
+    parser = create_argument_parser(prog)
+    args = parser.parse_args(argv)
     config = load_config_from_args(args)
     config.validate()
 
