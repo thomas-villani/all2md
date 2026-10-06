@@ -15,7 +15,7 @@
 
 `all2md` is a Python library **and** command-line tool for turning many document formats into structured, LLM-friendly Markdown — and converting Markdown back into rich formats like DOCX, PDF, and HTML. Built on an AST-based pipeline, it's designed for RAG ingestion, LLM preprocessing, batch automation, and embedding document conversion directly into Python applications. Its `rcat` command is a `cat` for documents: any of those formats, rendered in the terminal.
 
-📦 **[PyPI](https://pypi.org/project/all2md/)** · 📖 **[Documentation](https://all2md.readthedocs.io/)** · 💡 **[Examples](examples/)**
+📦 **[PyPI](https://pypi.org/project/all2md/)** · 📖 **[Documentation](https://all2md.readthedocs.io/)** · 💡 **[Examples](examples/)** · ✅ **[CI quality gate (GitHub Action)](#ci-quality-gate)**
 
 ## Quick start
 
@@ -506,6 +506,8 @@ Most document tooling in CI answers *"did it run?"*. all2md ships a GitHub Actio
     paths: docs/**/*.md
     roundtrip-fail-under: 97
 ```
+
+The score is round-trip fidelity (0–100): each document is converted to Markdown and parsed back, and the score is how much of its structure survived. It works for any format all2md reads. For PDFs, `report-fail-under` adds a second check, conversion confidence, which catches a document that was never really read, such as a scan with no text layer.
 
 Measure your real floor before picking a threshold — `all2md roundtrip docs/*.md --fail-under 1` prints it. Documents that convert well score 99–100, so a threshold that *sounds* strict (80, say) can have twenty points of dead headroom and never fire. The action warns you when that happens.
 
