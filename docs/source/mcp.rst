@@ -73,8 +73,15 @@ Start the MCP server with default settings (current directory access only):
    # Start server (reads/writes in current directory only)
    all2md-mcp
 
+   # Or as a subcommand of the main CLI (takes the same options)
+   all2md mcp
+
    # Or use Python module form
    python -m all2md.mcp
+
+``all2md mcp`` exists for clients that can only launch a package's own executable, such
+as those that install servers from the `MCP Registry <https://registry.modelcontextprotocol.io/>`_:
+they run ``uvx all2md@<version> mcp``.
 
 The server will start and listen on stdio, ready to accept MCP requests from AI clients.
 

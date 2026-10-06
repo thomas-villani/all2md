@@ -499,8 +499,17 @@ def configure_logging(level: str) -> None:
     configure_root_logging(level, trace_mode=True)
 
 
-def main() -> int:
-    """Run all2md-mcp server."""
+def main(argv: list[str] | None = None, prog: str = "all2md-mcp") -> int:
+    """Run all2md-mcp server.
+
+    Parameters
+    ----------
+    argv : list[str], optional
+        Server arguments; ``sys.argv[1:]`` when omitted
+    prog : str, default "all2md-mcp"
+        Program name shown in usage and errors (``"all2md mcp"`` for the subcommand)
+
+    """
     try:
         # Route PyMuPDF's advisory messages to stderr (fd 2) instead of stdout,
         # which the stdio transport reserves for JSON-RPC. Must be set before
@@ -512,7 +521,7 @@ def main() -> int:
         configure_logging("INFO")
 
         # Load configuration
-        config = load_config()
+        config = load_config(argv, prog)
 
         # Reconfigure logging with user-specified level if different
         if config.log_level != "INFO":

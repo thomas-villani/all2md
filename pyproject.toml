@@ -541,6 +541,19 @@ filename = "mcpb/pyproject.toml"
 search = '>={current_version}'
 replace = '>={new_version}'
 
+# MCP registry entry: the server version, the PyPI package version, and the
+# `--with all2md[...]==X` pin that installs the extras. All three must name the
+# release being published, or registry clients install an older server.
+[[tool.bumpversion.files]]
+filename = "server.json"
+search = '"version": "{current_version}"'
+replace = '"version": "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "server.json"
+search = ']=={current_version}"'
+replace = ']=={new_version}"'
+
 # The composite action lives in this repository, so its documented pin has to
 # move with the release or users are gated at an old library version -- the pin
 # sat at v1.10.1 across three releases before this was automated. `default: ""`
