@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.1] - 2026-10-06
+
+### Fixed
+
+- **Document output shown in a terminal no longer carries the document's control
+  characters.** `--rich` output (Markdown and other targets) and unstyled output written
+  to a terminal or the pager now remove the C0 controls other than tab and line feed,
+  DEL and the C1 controls from the document text first. Output to a file or a pipe is
+  left exactly as converted.
+
 ## [1.16.0] - 2026-10-05
 
 ### Added
@@ -4742,7 +4752,8 @@ surfaced one real conversion bug, which is the reason to take the release.
 - NumPy-style docstrings
 - Modular architecture with clear separation of concerns
 
-[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.16.0...HEAD
+[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.16.1...HEAD
+[1.16.1]: https://github.com/thomas-villani/all2md/releases/tag/v1.16.1
 [1.16.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.16.0
 [1.15.1]: https://github.com/thomas-villani/all2md/releases/tag/v1.15.1
 [1.15.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.15.0
