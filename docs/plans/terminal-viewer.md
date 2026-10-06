@@ -175,7 +175,8 @@ a `ContentView` beside an outline `Tree`, driven with `wijjit render --keys` and
 `WijjitHarness`. The shape works: the ANSI output displays faithfully, picking a leaf
 heading scrolls the body to it, a resize re-runs the view and re-wraps, and app-wide keys
 fire while the tree has focus but not while a text input does. Four things needed fixing
-in Wijjit first, each a small PR there (wijjit #69-#73), to be released together as 0.1.2:
+in Wijjit first, each a small PR there (wijjit #69-#73, all merged 2026-10-06), to ship
+together as 0.1.2:
 
 1. `ContentView` in ANSI mode neither wraps nor tells the app its inner width, so the app
    has to guess the borders, scrollbar and outer margin (the spike guessed one or two
@@ -220,6 +221,29 @@ the file, the current section and the position; default and less/vim presets (`j
 Space/`b`, `g`/`G`, `[`/`]` for the previous or next heading, `q`); scroll anchored to the
 nearest heading on resize. The outline uses the tree; if it proves clunky, a flat indented
 list in the style of doxx replaces it. Search, images and several files wait.
+
+**Links (decided 2026-10-06).** Links are a malware vector, so the viewer never opens one
+by itself.
+
+- *In-document links* (`#section`, footnote references) only move the viewer, so they
+  are safe and belong in stage 2, keyboard first: the renderer records where each link
+  lands (line, columns, target) the way `heading_positions` records headings; a key
+  lists the links in view; choosing an in-document link jumps, with back and forward.
+- *External links* are shown, never launched: choosing one puts its full target in the
+  status bar (the text of `[docs.python.org](http://evil.example)` is not its target)
+  and can copy it. Clicking is left to the terminal, which already asks for Ctrl+click
+  or shows a preview, once Wijjit keeps OSC 8 hyperlinks in ANSI content
+  ([wijjit#74](https://github.com/thomas-villani/wijjit/issues/74)). Mouse clicks on
+  in-document links need `ContentView` to report click positions
+  ([wijjit#75](https://github.com/thomas-villani/wijjit/issues/75)). Neither blocks
+  stage 2.
+- *Control characters.* A document is untrusted input: an ESC in its text or in a link
+  target is executed by the terminal, not shown (title, screen clear, a forged
+  hyperlink, in some terminals the clipboard). The terminal renderer removes the C0
+  controls other than tab and line feed, DEL and the C1 controls from the whole tree
+  before drawing it (`remove_terminal_unsafe_characters`), and Wijjit#74 asks for the
+  same check on hyperlink targets. Plain Markdown output to a terminal is a separate
+  question: it prints the document as `cat` would.
 
 ### Stage 3: search
 
