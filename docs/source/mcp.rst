@@ -52,13 +52,16 @@ Install all2md with MCP support:
 
 .. code-block:: bash
 
-   # Install with MCP dependencies
-   pip install 'all2md[mcp]'
-
-   # Or install all dependencies including MCP
+   # The server and every format parser
    pip install 'all2md[all]'
 
-This installs FastMCP, which provides the MCP protocol implementation.
+   # Or the server with only the formats you need
+   pip install 'all2md[mcp,pdf,docx,html]'
+
+The ``mcp`` extra installs FastMCP, which provides the MCP protocol implementation, and
+nothing else: format parsers come from their own extras (``pdf``, ``docx``, ``pptx``,
+...), so ``all2md[mcp]`` alone gives a server that reads plain text and nothing else,
+not even Markdown. ``all`` includes ``mcp``.
 
 Quick Start
 -----------
