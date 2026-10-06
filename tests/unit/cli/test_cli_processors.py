@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 from types import SimpleNamespace
 from typing import Any
 
@@ -777,7 +778,7 @@ def test_render_single_item_outline_with_rich(
     tmp_path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Test _render_single_item_to_stdout applies rich formatting to outline when requested."""
+    """A rich outline is drawn by the terminal renderer, not rich's Markdown reader."""
     pytest.importorskip("rich")
 
     from all2md.ast.nodes import Document, Heading, Text
@@ -792,13 +793,12 @@ def test_render_single_item_outline_with_rich(
             metadata={},
         )
 
-    def fake_apply_rich_formatting(text: str, args: argparse.Namespace) -> tuple[str, bool]:
-        # Simulate rich formatting by wrapping text
-        return f"[RICH]{text}[/RICH]", True
+    def fail_apply_rich_formatting(text: str, args: argparse.Namespace) -> tuple[str, bool]:
+        raise AssertionError("the outline went through rich's Markdown reader")
 
     monkeypatch.setattr(processors, "to_ast", fake_to_ast)
     monkeypatch.setattr(processors, "prepare_options_for_execution", lambda *args, **kwargs: {})
-    monkeypatch.setattr(processors, "_apply_rich_formatting", fake_apply_rich_formatting)
+    monkeypatch.setattr(processors, "_apply_rich_formatting", fail_apply_rich_formatting)
 
     input_path = tmp_path / "sample.md"
     input_path.write_text("# Main Title\n## Subsection\n")
@@ -828,12 +828,8 @@ def test_render_single_item_outline_with_rich(
 
     assert exit_code == EXIT_SUCCESS
 
-    std = capsys.readouterr()
-    # Should contain rich-formatted content
-    assert "[RICH]" in std.out
-    assert "[/RICH]" in std.out
-    assert "* Main Title" in std.out
-    assert "  * Subsection" in std.out
+    out = re.sub(chr(27) + r"\[[0-9;]*m", "", capsys.readouterr().out)
+    assert out.splitlines() == [" • Main Title", "    • Subsection"]
 
 
 def _args_for_near_source(**overrides: Any) -> argparse.Namespace:

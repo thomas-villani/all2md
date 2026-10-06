@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, TypedDict, cast
 
 from all2md.api import convert, from_ast, to_ast, to_markdown
-from all2md.ast.nodes import Document, Heading, Node, Text, ThematicBreak
+from all2md.ast.nodes import Comment, Document, Heading, Node, Text, ThematicBreak
 from all2md.ast.nodes import Document as ASTDocument
 
 # Import detection/dry-run functions from submodule
@@ -201,6 +201,58 @@ def _render_reference_markdown(doc: Document, effective_options: Dict[str, Any])
     return rendered
 
 
+def _render_doc(
+    doc: Document,
+    render_target: str,
+    effective_options: Dict[str, Any],
+    terminal_options: Any = None,
+) -> Any:
+    """Render ``doc`` to ``render_target``, or to the terminal when ``terminal_options`` is given.
+
+    With ``terminal_options`` (``--rich`` on a Markdown target), ``render_target``
+    stays ``markdown`` everywhere else: it is the frame line numbers refer to.
+    """
+    if terminal_options is not None:
+        return from_ast(doc, cast(DocumentFormat, "terminal"), renderer_options=terminal_options)
+    return from_ast(doc, cast(DocumentFormat, render_target), **effective_options)
+
+
+def _outline_document(doc: Document, max_level: int) -> Document:
+    """Build the outline as a nested bullet list of the headings, formatting kept.
+
+    The terminal counterpart of :func:`generate_outline_from_document`. A heading
+    that skips levels nests one level under the heading before it.
+    """
+    from all2md.ast.nodes import List as ASTList
+    from all2md.ast.nodes import ListItem, Paragraph
+    from all2md.ast.sections import get_all_sections
+
+    sections = get_all_sections(doc, min_level=1, max_level=max_level)
+    if not sections:
+        return Document(children=[Paragraph(content=[Text(content="No headings found in document")])])
+
+    root = ASTList(ordered=False, items=[])
+    # (level of the items in this list, the list); the root takes the first level it sees.
+    stack: List[Tuple[Optional[int], ASTList]] = [(None, root)]
+    for section in sections:
+        while len(stack) > 1 and (stack[-1][0] or 0) > section.level:
+            stack.pop()
+        level, target = stack[-1]
+        if level is None:
+            stack[-1] = (section.level, target)
+        elif section.level > level and target.items:
+            parent = target.items[-1]
+            last_child = parent.children[-1] if parent.children else None
+            if isinstance(last_child, ASTList):
+                target = last_child
+            else:
+                target = ASTList(ordered=False, items=[])
+                parent.children.append(target)
+            stack.append((section.level, target))
+        target.items.append(ListItem(children=[Paragraph(content=list(section.heading.content))]))
+    return Document(children=[root])
+
+
 def _outline_output(
     doc: Document,
     max_level: int,
@@ -221,6 +273,7 @@ def _extraction_output(
     line_numbers: bool,
     effective_options: Dict[str, Any],
     transforms: Optional[list],
+    terminal_options: Any = None,
 ) -> Any:
     """Produce extraction output for one or more ``--extract`` selectors.
 
@@ -236,11 +289,14 @@ def _extraction_output(
     if line_specs:
         if len(extract_specs) > 1:
             raise ValueError("A 'line:' --extract range cannot be combined with other --extract selectors.")
-        return _extract_by_lines(doc, extract_specs[0], render_target, line_numbers, effective_options, transforms)
+        return _extract_by_lines(
+            doc, extract_specs[0], render_target, line_numbers, effective_options, transforms, terminal_options
+        )
 
     if (
         len(extract_specs) == 1
         and line_numbers
+        and terminal_options is None
         and render_target == "markdown"
         and parse_extract_selector(extract_specs[0]).kind == "section"
     ):
@@ -254,7 +310,7 @@ def _extraction_output(
     if transforms:
         for transform in transforms:
             extracted = transform.transform(extracted)
-    return from_ast(extracted, cast(DocumentFormat, render_target), **effective_options)
+    return _render_doc(extracted, render_target, effective_options, terminal_options)
 
 
 def _parse_line_indices(spec_body: str, total_lines: int, original_spec: str) -> List[int]:
@@ -295,14 +351,20 @@ def _emit_line_selection(
     line_numbers: bool,
     effective_options: Dict[str, Any],
     transforms: Optional[list],
+    terminal_options: Any = None,
 ) -> Any:
-    """Render a set of 0-based output-line indices to the requested target."""
+    """Render a set of 0-based output-line indices to the requested target.
+
+    Lines are always chosen from the Markdown rendering, so the numbers agree
+    with ``--outline -ln``; any other target (the terminal included) re-parses
+    the chosen Markdown and renders that.
+    """
     from all2md.ast.line_map import number_text_lines
 
     out_lines, out_numbers = _gather_selected_lines(md_lines, indices)
     selected_text = "\n".join(out_lines)
 
-    if render_target == "markdown":
+    if render_target == "markdown" and terminal_options is None:
         if line_numbers:
             return number_text_lines(selected_text, out_numbers)
         return selected_text
@@ -312,7 +374,7 @@ def _emit_line_selection(
     if transforms:
         for transform in transforms:
             reparsed = transform.transform(reparsed)
-    return from_ast(reparsed, cast(DocumentFormat, render_target), **effective_options)
+    return _render_doc(reparsed, render_target, effective_options, terminal_options)
 
 
 def _extract_by_lines(
@@ -322,6 +384,7 @@ def _extract_by_lines(
     line_numbers: bool,
     effective_options: Dict[str, Any],
     transforms: Optional[list],
+    terminal_options: Any = None,
 ) -> Any:
     """Extract content by output line range (``line:X-Y``)."""
     rendered_markdown = _render_reference_markdown(doc, effective_options)
@@ -330,7 +393,9 @@ def _extract_by_lines(
     spec_body = extract_spec.strip()[len(LINE_EXTRACT_PREFIX) :].strip()
     indices = _parse_line_indices(spec_body, len(md_lines), extract_spec)
 
-    return _emit_line_selection(md_lines, indices, render_target, line_numbers, effective_options, transforms)
+    return _emit_line_selection(
+        md_lines, indices, render_target, line_numbers, effective_options, transforms, terminal_options
+    )
 
 
 def _line_indices_for_selection(line_select: str, total_lines: int) -> List[int]:
@@ -365,21 +430,29 @@ def _line_range_output(
     line_numbers: bool,
     effective_options: Dict[str, Any],
     transforms: Optional[list],
+    terminal_options: Any = None,
 ) -> Any:
     """Produce output for the ``--head``/``--tail``/``--lines`` flags."""
     rendered_markdown = _render_reference_markdown(doc, effective_options)
     md_lines = rendered_markdown.split("\n")
     indices = _line_indices_for_selection(line_select, len(md_lines))
-    return _emit_line_selection(md_lines, indices, render_target, line_numbers, effective_options, transforms)
+    return _emit_line_selection(
+        md_lines, indices, render_target, line_numbers, effective_options, transforms, terminal_options
+    )
 
 
-def _slice_footer(x: int, y: int, word_count: int) -> str:
-    """Build the trailing hint that points at the next slice (Markdown comment)."""
+def _slice_hint(x: int, y: int, word_count: int) -> str:
+    """Build the hint that points at the next slice."""
     if x < y:
         nxt = f"next: --slice {x + 1}/{y}"
     else:
         nxt = "last slice"
-    return f"<!-- slice {x}/{y} · ~{word_count} words · {nxt} -->"
+    return f"slice {x}/{y} · ~{word_count} words · {nxt}"
+
+
+def _slice_footer(x: int, y: int, word_count: int) -> str:
+    """Build the trailing hint that points at the next slice (Markdown comment)."""
+    return f"<!-- {_slice_hint(x, y, word_count)} -->"
 
 
 def _slice_output(
@@ -388,12 +461,14 @@ def _slice_output(
     render_target: str,
     effective_options: Dict[str, Any],
     transforms: Optional[list],
+    terminal_options: Any = None,
 ) -> Any:
     """Return the Xth of Y semantic slices, with a 'next slice' footer hint.
 
     The document is divided into Y roughly equal parts at section boundaries
-    (reusing :meth:`DocumentSplitter.split_by_parts`). Only Markdown output gets
-    the footer comment; other text/binary targets are rendered without it.
+    (reusing :meth:`DocumentSplitter.split_by_parts`). Markdown output gets the
+    footer as a comment and terminal output as a dimmed last line; other
+    text/binary targets are rendered without it.
     """
     from all2md.ast.splitting import DocumentSplitter
 
@@ -411,6 +486,13 @@ def _slice_output(
     if transforms:
         for transform in transforms:
             sliced_doc = transform.transform(sliced_doc)
+
+    if terminal_options is not None or render_target == "terminal":
+        # Rendered on its own so it stays last, after any footnotes.
+        hint = Document(children=[Comment(content=_slice_hint(x, len(splits), chosen.word_count))])
+        body = _render_doc(sliced_doc, render_target, effective_options, terminal_options)
+        footer = _render_doc(hint, render_target, effective_options, terminal_options)
+        return f"{body}\n\n{footer}" if footer else body
 
     result = from_ast(sliced_doc, cast(DocumentFormat, render_target), **effective_options)
 
@@ -3426,17 +3508,28 @@ def _apply_formatting_and_output(content: str, args: argparse.Namespace, should_
     _output_text_with_options(formatted, args, is_rich)
 
 
+def _output_terminal_text(rendered: Any, args: argparse.Namespace) -> int:
+    """Write terminal-renderer output (ANSI text) to stdout, through the pager if asked."""
+    assert isinstance(rendered, str), "Terminal renderer should return str"
+    _output_text_with_options(rendered, args, is_rich=True)
+    return EXIT_SUCCESS
+
+
 def _render_outline_mode(
     item: CLIInputItem,
     args: argparse.Namespace,
     effective_options: Dict[str, Any],
     format_arg: str,
     should_use_rich: bool,
+    terminal_options: Any = None,
 ) -> int:
     """Handle outline mode rendering."""
     outline_max_level = getattr(args, "outline_max_level", 6)
     line_numbers = getattr(args, "line_numbers", False)
     doc = to_ast(item.raw_input, source_format=cast(DocumentFormat, format_arg), **effective_options)
+    if terminal_options is not None:
+        outline = _outline_document(doc, outline_max_level)
+        return _output_terminal_text(_render_doc(outline, "markdown", {}, terminal_options), args)
     outline_text = _outline_output(doc, outline_max_level, line_numbers, effective_options)
     _apply_formatting_and_output(outline_text, args, should_use_rich)
     return EXIT_SUCCESS
@@ -3450,10 +3543,13 @@ def _convert_with_extraction(
     transforms: Optional[list],
     render_target: str,
     line_numbers: bool = False,
+    terminal_options: Any = None,
 ) -> Any:
     """Convert with content extraction (sections/tables/figures or ``line:``)."""
     doc = to_ast(item.raw_input, source_format=cast(DocumentFormat, format_arg), **effective_options)
-    return _extraction_output(doc, extract_specs, render_target, line_numbers, effective_options, transforms)
+    return _extraction_output(
+        doc, extract_specs, render_target, line_numbers, effective_options, transforms, terminal_options
+    )
 
 
 def _emit_result_to_stdout(
@@ -3461,6 +3557,7 @@ def _emit_result_to_stdout(
     args: argparse.Namespace,
     should_use_rich: bool,
     render_target: str,
+    terminal_options: Any = None,
 ) -> int:
     """Emit a conversion result (str or bytes) to stdout with rich/pager handling."""
     if isinstance(result, bytes):
@@ -3469,6 +3566,9 @@ def _emit_result_to_stdout(
         return EXIT_SUCCESS
 
     text_output = result if isinstance(result, str) else ""
+
+    if terminal_options is not None or render_target == "terminal":
+        return _output_terminal_text(text_output, args)
 
     if render_target == "markdown":
         _apply_formatting_and_output(text_output, args, should_use_rich)
@@ -3491,11 +3591,12 @@ def _render_slice_mode(
     should_use_rich: bool,
     render_target: str,
     slice_spec: str,
+    terminal_options: Any = None,
 ) -> int:
     """Handle ``--slice X/Y`` rendering to stdout."""
     doc = to_ast(item.raw_input, source_format=cast(DocumentFormat, format_arg), **effective_options)
-    result = _slice_output(doc, slice_spec, render_target, effective_options, transforms)
-    return _emit_result_to_stdout(result, args, should_use_rich, render_target)
+    result = _slice_output(doc, slice_spec, render_target, effective_options, transforms, terminal_options)
+    return _emit_result_to_stdout(result, args, should_use_rich, render_target, terminal_options)
 
 
 def _render_line_range_mode(
@@ -3507,12 +3608,15 @@ def _render_line_range_mode(
     should_use_rich: bool,
     render_target: str,
     line_select: str,
+    terminal_options: Any = None,
 ) -> int:
     """Handle ``--head``/``--tail``/``--lines`` rendering to stdout."""
     line_numbers = _line_numbers_for_target(getattr(args, "line_numbers", False), render_target)
     doc = to_ast(item.raw_input, source_format=cast(DocumentFormat, format_arg), **effective_options)
-    result = _line_range_output(doc, line_select, render_target, line_numbers, effective_options, transforms)
-    return _emit_result_to_stdout(result, args, should_use_rich, render_target)
+    result = _line_range_output(
+        doc, line_select, render_target, line_numbers, effective_options, transforms, terminal_options
+    )
+    return _emit_result_to_stdout(result, args, should_use_rich, render_target, terminal_options)
 
 
 def _render_markdown_mode(
@@ -3523,17 +3627,21 @@ def _render_markdown_mode(
     transforms: Optional[list],
     should_use_rich: bool,
     extract_specs: Optional[List[str]],
+    terminal_options: Any = None,
 ) -> int:
     """Handle markdown format rendering."""
     line_numbers = getattr(args, "line_numbers", False)
-    if should_use_rich and not extract_specs and not line_numbers:
+    if terminal_options is not None:
         # Render the AST for the terminal directly; rich's own Markdown reader
         # would re-parse our Markdown text with a smaller dialect.
-        doc = to_ast(item.raw_input, source_format=cast(DocumentFormat, format_arg), **effective_options)
-        rendered = from_ast(doc, "terminal", renderer_options=_terminal_renderer_options(args), transforms=transforms)
-        assert isinstance(rendered, str), "Terminal renderer should return str"
-        _output_text_with_options(rendered, args, is_rich=True)
-        return EXIT_SUCCESS
+        if extract_specs:
+            rendered = _convert_with_extraction(
+                item, effective_options, format_arg, extract_specs, transforms, "markdown", False, terminal_options
+            )
+        else:
+            doc = to_ast(item.raw_input, source_format=cast(DocumentFormat, format_arg), **effective_options)
+            rendered = from_ast(doc, "terminal", renderer_options=terminal_options, transforms=transforms)
+        return _output_terminal_text(rendered, args)
     if extract_specs:
         markdown_content = _convert_with_extraction(
             item, effective_options, format_arg, extract_specs, transforms, "markdown", line_numbers
@@ -3588,6 +3696,10 @@ def _render_other_format_mode(
 
     text_output = result if isinstance(result, str) else ""
 
+    if render_target == "terminal":
+        # Already ANSI: highlighting it as source would print the escape codes.
+        return _output_terminal_text(text_output, args)
+
     rendered = False
     if should_use_rich and args.rich and text_output:
         rendered = _render_rich_text_output(text_output, args, render_target)
@@ -3615,26 +3727,52 @@ def _render_single_item_to_stdout(
         slice_spec = getattr(args, "slice_spec", None)
         line_select = line_selection_from_args(args)
 
+        # --rich on a Markdown target draws with the terminal renderer. Line
+        # numbers count lines of the Markdown source, so with them the source is
+        # printed as it is: styling it would reflow the numbered lines.
+        terminal_options = None
+        if should_use_rich and render_target == "markdown":
+            if getattr(args, "line_numbers", False):
+                should_use_rich = False
+            else:
+                terminal_options = _terminal_renderer_options(args)
+
         # Handle outline mode
         if getattr(args, "outline", False):
-            return _render_outline_mode(item, args, effective_options, format_arg, should_use_rich)
+            return _render_outline_mode(item, args, effective_options, format_arg, should_use_rich, terminal_options)
 
         # Handle single-slice paging
         if slice_spec:
             return _render_slice_mode(
-                item, args, effective_options, format_arg, transforms, should_use_rich, render_target, slice_spec
+                item,
+                args,
+                effective_options,
+                format_arg,
+                transforms,
+                should_use_rich,
+                render_target,
+                slice_spec,
+                terminal_options,
             )
 
         # Handle simple line windows (--head/--tail/--lines)
         if line_select:
             return _render_line_range_mode(
-                item, args, effective_options, format_arg, transforms, should_use_rich, render_target, line_select
+                item,
+                args,
+                effective_options,
+                format_arg,
+                transforms,
+                should_use_rich,
+                render_target,
+                line_select,
+                terminal_options,
             )
 
         # Handle markdown vs other formats
         if render_target == "markdown":
             return _render_markdown_mode(
-                item, args, effective_options, format_arg, transforms, should_use_rich, extract_specs
+                item, args, effective_options, format_arg, transforms, should_use_rich, extract_specs, terminal_options
             )
         return _render_other_format_mode(
             item, args, effective_options, format_arg, transforms, should_use_rich, render_target, extract_specs

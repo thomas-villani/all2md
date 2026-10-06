@@ -3437,11 +3437,14 @@ Rich output needs the ``rich`` package, which the ``cli_extras`` and ``all`` ext
    ``--out``, ``--output-dir`` or several inputs, ``--rich`` styles the progress display and summary instead.
    With a target other than Markdown (``--to html``, ``--to json``, ...), the output is syntax-highlighted.
 
-   A whole document is drawn by the ``terminal`` renderer straight from the parsed document, so footnotes
+   The document is drawn by the ``terminal`` renderer straight from the parsed document, so footnotes
    (numbered, collected at the end), math (verbatim), task lists, definition lists, admonitions and GitHub alerts
-   (titled panels), underline, and sub/superscripts all show as what they are. ``--extract``, ``--outline``,
-   ``--slice``, the line windows and ``--line-numbers`` still style the Markdown text with Rich's own Markdown
-   reader, which shows those constructs as Markdown source.
+   (titled panels), underline, and sub/superscripts all show as what they are. The same holds for ``--extract``,
+   ``--slice`` (its "next slice" hint is the last line), ``--outline`` (a nested list of the headings) and the
+   line windows (``--head``, ``--tail``, ``--lines``, ``--extract line:``). A line window is still chosen from
+   the Markdown rendering, so its numbers agree with ``--outline --line-numbers``, and then drawn; a footnote
+   whose definition falls outside the window shows as ``[^1]``. With ``--line-numbers`` the numbered Markdown
+   source is printed as it is, without styling, since that is what the numbers count.
 
    The same renderer is a regular output format: ``all2md report.docx --to terminal > report.ans`` writes the
    ANSI text, with ``--terminal-renderer-width`` and ``--terminal-renderer-color-system`` (``none`` for plain

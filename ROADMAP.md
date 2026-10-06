@@ -221,10 +221,10 @@ definition lists and admonitions print as raw syntax, and display math loses its
 Decided 2026-10-05, in this order, design in `docs/plans/terminal-viewer.md`:
 
 1. ✅ **A terminal renderer from the AST.** rich renderables built from the nodes
-   themselves, no Markdown string between; `--rich` on a whole document switches to it,
-   and `--to terminal` writes it. Needs no new dependency. Preceded by #578 and #579, which
-   gave admonitions a single metadata key and read GitHub alerts. Left on the old path:
-   `--extract`, `--outline`, `--slice`, the line windows and `--line-numbers`.
+   themselves, no Markdown string between; `--rich` switches to it (#580 for a whole
+   document; `--extract`, `--outline`, `--slice` and the line windows after), and
+   `--to terminal` writes it. Needs no new dependency. Preceded by #578 and #579, which
+   gave admonitions a single metadata key and read GitHub alerts.
 2. 🌱 **An interactive viewer on Wijjit**: a `ContentView` body, a `Tree` outline that
    jumps to headings, a status bar, default/vim/less keys. A `tui` extra, Python 3.11+
    only, since Wijjit needs it; testable headless in CI.
