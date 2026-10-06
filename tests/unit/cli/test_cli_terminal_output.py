@@ -1,8 +1,9 @@
-"""Document text printed to a terminal carries no control characters.
+"""Document output shown in a terminal carries none of the document's control characters.
 
 A document is untrusted input. Printed to a terminal, an ESC in it is executed, not
 shown, so the CLI removes control characters from document output that goes to a
-terminal or the pager. Output to a file or a pipe is left exactly as converted.
+terminal or the pager, styled or not. Output to a file or a pipe is left exactly as
+converted.
 """
 
 from __future__ import annotations
@@ -37,6 +38,12 @@ def _run(monkeypatch, stream, *argv) -> str:
     return stream.getvalue()
 
 
+def _assert_clean(out: str) -> None:
+    assert RESET not in out
+    assert f"{ESC}]0;" not in out
+    assert BEL not in out
+
+
 @pytest.mark.unit
 @pytest.mark.parametrize(
     "flags",
@@ -49,10 +56,25 @@ def _run(monkeypatch, stream, *argv) -> str:
         ["--outline"],
     ],
 )
-def test_terminal_output_has_no_control_characters(monkeypatch, hostile, flags):
+def test_unstyled_terminal_output_has_no_control_characters(monkeypatch, hostile, flags):
     out = _run(monkeypatch, _Terminal(), str(hostile), *flags)
+    _assert_clean(out)
     assert ESC not in out
-    assert BEL not in out
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "flags",
+    [
+        ["--rich", "--force-rich"],
+        ["--rich", "--force-rich", "--to", "html"],
+        ["--rich", "--force-rich", "--extract", "Head*"],
+        ["--rich", "--force-rich", "--head", "3"],
+    ],
+)
+def test_styled_output_has_no_control_characters_of_the_document(monkeypatch, hostile, flags):
+    out = _run(monkeypatch, _Terminal(), str(hostile), *flags)
+    _assert_clean(out)
 
 
 @pytest.mark.unit

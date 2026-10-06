@@ -1224,6 +1224,9 @@ def _determine_syntax_language(target_format: str) -> str:
 
 def _render_rich_text_output(text: str, args: argparse.Namespace, target_format: str) -> bool:
     """Attempt to render non-markdown text with Rich Syntax."""
+    # Drawn for a terminal either way (highlighted, or printed as is when Rich cannot
+    # highlight it), so the document's control characters go first.
+    text = TERMINAL_UNSAFE_CHARACTERS.sub("", text)
     try:
         from rich.console import Console
         from rich.syntax import Syntax
