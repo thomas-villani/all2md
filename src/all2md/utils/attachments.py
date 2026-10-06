@@ -149,12 +149,12 @@ def sanitize_attachment_filename(
 
     for pattern in malicious_patterns:
         if re.search(pattern, filename):
-            logger.warning(f"Potentially malicious filename pattern detected: {filename}")
+            logger.warning("Potentially malicious filename pattern detected: %r", filename)
             # Continue with sanitization rather than rejecting
 
     # Check for excessive length before processing
     if len(filename) > max_length * 2:  # Arbitrary threshold
-        logger.warning(f"Filename extremely long ({len(filename)} chars), truncating: {filename[:50]}...")
+        logger.warning("Filename extremely long (%d chars), truncating: %r...", len(filename), filename[:50])
 
     # Normalize Unicode to prevent visually confusable names
     # NFKC removes compatibility characters and combines decomposed characters
@@ -265,7 +265,7 @@ def sanitize_attachment_filename(
 
     # Log the transformation if it was significant
     if safe_chars != original_filename:
-        logger.debug(f"Sanitized filename: '{original_filename}' -> '{safe_chars}'")
+        logger.debug("Sanitized filename: %r -> %r", original_filename, safe_chars)
 
     return safe_chars
 
@@ -634,7 +634,7 @@ def _handle_base64_mode(
         return None
 
     if not attachment_data:
-        logger.info(f"No attachment data available for base64 mode: {attachment_name}")
+        logger.info("No attachment data available for base64 mode: %r", attachment_name)
         return None
 
     # Determine MIME type from file extension
@@ -848,7 +848,7 @@ def process_attachment(
     """
     # Handle skip mode
     if attachment_mode == "skip":
-        logger.debug(f"Skipping attachment: {attachment_name}")
+        logger.debug("Skipping attachment: %r", attachment_name)
         return _make_result("")
 
     # Handle alt_text mode
