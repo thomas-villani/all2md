@@ -14,7 +14,7 @@ import json
 import logging
 import os
 import sys
-from dataclasses import fields, is_dataclass
+from dataclasses import Field, fields, is_dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -32,11 +32,20 @@ from all2md.options.search import SearchOptions
 logger = logging.getLogger(__name__)
 
 
+def _settable_fields(instance: Any) -> list[Field[Any]]:
+    """Return the fields a config file can set: constructor arguments, not private state.
+
+    A field with ``init=False`` (or a leading underscore) is internal bookkeeping;
+    written to a config file it would be passed back to the constructor and fail.
+    """
+    return [field for field in fields(instance) if field.init and not field.name.startswith("_")]
+
+
 def _serialize_config_value(value: Any) -> Any:
     """Convert dataclass default values into config-friendly primitives."""
     if is_dataclass(value):
         result: Dict[str, Any] = {}
-        for field in fields(value):
+        for field in _settable_fields(value):
             serialized = _serialize_config_value(getattr(value, field.name))
             if serialized is None:
                 continue
@@ -84,7 +93,7 @@ def _collect_defaults_from_options_class(options_class: Optional[type]) -> Dict[
 
     defaults: Dict[str, Any] = {}
 
-    for field in fields(instance):
+    for field in _settable_fields(instance):
         metadata: Dict[str, Any] = dict(field.metadata) if field.metadata else {}
         if metadata.get("exclude_from_cli", False):
             continue
