@@ -3453,7 +3453,25 @@ Rich output needs the ``rich`` package, which the ``cli_extras`` and ``all`` ext
 ``rcat``
    A second command installed beside ``all2md``: ``rcat FILE`` is ``all2md FILE --rich``, a ``cat`` for any
    document format. Every other flag works with it (``rcat report.docx --pager``, ``rcat deck.pptx --outline``,
-   ``rcat paper.pdf --extract "Methods"``).
+   ``rcat paper.pdf --extract "Methods"``). ``rcat -i FILE`` opens the interactive viewer instead.
+
+``all2md read`` (``rcat -i``)
+   An interactive viewer in the terminal: the document in a scrolling pane, an outline beside it, and a status
+   bar with the current section and position. It needs the ``tui`` extra (``pip install 'all2md[tui]'``,
+   Python 3.11 or later).
+
+   .. code-block:: bash
+
+      all2md read report.docx
+      rcat -i paper.pdf --keys vim
+      cat notes.md | all2md read -
+
+   Arrows, Page Up/Down and Space scroll; ``[`` and ``]`` move between headings; ``o`` shows or hides the
+   outline, ``l`` lists the links on screen and ``?`` the keys; ``q`` quits. ``--keys vim`` adds ``j``/``k``,
+   ``f``/``b``, ``d``/``u`` and ``g``/``G``. Links to a heading or a footnote in the document move the viewer
+   (Left or Backspace goes back); any other link is shown in the status bar, and ``y`` copies it, but the viewer
+   never opens it. ``--no-outline`` starts with the outline hidden, and a ``[read]`` section in the config file
+   sets the defaults.
 
 ``--force-rich`` (``-f``)
    Force Rich formatting even when piping or redirecting output. Useful for capturing styled console logs. When
