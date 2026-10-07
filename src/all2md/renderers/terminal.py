@@ -22,7 +22,7 @@ from __future__ import annotations
 import io
 import logging
 import shutil
-from dataclasses import dataclass, fields, is_dataclass
+from dataclasses import dataclass, fields, is_dataclass, replace
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Iterator, Mapping, Optional, Union, cast
 
@@ -68,6 +68,7 @@ from all2md.renderers.base import BaseRenderer
 
 if TYPE_CHECKING:
     from rich.console import Console, ConsoleOptions, RenderableType, RenderResult
+    from rich.segment import Segment
     from rich.text import Text as RichText
     from rich.theme import Theme
 
@@ -153,6 +154,76 @@ class HeadingPosition:
     line: int
 
 
+@dataclass(frozen=True)
+class LinkPosition:
+    """Where a link, or one line of it, lands in the rendered output.
+
+    A link that wraps onto several lines has one position per line, all with
+    the same ``index``.
+
+    Parameters
+    ----------
+    line : int
+        Zero-based line of the rendered output.
+    start : int
+        Terminal cell the link starts at on that line, zero-based.
+    end : int
+        Terminal cell just past the link's last cell on that line.
+    target : str
+        The link's URL as written in the document, or for a footnote reference
+        the footnote's identifier.
+    index : int
+        The link's number in document order, counting from zero.
+    footnote : bool, default False
+        The link is a footnote reference; ``target`` names a key of
+        ``TerminalLayout.footnotes``.
+
+    """
+
+    line: int
+    start: int
+    end: int
+    target: str
+    index: int
+    footnote: bool = False
+
+
+@dataclass(frozen=True)
+class TerminalLayout:
+    """A document laid out at one width: the text, and where things land in it.
+
+    Parameters
+    ----------
+    text : str
+        The rendered document, as ``TerminalRenderer.render_to_string`` returns it.
+    width : int
+        The width it was laid out at, in terminal cells.
+    line_count : int
+        Number of lines in ``text``.
+    headings : tuple of HeadingPosition
+        Every heading with text, nested ones included, in output order.
+    links : tuple of LinkPosition
+        Every link with a target and every footnote reference, in output order.
+    footnotes : dict
+        Line each footnote definition starts on, by identifier.
+
+    """
+
+    text: str
+    width: int
+    line_count: int
+    headings: tuple[HeadingPosition, ...]
+    links: tuple[LinkPosition, ...]
+    footnotes: Mapping[str, int]
+
+
+# Keys of the rich ``Style.meta`` the renderer tags headings, links and footnote
+# definitions with, so one layout pass can say where each landed.
+_HEADING_KEY = "all2md.heading"
+_LINK_KEY = "all2md.link"
+_FOOTNOTE_KEY = "all2md.footnote"
+
+
 def _iter_nodes(node: Any) -> Iterator[Node]:
     """Yield every node under ``node`` (inclusive), in document order."""
     if isinstance(node, Node):
@@ -225,16 +296,19 @@ class _Prefixed:
         rest: str,
         prefix_style: str = "none",
         style: str = "none",
+        first_meta: Optional[dict[str, Any]] = None,
     ) -> None:
         self.renderable = renderable
         self.first = first
         self.rest = rest
         self.prefix_style = prefix_style
         self.style = style
+        self.first_meta = first_meta
 
     def __rich_console__(self, console: "Console", options: "ConsoleOptions") -> "RenderResult":
         from rich.cells import cell_len
         from rich.segment import Segment
+        from rich.style import Style
 
         width = max(1, options.max_width - cell_len(self.first))
         style = console.get_style(self.style, default="none")
@@ -242,12 +316,65 @@ class _Prefixed:
         if not lines:
             lines = [[]]
         prefix_style = console.get_style(self.prefix_style, default="none")
-        first = Segment(self.first, prefix_style)
+        first_style = prefix_style + Style(meta=self.first_meta) if self.first_meta else prefix_style
+        first = Segment(self.first, first_style)
         rest = Segment(self.rest, prefix_style)
         new_line = Segment.line()
         for index, line in enumerate(lines):
             yield first if index == 0 else rest
             yield from line
+            yield new_line
+
+
+class _RenderedLines:
+    """Lines already laid out, printed as they are.
+
+    A meta tag splits a run of text into segments that differ only in their
+    meta, which prints as the same styling closed and reopened. Those pieces
+    are joined again, so tagging leaves the output byte for byte unchanged.
+    """
+
+    def __init__(self, lines: list[list["Segment"]]) -> None:
+        self.lines = lines
+
+    def __rich_console__(self, console: "Console", options: "ConsoleOptions") -> "RenderResult":
+        from rich.segment import Segment
+        from rich.style import Style
+
+        untagged: dict[Style, tuple[Style, str]] = {}
+
+        def printed(style: Style) -> tuple[Style, str]:
+            """Return the style as the terminal sees it: no meta, but the link and its id kept."""
+            if style not in untagged:
+                # A meta-only style gets a link id too; it means nothing without a link.
+                untagged[style] = (style.clear_meta_and_links(), style.link_id if style.link else "")
+            return untagged[style]
+
+        new_line = Segment.line()
+        for line in self.lines:
+            pending: Optional[Segment] = None
+            # Whether ``pending`` holds a tagged piece; only those were split by a tag.
+            pending_tagged = False
+            for segment in line:
+                tagged = segment.style is not None and bool(segment.style.meta)
+                if (
+                    pending is not None
+                    and pending.style is not None
+                    and segment.style is not None
+                    and not pending.control
+                    and not segment.control
+                    and (pending_tagged or tagged)
+                    and printed(pending.style) == printed(segment.style)
+                ):
+                    pending = Segment(pending.text + segment.text, pending.style)
+                    pending_tagged = True
+                    continue
+                if pending is not None:
+                    yield pending
+                pending = segment
+                pending_tagged = tagged
+            if pending is not None:
+                yield pending
             yield new_line
 
 
@@ -280,7 +407,9 @@ class TerminalRenderer(BaseRenderer):
         self.options: TerminalRendererOptions = options
         self._footnote_numbers: dict[str, int] = {}
         self._footnote_definitions: dict[str, FootnoteDefinition] = {}
-        self._heading_renderables: dict[int, Heading] = {}
+        # What the meta tags in the last render_renderables() output point at.
+        self._headings: list[Heading] = []
+        self._links: list[tuple[str, bool]] = []
 
     # ------------------------------------------------------------------
     # Public API
@@ -339,7 +468,8 @@ class TerminalRenderer(BaseRenderer):
         cleaned, _removed = remove_terminal_unsafe_characters(doc)
         doc = cast(Document, cleaned)
         self._number_footnotes(doc)
-        self._heading_renderables = {}
+        self._headings = []
+        self._links = []
         blocks = self._blocks(doc.children)
         notes = self._footnotes_section()
         if notes:
@@ -360,22 +490,49 @@ class TerminalRenderer(BaseRenderer):
             The rendered document; plain text when ``color_system`` is ``"none"``.
 
         """
+        return self.layout(doc).text
+
+    def layout(self, doc: Document) -> TerminalLayout:
+        """Lay a document out once: its text, and where its headings and links land.
+
+        Positions depend on the layout width, so this lays the document out at
+        the renderer's width (the terminal's when ``width`` is unset).
+
+        Parameters
+        ----------
+        doc : Document
+            Document to render.
+
+        Returns
+        -------
+        TerminalLayout
+
+        """
         from rich.console import Group
 
         console = self.make_console()
+        no_wrap = not self.options.word_wrap
+        lines = console.render_lines(
+            Group(*self.render_renderables(doc)), console.options.update(no_wrap=no_wrap), pad=False
+        )
         with console.capture() as capture:
-            console.print(
-                Group(*self.render_renderables(doc)),
-                no_wrap=not self.options.word_wrap,
-                crop=True,
-            )
-        return capture.get().rstrip("\n")
+            console.print(_RenderedLines(lines), no_wrap=no_wrap, crop=True)
+        text = capture.get().rstrip("\n")
+        headings, links, footnotes = self._positions(lines)
+        return TerminalLayout(
+            text=text,
+            width=console.width,
+            line_count=text.count("\n") + 1 if text else 0,
+            headings=headings,
+            links=links,
+            footnotes=footnotes,
+        )
 
     def heading_positions(self, doc: Document) -> list[HeadingPosition]:
-        """Find the output line each top-level heading lands on.
+        """Find the output line each heading lands on, nested headings included.
 
         The line depends on the layout width, so this lays the document out at
-        the renderer's width.
+        the renderer's width. A heading with no text has no position.
 
         Parameters
         ----------
@@ -387,17 +544,54 @@ class TerminalRenderer(BaseRenderer):
         list of HeadingPosition
 
         """
-        console = self.make_console()
-        render_options = console.options.update(no_wrap=not self.options.word_wrap)
-        renderables = self.render_renderables(doc)
-        positions: list[HeadingPosition] = []
-        line = 0
-        for renderable in renderables:
-            heading = self._heading_renderables.get(id(renderable))
-            if heading is not None:
-                positions.append(HeadingPosition(heading.level, extract_text(heading.content, joiner=""), line))
-            line += len(console.render_lines(renderable, render_options, pad=False))
-        return positions
+        return list(self.layout(doc).headings)
+
+    def _positions(
+        self, lines: list[list["Segment"]]
+    ) -> tuple[tuple[HeadingPosition, ...], tuple[LinkPosition, ...], dict[str, int]]:
+        """Read the meta tags back out of laid-out lines."""
+        from rich.cells import cell_len
+
+        headings: list[HeadingPosition] = []
+        seen_headings: set[int] = set()
+        links: list[LinkPosition] = []
+        # The fragment of each link last seen, by link index, to join segments of one line.
+        open_links: dict[int, int] = {}
+        footnotes: dict[str, int] = {}
+        for number, line in enumerate(lines):
+            column = 0
+            for segment in line:
+                width = cell_len(segment.text)
+                meta = segment.style.meta if segment.style is not None else None
+                if meta:
+                    heading_index = meta.get(_HEADING_KEY)
+                    if heading_index is not None and heading_index not in seen_headings:
+                        seen_headings.add(heading_index)
+                        heading = self._headings[heading_index]
+                        headings.append(
+                            HeadingPosition(heading.level, extract_text(heading.content, joiner=""), number)
+                        )
+                    link_index = meta.get(_LINK_KEY)
+                    if link_index is not None and width:
+                        last = open_links.get(link_index)
+                        if last is not None and links[last].line == number and links[last].end == column:
+                            links[last] = replace(links[last], end=column + width)
+                        else:
+                            target, footnote = self._links[link_index]
+                            open_links[link_index] = len(links)
+                            links.append(LinkPosition(number, column, column + width, target, link_index, footnote))
+                    footnote_id = meta.get(_FOOTNOTE_KEY)
+                    if footnote_id is not None:
+                        footnotes.setdefault(footnote_id, number)
+                column += width
+        return tuple(headings), tuple(links), footnotes
+
+    def _tag(self, text: "RichText", start: int, key: str, value: Any) -> None:
+        """Tag ``text[start:]`` so the layout pass can find where it lands."""
+        from rich.style import Style
+
+        if len(text) > start:
+            text.stylize(Style(meta={key: value}), start, len(text))
 
     def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
         """Render a document to a file or file-like object.
@@ -503,7 +697,8 @@ class TerminalRenderer(BaseRenderer):
         level = min(max(node.level, 1), 6)
         text = RichText(style=f"markdown.h{level}", justify="center" if level == 1 else "left")
         self._inlines(node.content, text)
-        self._heading_renderables[id(text)] = node
+        self._tag(text, 0, _HEADING_KEY, len(self._headings))
+        self._headings.append(node)
         return text
 
     def _code_block(self, node: CodeBlock) -> "RenderableType":
@@ -686,7 +881,15 @@ class TerminalRenderer(BaseRenderer):
         for identifier, definition in ordered:
             marker = f"[{self._footnote_numbers[identifier]}] "
             body = self._stack(definition.content, spaced=False)
-            rows.append(_Prefixed(body, marker, " " * len(marker), prefix_style="markdown.footnote"))
+            rows.append(
+                _Prefixed(
+                    body,
+                    marker,
+                    " " * len(marker),
+                    prefix_style="markdown.footnote",
+                    first_meta={_FOOTNOTE_KEY: identifier},
+                )
+            )
         return [Group(Rule(style="markdown.hr", characters="-"), *rows)]
 
     # ------------------------------------------------------------------
@@ -735,7 +938,11 @@ class TerminalRenderer(BaseRenderer):
             text.append(content, "markdown.math")
         elif isinstance(node, FootnoteReference):
             number = self._footnote_numbers.get(node.identifier)
+            start = len(text)
             text.append(f"[{number if number is not None else node.identifier}]", "markdown.footnote")
+            if node.identifier in self._footnote_definitions:
+                self._tag(text, start, _LINK_KEY, len(self._links))
+                self._links.append((node.identifier, True))
         elif isinstance(node, HTMLInline):
             text.append(node.content, "markdown.html")
         elif isinstance(node, CommentInline):
@@ -759,6 +966,9 @@ class TerminalRenderer(BaseRenderer):
 
         start = len(text)
         self._inlines(node.content, text)
+        if node.url:
+            self._tag(text, start, _LINK_KEY, len(self._links))
+            self._links.append((node.url, False))
         if self.options.hyperlinks:
             text.stylize("markdown.link", start, len(text))
             text.stylize(Style(link=node.url), start, len(text))
