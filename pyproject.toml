@@ -202,8 +202,15 @@ pdf_render = [
 docx_render = [
     "python-docx>=1.2.0",
 ]
+# The server and what it needs to be useful: the parsers for common documents, the
+# renderers behind every save_document_from_markdown target, and rank-bm25 for
+# search_documents' default keyword mode. Not the `search` extra: its vector stack
+# (faiss, sentence-transformers) serves modes the MCP server rejects. The .mcpb
+# bundle and server.json install exactly this extra.
 mcp = [
     "fastmcp>=2.9.0",  # 2.9 added FastMCP(version=...), reported in the handshake
+    "rank-bm25>=0.2.2",
+    "all2md[pdf,pdf_render,docx,html,xlsx,pptx,epub,rst,markdown,odf]",
 ]
 templates = [
     "jinja2>=3.1.0",
