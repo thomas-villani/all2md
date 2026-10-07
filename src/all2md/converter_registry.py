@@ -21,6 +21,7 @@ from typing import IO, Any, Dict, List, NoReturn, Optional, Tuple, Union
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import DependencyError, FormatError
 from all2md.utils.cfb import CFB_SIGNATURE, sniff_cfb_kind
+from all2md.utils.html_sniff import looks_like_html_fragment
 
 logger = logging.getLogger(__name__)
 
@@ -702,6 +703,9 @@ class ConverterRegistry:
             if self._looks_like_markdown(content):
                 logger.debug("Format detected from content: markdown (last guess before plaintext)")
                 return "markdown"
+            if "html" in self._converters and looks_like_html_fragment(content):
+                logger.debug("Format detected from content: an HTML fragment")
+                return "html"
 
         # Default fallback
         logger.debug("No format detected, defaulting to plaintext")
