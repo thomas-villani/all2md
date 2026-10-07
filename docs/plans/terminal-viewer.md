@@ -201,7 +201,10 @@ So the fix sits in all2md: the terminal renderer can drop U+FE0F, trading emoji 
 correct alignment. Decide in stage 2.
 
 Note for the app itself: an element's `id` binds it to the state key of the same name, so
-the viewer's element ids must not collide with its own state keys.
+the viewer's element ids must not collide with its own state keys. And `@app.on_key`
+matches keys case-insensitively, so `g` and `G` (top and bottom in less and vim) would
+collide; the viewer reads its keys from `tui/keys.py` and dispatches them from one
+`EventType.KEY` handler that compares `event.key` exactly.
 
 Speed, on `CHANGELOG.md` (372 KB): parsing 0.57 s, paging instant, a resize 1.46 s,
 because the text and the heading positions were each laid out separately. One pass that

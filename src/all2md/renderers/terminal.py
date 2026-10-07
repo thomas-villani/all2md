@@ -146,12 +146,16 @@ class HeadingPosition:
         The heading's plain text.
     line : int
         Zero-based line of the rendered output the heading starts on.
+    anchor : str or None, default None
+        The heading's explicit id from the source document (AsciiDoc ``[[id]]``,
+        for example), when the parser kept one.
 
     """
 
     level: int
     text: str
     line: int
+    anchor: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -568,8 +572,14 @@ class TerminalRenderer(BaseRenderer):
                     if heading_index is not None and heading_index not in seen_headings:
                         seen_headings.add(heading_index)
                         heading = self._headings[heading_index]
+                        anchor = heading.metadata.get("id")
                         headings.append(
-                            HeadingPosition(heading.level, extract_text(heading.content, joiner=""), number)
+                            HeadingPosition(
+                                heading.level,
+                                extract_text(heading.content, joiner=""),
+                                number,
+                                anchor if isinstance(anchor, str) and anchor else None,
+                            )
                         )
                     link_index = meta.get(_LINK_KEY)
                     if link_index is not None and width:
