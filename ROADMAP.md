@@ -2,35 +2,36 @@
 
 > A living plan for where `all2md` goes next. Nothing here is committed until it is a
 > pull request; the sequencing is by leverage per effort, and it changes when evidence
-> changes it. Shipped work is summarised in one line and lives in `CHANGELOG.md`.
+> changes it. Shipped work is summarized in one line and lives in `CHANGELOG.md`.
 
 Legend: 🌱 natural next step · 🚀 ambitious · 🌙 moonshot · ⏸️ parked with a reason
 
-## Where we are (2026-10-01)
+## Where we are (2026-10-06)
 
-**v1.15.1 shipped on 2026-09-18**, the cleanup patch: PDF numbered lists (#503), and
-adjacent same-kind lists that RST and AsciiDoc read back as one (#496, #497). Since then
-`main` has carried two DOCX streams, both manual instruments with a committed ledger
-rather than a CI gate:
+**v1.16.1 shipped on 2026-10-06**, a security patch on a `release/1.16` branch: a
+document's control characters (ESC and the C1 controls) reached the terminal through
+`--rich`, the pager and plain output to a TTY, so a hostile document could set the window
+title, reset the screen or forge a hyperlink. They are now removed from terminal output;
+output to files and pipes is unchanged. It was forward-ported to `main` (#589, #595).
 
-- **PDF → DOCX, renderer side.** `python -m benchmarks.pmc docx` re-reads the PMC corpus's
-  articles through our own DOCX output (#521). Its first reading was a six-item defect
-  ledger, now worked: characters XML cannot carry crashed 18 of 66 documents (#523);
-  captions were never written as captions (#524); nested lists flattened and adjacent
-  numbered lists ran together (#527); an image whose picture could not be embedded lost
-  its alt text (#526). Two of the six were the instrument's own artifacts, not losses
-  (#525 links, #528 heading spaces), which is why every ledger item is now checked
-  against the direct AST before it is called a defect. Its follow-ups shipped too:
-  Markdown link destinations and emphasis delimiters that read back (#540, #541, the
-  latter closing #529), a year at a line start read as a list number (#542), one link per
-  text span (#543), and TeX math fonts embedded without a Unicode map (#544). Kept by
-  decision: the "image" placeholder alt text for an undescribed picture, in every parser,
-  because it records that a picture existed. Left by design: fonts re-encoded per
-  document and glyph-number subsets, which no published table can read.
-- **DOCX reader, against other people's files.** LibreOffice's Writer regression corpus,
-  1,526 files, scored word for word against what Word shows (`benchmarks/libreoffice`,
-  #539). Five reader gaps closed (#531–#538, below); export words missed 3,908 → 657,
-  267 of them math written as LaTeX, and no file Word opens fails any more.
+**v1.16.0 shipped on 2026-10-05**, closing three streams:
+
+- **PDF → DOCX, renderer side.** Both instruments read: the re-parse ledger (#521) and Word
+  as the write-side oracle (#556). Every defect they found is fixed: characters XML cannot
+  carry, captions written as captions and numbered by Word's `SEQ` field, nested and
+  adjacent lists, adjacent tables, Compatibility Mode, alt text, links and math fonts
+  (#523–#527, #540–#544, #561–#564).
+- **DOCX reader, against other people's files.** The LibreOffice Writer corpus
+  (`benchmarks/libreoffice`, #539): text boxes, nested tables, run wrappers, missing parts
+  and Strict OOXML (#531–#538). Export words missed 3,908 → 657, 267 of them math written
+  as LaTeX, and no file Word opens fails.
+- **Inbound formats.** Man pages both ways (#550, #553), legacy `.doc` and `.ppt` read with
+  the standard library (#565, #566, #568), and OLE2 containers routed by their streams,
+  which made real `.msg` files read again (#548, #549).
+
+Since then `main` carries the terminal renderer (#580, #581) and its layout map (#596, in
+review), `all2md mcp` with an MCP Registry entry published by the release workflow (#584,
+#586, #588), and the quality-gate action's docs rewritten for Marketplace readers (#587).
 
 The PDF side's numbers stand as of v1.15.0 (sealed 103-article holdout, reading of
 2026-08-29): attainable recall **97.3%**, novel share **0.55%** against Docling's 2.05%
@@ -38,32 +39,86 @@ and pymupdf4llm's 6.26%, and a **6.2-point** table gap that is all row grouping,
 table work stopped on evidence. What remains open on PDF (#442, #456 step 3, #440's
 remainder) is Theme 8 Stage 4 layout reconstruction and is carried there.
 
-**Open issues at this date:** #517 (the RST renderer writes a nested list that reads back
-as a definition list), and three parked by design (#256, #186, #183).
+**Open issues at this date:** #570 (the Org parser flattens nested lists), #186 (decided;
+it closes with the Marketplace listing on the 1.17 release), and two parked by design
+(#256, #183).
 
 ## Next
 
-### Before the next release
+### Before the next release (1.17)
 
-- **#517** — the RST renderer writes a nested list that reparses as a definition list,
-  and the parent item's text goes with it.
+- **#570** — the Org parser flattens nested lists, and a nested list of the other kind
+  folds into its parent's text.
+- **Two publishing steps that go live with the 1.17 tag**, both the maintainer's: the
+  MCP Registry listing (the release workflow publishes it; the registry reads the README
+  from PyPI, so it cannot go earlier), and ticking "Publish to Marketplace" on the GitHub
+  release for the quality-gate action (#186, decided yes).
 - **Gate the PMC lane on fidelity when its exit criterion is met.** The criterion, written
   2026-08-13, is two consecutive *scheduled* runs that open no new defect issue. The count
   restarted after #509; two articles' JATS changed upstream and were re-pinned (#522)
   ahead of the 2026-10-15 run, which is the first that can count.
 
-### The next batch: PDF → DOCX fidelity (Theme 2)
+### Now: reading and editing documents in the terminal (Theme 5)
+
+The README now leads with `rcat`, and a class of tools exists only to do this (doxx for
+`.docx`, glow and mdcat for Markdown). Decided 2026-10-05 and 2026-10-06, in this order,
+design in `docs/plans/terminal-viewer.md`:
+
+1. ✅ **A terminal renderer from the AST.** rich renderables built from the nodes
+   themselves, no Markdown string between; `--rich` switches to it (#580 for a whole
+   document; `--extract`, `--outline`, `--slice` and the line windows in #581), and
+   `--to terminal` writes it. Needs no new dependency. Preceded by #578 and #579, which
+   gave admonitions a single metadata key and read GitHub alerts.
+2. 🌱 **An interactive viewer on Wijjit**, as `all2md read` (or `rcat -i`): a
+   `ContentView` body, a `Tree` outline that jumps to headings, a status bar,
+   default/vim/less keys. A `tui` extra, Python 3.11+ only, since Wijjit needs it;
+   testable headless in CI. Wijjit's gaps were fixed upstream first (wijjit #69–#73, in
+   0.1.2). On the all2md side, one layout pass reports where every heading and link lands
+   (#596); a layout cache and the key presets follow, then the app. Also decided:
+   - links are never launched; in-document links and footnotes jump, external targets are
+     shown and copyable;
+   - a **directory browser** when `read` gets no file, a directory or a glob, with a key
+     back to it from the document;
+   - **relative links to other local documents** open in the viewer, contained to the
+     directory given or the file's folder, and tried by hand before they are pushed.
+3. 🌱 **A terminal editor on Wijjit**, as `all2md edit --tui`: Wijjit's `CodeEditor` with
+   a live preview from the viewer's layout, saving through the same code as the web
+   editor. Starts with a spike (large files, find and replace, prose wrapping, control
+   characters, keys, lossy round trips).
+4. **Search** in the viewer, best done upstream in Wijjit's `ContentView`.
+5. **Images** through the Kitty, iTerm2 and Sixel protocols, with Wijjit's half-block
+   `ImageView` as the fallback.
+
+### Now: the outward push (Theme 5)
+
+Mostly writing, so it interleaves with the engineering rather than occupying a batch.
+Started 2026-10-06 after being deferred by three engineering batches. The pieces, in
+order:
+
+- ✅ **MCP Registry listing**, prepared: `all2md mcp` (#584), a release-workflow job that
+  publishes `server.json` (#586), and an `[mcp]` extra that is a working server (#588).
+  Goes live with the 1.17 release.
+- ✅ **GitHub Marketplace** for the quality-gate action: decided yes (#186), docs rewritten
+  for a reader arriving cold (#587). The listing is a checkbox on the 1.17 release.
+- Upstream-sharing the OCR-gate calibration to pymupdf4llm, whose defaults auto-OCR
+  born-digital pages, the exact misfire class the PMC lane measures and gates.
+- The announcement itself, with `docs/source/benchmarks.rst` as the artifact: every figure
+  beside the control that could falsify it.
+- Fillers if the moment wants something new: the RAG-framework loader adapters (Theme 1,
+  about a day each), the chunking tutorial, rich `--help` by default.
+
+### PDF → DOCX fidelity (Theme 2): instruments 3 and 4 remain
 
 "Make this PDF an editable Word document" is the most-requested conversion in the wild, a
-path `all2md` technically supports, and nothing measures it. Its fidelity is the product
-of the PDF parse, just improved through the comparison arc, and a DOCX-renderer half with
-no instrument at all. `benchmarks/roundtrip --via docx` scores `md → docx → md` on
-synthetic documents, not whether a two-column paper with figures and tables becomes a
-usable Word document. The DOCX batch was the prerequisite: an instrument that re-reads
-our own DOCX output through our own parser blames the renderer for every parser defect,
-and the parser has now been through a defect stream. The two large reader gaps still open,
-text boxes and nested tables (see the next section), are moot here because the PDF parser
-emits neither.
+path `all2md` technically supports, and until this batch nothing measured it. Its fidelity
+is the product of the PDF parse, improved through the comparison arc, and a DOCX-renderer
+half that had no instrument at all. `benchmarks/roundtrip --via docx` scores
+`md → docx → md` on synthetic documents, not whether a two-column paper with figures and
+tables becomes a usable Word document. The DOCX batch was the prerequisite: an
+instrument that re-reads our own DOCX output through our own parser blames the renderer
+for every parser defect, and the parser has now been through a defect stream (the
+LibreOffice corpus's reader gaps, text boxes and nested tables among them, closed in
+v1.16.0).
 
 Instruments, cheapest first. Each is a step; the first two are the batch's spine.
 
@@ -78,10 +133,10 @@ Instruments, cheapest first. Each is a step; the first two are the batch's spine
    cannot do, because our parser and renderer can agree on a reading Word rejects. Each
    loss is split by who lost it: Word only, our parser only, or both. Windows-only and by
    hand; readings are dated in `benchmarks/pmc/README.md`. The first reading (2026-10-03)
-   found four renderer defects our parser hides. Adjacent tables join into one. Every
-   bullet list in a document is one list to Word. Every document opens in Compatibility
-   Mode. Captions carry no `SEQ` field. Headings, list numbering, links and pictures are
-   clean.
+   found four renderer defects our parser hides, all fixed in v1.16.0: adjacent tables
+   joined into one (#562), every bullet list was one list to Word (#563), every document
+   opened in Compatibility Mode (#561), and captions carried no `SEQ` field (#564).
+   Headings, list numbering, links and pictures were clean.
 3. **Visual A/B.** `wordlive export-pdf` renders the converted DOCX through Word; compare
    page images against the source PDF. Layout fidelity judged on Word's rendering.
 4. **The incumbent baseline.** Word opens PDFs itself, through its reflow importer, and it
@@ -97,7 +152,7 @@ Known gaps to state before the first reading rather than discover after it:
   Word footnotes until the parser finds them. A Theme 8 Stage 4 dependency; state it.
 - Figures: the PDF parser emits `Figure` nodes with bound captions since v1.13.0.
   Instrument 2's answer: every picture arrives and every caption carries Word's Caption
-  style (#524), but none has a `SEQ Figure` field, so Word does not number them.
+  style (#524) and, since #564, a `SEQ` field, so Word numbers them.
 - Tables: the renderer already lays out colspan and rowspan (`_layout_table_grid`). The
   PDF side's row-grouping residue will show up here as the same 6.2 points and must not
   be re-chased under a new name.
@@ -106,62 +161,10 @@ Decided: the re-parse lane stays a manual ledger, as the DOCX lane did. Still op
 Word's import is worth publishing as a comparison column at all, given that it is a
 different product with a different goal.
 
-### Alongside: DOCX reader gaps from the LibreOffice corpus
-
-The DOCX lane's 23 cases are documents we made in Word, so they assert what we believed
-the format means. LibreOffice's own Writer regression files
-(`sw/qa/extras/ooxml{export,import}/data`, 1,526 `.docx`, MPL-2.0) are documents other
-people made, many of them bug reports. A first sweep on 2026-09-29 compared the words
-our parser reads against the words Word itself shows for each file (main story, notes and
-text-box stories, read over COM):
-
-| Set | Files compared | Identical | Word's words | We missed | We added |
-|---|---|---|---|---|---|
-| export | 1,311 | 1,021 | 122,096 | 3,908 (3.2%) | 1,895 |
-| import | 153 | 128 | 6,235 | 82 | 21 |
-
-Of the missed main-story words, 264 are math glyphs: Word shows Unicode and we write
-LaTeX, which is a difference of form, not a loss. What remains, in order:
-
-1. ✅ **Crash on an XML comment in `document.xml`** (#531). lxml gives a comment node a
-   function where a tag name should be; comments and processing instructions are now
-   skipped wherever they sit. The three files Word opens and we failed on now read.
-2. ✅ **Text boxes** (#532). Each `w:txbxContent` is read as ordinary blocks right after
-   the paragraph that anchors it (the mammoth convention), and a modern box's VML
-   fallback is skipped when its DrawingML original is there. Text-box words missed:
-   2,359 → 316, most of the rest in table cells (item 3).
-3. ✅ **Nested tables and text boxes in cells.** A cell used to read only its own
-   paragraphs, so a table inside it vanished with all its text (28 files; one lost 311
-   words, one lost everything). A nested table's cells, and a box anchored in a cell,
-   are now read in place as lines of the outer cell. The AST's table cell is inline-only
-   in all sixteen renderers, so the parser flattens the nesting rather than making every
-   renderer learn it, as the HTML parser already did. **Depth is capped at 30**, about
-   where Word gives out: deeper tables are read as a flat run of their paragraphs with
-   no recursion, so every word is still read, work stays linear, and no file is rejected.
-   lxml refuses XML nested past 256 elements (about 60 table levels) before we see it.
-   Export words missed: 1,786 → 781, with no file changing status; the five new extra
-   words are list labels Word's text omits and one box the COM reading cannot see.
-4. ✅ **Transparent run wrappers.** `w:dir`/`w:bdo` (direction), `w:smartTag` and
-   `w:customXml` are unwrapped on the element tree before reading, beside content
-   controls. The Arabic file (tdf119143) lost all 71 words; export words missed
-   781 → 653, and only the 14 files carrying a wrapper changed.
-5. ✅ **Missing optional parts and Strict OOXML.** Missing parts (#536): when an open
-   fails, the package is rebuilt in memory without relationships to parts the archive
-   lacks and read again (16 files now read, 15 of them ones Word opens). Strict OOXML:
-   the same retry renames Strict's `purl.oclc.org` namespaces and relationship types to
-   the Transitional ones, which is all the 7 Strict files Word opens needed; all 7 read
-   and match Word's words (the equation in `strict.docx` is LaTeX). Every file still
-   failing is one Word refuses too: encrypted, malformed XML, or missing content types.
-
-Each fix takes its trigger file into the tests. ✅ The sweep is `benchmarks/libreoffice`, a
-manual instrument like the PDF → DOCX ledger: no CI step, the Word reading committed and
-dated because it needs Word, and a paired comparison against the base for judging a
-change. After items 1–5: export words missed 3,908 → 657 (267 of them math glyphs), and
-no file Word opens fails.
-
 ### Alongside: inbound formats (Theme 4)
 
-Three format families, chosen 2026-10-01 for value per effort: man pages, the formats
+Three format families, chosen 2026-10-01 for value per effort (man pages, `.doc` and `.ppt`
+shipped in v1.16.0; XPS/OXPS, MOBI and mdoc remain): man pages, the formats
 PyMuPDF already opens, and legacy binary Office. Each is a run of small PRs that touches
 none of the PDF → DOCX work, so they interleave with it. Decided 2026-10-03: everything
 stays pure Python on the standard library where it can. There is no LibreOffice backend,
@@ -189,7 +192,7 @@ no `olefile` dependency and no new install extra.
      mini, v3 and v4. Every chain and size is checked against hostile files, and every
      stream of Word, PowerPoint and Outlook files reads byte for byte as `olefile` reads
      it.
-   - ✅ **`.doc` tier 1** (#566, in review): all the text through the piece table, with:
+   - ✅ **`.doc` tier 1** (#566): all the text through the piece table, with:
      - footnotes and endnotes, and comments with their author;
      - text boxes, and optionally headers and footers;
      - field results, with `HYPERLINK` as links;
@@ -199,8 +202,8 @@ no `olefile` dependency and no new install extra.
      On 191 LibreOffice corpus files saved as `.doc` by Word, the words read match
      the `.docx` parse except 99 of 9,906, every one explained (equations, generated
      list labels, unreferenced footnotes).
-   - **`.ppt` tier 1** next: slide text atoms through `Current User` → `UserEditAtom`
-     → persist directory, with the same oracle against `.pptx` twins.
+   - ✅ **`.ppt` tier 1** (#568): slide text atoms through `Current User` →
+     `UserEditAtom` → persist directory, with the same oracle against `.pptx` twins.
    - ⏸️ **`.doc` tier 2, parked for later:** headings (paragraph styles through the
      STSH, built-in style ids being language-independent), real tables (`fInTable`/
      `fTtp` from the paragraph properties, since a cell end and a row end are the same
@@ -211,42 +214,6 @@ no `olefile` dependency and no new install extra.
    The oracle comes free: the scratchpad check saves corpus `.docx`/`.pptx` files as
    `.doc`/`.ppt` with Word and scores each parse against its twin's. It is worth turning
    into a `benchmarks/` lane when tier 2 starts.
-
-### Alongside: reading documents in the terminal (Theme 5)
-
-The README now leads with `rcat`, and a class of tools exists only to do this (doxx for
-`.docx`, glow and mdcat for Markdown). Our path renders the AST to Markdown text and lets
-`rich.markdown` parse it again in a smaller dialect, so footnotes, math, task lists,
-definition lists and admonitions print as raw syntax, and display math loses its `\,`.
-Decided 2026-10-05, in this order, design in `docs/plans/terminal-viewer.md`:
-
-1. ✅ **A terminal renderer from the AST.** rich renderables built from the nodes
-   themselves, no Markdown string between; `--rich` switches to it (#580 for a whole
-   document; `--extract`, `--outline`, `--slice` and the line windows after), and
-   `--to terminal` writes it. Needs no new dependency. Preceded by #578 and #579, which
-   gave admonitions a single metadata key and read GitHub alerts.
-2. 🌱 **An interactive viewer on Wijjit**: a `ContentView` body, a `Tree` outline that
-   jumps to headings, a status bar, default/vim/less keys, as `all2md read` (or
-   `rcat -i`). A `tui` extra, Python 3.11+ only, since Wijjit needs it; testable headless
-   in CI. Starts with a few fixes in Wijjit itself (see the plan).
-3. **Search** in the viewer, best done upstream in Wijjit's `ContentView`.
-4. **Images** through the Kitty, iTerm2 and Sixel protocols, with Wijjit's half-block
-   `ImageView` as the fallback.
-
-### Then: the outward push (Theme 5)
-
-Mostly writing, so it interleaves with the batch above rather than occupying one. It has
-been deferred by three engineering batches on the argument that measurable defect streams
-had more leverage; that argument is spent. The pieces:
-
-- MCP-registry listings, and the GitHub Marketplace decision for the quality-gate action
-  (#186, a public publication step that needs a yes or a no).
-- Upstream-sharing the OCR-gate calibration to pymupdf4llm, whose defaults auto-OCR
-  born-digital pages, the exact misfire class the PMC lane measures and gates.
-- The announcement itself, with `docs/source/benchmarks.rst` as the artifact: every figure
-  beside the control that could falsify it.
-- Fillers if the moment wants something new: the RAG-framework loader adapters (Theme 1,
-  about a day each), the chunking tutorial, rich `--help` by default.
 
 ### Then: Theme 8 Stages 2–3, positional fidelity
 
@@ -317,7 +284,7 @@ oracle audit, the heading measure and the table diagnosis (v1.15.0).
 - 🌱 **Script coverage** — every corpus here is English, so a change that deleted all CJK,
   Cyrillic and Arabic content would score perfectly on every lane. The `numFmt` audit
   showed the blind spot already lives in a parser, not only in the corpora: 41 of the 46
-  numbering formats Word writes were unrecognised and almost all were CJK, Hebrew and
+  numbering formats Word writes were unrecognized and almost all were CJK, Hebrew and
   Arabic. Until a non-Latin corpus exists (M6Doc is the candidate), write cross-script
   tests rather than reading the benchmarks as coverage.
 - 🌱 **Heading recovery** — all three tools lose about a fifth of section headings to
@@ -361,7 +328,7 @@ oracle audit, the heading measure and the table diagnosis (v1.15.0).
 **Decision, standing:** the synchronous core stays the source of truth; async is a thin
 edge. The core is CPU-bound C extensions (PyMuPDF, python-docx, openpyxl, OCR) with no
 awaitable API, and the genuine I/O is a thin remote-asset edge. An async-native core would
-pay the full function-colour tax for zero throughput and could not nest inside Jupyter or
+pay the full function-color tax for zero throughput and could not nest inside Jupyter or
 our own FastMCP loop; duplicate sync and async implementations only pay off when the core
 is I/O. Shape when it is needed: `ato_markdown` / `aconvert` over `asyncio.to_thread`, an
 `httpx.AsyncClient` path in `network_security`, and deferred remote-asset resolution with
@@ -380,8 +347,8 @@ is I/O. Shape when it is needed: `ato_markdown` / `aconvert` over `asyncio.to_th
 
 ## Theme 4 — New formats and domains
 
-- 🌱 **Man pages, XPS/OXPS, legacy `.doc`/`.ppt`, mdoc, MOBI** — in progress (man pages and
-  `.doc` tier 1 done); see **Next**.
+- 🌱 **XPS/OXPS, MOBI, mdoc** — the rest of the inbound batch (man pages and legacy
+  `.doc`/`.ppt` shipped in v1.16.0); see **Next**.
 - 🌱 **More inbound formats**, roughly cheapest first: `.xls` (`xlrd` 2.x still reads it,
   and it slots into the OLE routing table), SRT/VTT subtitles, chat exports (Slack,
   Discord, Telegram, WhatsApp, whose timestamps follow the phone's locale), Notion and
@@ -412,13 +379,14 @@ is I/O. Shape when it is needed: `ato_markdown` / `aconvert` over `asyncio.to_th
 ## Theme 5 — Ecosystem and distribution
 
 Shipped: one-click `uv` install scripts (v1.8.0), the GitHub Action as a conversion-quality
-gate (v1.10.1), `all2md view`/`serve` with mermaid and syntax highlighting.
+gate (v1.10.1), `all2md view`/`serve` with mermaid and syntax highlighting, `all2md mcp`.
 
 - 🌱 **The outward push** — see **Next**.
-- 🌱 **Reading documents in the terminal** — an AST-native terminal renderer, then an
-  interactive viewer on Wijjit; see **Next** and `docs/plans/terminal-viewer.md`.
+- 🌱 **Reading documents in the terminal** — the AST-native terminal renderer (shipped),
+  then an interactive viewer and an editor on Wijjit; see **Next** and
+  `docs/plans/terminal-viewer.md`.
 - 🌱 **Rich `--help` by default** — `rich-argparse` plus one shared parser factory and
-  `NO_COLOR` wiring, so every subcommand's help is the colour-grouped layout without `--rich`.
+  `NO_COLOR` wiring, so every subcommand's help is the color-grouped layout without `--rich`.
 - 🚀 **Hosted conversion API** — a freemium endpoint; the backend for a Node client and a
   browser extension, neither of which should be a port (the JS ecosystem has no equivalent
   of our layout analysis or AST, and reimplementing it is a second product).
@@ -434,6 +402,8 @@ gate (v1.10.1), `all2md view`/`serve` with mermaid and syntax highlighting.
 Shipped: the MCP `edit_document` tool with format-preserving write-back (v1.6.0), the
 `all2md edit` web editor (v1.1.0).
 
+- 🌱 **A terminal editor** — `all2md edit --tui` on Wijjit, likely more used than the web
+  editor; stage 3 of the terminal work, see **Next**.
 - 🌱 **CLI edit commands** — insert, replace, delete; then table-cell edits and
   programmatic AST patches with undo.
 - 🌱 **Element re-routing on conversion** — drop, extract to separate files, or collate
@@ -447,6 +417,8 @@ Shipped: the MCP `edit_document` tool with format-preserving write-back (v1.6.0)
 ---
 
 ## Theme 7 — Trust, safety and observability
+
+Shipped: document control characters kept out of terminal output (v1.16.1).
 
 - 🚀 **Redaction and PII detection** — flag or strip emails, identifiers and secrets during
   conversion.
@@ -569,9 +541,12 @@ None blocking.
   pages; a content floor is the fix when the raster lane is next touched.
 - **#183** — corpus throughput gate, blocked on a runner-variance study. Measured CI
   variance is ~7% and a CPU-class change shifts everything ~18% at once; the
-  `startup` gate's raw-plus-normalised agreement rule is the model. The artifacts to
+  `startup` gate's raw-plus-normalized agreement rule is the model. The artifacts to
   study accumulate on every push.
-- **#186** — the Marketplace listing; part of the outward push.
+- **#186** — the Marketplace listing: decided yes, docs done (#587); the listing is a
+  checkbox on the 1.17 release.
+- **#570** — the Org parser flattens nested lists; a nested list of the other kind folds
+  into its parent's text.
 - **OCR the embedded image, not a 200-dpi re-render**, when a page is one full-page image:
   up to 4.3× the pixels for zero detail gain. Speed, not fidelity.
 - **Two CI gaps:** `scripts/` is in no type gate, and the Windows leg runs tests but not
@@ -583,6 +558,10 @@ None blocking.
 
 One line each; `CHANGELOG.md` has the ledger.
 
+- **v1.16.1** (2026-10-06) — a document's control characters kept out of terminal output.
+- **v1.16.0** (2026-10-05) — PDF → DOCX renderer fidelity from two instruments; the
+  LibreOffice DOCX corpus and its five reader gaps; man pages both ways; legacy `.doc` and
+  `.ppt` with the standard library; OLE2 routing and real `.msg` files.
 - **v1.15.1** (2026-09-18) — PDF numbered lists, and adjacent same-kind lists kept apart
   in RST and AsciiDoc.
 - **v1.15.0** (2026-09-16) — the DOCX ground-truth lane and its defect stream to 0 failing;
