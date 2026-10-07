@@ -81,6 +81,27 @@ def protect_stdout() -> Iterator[None]:
             os.close(saved_fd)
 
 
+def _content_blocks(items: list[Any]) -> list[Any]:
+    """Turn the read tool's result into MCP content blocks.
+
+    Text becomes a ``TextContent`` block and a FastMCP ``Image`` an
+    ``ImageContent`` block. Converting here, rather than leaving it to fastmcp,
+    keeps the Markdown a plain text block under every fastmcp version: fastmcp 3
+    serializes a list of plain strings as one JSON array.
+    """
+    from mcp.types import TextContent
+
+    blocks: list[Any] = []
+    for item in items:
+        if isinstance(item, str):
+            blocks.append(TextContent(type="text", text=item))
+        elif hasattr(item, "to_image_content"):
+            blocks.append(item.to_image_content())
+        else:
+            blocks.append(item)
+    return blocks
+
+
 def create_server(
     config: MCPConfig,
     read_impl: Callable[[ReadDocumentAsMarkdownInput, MCPConfig], list[Any]],
@@ -122,7 +143,7 @@ def create_server(
         from fastmcp import FastMCP
     except ImportError as e:
         print("Error: FastMCP not installed. Install with: pip install 'all2md[mcp]'", file=sys.stderr)
-        raise DependencyError("mcp", [("fastmcp", ">=2.9.0")]) from e
+        raise DependencyError("mcp", [("fastmcp", ">=2.11.3")]) from e
 
     # Create MCP server. Without `version`, the initialize handshake reports
     # fastmcp's own version as the server's.
@@ -131,7 +152,10 @@ def create_server(
     # Conditionally register read_document_as_markdown tool
     if config.enable_to_md:
 
-        @mcp.tool(name="read_document_as_markdown")
+        # No output schema: the result is content blocks (the Markdown text, then any
+        # images), not structured data. fastmcp 3 derives a schema from ``-> list`` and
+        # sent the list as a JSON array, or failed validation once an image was in it.
+        @mcp.tool(name="read_document_as_markdown", output_schema=None)
         def read_document_as_markdown(
             source: Annotated[
                 str,
@@ -172,21 +196,18 @@ def create_server(
             Image inclusion and markdown flavor are configured at server startup and
             cannot be changed per-call.
 
-            Returns a list with markdown text as the first element, followed by FastMCP Image
-            objects for any images found (when include_images=true). When include_images=false,
-            returns just the markdown text with image alt text.
-
-            FastMCP automatically converts this list into appropriate MCP content blocks,
-            allowing vLLMs to "see" the images alongside the text.
+            Returns the Markdown as a text content block, followed by an image content
+            block for each image found (when include_images=true), so vision models can
+            see the images alongside the text. When include_images=false, only the text,
+            with image alt text in place of the images.
             """
             # Cast to proper Literal types (FastMCP validates these at the boundary)
             input_obj = ReadDocumentAsMarkdownInput(
                 source=source, section=section, format_hint=cast(SourceFormat | None, format_hint), pdf_pages=pdf_pages
             )
 
-            # Return list directly - FastMCP converts to content blocks
             with protect_stdout():
-                return read_impl(input_obj, config)
+                return _content_blocks(read_impl(input_obj, config))
 
         logger.info("Registered tool: read_document_as_markdown")
 
