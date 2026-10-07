@@ -4,9 +4,18 @@ GitHub Action: Conversion-Quality Gate
 Fail the build when your documents stop converting cleanly.
 
 Most document tooling in CI answers *"did it run?"*. This action answers *"is the
-output still as good as it was?"* — it scores every matched document for
-round-trip fidelity and conversion confidence, and fails the job when the worst
-score falls below a threshold you set.
+output still as good as it was?"* — it scores every matched document and fails the
+job when the worst score falls below a threshold you set.
+
+It can score two things:
+
+* **Round-trip fidelity**, for any format all2md reads (Markdown, reStructuredText,
+  Word, HTML, PDF, and the rest): the document is converted to Markdown and parsed
+  back, and the score (0–100) is how much of its structure survived the trip. Use it
+  to keep a docs folder converting cleanly as the documents, or all2md, change.
+* **Conversion confidence**, for PDFs only today: how sure all2md is that it read
+  the document at all (scanned pages, OCR fallbacks, guessed structure). Other
+  formats have no confidence detector, and the gate will not pretend otherwise.
 
 .. code-block:: yaml
 
@@ -33,14 +42,28 @@ Quick Start
      quality:
        runs-on: ubuntu-latest
        steps:
-         - uses: actions/checkout@v5
+         - uses: actions/checkout@v7
          - uses: thomas-villani/all2md@v1.16.0
            with:
              paths: |
                docs/**/*.md
                README.md
              roundtrip-fail-under: 97
-             report-fail-under: 90
+
+To gate PDFs, add the confidence check. It is the one that notices a PDF that was
+never really read, such as a scan with no text layer:
+
+.. code-block:: yaml
+
+         - uses: thomas-villani/all2md@v1.16.0
+           with:
+             paths: reports/**/*.pdf
+             roundtrip-fail-under: 90
+             report-fail-under: 80
+
+If ``paths`` matches no PDFs at all, setting ``report-fail-under`` fails the run with
+exit code ``2``: every document would carry a placeholder score, so the threshold
+could only ever pass. In a mixed set, only the PDFs are held to it.
 
 The job summary gets a per-document table, and the worst scores are exposed as
 step outputs so later steps can use them:
@@ -75,6 +98,7 @@ Inputs
    * - ``report-fail-under``
      - —
      - Fail if any document's conversion confidence drops below this (0–100).
+       PDF only; see above.
    * - ``via``
      - ``markdown``
      - Intermediate format for the round-trip check.
@@ -150,8 +174,9 @@ The two checks fail in different directions, which is why the action offers both
 * ``report-fail-under`` measures confidence in the parse itself — scanned pages,
   OCR fallbacks, structural guesses. It catches "this document was never really
   read" cases that round-tripping cannot see, at the cost of being a heuristic.
+  Only PDFs have a confidence detector today.
 
-Gate on both when the documents matter. Neither is a substitute for the other.
+For PDFs that matter, gate on both. Neither is a substitute for the other.
 
 Three ways it refuses to pass
 ------------------------------
