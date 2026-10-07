@@ -23,8 +23,8 @@
         {
           "type": "named",
           "name": "--with",
-          "value": "all2md[mcp,pdf,pdf_render,docx,html,xlsx,pptx,epub,rst,markdown,odf]==1.16.0",
-          "description": "The server and the format parsers it reads with; the same extras as the .mcpb bundle"
+          "value": "all2md[mcp]==1.16.0",
+          "description": "The mcp extra: the server, its format parsers and its search dependency"
         }
       ],
       "packageArguments": [
