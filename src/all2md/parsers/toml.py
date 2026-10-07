@@ -559,7 +559,7 @@ def _detect_toml_content(content: bytes) -> bool:
     Returns
     -------
     bool
-        True if content appears to be TOML
+        True if content parses as TOML with at least one key
 
     """
     try:
@@ -576,8 +576,9 @@ def _detect_toml_content(content: bytes) -> bool:
             except ImportError:
                 return False
 
-        tomllib.loads(content_str)
-        return True
+        # Comments alone (a Markdown "# Heading", a shell comment) are a valid, empty
+        # TOML document; it takes at least one key to be TOML.
+        return bool(tomllib.loads(content_str))
     except Exception:
         return False
 
