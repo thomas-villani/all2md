@@ -23,6 +23,7 @@ from all2md.cli.custom_actions import (
     TrackingStoreAction,
     TrackingStoreFalseAction,
     TrackingStoreTrueAction,
+    env_sourced_dests,
 )
 from all2md.cli.presets import get_preset_names
 from all2md.converter_registry import registry
@@ -1335,6 +1336,7 @@ Examples:
             "--format",
             "--input-type",
             dest="format",
+            action=TrackingStoreAction,
             choices=format_choices,
             default="auto",
             help="Force specific input format instead of auto-detection (default: auto)",
@@ -1404,7 +1406,7 @@ Examples:
         # Argument validation options
         parser.add_argument(
             "--strict-args",
-            action="store_true",
+            action=TrackingStoreTrueAction,
             dest="strict_args",
             help="Fail on unknown command-line arguments instead of warning (helps catch typos)",
         )
@@ -1824,14 +1826,12 @@ Examples:
             Mapped options dictionary ready for to_markdown()
 
         """
-        # Start with JSON options if provided, flattening nested structures to dot-notation keys
         options: Dict[str, Any] = {}
-        if json_options:
-            flattened = self._flatten_config_options(json_options)
-            options.update(flattened)
 
         # Get the set of explicitly provided arguments first
         provided_args: set[str] = getattr(parsed_args, "_provided_args", set())
+        # Arguments an ALL2MD_<DEST> variable set and the command line did not
+        env_args: set[str] = set(vars(parsed_args).get("_env_args", ())) - provided_args
 
         # Create a copy of the args dict to avoid "dictionary changed size during iteration" errors
         args_dict = dict(vars(parsed_args))
@@ -1867,6 +1867,7 @@ Examples:
             "strict_args",
             "about",
             "_provided_args",
+            "_env_args",
             # Note: 'version' uses argparse.SUPPRESS and doesn't appear in namespace
             # Multi-file processing arguments from cli.create_parser
             "rich",
@@ -1923,25 +1924,29 @@ Examples:
             "tail",
         } | global_attachment_fields  # Union with global attachment fields
 
-        # Process each argument
-        for arg_name, arg_value in args_dict.items():
-            # Skip CLI-only arguments
-            if arg_name in cli_only_args:
-                continue
+        def apply(names: set[str], unknown: list[str]) -> None:
+            for arg_name, arg_value in args_dict.items():
+                # Skip CLI-only arguments, and arguments from another source
+                if arg_name in cli_only_args or arg_name not in names:
+                    continue
 
-            # Only process arguments that were explicitly provided
-            if arg_name not in provided_args:
-                continue
+                # Handle dot notation arguments (e.g., "pdf.pages" or "html.network.allowed_hosts")
+                if "." in arg_name:
+                    self._process_dot_notation_arg(arg_name, arg_value, options_classes, options, unknown)
+                else:
+                    # Handle non-dot notation arguments (BaseOptions fields)
+                    self._process_base_options_arg(arg_name, arg_value, options_classes, options, unknown)
 
-            # Handle dot notation arguments (e.g., "pdf.pages" or "html.network.allowed_hosts")
-            if "." in arg_name:
-                self._process_dot_notation_arg(arg_name, arg_value, options_classes, options, unknown_args)
-            else:
-                # Handle non-dot notation arguments (BaseOptions fields)
-                self._process_base_options_arg(arg_name, arg_value, options_classes, options, unknown_args)
+            # Handle global attachment flags - propagate to all formats
+            self._propagate_global_attachment_fields(names, args_dict, options_classes, options)
 
-        # Handle global attachment flags - propagate to all formats
-        self._propagate_global_attachment_fields(provided_args, args_dict, options_classes, options)
+        # Lowest first: ALL2MD_<DEST> environment defaults, then the config file
+        # (flattened to the same dot-notation keys), then explicit flags. An
+        # environment variable naming no option is not an unknown argument.
+        apply(env_args, [])
+        if json_options:
+            options.update(self._flatten_config_options(json_options))
+        apply(provided_args, unknown_args)
 
         # Validate unknown arguments
         if unknown_args:
@@ -2427,6 +2432,9 @@ def create_parser() -> argparse.ArgumentParser:
         help="Show format detection results without conversion (useful for debugging batch inputs)",
     )
 
+    # Arguments whose default an ALL2MD_<DEST> variable supplied; map_args_to_options
+    # applies them below the config file and explicit flags.
+    parser.set_defaults(_env_args=env_sourced_dests(parser))
     return parser
 
 
