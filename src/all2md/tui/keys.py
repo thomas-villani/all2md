@@ -73,9 +73,10 @@ _DEFAULT: dict[str, Action] = {
     "[": Action.PREVIOUS_HEADING,
     "o": Action.TOGGLE_OUTLINE,
     "l": Action.LINKS,
+    # As in Lynx. Wijjit has no Alt+arrow keys: Alt+Left arrives as Escape, then Left.
+    "left": Action.BACK,
     "backspace": Action.BACK,
-    "alt+left": Action.BACK,
-    "alt+right": Action.FORWARD,
+    "right": Action.FORWARD,
     "?": Action.HELP,
     "q": Action.QUIT,
 }
