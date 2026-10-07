@@ -455,6 +455,33 @@ class TestConfigGenerateDefaults:
         if "attachment_mode" in data.get("archive", {}):
             assert data["archive"]["attachment_mode"] in {"alt_text", "skip", "download", "base64"}
 
+    def test_generated_config_has_no_private_fields(self):
+        """Internal bookkeeping fields (init=False, leading underscore) are never templated."""
+        from all2md.cli.commands.config import _build_default_config_data
+
+        def private_keys(value, path=""):
+            if isinstance(value, dict):
+                for key, item in value.items():
+                    if str(key).startswith("_"):
+                        yield f"{path}{key}"
+                    yield from private_keys(item, f"{path}{key}.")
+
+        assert list(private_keys(_build_default_config_data())) == []
+
+    @pytest.mark.parametrize("fmt", ["toml", "json", "yaml"])
+    def test_generated_config_can_be_used(self, tmp_path, fmt):
+        """A config written by `config generate` loads and converts, as the docs suggest."""
+        from all2md.cli import main
+
+        config_path = tmp_path / f"generated.{fmt}"
+        assert handle_config_generate_command(["--format", fmt, "--out", str(config_path)]) == 0
+        for name, content in [("doc.md", "# Hello" + chr(10)), ("page.html", "<h1>Hello</h1>")]:
+            source = tmp_path / name
+            source.write_text(content, encoding="utf-8")
+            out = tmp_path / (name + ".out.md")
+            assert main([str(source), "--config", str(config_path), "--out", str(out)]) == 0
+            assert "Hello" in out.read_text(encoding="utf-8")
+
     def test_generate_config_yaml_defaults(self, capsys):
         exit_code = handle_config_generate_command(["--format", "yaml"])
         assert exit_code == 0
