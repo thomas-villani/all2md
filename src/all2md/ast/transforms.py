@@ -713,41 +713,74 @@ def remove_xml_illegal_characters(node: Node) -> tuple[Node, int]:
         characters removed.
 
     """
-    if not _holds_xml_illegal(node, set()):
+    return _remove_characters(node, XML_ILLEGAL_CHARACTERS)
+
+
+#: Characters a terminal acts on rather than draws: the C0 controls other than tab and line
+#: feed, DEL, and the C1 controls. ESC (and its C1 form, U+009B CSI) starts the sequences
+#: that set the window title, clear the screen, forge an OSC 8 hyperlink or, in some
+#: terminals, write the clipboard; carriage return and backspace redraw text already shown.
+#: `test_the_pattern_is_exactly_the_c0_c1_controls_but_tab_and_newline` checks it over every
+#: code point.
+TERMINAL_UNSAFE_CHARACTERS: Pattern[str] = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
+
+
+def remove_terminal_unsafe_characters(node: Node) -> tuple[Node, int]:
+    """Return a copy of an AST with every character a terminal would act on removed.
+
+    A document is untrusted input. Printed to a terminal, a control character in its
+    text, alt text or a link target is executed, not shown, so a renderer that writes
+    for a terminal cleans the tree first. Tab and line feed stay. As with
+    `remove_xml_illegal_characters`, every string field is cleaned, the input is never
+    mutated, and a clean tree is returned as is.
+
+    Parameters
+    ----------
+    node : Node
+        Tree to clean, usually a `Document`.
+
+    Returns
+    -------
+    tuple[Node, int]
+        The cleaned tree (the input itself when the count is zero) and the number of
+        characters removed.
+
+    """
+    return _remove_characters(node, TERMINAL_UNSAFE_CHARACTERS)
+
+
+def _remove_characters(node: Node, pattern: Pattern[str]) -> tuple[Node, int]:
+    if not _holds_match(node, pattern, set()):
         return node, 0
     cleaned = copy.deepcopy(node)
     removed = [0]
-    _strip_xml_illegal(cleaned, removed, set())
+    _strip_matches(cleaned, pattern, removed, set())
     return cleaned, removed[0]
 
 
-def _holds_xml_illegal(value: Any, seen: set[int]) -> bool:
+def _holds_match(value: Any, pattern: Pattern[str], seen: set[int]) -> bool:
     if isinstance(value, str):
-        return XML_ILLEGAL_CHARACTERS.search(value) is not None
+        return pattern.search(value) is not None
     if isinstance(value, (bytes, bytearray, int, float, bool)) or value is None:
         return False
     if id(value) in seen:
         return False
     seen.add(id(value))
     if isinstance(value, dict):
-        return any(_holds_xml_illegal(key, seen) or _holds_xml_illegal(item, seen) for key, item in value.items())
+        return any(_holds_match(key, pattern, seen) or _holds_match(item, pattern, seen) for key, item in value.items())
     if isinstance(value, (list, tuple, set, frozenset)):
-        return any(_holds_xml_illegal(item, seen) for item in value)
+        return any(_holds_match(item, pattern, seen) for item in value)
     if dataclasses.is_dataclass(value) and not isinstance(value, type):
-        return any(_holds_xml_illegal(getattr(value, field.name), seen) for field in dataclasses.fields(value))
+        return any(_holds_match(getattr(value, field.name), pattern, seen) for field in dataclasses.fields(value))
     return False
 
 
-def _clean(text: str, removed: list[int]) -> str:
-    cleaned, count = XML_ILLEGAL_CHARACTERS.subn("", text)
-    removed[0] += count
-    return cleaned
-
-
-def _strip_xml_illegal(value: Any, removed: list[int], seen: set[int]) -> Any:
+def _strip_matches(value: Any, pattern: Pattern[str], removed: list[int], seen: set[int]) -> Any:
     """Clean ``value`` in place where it is mutable, and return the cleaned value."""
     if isinstance(value, str):
-        return _clean(value, removed)
+        cleaned, count = pattern.subn("", value)
+        removed[0] += count
+        return cleaned
     if isinstance(value, (bytes, bytearray, int, float, bool)) or value is None:
         return value
     if id(value) in seen:
@@ -755,21 +788,21 @@ def _strip_xml_illegal(value: Any, removed: list[int], seen: set[int]) -> Any:
     seen.add(id(value))
     if isinstance(value, dict):
         items = [
-            (_strip_xml_illegal(key, removed, seen), _strip_xml_illegal(item, removed, seen))
+            (_strip_matches(key, pattern, removed, seen), _strip_matches(item, pattern, removed, seen))
             for key, item in value.items()
         ]
         value.clear()
         value.update(items)
         return value
     if isinstance(value, list):
-        value[:] = [_strip_xml_illegal(item, removed, seen) for item in value]
+        value[:] = [_strip_matches(item, pattern, removed, seen) for item in value]
         return value
     if isinstance(value, (tuple, set, frozenset)):
-        return type(value)(_strip_xml_illegal(item, removed, seen) for item in value)
+        return type(value)(_strip_matches(item, pattern, removed, seen) for item in value)
     if dataclasses.is_dataclass(value) and not isinstance(value, type):
         for field in dataclasses.fields(value):
             current = getattr(value, field.name)
-            cleaned = _strip_xml_illegal(current, removed, seen)
+            cleaned = _strip_matches(current, pattern, removed, seen)
             if cleaned is not current:
                 object.__setattr__(value, field.name, cleaned)
         return value
