@@ -13,6 +13,38 @@ import logging
 import os
 from typing import Any, Callable, Optional, Sequence, Union
 
+_ENV_TRUE = frozenset({"true", "1", "yes", "on"})
+_ENV_FALSE = frozenset({"false", "0", "no", "off"})
+
+
+def env_key_for(dest: str) -> str:
+    """Return the environment variable that supplies a default for ``dest`` (``ALL2MD_<DEST>``)."""
+    return f"ALL2MD_{dest.upper().replace('-', '_').replace('.', '_')}"
+
+
+def env_sourced_dests(parser: argparse.ArgumentParser) -> frozenset[str]:
+    """Return the destinations whose default came from an ``ALL2MD_<DEST>`` variable.
+
+    The CLI maps these to converter options below a config file and explicit flags;
+    an argument that is neither typed nor set by the environment keeps the option's
+    own default.
+    """
+    return frozenset(action.dest for action in parser._actions if getattr(action, "env_key", None))
+
+
+def _env_bool(env_key: str, env_value: str) -> Optional[bool]:
+    """Read a boolean environment value, warning about (and ignoring) anything else."""
+    lowered = env_value.strip().lower()
+    if lowered in _ENV_TRUE:
+        return True
+    if lowered in _ENV_FALSE:
+        return False
+    logging.warning(
+        f"Ignoring environment variable {env_key}={env_value!r}: expected one of "
+        f"{', '.join(sorted(_ENV_TRUE | _ENV_FALSE))}"
+    )
+    return None
+
 
 class TrackingStoreAction(argparse.Action):
     """Custom action that tracks whether an argument was explicitly provided.
@@ -64,17 +96,24 @@ class TrackingStoreAction(argparse.Action):
 
         """
         # Check environment variable and set as default if present
-        env_key = f"ALL2MD_{dest.upper().replace('-', '_').replace('.', '_')}"
+        env_key = env_key_for(dest)
         env_value = os.environ.get(env_key)
+        self.env_key: Optional[str] = None
         if env_value is not None:
             # Apply type conversion if specified
             try:
-                if type is not None:
-                    default = type(env_value)
+                converted = type(env_value) if type is not None else env_value
+            except (ValueError, TypeError, argparse.ArgumentTypeError) as e:
+                logging.warning(f"Ignoring environment variable {env_key}={env_value!r}: {e}")
+            else:
+                if choices is not None and converted not in choices:
+                    logging.warning(
+                        f"Ignoring environment variable {env_key}={env_value!r}: "
+                        f"choose from {', '.join(map(str, choices))}"
+                    )
                 else:
-                    default = env_value
-            except (ValueError, TypeError) as e:
-                logging.warning(f"Invalid environment variable {env_key}={env_value}: {e}")
+                    default = converted
+                    self.env_key = env_key
 
         super().__init__(
             option_strings=option_strings,
@@ -150,11 +189,14 @@ class TrackingStoreTrueAction(argparse.Action):
 
         """
         # Check environment variable and set as default if present
-        env_key = f"ALL2MD_{dest.upper().replace('-', '_').replace('.', '_')}"
+        env_key = env_key_for(dest)
         env_value = os.environ.get(env_key)
+        self.env_key: Optional[str] = None
         if env_value is not None:
-            # Convert env var to boolean
-            default = env_value.lower() in ("true", "1", "yes", "on")
+            flag = _env_bool(env_key, env_value)
+            if flag is not None:
+                default = flag
+                self.env_key = env_key
 
         super().__init__(
             option_strings=option_strings, dest=dest, nargs=0, const=True, default=default, required=required, help=help
@@ -220,12 +262,16 @@ class TrackingStoreFalseAction(argparse.Action):
 
         """
         # Check environment variable and set as default if present
-        env_key = f"ALL2MD_{dest.upper().replace('-', '_').replace('.', '_')}"
+        env_key = env_key_for(dest)
         env_value = os.environ.get(env_key)
+        self.env_key: Optional[str] = None
         if env_value is not None:
-            # Convert env var to boolean
-            # For store_false action, we keep the same logic as store_true
-            default = env_value.lower() in ("true", "1", "yes", "on")
+            # The variable names the option's value, not the flag:
+            # ALL2MD_PDF_DETECT_COLUMNS=false does what --pdf-no-detect-columns does.
+            flag = _env_bool(env_key, env_value)
+            if flag is not None:
+                default = flag
+                self.env_key = env_key
 
         super().__init__(
             option_strings=option_strings,
@@ -313,18 +359,21 @@ class TrackingAppendAction(argparse.Action):
 
         """
         # Check environment variable and set as default if present
-        env_key = f"ALL2MD_{dest.upper().replace('-', '_').replace('.', '_')}"
+        env_key = env_key_for(dest)
         env_value = os.environ.get(env_key)
+        self.env_key: Optional[str] = None
         if env_value is not None:
             # Split on commas for append actions
-            default = [item.strip() for item in env_value.split(",")]
-            # Apply type conversion if specified (matching CLI behavior)
-            if type is not None:
-                try:
-                    default = [type(item) for item in default]
-                except (ValueError, TypeError) as e:
-                    logging.warning(f"Invalid type conversion for {env_key}={env_value}: {e}")
-                    default = None  # Fall back to no default if conversion fails
+            items: list[Any] = [item.strip() for item in env_value.split(",")]
+            try:
+                # Apply type conversion if specified (matching CLI behavior)
+                if type is not None:
+                    items = [type(item) for item in items]
+            except (ValueError, TypeError, argparse.ArgumentTypeError) as e:
+                logging.warning(f"Ignoring environment variable {env_key}={env_value!r}: {e}")
+            else:
+                default = items
+                self.env_key = env_key
 
         super().__init__(
             option_strings=option_strings,
@@ -438,8 +487,9 @@ class TrackingPositiveIntAction(argparse.Action):
 
         """
         # Check environment variable and set as default if present
-        env_key = f"ALL2MD_{dest.upper().replace('-', '_').replace('.', '_')}"
+        env_key = env_key_for(dest)
         env_value = os.environ.get(env_key)
+        self.env_key: Optional[str] = None
         if env_value is not None:
             try:
                 ivalue = int(env_value)
@@ -447,6 +497,7 @@ class TrackingPositiveIntAction(argparse.Action):
                     logging.warning(f"Environment variable {env_key}: {env_value} is not a positive integer")
                 else:
                     default = ivalue
+                    self.env_key = env_key
             except ValueError:
                 logging.warning(f"Environment variable {env_key}: {env_value} is not a valid integer")
 
