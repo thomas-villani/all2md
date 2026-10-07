@@ -206,12 +206,13 @@ the viewer's element ids must not collide with its own state keys.
 Speed, on `CHANGELOG.md` (372 KB): parsing 0.57 s, paging instant, a resize 1.46 s,
 because the text and the heading positions were each laid out separately. One pass that
 returns both, cached per width, should roughly halve that; a burst of resizes should
-re-render once.
+re-render once. The single pass is `TerminalRenderer.layout()` (#596): text, heading lines
+and link positions together in 0.31 s on the same file, output byte-identical.
 
 **Layout in all2md.** A `src/all2md/tui/` package:
 
-- `layout.py`: document and width to lines plus heading positions, one pass, cached. No
-  Wijjit import, so it is tested on 3.10 too.
+- `layout.py`: document and width to lines plus heading and link positions, one pass,
+  cached. No Wijjit import, so it is tested on 3.10 too.
 - `keys.py`: the key presets as data.
 - `app.py`: builds the Wijjit app from a `Document`, so tests drive it through
   `WijjitHarness` without a file. Tests that need Wijjit skip when it is not installed.
@@ -221,6 +222,12 @@ the file, the current section and the position; default and less/vim presets (`j
 Space/`b`, `g`/`G`, `[`/`]` for the previous or next heading, `q`); scroll anchored to the
 nearest heading on resize. The outline uses the tree; if it proves clunky, a flat indented
 list in the style of doxx replaces it. Search, images and several files wait.
+
+**Directory browser (decided 2026-10-06).** With no file, or with a directory or a glob,
+`all2md read` opens a file tree of the documents all2md can read (Wijjit's
+`examples/advanced/filesystem_browser.py` is the starting point). Choosing a file opens it
+in the viewer; a key goes back to the tree, which marks the file you came from. The
+viewer still shows one document at a time; the tree is how you pick it.
 
 **Links (decided 2026-10-06).** Links are a malware vector, so the viewer never opens one
 by itself.
@@ -237,6 +244,24 @@ by itself.
   in-document links need `ContentView` to report click positions
   ([wijjit#75](https://github.com/thomas-villani/wijjit/issues/75)). Neither blocks
   stage 2.
+- *Relative links to other local documents (decided 2026-10-06)* open in the viewer,
+  like in-document links: all2md parses the file and shows it, nothing is executed, and
+  back returns to where you were (the history spans documents). A hostile document can
+  write any path, so a link is followed only when all of these hold:
+  - it has no scheme and is not absolute (`file:`, `http:`, `C:\...`, `/etc/...` and UNC
+    paths stay external: shown and copyable);
+  - after percent-decoding, dropping any `?query` and resolving symlinks, it lies inside
+    the root: the directory given to `read`, otherwise the opened file's folder. Links
+    resolve from the current file's folder, so `../reference/api.md` works inside a tree
+    and `../../.ssh/id_rsa` does not;
+  - it names a regular file (not a device or a pipe) in a format all2md reads;
+  - a `#fragment` jumps to that heading in the opened file, by the same lookup as an
+    in-document `#section` link.
+
+  The status bar shows the resolved path while the link is selected, before Enter. This
+  is tried by hand on a real folder of linked documents, and on hostile ones (`../`
+  escape, a symlink out of the root, an absolute path, a `file:` URL), before it is
+  pushed.
 - *Control characters.* A document is untrusted input: an ESC in its text or in a link
   target is executed by the terminal, not shown (title, screen clear, a forged
   hyperlink, in some terminals the clipboard). The terminal renderer removes the C0
@@ -245,7 +270,44 @@ by itself.
   same check on hyperlink targets. Plain Markdown output to a terminal is a separate
   question: it prints the document as `cat` would.
 
-### Stage 3: search
+### Stage 3: an editor on Wijjit (decided 2026-10-06)
+
+A terminal editor, likely more used than the web editor (`all2md edit`, Toast UI in a
+browser). Wijjit has the parts: `CodeEditor` (a `TextArea` with Pygments highlighting,
+re-tokenized incrementally, undo and redo, selection, clipboard, wrapping; Pygments has
+a Markdown lexer), split panels, and modals.
+
+- *Same model as the web editor.* Open any document as its Markdown form, edit, save to
+  a chosen format and path; an existing file is backed up to `.bak` first. The save and
+  convert code moves out of `cli/commands/edit.py` into a module both editors share.
+- *Live preview from the viewer.* The right pane is `TerminalRenderer.layout()` of the
+  parsed buffer, refreshed when typing pauses, and can be hidden.
+- *Command.* `all2md edit --tui`, beside the web editor; it could become the default
+  where Wijjit is installed once it has proved itself.
+- *One workspace.* With the directory browser and relative links: browse, read, follow
+  links, a key to edit, save, back.
+
+It comes after stage 2, whose shell, key presets, layout cache and file tree it reuses.
+It starts with a spike, as stage 2 did, checking:
+
+1. Large files: typing latency and re-tokenizing cost in `CodeEditor` on `CHANGELOG.md`
+   (4.6k lines, 372 KB).
+2. Find and replace: `TextArea` has no search in its public API; an editor needs it, and
+   it belongs upstream in Wijjit (shared with stage 4's find).
+3. Prose wrapping: a Markdown paragraph is one long line, so soft wrap and cursor
+   movement across wrapped lines have to work well, not as code-editor afterthoughts.
+4. Control characters: a converted DOCX or HTML document can hold ESC. The editor must
+   not send it to the terminal, and silently removing it would change the file, so show
+   it as a visible symbol (`␛`) and keep it in the buffer.
+5. Keys: Ctrl+S, Ctrl+Q and the like reach the app in Windows Terminal and the usual
+   Unix terminals; quitting with unsaved changes asks first.
+6. Round trips: editing a DOCX as Markdown and saving it as DOCX loses formatting (the
+   web editor has the same problem); warn before overwriting a source that is not
+   Markdown.
+
+Gaps the spike finds go to Wijjit first, as stage 2's did.
+
+### Stage 4: search
 
 `ContentView` has no find. Doing it upstream in Wijjit is the better home, since every
 Wijjit app gets it: find over the visible text of ANSI content, highlight all matches,
@@ -253,7 +315,7 @@ Wijjit app gets it: find over the visible text of ANSI content, highlight all ma
 and the status text. If upstream is not ready, a local fallback searches the plain
 export of the rendered lines and scrolls to the hit, without highlighting.
 
-### Stage 4: images
+### Stage 5: images
 
 Stage 1 prints a placeholder; the viewer can use `ImageView`, which draws with colored
 half-block characters and works in any color terminal. Real pixels need the graphics
@@ -277,8 +339,8 @@ parser side needs nothing new.
 1. ✅ Command name for the viewer: `all2md read`, with `rcat -i` as a shortcut.
 2. ✅ Format name for stage 1's renderer: `terminal`, listed in `list-formats`, so
    `--to terminal > out.ans` is discoverable.
-3. Stage 3 and 4 upstream in Wijjit, or local first and upstreamed later. (Stage 2's
-   gaps go upstream first.)
+3. Search and images (stages 4 and 5) upstream in Wijjit, or local first and upstreamed
+   later. (Stage 2's and stage 3's gaps go upstream first.)
 4. ✅ Merged table cells in the terminal: the content sits in the first cell and the
    spanned cells are blank (rich has no spans; repeating the content reads as data).
 
