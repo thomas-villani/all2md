@@ -174,21 +174,31 @@ third heading, assert the body scrolled" with no TTY.
 a `ContentView` beside an outline `Tree`, driven with `wijjit render --keys` and
 `WijjitHarness`. The shape works: the ANSI output displays faithfully, picking a leaf
 heading scrolls the body to it, a resize re-runs the view and re-wraps, and app-wide keys
-fire while the tree has focus but not while a text input does. Five things need fixing in
-Wijjit first, each a small PR there, released together as 0.1.2:
+fire while the tree has focus but not while a text input does. Four things needed fixing
+in Wijjit first, each a small PR there (wijjit #69-#73, all merged 2026-10-06), to ship
+together as 0.1.2:
 
 1. `ContentView` in ANSI mode neither wraps nor tells the app its inner width, so the app
    has to guess the borders, scrollbar and outer margin (the spike guessed one or two
-   columns wide and clipped text). Fix: let it take a function of the width (or a rich
-   renderable) and call it at its real width, which also handles resize.
+   columns wide and clipped text). Fixed in #73: `content=` takes `f(width) -> str`,
+   called at the real inner width, again on resize, and once a column narrower when the
+   result needs the scrollbar; cached per size, so the viewer lays the document out once
+   per width and can record heading lines in the same pass.
 2. Enter on a tree node with children only expands or collapses it, so an outline cannot
-   jump to a section that has subsections. Fix: an option where Enter activates the node
-   and the arrow keys expand and collapse.
-3. The `tree` tag drops its `id`, so `get_element_by_id` and `focus_element_by_id` cannot
-   find it.
-4. `{% tree height="fill" %}` crashes, though the docstring allows `"fill"`. (An
-   `expanded=[...]` list also seemed not to apply at start; check whether that was misuse.)
-5. Rich and Wijjit measure some emoji differently (`⏸️`, `🌱`), so those lines pad wrong.
+   jump to a section that has subsections. Fixed in #72: `enter_selects=True` makes Enter
+   select any node; Space, Left and Right expand and collapse.
+3. Six tags, the tree among them, dropped their `id`, so `get_element_by_id` and
+   `focus_element_by_id` could not find them. Fixed in #69.
+4. `{% tree height="fill" %}` (and the table's) crashed, though the docstring allows
+   `"fill"`; fixed in #71. The `expanded=[...]` list was not misuse: since Wijjit's move
+   to a virtual DOM the attribute did nothing at all. Fixed in #70, which also restores
+   the `expanded="key"` state binding.
+
+The emoji widths were not a Wijjit bug. rich measures by code point, so an emoji with the
+presentation selector U+FE0F (`⏸️`, `⚠️`, `❤️`) counts as 1 column and a ZWJ family as 6;
+Wijjit (wcwidth) and modern terminals draw 2 and 2. Without U+FE0F all three agree on 1.
+So the fix sits in all2md: the terminal renderer can drop U+FE0F, trading emoji style for
+correct alignment. Decide in stage 2.
 
 Note for the app itself: an element's `id` binds it to the state key of the same name, so
 the viewer's element ids must not collide with its own state keys.
@@ -211,6 +221,29 @@ the file, the current section and the position; default and less/vim presets (`j
 Space/`b`, `g`/`G`, `[`/`]` for the previous or next heading, `q`); scroll anchored to the
 nearest heading on resize. The outline uses the tree; if it proves clunky, a flat indented
 list in the style of doxx replaces it. Search, images and several files wait.
+
+**Links (decided 2026-10-06).** Links are a malware vector, so the viewer never opens one
+by itself.
+
+- *In-document links* (`#section`, footnote references) only move the viewer, so they
+  are safe and belong in stage 2, keyboard first: the renderer records where each link
+  lands (line, columns, target) the way `heading_positions` records headings; a key
+  lists the links in view; choosing an in-document link jumps, with back and forward.
+- *External links* are shown, never launched: choosing one puts its full target in the
+  status bar (the text of `[docs.python.org](http://evil.example)` is not its target)
+  and can copy it. Clicking is left to the terminal, which already asks for Ctrl+click
+  or shows a preview, once Wijjit keeps OSC 8 hyperlinks in ANSI content
+  ([wijjit#74](https://github.com/thomas-villani/wijjit/issues/74)). Mouse clicks on
+  in-document links need `ContentView` to report click positions
+  ([wijjit#75](https://github.com/thomas-villani/wijjit/issues/75)). Neither blocks
+  stage 2.
+- *Control characters.* A document is untrusted input: an ESC in its text or in a link
+  target is executed by the terminal, not shown (title, screen clear, a forged
+  hyperlink, in some terminals the clipboard). The terminal renderer removes the C0
+  controls other than tab and line feed, DEL and the C1 controls from the whole tree
+  before drawing it (`remove_terminal_unsafe_characters`), and Wijjit#74 asks for the
+  same check on hyperlink targets. Plain Markdown output to a terminal is a separate
+  question: it prints the document as `cat` would.
 
 ### Stage 3: search
 

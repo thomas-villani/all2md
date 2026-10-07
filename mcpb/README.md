@@ -31,13 +31,14 @@ are rejected by the server's path validation.
 
 ## Dependency extras
 
-The bundle installs `all2md[mcp,pdf,pdf_render,docx,html,xlsx,pptx,epub,rst,markdown,odf]`.
+The bundle installs `all2md[mcp]`, which is the server plus the
+`pdf,pdf_render,docx,html,xlsx,pptx,epub,rst,markdown,odf` extras and `rank-bm25`.
 This is the common-document subset **plus the render extras** so that every
 `save_document_from_markdown` target (PDF, DOCX, PPTX, EPUB, HTML, RST) works
 out of the box — a leaner subset would leave some output formats silently
 broken. `pdf_layout` is deliberately excluded (Polyform Noncommercial license,
-as it is from `all2md[all]`). To bundle every format instead, replace the
-extras list with `all2md[all]` and re-pack.
+as it is from `all2md[all]`). To bundle every format instead, replace
+`all2md[mcp]` with `all2md[all]` and re-pack.
 
 It also depends on `rank-bm25` directly so the `search_documents` tool's default
 keyword (BM25) mode works out of the box. The full `search` extra is *not* used:

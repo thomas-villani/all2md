@@ -61,19 +61,33 @@ def test_launches_the_mcp_subcommand_of_all2md():
     assert package["transport"] == {"type": "stdio"}
 
 
-def test_extras_match_the_mcpb_bundle():
-    """Both install routes should give the same server the same parsers."""
+def _project_extras() -> dict[str, list[str]]:
+    with open(REPO_ROOT / "pyproject.toml", "rb") as f:
+        return tomllib.load(f)["project"]["optional-dependencies"]
+
+
+def test_both_install_routes_install_the_mcp_extra():
+    """The registry entry and the .mcpb bundle install one extra, so they cannot drift apart."""
     requirement = _with_requirement(_pypi_package(_load_server_json()))
     with open(REPO_ROOT / "mcpb" / "pyproject.toml", "rb") as f:
-        (bundle_requirement,) = [d for d in tomllib.load(f)["project"]["dependencies"] if d.startswith("all2md[")]
+        bundle_dependencies = tomllib.load(f)["project"]["dependencies"]
 
-    def extras(req: str) -> set[str]:
-        match = re.match(r"all2md\[([^\]]+)\]", req)
-        assert match, req
-        return set(match.group(1).split(","))
+    assert requirement.startswith("all2md[mcp]==")
+    assert [d for d in bundle_dependencies if d.startswith("all2md")] == [f"all2md[mcp]>={_project_version()}"]
 
-    assert extras(requirement) == extras(bundle_requirement)
-    assert "mcp" in extras(requirement)
+
+def test_mcp_extra_brings_what_the_server_needs():
+    """`all2md[mcp]` alone must give a server that reads documents and searches by default."""
+    extras = _project_extras()
+    mcp = extras["mcp"]
+    names = {re.split(r"[<>=\[;]", r, maxsplit=1)[0].strip() for r in mcp}
+    (self_reference,) = [r for r in mcp if r.startswith("all2md[")]
+    formats = set(re.match(r"all2md\[([^\]]+)\]", self_reference).group(1).split(","))
+
+    assert {"fastmcp", "rank-bm25"} <= names  # search_documents defaults to BM25 keyword mode
+    assert {"pdf", "docx", "pptx", "xlsx", "html", "markdown"} <= formats
+    assert formats <= set(extras), formats - set(extras)
+    assert "pdf_layout" not in formats  # Polyform Noncommercial, kept out as it is from `all`
 
 
 def test_readme_carries_the_ownership_marker():
