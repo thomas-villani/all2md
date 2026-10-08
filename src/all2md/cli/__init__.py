@@ -390,8 +390,14 @@ def rcat_main(args: list[str] | None = None) -> int:
 
     Equivalent to ``all2md <args> --rich``: renders documents with rich terminal
     formatting, automatically falling back to plain Markdown when output is piped.
+    ``rcat -i FILE`` (``--interactive``) opens the interactive viewer instead,
+    ``all2md read FILE``.
     """
     argv = list(sys.argv[1:] if args is None else args)
+    if "-i" in argv or "--interactive" in argv:
+        from all2md.cli.commands.read import handle_read_command
+
+        return handle_read_command([arg for arg in argv if arg not in ("-i", "--interactive")])
     return main(["--rich", *argv])
 
 

@@ -32,6 +32,7 @@ CONFIG_FILENAMES = [".all2md.toml", ".all2md.yaml", ".all2md.yml", ".all2md.json
 # template section for each. Keep this in sync with the wired handlers.
 SUBCOMMAND_CONFIG_SECTIONS: tuple[str, ...] = (
     "view",
+    "read",
     "serve",
     "edit",
     "diff",

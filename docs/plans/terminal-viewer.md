@@ -1,7 +1,8 @@
 # Design: reading documents in the terminal
 
-Status: stage 1 done (2026-10-05); stage 2 decided (2026-10-06), starting with fixes in Wijjit;
-stages 3-4 proposed. Tracked in `ROADMAP.md` under **Next**.
+Status: stage 1 done (2026-10-05); stage 2's first version built (2026-10-07: `all2md read`,
+`rcat -i`) on Wijjit 0.1.2, with the directory browser and relative links next; stages 3-4
+proposed. Tracked in `ROADMAP.md` under **Next**.
 
 `rcat report.docx` (or `all2md report.docx --rich`) is the path the README now leads
 with, and a whole class of tools exists only to do this one thing: doxx for `.docx`,
@@ -226,6 +227,15 @@ Space/`b`, `g`/`G`, `[`/`]` for the previous or next heading, `q`); scroll ancho
 nearest heading on resize. The outline uses the tree; if it proves clunky, a flat indented
 list in the style of doxx replaces it. Search, images and several files wait.
 
+*Built (2026-10-07).* As above, plus: the side panel switches between the outline, the
+links on screen (`l`) and the keys (`?`); clicking a link in the body follows it; Left or
+Backspace goes back and Right forward (Wijjit has no Alt+arrow keys: Alt+Left arrives as
+Escape, then Left); `y` copies the external link last shown. The view stays in its section
+on a resize, and when the outline opens or closes, because the content callable moves the
+scroll position before `ContentView` clamps it to the new length. `all2md read -` reads the
+document from stdin and then reopens the terminal for the keyboard (`/dev/tty`, or `CONIN$`
+on Windows). Open: the U+FE0F question above.
+
 **Directory browser (decided 2026-10-06).** With no file, or with a directory or a glob,
 `all2md read` opens a file tree of the documents all2md can read (Wijjit's
 `examples/advanced/filesystem_browser.py` is the starting point). Choosing a file opens it
@@ -242,11 +252,10 @@ by itself.
 - *External links* are shown, never launched: choosing one puts its full target in the
   status bar (the text of `[docs.python.org](http://evil.example)` is not its target)
   and can copy it. Clicking is left to the terminal, which already asks for Ctrl+click
-  or shows a preview, once Wijjit keeps OSC 8 hyperlinks in ANSI content
-  ([wijjit#74](https://github.com/thomas-villani/wijjit/issues/74)). Mouse clicks on
-  in-document links need `ContentView` to report click positions
-  ([wijjit#75](https://github.com/thomas-villani/wijjit/issues/75)). Neither blocks
-  stage 2.
+  or shows a preview, now that Wijjit keeps OSC 8 hyperlinks in ANSI content
+  ([wijjit#74](https://github.com/thomas-villani/wijjit/issues/74), in 0.1.2). Mouse
+  clicks on in-document links use the click positions `ContentView` reports since
+  [wijjit#75](https://github.com/thomas-villani/wijjit/issues/75) (also 0.1.2).
 - *Relative links to other local documents (decided 2026-10-06)* open in the viewer,
   like in-document links: all2md parses the file and shows it, nothing is executed, and
   back returns to where you were (the history spans documents). A hostile document can

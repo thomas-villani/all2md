@@ -250,6 +250,12 @@ textile = [
 openapi = [
     "pyyaml>=6.0",
 ]
+# The interactive terminal viewer, `all2md read` (`rcat -i`). Wijjit needs Python 3.11+;
+# on 3.10 the command says so and `rcat` keeps working. Below 0.2 until its API settles.
+tui = [
+    "rich>=14.2.0",
+    "wijjit>=0.1.2,<0.2; python_version >= '3.11'",
+]
 
 all = [
     "beautifulsoup4>=4.15.0",
@@ -283,6 +289,7 @@ all = [
     "tiktoken>=0.7.0",
     "tqdm>=4.68.3",
     "watchdog>=4.0.0",
+    "wijjit>=0.1.2,<0.2; python_version >= '3.11'",
     "defusedxml>=0.7.1",
     "rank-bm25>=0.2.2",
     # Wiki parsing (MediaWiki, DokuWiki)

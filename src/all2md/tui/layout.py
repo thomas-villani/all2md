@@ -14,6 +14,7 @@ all2md supports.
 from __future__ import annotations
 
 import bisect
+import re
 import unicodedata
 from collections import OrderedDict
 from dataclasses import dataclass, field
@@ -27,6 +28,21 @@ from all2md.utils.text import slugify
 
 #: Widths kept laid out at once. A resize usually goes back and forth between a few.
 DEFAULT_CACHE_SIZE = 4
+
+_ESC = chr(27)
+_BEL = chr(7)
+# SGR and other CSI sequences, and OSC sequences (hyperlinks) ended by BEL or ESC backslash.
+_ANSI = re.compile(
+    re.escape(_ESC)
+    + r"(?:\[[0-9;:?]*[ -/]*[@-~]|\][^"
+    + _BEL
+    + _ESC
+    + r"]*(?:"
+    + _BEL
+    + "|"
+    + re.escape(_ESC)
+    + r"\\))"
+)
 
 
 @dataclass(frozen=True)
@@ -290,6 +306,31 @@ class DocumentLayout:
     # Links
     # ------------------------------------------------------------------
 
+    def link_label(self, position: LinkPosition, width: int) -> str:
+        """Return the text a link shows, all of it when the link wraps over several lines.
+
+        Parameters
+        ----------
+        position : LinkPosition
+            Any position of the link.
+        width : int
+            Width in terminal cells.
+
+        Returns
+        -------
+        str
+            The link's visible text, its lines joined with a space.
+
+        """
+        layout = self.at(width)
+        lines = layout.text.split(chr(10))
+        parts = [
+            _cells(_ANSI.sub("", lines[part.line]), part.start, part.end).strip()
+            for part in layout.links
+            if part.index == position.index and part.line < len(lines)
+        ]
+        return " ".join(part for part in parts if part)
+
     def links_between(self, top: int, bottom: int, width: int) -> list[LinkPosition]:
         """Return the links with any part on lines ``top`` to ``bottom - 1``.
 
@@ -402,6 +443,22 @@ class DocumentLayout:
         ordered = sorted((line, index) for index, line in enumerate(lines) if line is not None)
         self._heading_lines[width] = (lines, ordered)
         return lines, ordered
+
+
+def _cells(line: str, start: int, end: int) -> str:
+    """Return the characters of ``line`` occupying terminal cells ``start`` to ``end``."""
+    from rich.cells import cell_len
+
+    out = []
+    column = 0
+    for char in line:
+        width = cell_len(char)
+        if start <= column and column + width <= end:
+            out.append(char)
+        column += width
+        if column >= end:
+            break
+    return "".join(out)
 
 
 def _build_outline(headings: tuple[HeadingPosition, ...]) -> tuple[OutlineEntry, ...]:

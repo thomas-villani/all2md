@@ -159,6 +159,7 @@ _SUBCOMMAND_SUMMARIES: Sequence[tuple[str, str]] = (
     ("completion", "Generate shell completion scripts (bash/zsh/powershell)"),
     ("batch", "Interactive wizard for batch-converting many files (all2md batch)"),
     ("view", "Convert and view document in browser with HTML themes"),
+    ("read", "Read a document in an interactive terminal viewer (rcat -i; needs the [tui] extra)"),
     ("edit", "Edit a document in a browser-based editor and save back"),
     ("diff", "Compare two documents and generate diff output (unified/HTML/JSON)"),
     ("serve", "Serve documents via HTTP server with on-demand conversion"),

@@ -35,6 +35,7 @@ class Action(str, Enum):
     LINKS = "links"
     BACK = "back"
     FORWARD = "forward"
+    COPY_LINK = "copy_link"
     HELP = "help"
     QUIT = "quit"
 
@@ -56,6 +57,7 @@ DESCRIPTIONS: Mapping[Action, str] = MappingProxyType(
         Action.LINKS: "List the links on screen",
         Action.BACK: "Go back to where a link was followed from",
         Action.FORWARD: "Go forward again",
+        Action.COPY_LINK: "Copy the link last shown in the status bar",
         Action.HELP: "Show these keys",
         Action.QUIT: "Quit",
     }
@@ -77,6 +79,7 @@ _DEFAULT: dict[str, Action] = {
     "left": Action.BACK,
     "backspace": Action.BACK,
     "right": Action.FORWARD,
+    "y": Action.COPY_LINK,
     "?": Action.HELP,
     "q": Action.QUIT,
 }

@@ -61,6 +61,12 @@ def dispatch_command(args: list[str] | None = None) -> int | None:  # noqa: C901
 
         return handle_view_command(args[1:])
 
+    # Check for read command (interactive terminal viewer)
+    if args[0] == "read":
+        from all2md.cli.commands.read import handle_read_command
+
+        return handle_read_command(args[1:])
+
     # Check for serve command
     if args[0] == "serve":
         from all2md.cli.commands.server import handle_serve_command
