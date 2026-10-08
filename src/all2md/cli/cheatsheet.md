@@ -29,6 +29,7 @@ all2md report.pdf --attachment-mode skip      # drop images entirely
 all2md document.pdf --rich               # render Markdown with colors (fancy cat)
 rcat document.pdf                        # alias for `all2md ... --rich`
 all2md read document.pdf                 # interactive viewer: outline, links (rcat -i; [tui] extra)
+all2md read docs/                        # ...on a tree of a folder's documents (t returns to it)
 all2md document.pdf --pager              # page long output
 ```
 

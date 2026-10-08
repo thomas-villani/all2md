@@ -65,10 +65,43 @@ class TestReadCommand:
         assert handle_read_command([str(doc), "--keys", "emacs"]) != EXIT_SUCCESS
         assert runs == []
 
-    def test_no_input_on_a_terminal(self, runs, monkeypatch, capsys):
+    def test_no_input_on_a_terminal_browses_the_current_folder(self, runs, monkeypatch, doc):
         monkeypatch.setattr("sys.stdin.isatty", lambda: True, raising=False)
-        assert handle_read_command([]) == EXIT_ERROR
-        assert "give a file" in capsys.readouterr().err
+        monkeypatch.chdir(doc.parent)
+        assert handle_read_command([]) == EXIT_SUCCESS
+        (viewer,) = runs
+        assert viewer.files.files == (doc,)
+        assert viewer.app.state["panel"] == "files"
+
+    def test_a_folder_opens_the_file_tree(self, runs, doc):
+        (doc.parent / "sub").mkdir()
+        (doc.parent / "sub" / "more.html").write_text("<h1>More</h1>", encoding="utf-8")
+        (doc.parent / "skip.unknownext").write_text("x", encoding="utf-8")
+        assert handle_read_command([str(doc.parent)]) == EXIT_SUCCESS
+        (viewer,) = runs
+        assert viewer.title == doc.parent.name
+        assert [p.name for p in viewer.files.files] == ["notes.md", "more.html"]
+
+    def test_several_files_open_the_file_tree(self, runs, doc):
+        other = doc.parent / "other.md"
+        other.write_text("# Other" + NL, encoding="utf-8")
+        assert handle_read_command([str(doc), str(other)]) == EXIT_SUCCESS
+        assert sorted(p.name for p in runs[0].files.files) == ["notes.md", "other.md"]
+
+    def test_the_tree_opens_files_with_the_options(self, runs, doc):
+        assert handle_read_command([str(doc.parent), "--no-hyperlinks"]) == EXIT_SUCCESS
+        layout = runs[0].opener(doc)
+        assert [h.text for h in layout.headings] == ["Notes"]
+        assert layout.options.hyperlinks is False
+
+    def test_a_folder_without_documents(self, runs, tmp_path, capsys):
+        assert handle_read_command([str(tmp_path)]) == EXIT_FILE_ERROR
+        assert "no documents" in capsys.readouterr().err
+        assert runs == []
+
+    def test_stdin_with_other_inputs(self, runs, doc, capsys):
+        assert handle_read_command(["-", str(doc)]) == EXIT_ERROR
+        assert "stdin" in capsys.readouterr().err
 
     def test_empty_stdin(self, runs, monkeypatch):
         monkeypatch.setattr("sys.stdin", io.TextIOWrapper(io.BytesIO(b"")))
@@ -118,4 +151,4 @@ class TestEntryPoints:
 
     def test_parser_factory(self):
         parsed = _create_read_parser().parse_args(["x.md"])
-        assert (parsed.keys, parsed.no_outline, parsed.format) == ("default", False, "auto")
+        assert (parsed.input, parsed.keys, parsed.no_outline, parsed.format) == (["x.md"], "default", False, "auto")

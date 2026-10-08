@@ -3465,6 +3465,8 @@ Rich output needs the ``rich`` package, which the ``cli_extras`` and ``all`` ext
       all2md read report.docx
       rcat -i paper.pdf --keys vim
       cat notes.md | all2md read -
+      all2md read docs/            # choose from the documents in a folder
+      all2md read "notes/**/*.md"  # or those a pattern names
 
    Arrows, Page Up/Down and Space scroll; ``[`` and ``]`` move between headings; ``o`` shows or hides the
    outline, ``l`` lists the links on screen and ``?`` the keys; ``q`` quits. ``--keys vim`` adds ``j``/``k``,
@@ -3472,6 +3474,12 @@ Rich output needs the ``rich`` package, which the ``cli_extras`` and ``all`` ext
    (Left or Backspace goes back); any other link is shown in the status bar, and ``y`` copies it, but the viewer
    never opens it. ``--no-outline`` starts with the outline hidden, and a ``[read]`` section in the config file
    sets the defaults.
+
+   Given a folder, a glob pattern or several files, or nothing at all on a terminal (the current folder), the
+   viewer opens on a tree of the documents all2md can read there, folders first. Enter opens a folder or a file;
+   ``t`` goes back to the tree, with the open file marked. Hidden files and folders, symlinked folders,
+   ``node_modules``, ``__pycache__``, ``venv`` and ``site-packages`` are left out, and the tree stops at 5,000
+   files.
 
 ``--force-rich`` (``-f``)
    Force Rich formatting even when piping or redirecting output. Useful for capturing styled console logs. When

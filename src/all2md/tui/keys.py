@@ -33,6 +33,7 @@ class Action(str, Enum):
     PREVIOUS_HEADING = "previous_heading"
     TOGGLE_OUTLINE = "toggle_outline"
     LINKS = "links"
+    FILES = "files"
     BACK = "back"
     FORWARD = "forward"
     COPY_LINK = "copy_link"
@@ -55,6 +56,7 @@ DESCRIPTIONS: Mapping[Action, str] = MappingProxyType(
         Action.PREVIOUS_HEADING: "Go to the previous heading",
         Action.TOGGLE_OUTLINE: "Show or hide the outline",
         Action.LINKS: "List the links on screen",
+        Action.FILES: "Show the file tree (when reading a folder)",
         Action.BACK: "Go back to where a link was followed from",
         Action.FORWARD: "Go forward again",
         Action.COPY_LINK: "Copy the link last shown in the status bar",
@@ -75,6 +77,7 @@ _DEFAULT: dict[str, Action] = {
     "[": Action.PREVIOUS_HEADING,
     "o": Action.TOGGLE_OUTLINE,
     "l": Action.LINKS,
+    "t": Action.FILES,
     # As in Lynx. Wijjit has no Alt+arrow keys: Alt+Left arrives as Escape, then Left.
     "left": Action.BACK,
     "backspace": Action.BACK,
