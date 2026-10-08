@@ -13,14 +13,11 @@ terminal's own Ctrl+click still works, since Wijjit keeps OSC 8 links.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import Any, Callable, Optional
 
 from all2md.renderers.terminal import LinkPosition
 from all2md.tui.keys import DESCRIPTIONS, Action, bindings, keymap
 from all2md.tui.layout import DocumentLayout, OutlineEntry
-
-if TYPE_CHECKING:
-    from wijjit import Wijjit
 
 #: Keys a focused tree uses for itself; the viewer leaves them to it.
 TREE_KEYS = frozenset({"up", "down", "left", "right", "pageup", "pagedown", "home", "end", "space", "enter"})

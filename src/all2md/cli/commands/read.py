@@ -174,12 +174,13 @@ def reattach_terminal_input() -> bool:
             import ctypes
             import msvcrt
 
-            console = open("CONIN$", "r+b", buffering=0)  # noqa: SIM115 - kept open for the session
-            kernel32 = ctypes.windll.kernel32
+            # Descriptor 0 gets its own duplicate of the console handle, so the
+            # file opened here can close; the standard handle then names fd 0's.
+            with open("CONIN$", "r+b", buffering=0) as console:
+                os.dup2(console.fileno(), 0)
             std_input_handle = -10
-            if not kernel32.SetStdHandle(std_input_handle, msvcrt.get_osfhandle(console.fileno())):
+            if not ctypes.windll.kernel32.SetStdHandle(std_input_handle, msvcrt.get_osfhandle(0)):
                 return False
-            os.dup2(console.fileno(), 0)
         else:
             tty = os.open("/dev/tty", os.O_RDONLY)
             os.dup2(tty, 0)
