@@ -1,8 +1,9 @@
 """The documents the viewer's file tree offers, found on disk.
 
 ``collect`` turns what was given to ``all2md read`` (directories, files, glob
-patterns) into a ``FileTree``: the files all2md can read, below one root
-directory. It walks without following symlinked directories, skips hidden
+patterns) into a ``FileTree``: the files this installation of all2md can read
+(a format whose parser needs a package that is not installed is left out),
+below one root directory. It walks without following symlinked directories, skips hidden
 files and folders and the usual tool folders (``node_modules``,
 ``__pycache__``...), and stops at ``limit`` files. ``FileTree.nodes`` gives
 the tree for Wijjit's ``Tree``, folders first.
@@ -165,9 +166,18 @@ def _is_readable(name: str, readable: frozenset[str]) -> bool:
 
 
 def _readable_extensions() -> frozenset[str]:
+    """Return the extensions of the formats this installation can parse."""
     from all2md.converter_registry import registry
 
-    return frozenset(extension.lower() for extension in registry.get_all_extensions())
+    missing = registry.check_dependencies(operation="parse")
+    extensions: set[str] = set()
+    for name in registry.list_formats():
+        converters = registry.get_format_info(name) or []
+        if name in missing or not converters or converters[0].parser_class is None:
+            continue
+        for converter in converters:
+            extensions.update(extension.lower() for extension in converter.extensions)
+    return frozenset(extensions)
 
 
 def _to_nodes(level: dict[str, Any], prefix: str) -> list[dict[str, Any]]:

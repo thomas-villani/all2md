@@ -20,7 +20,7 @@ from typing import Any, Callable, Optional
 
 from all2md.renderers.terminal import LinkPosition
 from all2md.tui.files import FileTree
-from all2md.tui.keys import DESCRIPTIONS, Action, bindings, keymap
+from all2md.tui.keys import Action, help_rows, key_name, keymap
 from all2md.tui.layout import DocumentLayout, OutlineEntry
 
 #: Keys a focused tree uses for itself; the viewer leaves them to it.
@@ -52,7 +52,7 @@ _TEMPLATE = """
     {% contentview id="body" content=content content_type="ansi" width="fill" height="fill"
        bind=false action="body_click" border="single" title=title %}{% endcontentview %}
   {% endhstack %}
-  {% statusbar id="status" left=title center=center right=position bind=false %}{% endstatusbar %}
+  {% statusbar id="status" left=status_left center=center right=position bind=false %}{% endstatusbar %}
 {% endvstack %}
 """
 
@@ -168,6 +168,7 @@ class Viewer:
             panel_width=self.panel_width,
             content=self.content,
             title=self.title,
+            status_left=self._status_left(),
             outline_data=_root(_outline_nodes(self.layout.outline)) if panel == "outline" else _root([]),
             expanded=["root"] + [f"h{entry.index}" for entry in self.layout.outline],
             link_data=_root(self._link_nodes(top, height) if panel == "links" else []),
@@ -215,11 +216,16 @@ class Viewer:
 
     def _help_text(self) -> str:
         rows = []
-        for action, keys in bindings(self.preset):
-            rows.append(f"{', '.join(_key_name(key) for key in keys)}")
-            rows.append(f"  {DESCRIPTIONS[action]}")
-        rows += ["Tab", "  Move between the panel and the body", "Ctrl+Q", "  Quit"]
+        for keys, description in help_rows(self.preset):
+            rows += [keys, f"  {description}"]
         return chr(10).join(rows)
+
+    def _status_left(self) -> str:
+        """Return the title, with the key that shows the keys while the help panel is closed."""
+        help_keys = [key for key, action in self.keys.items() if action is Action.HELP]
+        if not help_keys or self.app.state.get("panel") == "help":
+            return self.title
+        return f"{self.title}  ({key_name(help_keys[0])} keys)"
 
     # ------------------------------------------------------------------
     # Moving around
@@ -260,7 +266,7 @@ class Viewer:
             return
         self.shown_target = position.target
         copy_keys = [key for key, action in self.keys.items() if action is Action.COPY_LINK]
-        hint = f"  ({_key_name(copy_keys[0])} copies it)" if copy_keys else ""
+        hint = f"  ({key_name(copy_keys[0])} copies it)" if copy_keys else ""
         self.app.state["message"] = f"Not opened: {position.target}{hint}"
 
     # ------------------------------------------------------------------
@@ -371,7 +377,8 @@ class Viewer:
 
         Wijjit has no hook after a render, and a tree shown again is a new
         element that has forgotten its highlight, so the viewer renders itself
-        (``_render`` is internal to Wijjit; ``wijjit<0.2`` is pinned).
+        (``_render`` is internal to Wijjit; ``wijjit<0.2`` is pinned). wijjit#94 asks for a
+        public way.
         """
         self.app._render()
         then()
@@ -459,14 +466,3 @@ def _placeholder(files: Optional[FileTree]) -> DocumentLayout:
     else:
         note = "Choose a document in the file tree: arrows move, Enter opens a folder or a file."
     return DocumentLayout(Document(children=[Paragraph(content=[Text(content=note)])]), TerminalRendererOptions())
-
-
-def _key_name(key: str) -> str:
-    """Spell a Wijjit key name the way a help screen does (``ctrl+d`` -> ``Ctrl+D``)."""
-    named = {"pagedown": "PgDn", "pageup": "PgUp", "space": "Space", "backspace": "Backspace"}
-    if key in named:
-        return named[key]
-    if "+" in key:
-        modifier, _, rest = key.partition("+")
-        return f"{modifier.capitalize()}+{rest.upper() if len(rest) == 1 else rest.capitalize()}"
-    return key.capitalize() if len(key) > 1 else key

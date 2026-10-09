@@ -54,3 +54,21 @@ class TestBindings:
 
     def test_vim_lists_both_spellings(self):
         assert dict(bindings("vim"))[Action.HALF_PAGE_DOWN] == ["d", "ctrl+d"]
+
+
+@pytest.mark.unit
+class TestHelpRows:
+    def test_default_ends_with_the_fixed_keys(self):
+        from all2md.tui.keys import FIXED_KEYS, help_rows
+
+        rows = help_rows("default")
+        assert rows[0] == ("Down", "Scroll down a line")
+        assert rows[-len(FIXED_KEYS) :] == list(FIXED_KEYS)
+
+    def test_only_what_vim_adds(self):
+        from all2md.tui.keys import help_rows
+
+        rows = {description: keys for keys, description in help_rows("vim", only_new=True)}
+        assert rows["Scroll down a line"] == "j"
+        assert "Show these keys" not in rows
+        assert "Tab" not in rows.values()

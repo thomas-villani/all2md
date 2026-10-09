@@ -71,6 +71,13 @@ class TestCollect:
         with pytest.raises(FileNotFoundError):
             collect([str(tree / "nope")])
 
+    def test_formats_missing_a_parser_package_are_left_out(self, tree, monkeypatch):
+        from all2md.converter_registry import registry
+
+        monkeypatch.setattr(registry, "check_dependencies", lambda **kwargs: {"docx": ["python-docx"]})
+        assert "guide/Setup.docx" not in names(collect([str(tree)]))
+        assert "guide/Setup.docx" in names(collect([str(tree / "guide" / "Setup.docx"), str(tree / "README.md")]))
+
     def test_limit(self, tree):
         files = collect([str(tree)], limit=2)
         assert len(files.files) == 2 and files.truncated

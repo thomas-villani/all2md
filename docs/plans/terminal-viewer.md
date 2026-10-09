@@ -248,7 +248,8 @@ the open file highlighted and its folders open. Several files, or a pattern the 
 already expanded, root the tree at the folder that holds them all. The walk skips hidden
 and tool folders and does not enter symlinked ones. Wijjit has no hook after a render and
 rebuilds a tree that reappears without its highlight, so the viewer calls Wijjit's
-internal `_render` before marking the file (a Wijjit issue would make this public).
+internal `_render` before marking the file
+([wijjit#94](https://github.com/thomas-villani/wijjit/issues/94) asks for a public way).
 
 **Links (decided 2026-10-06).** Links are a malware vector, so the viewer never opens one
 by itself.

@@ -13,8 +13,8 @@ from wijjit.testing import WijjitHarness  # noqa: E402
 
 from all2md import to_ast  # noqa: E402
 from all2md.options.terminal import TerminalRendererOptions  # noqa: E402
-from all2md.tui.app import Viewer, _key_name  # noqa: E402
-from all2md.tui.keys import Action  # noqa: E402
+from all2md.tui.app import Viewer  # noqa: E402
+from all2md.tui.keys import Action, key_name  # noqa: E402
 from all2md.tui.layout import DocumentLayout  # noqa: E402
 
 NL = chr(10)
@@ -96,6 +96,13 @@ class TestLayout:
     def test_no_outline_when_asked_or_without_headings(self, harness):
         assert "Outline" not in harness(viewer(outline=False)).screen()
         assert "Outline" not in harness(viewer("just text" + NL)).screen()
+
+    def test_status_bar_names_the_help_key(self, harness):
+        v = viewer()
+        h = harness(v)
+        assert "doc.md  (? keys)" in status(h)
+        h.press("?").settle()
+        assert "(? keys)" not in status(h)
 
     def test_help_lists_the_keys(self, harness):
         v = viewer()
@@ -253,7 +260,7 @@ class TestQuit:
     [("pagedown", "PgDn"), ("ctrl+d", "Ctrl+D"), ("space", "Space"), ("left", "Left"), ("g", "g"), ("G", "G")],
 )
 def test_key_names(key, name):
-    assert _key_name(key) == name
+    assert key_name(key) == name
 
 
 @pytest.mark.unit

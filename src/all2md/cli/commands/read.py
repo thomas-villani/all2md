@@ -39,6 +39,8 @@ def _create_read_parser() -> argparse.ArgumentParser:
         description="Read a document in an interactive terminal viewer, with an outline and a list of its "
         "links, or choose one from a tree of a folder's documents. Links inside the document move the viewer; "
         "other links are shown, never opened.",
+        epilog=_keys_epilog(),
+        formatter_class=_KeysHelpFormatter,
     )
     parser.add_argument(
         "input",
@@ -75,6 +77,27 @@ def _create_read_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-config", action="store_true", help="Disable configuration file loading for this command.")
     add_cache_arguments(parser)
     return parser
+
+
+class _KeysHelpFormatter(argparse.HelpFormatter):
+    """Wrap the description as usual, but print the key table in the epilog as written."""
+
+    def _fill_text(self, text: str, width: int, indent: str) -> str:
+        if text.startswith("keys:"):
+            return text
+        return super()._fill_text(text, width, indent)
+
+
+def _keys_epilog() -> str:
+    """Return the key table for ``--help``: the default keys, then what ``--keys vim`` adds."""
+    from all2md.tui.keys import help_rows
+
+    def table(rows: list[tuple[str, str]]) -> list[str]:
+        width = max(len(keys) for keys, _ in rows)
+        return [f"  {keys.ljust(width)}  {description}" for keys, description in rows]
+
+    lines = ["keys:", *table(help_rows("default")), "", "--keys vim adds:", *table(help_rows("vim", only_new=True))]
+    return chr(10).join(lines)
 
 
 def handle_read_command(args: list[str] | None = None) -> int:

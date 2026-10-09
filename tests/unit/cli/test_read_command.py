@@ -152,3 +152,12 @@ class TestEntryPoints:
     def test_parser_factory(self):
         parsed = _create_read_parser().parse_args(["x.md"])
         assert (parsed.input, parsed.keys, parsed.no_outline, parsed.format) == (["x.md"], "default", False, "auto")
+
+
+@pytest.mark.unit
+@pytest.mark.cli
+def test_help_lists_the_keys():
+    text = _create_read_parser().format_help()
+    assert "keys:" in text and "--keys vim adds:" in text
+    assert "PgDn, Space      Scroll down a page" in text
+    assert "  j          Scroll down a line" in text

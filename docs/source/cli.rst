@@ -3473,10 +3473,11 @@ Rich output needs the ``rich`` package, which the ``cli_extras`` and ``all`` ext
    ``f``/``b``, ``d``/``u`` and ``g``/``G``. Links to a heading or a footnote in the document move the viewer
    (Left or Backspace goes back); any other link is shown in the status bar, and ``y`` copies it, but the viewer
    never opens it. ``--no-outline`` starts with the outline hidden, and a ``[read]`` section in the config file
-   sets the defaults.
+   sets the defaults. ``all2md read --help`` lists every key, and the status bar names the one that shows them.
 
    Given a folder, a glob pattern or several files, or nothing at all on a terminal (the current folder), the
-   viewer opens on a tree of the documents all2md can read there, folders first. Enter opens a folder or a file;
+   viewer opens on a tree of the documents this installation of all2md can read there (a format whose parser
+   needs a package that is not installed is left out), folders first. Enter opens a folder or a file;
    ``t`` goes back to the tree, with the open file marked. Hidden files and folders, symlinked folders,
    ``node_modules``, ``__pycache__``, ``venv`` and ``site-packages`` are left out, and the tree stops at 5,000
    files.
