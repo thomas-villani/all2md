@@ -5,9 +5,10 @@
 
 The document is parsed once and shown in a scrolling viewer with an outline,
 a list of the links on screen and a status bar. In-document links and footnote
-references move the viewer; other links are shown, never opened. Given a
-folder, a glob pattern or several files (or nothing, on a terminal), the viewer
-opens on a tree of the documents there instead. Needs the ``tui`` extra
+references move the viewer; other links are shown with their target, never
+opened, and are not clickable in the terminal unless ``--clickable-links``
+says so. Given a folder, a glob pattern or several files (or nothing, on a
+terminal), the viewer opens on a tree of the documents there instead. Needs the ``tui`` extra
 (Wijjit, Python 3.11+); ``rcat`` without ``-i`` works without it.
 """
 
@@ -22,6 +23,7 @@ from typing import Any, Union
 from all2md.cli.builder import EXIT_DEPENDENCY_ERROR, EXIT_ERROR, EXIT_FILE_ERROR, EXIT_SUCCESS
 from all2md.cli.commands.shared import add_cache_arguments, conversion_cache_from_args
 from all2md.cli.config import apply_config_to_parser
+from all2md.options.terminal import CLICKABLE_LINKS_HELP
 
 INSTALL_HINT = "all2md read needs the tui extra: pip install 'all2md[tui]'"
 
@@ -38,7 +40,8 @@ def _create_read_parser() -> argparse.ArgumentParser:
         prog="all2md read",
         description="Read a document in an interactive terminal viewer, with an outline and a list of its "
         "links, or choose one from a tree of a folder's documents. Links inside the document move the viewer; "
-        "other links are shown, never opened.",
+        "other links are shown with their target, never opened (see --clickable-links for the terminal's own "
+        "Ctrl+click).",
         epilog=_keys_epilog(),
         formatter_class=_KeysHelpFormatter,
     )
@@ -65,9 +68,10 @@ def _create_read_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--code-theme", default=None, help="Pygments theme for code blocks (default: monokai)")
     parser.add_argument(
-        "--no-hyperlinks",
-        action="store_true",
-        help="Do not emit terminal hyperlinks (OSC 8); external links then cannot be Ctrl+clicked",
+        "--clickable-links",
+        choices=["none", "web", "all"],
+        default="none",
+        help=CLICKABLE_LINKS_HELP,
     )
     parser.add_argument(
         "--config",
@@ -207,7 +211,7 @@ def _lay_out(source: Union[bytes, str], parsed: argparse.Namespace) -> Any:
         to_ast_kwargs["source_format"] = parsed.format
     with conversion_cache_from_args(parsed):
         doc = to_ast(source, **to_ast_kwargs)
-    options = TerminalRendererOptions(hyperlinks=not parsed.no_hyperlinks)
+    options = TerminalRendererOptions(clickable_links=parsed.clickable_links)
     if parsed.code_theme:
         options = options.create_updated(code_theme=parsed.code_theme)
     return DocumentLayout(doc, options)

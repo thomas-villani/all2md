@@ -3432,7 +3432,7 @@ Rich output needs the ``rich`` package, which the ``cli_extras`` and ``all`` ext
 (``pip install "all2md[cli_extras]"``).
 
 ``--rich``
-   Show the document in the terminal with color, hyperlinks, and tables. Automatically disables itself when stdout
+   Show the document in the terminal with color, links, and tables. Automatically disables itself when stdout
    is redirected, unless ``--force-rich`` is present. Only a single document written to stdout is styled: with
    ``--out``, ``--output-dir`` or several inputs, ``--rich`` styles the progress display and summary instead.
    With a target other than Markdown (``--to html``, ``--to json``, ...), the output is syntax-highlighted.
@@ -3494,15 +3494,31 @@ Rich output needs the ``rich`` package, which the ``cli_extras`` and ``all`` ext
 ``--rich-no-word-wrap``
    Disable Rich's automatic line wrapping when you need wide tables or preformatted output to stay on a single line.
 
+``--clickable-links {none,web,all}``
+   Which links a click in the terminal may open, for ``rcat``, ``--rich`` and ``all2md read`` (``--to terminal``
+   takes the same values as ``--terminal-renderer-clickable-links``).
+   A document is untrusted input, and a terminal hands a clicked link (an OSC 8 hyperlink) to whatever program the
+   operating system registers for its scheme, so by default (``none``) no link is clickable. ``web`` makes ``http``
+   and ``https`` links clickable. ``all`` makes every scheme clickable, including ``file:`` links and the handlers
+   installed applications register (``ms-msdt:``, ``vscode:``, ...): a click on a link in a document you did not
+   write can then start a program, so use it only for documents you trust.
+
+   Whatever the setting, an external link's target is printed after its text, ``site (https://example.com/...)``,
+   unless the text already is the target, so the text of ``[bank.example](https://evil.example)`` cannot pass for
+   where it goes. A long target is shortened in the middle of its path, never in its host; the viewer's status bar
+   shows it in full. Links within the document show no target. Set it with ``ALL2MD_CLICKABLE_LINKS``, or
+   ``clickable_links`` in the ``[read]`` config section.
+
 ``--no-rich-hyperlinks``
-   Disable clickable hyperlinks (maps to ``ALL2MD_RICH_HYPERLINKS=false`` in env vars).
+   Deprecated: links are no longer clickable unless ``--clickable-links`` says so. Kept for scripts; it forces
+   ``none``.
 
 ``--rich-justify``
    Control text justification for Rich Markdown (``left`` | ``center`` | ``right`` | ``full``).
 
 The related environment variables are ``ALL2MD_RICH``, ``ALL2MD_FORCE_RICH``, ``ALL2MD_RICH_CODE_THEME``,
-``ALL2MD_RICH_INLINE_CODE_THEME``, ``ALL2MD_RICH_NO_WORD_WRAP``, ``ALL2MD_RICH_HYPERLINKS`` (set to ``false`` to disable),
-``ALL2MD_RICH_JUSTIFY`` and ``ALL2MD_PAGER``. The colors of Markdown elements are set in the ``[rich]`` table of a
+``ALL2MD_RICH_INLINE_CODE_THEME``, ``ALL2MD_RICH_NO_WORD_WRAP``, ``ALL2MD_CLICKABLE_LINKS``, ``ALL2MD_RICH_JUSTIFY``
+and ``ALL2MD_PAGER``. The colors of Markdown elements are set in the ``[rich]`` table of a
 config file (see :doc:`configuration`). Besides Rich's Markdown names (``h1``, ``block_quote``, ``code``, ...), the
 terminal renderer reads ``u``, ``mark``, ``math``, ``footnote``, ``dt``, ``image``, ``caption``, ``comment``,
 ``html``, ``task.checked``, ``task.unchecked``, ``admonition`` and ``admonition.<kind>`` (``admonition.warning``,

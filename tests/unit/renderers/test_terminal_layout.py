@@ -73,17 +73,17 @@ def shown(layout, position: LinkPosition) -> str:
 @pytest.mark.unit
 class TestText:
     @pytest.mark.parametrize("color_system", ["none", "truecolor"])
-    @pytest.mark.parametrize("hyperlinks", [False, True])
-    def test_text_is_render_to_string(self, color_system, hyperlinks):
+    @pytest.mark.parametrize("clickable_links", ["none", "web"])
+    def test_text_is_render_to_string(self, color_system, clickable_links):
         doc = to_ast(
             "# Title\n\nSee [the docs](https://example.com) and a note[^1].\n\n"
             "> ## Quoted\n> [inner](#title)\n\n[^1]: The note.\n".encode(),
             source_format="markdown",
         )
-        r = renderer(color_system=color_system, hyperlinks=hyperlinks)
+        r = renderer(color_system=color_system, clickable_links=clickable_links)
         layout = r.layout(doc)
         again = r.render_to_string(doc)
-        if hyperlinks and color_system != "none":
+        if clickable_links != "none" and color_system != "none":
             # OSC 8 link ids are random on every render; compare with them blanked.
             blank = re.compile("id=[0-9-]+;")
             layout_text, again = blank.sub("", layout.text), blank.sub("", again)
@@ -154,7 +154,7 @@ class TestLinks:
 
     def test_shown_url_is_not_part_of_the_link(self):
         doc = Document(children=[para(link("docs", "https://example.com"))])
-        layout = renderer(hyperlinks=False).layout(doc)
+        layout = renderer().layout(doc)
         assert "(https://example.com)" in layout.text
         assert [shown(layout, p) for p in layout.links] == ["docs"]
 

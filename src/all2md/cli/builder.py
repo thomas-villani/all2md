@@ -40,6 +40,7 @@ from all2md.exceptions import (
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 from all2md.options.common import AttachmentOptionsMixin
 from all2md.options.markdown import MarkdownRendererOptions
+from all2md.options.terminal import CLICKABLE_LINKS_HELP
 from all2md.utils.input_sources import RemoteInputOptions
 
 # Note: transform_registry is imported lazily in functions that need it
@@ -1894,6 +1895,7 @@ Examples:
             "rich_inline_code_theme",
             "rich_no_word_wrap",
             "rich_hyperlinks",
+            "clickable_links",
             "rich_justify",
             "force_rich",
             # Security presets from cli.create_parser
@@ -2345,11 +2347,18 @@ def create_parser() -> argparse.ArgumentParser:
         help="Disable word wrapping in rich output (defaults to wrapping long lines)",
     )
     rich_group.add_argument(
+        "--clickable-links",
+        action=TrackingStoreAction,
+        choices=["none", "web", "all"],
+        default="none",
+        help=CLICKABLE_LINKS_HELP,
+    )
+    rich_group.add_argument(
         "--no-rich-hyperlinks",
         action=TrackingStoreFalseAction,
         dest="rich_hyperlinks",
         default=True,
-        help="Disable clickable hyperlink rendering in terminal output",
+        help="clickable links (deprecated: links are clickable only with --clickable-links; this forces 'none')",
     )
     rich_group.add_argument(
         "--rich-justify",
