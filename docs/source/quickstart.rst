@@ -58,6 +58,21 @@ Let's convert a document to Markdown:
 
 That's it! all2md automatically detects the file format and converts it to clean Markdown.
 
+Reading in the Terminal
+-----------------------
+
+To read a document rather than convert it, draw it in the terminal with ``rcat``
+(``pip install all2md[cli_extras]``), or open it in the interactive viewer, with an
+outline and a tree of a folder's documents (``pip install all2md[tui]``, Python 3.11+):
+
+.. code-block:: bash
+
+   rcat report.docx
+   all2md read report.docx    # or: rcat -i report.docx
+   all2md read docs/
+
+``rcat`` and ``all2md read`` in :doc:`cli` list the keys and options.
+
 Bidirectional Conversion
 ------------------------
 
