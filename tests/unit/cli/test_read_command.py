@@ -73,6 +73,37 @@ class TestReadCommand:
         assert viewer.files.files == (doc,)
         assert viewer.app.state["panel"] == "files"
 
+    def test_no_stdin_at_all_browses_the_current_folder(self, monkeypatch, doc):
+        pytest.importorskip("wijjit")
+        from all2md.tui import app
+
+        # A stub: Wijjit itself reads sys.stdin when it is built on Linux.
+        made = []
+
+        class Viewer:
+            def __init__(self, layout, title, **kwargs):
+                made.append(kwargs["files"])
+
+            def run(self):
+                pass
+
+        monkeypatch.setattr(app, "Viewer", Viewer)
+        monkeypatch.setattr("sys.stdin", None)
+        monkeypatch.chdir(doc.parent)
+        assert handle_read_command([]) == EXIT_SUCCESS
+        assert made[0].files == (doc,)
+
+    def test_files_with_no_folder_in_common(self, runs, monkeypatch, doc, capsys):
+        from all2md.tui import files
+
+        def no_common_folder(inputs):
+            raise ValueError("the files have no folder in common")
+
+        monkeypatch.setattr(files, "collect", no_common_folder)
+        assert handle_read_command([str(doc), str(doc.parent)]) == EXIT_ERROR
+        assert "no folder in common" in capsys.readouterr().err
+        assert runs == []
+
     def test_a_folder_opens_the_file_tree(self, runs, doc):
         (doc.parent / "sub").mkdir()
         (doc.parent / "sub" / "more.html").write_text("<h1>More</h1>", encoding="utf-8")
@@ -152,6 +183,12 @@ class TestEntryPoints:
         assert rcat_main([str(doc)]) == EXIT_SUCCESS
         assert runs == []
         assert "Notes" in capsys.readouterr().out
+
+    def test_rcat_help_mentions_the_viewer(self, capsys):
+        with pytest.raises(SystemExit):
+            rcat_main(["--help"])
+        out = capsys.readouterr().out
+        assert out.startswith("rcat FILE is all2md FILE --rich") and "rcat -i FILE" in out and "usage: all2md" in out
 
     def test_parser_factory(self):
         parsed = _create_read_parser().parse_args(["x.md"])

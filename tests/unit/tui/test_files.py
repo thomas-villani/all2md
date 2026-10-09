@@ -55,6 +55,27 @@ class TestCollect:
         assert files.root == tree / "guide"
         assert names(files) == ["deep/notes.html", "intro.md", "Setup.docx"]
 
+    def test_a_glob_skips_hidden_and_tool_folders(self, tree, monkeypatch):
+        monkeypatch.chdir(tree)
+        assert names(collect(["**/*.md"])) == ["guide/intro.md", "README.md"]
+
+    def test_a_glob_that_names_a_tool_folder_enters_it(self, tree, monkeypatch):
+        monkeypatch.chdir(tree)
+        assert names(collect(["node_modules/**/*.md"])) == ["readme.md"]
+
+    def test_a_glob_stops_at_the_limit(self, tree, monkeypatch):
+        monkeypatch.chdir(tree)
+        files = collect(["**/*.*"], limit=1)
+        assert len(files.files) == 1 and files.truncated
+
+    def test_files_with_no_folder_in_common(self, tree, monkeypatch):
+        def different_drives(paths):
+            raise ValueError("Paths don't have the same drive")
+
+        monkeypatch.setattr(os.path, "commonpath", different_drives)
+        with pytest.raises(ValueError, match="no folder in common"):
+            collect([str(tree / "README.md"), str(tree / "guide" / "intro.md")])
+
     def test_several_files_root_at_their_common_folder(self, tree):
         files = collect([str(tree / "guide" / "deep" / "notes.html"), str(tree / "guide" / "intro.md")])
         assert files.root == tree / "guide"
@@ -110,6 +131,14 @@ class TestNodes:
             assert files.path_of(files.node_id(path)) == path
         assert files.path_of("d:guide") is None
         assert files.path_of("f:../../etc/passwd") is None
+
+    def test_nodes_are_built_once(self, tree):
+        files = collect([str(tree)])
+        assert files.nodes() is files.nodes()
+
+    def test_membership(self, tree):
+        files = collect([str(tree)])
+        assert tree / "README.md" in files and tree / "data.unknownext" not in files
 
     def test_folder_ids(self, tree):
         files = collect([str(tree)])

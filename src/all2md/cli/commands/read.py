@@ -139,7 +139,8 @@ def handle_read_command(args: list[str] | None = None) -> int:
     from all2md.tui.app import Viewer
 
     sources: list[str] = list(parsed.input)
-    if not sources and not sys.stdin.isatty():
+    # sys.stdin is None under pythonw and some launchers: then there is nothing piped.
+    if not sources and sys.stdin is not None and not sys.stdin.isatty():
         sources = ["-"]
     viewer_args: dict[str, Any] = {"preset": parsed.keys, "outline": not parsed.no_outline}
 
@@ -183,6 +184,9 @@ def handle_read_command(args: list[str] | None = None) -> int:
     except FileNotFoundError as e:
         print(f"Error: {e}", file=sys.stderr)
         return EXIT_FILE_ERROR
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return EXIT_ERROR
     if not files.files:
         print(f"Error: no documents all2md can read were found in {', '.join(sources) or '.'}", file=sys.stderr)
         return EXIT_FILE_ERROR

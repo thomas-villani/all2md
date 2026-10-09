@@ -5,7 +5,8 @@ patterns) into a ``FileTree``: the files this installation of all2md can read
 (a format whose parser needs a package that is not installed is left out),
 below one root directory. It walks without following symlinked directories, skips hidden
 files and folders and the usual tool folders (``node_modules``,
-``__pycache__``...), and stops at ``limit`` files. ``FileTree.nodes`` gives
+``__pycache__``...), whether it walks a directory or expands a pattern, and
+stops at ``limit`` files. ``FileTree.nodes`` gives
 the tree for Wijjit's ``Tree``, folders first.
 
 Nothing here needs Wijjit, so it is tested without it.
@@ -52,6 +53,10 @@ class FileTree:
         """Return the tree node id of a file (its path below the root)."""
         return "f:" + path.relative_to(self.root).as_posix()
 
+    def __contains__(self, path: object) -> bool:
+        """Return whether ``path`` is one of the files (a set lookup)."""
+        return path in self._file_set
+
     def path_of(self, node_id: str) -> Optional[Path]:
         """Return the file a node id names, or None for a folder or an unknown id."""
         if not node_id.startswith("f:"):
@@ -68,6 +73,11 @@ class FileTree:
 
     def nodes(self) -> list[dict[str, Any]]:
         """Return the tree as Wijjit tree nodes: folders first, then files, each by name."""
+        return self._nodes
+
+    @cached_property
+    def _nodes(self) -> list[dict[str, Any]]:
+        # Built once: the viewer asks on every render, and 5,000 files take tens of milliseconds.
         top: dict[str, Any] = {}
         for file in self.files:
             level = top
@@ -107,6 +117,8 @@ def collect(inputs: Sequence[str], limit: int = MAX_FILES) -> FileTree:
     ------
     FileNotFoundError
         If an input is neither an existing path nor a pattern.
+    ValueError
+        If the files have no folder in common (on Windows, different drives).
 
     """
     readable = _readable_extensions()
@@ -125,7 +137,10 @@ def collect(inputs: Sequence[str], limit: int = MAX_FILES) -> FileTree:
     if len(sources) == 1 and Path(sources[0]).is_dir():
         root = _absolute(Path(sources[0]))
     elif found:
-        root = Path(os.path.commonpath([path.parent for path in found]))
+        try:
+            root = Path(os.path.commonpath([path.parent for path in found]))
+        except ValueError:  # different drives, or a drive and a UNC share
+            raise ValueError("the files have no folder in common (different drives?); read them separately") from None
     else:
         root = _absolute(Path.cwd())
     files = sorted(found, key=lambda path: [part.lower() for part in path.relative_to(root).parts])
@@ -140,8 +155,13 @@ def _expand(source: str, readable: frozenset[str]) -> Iterator[Path]:
     elif path.is_dir():
         yield from _walk(path, readable)
     elif _GLOB_CHARS & set(source):
-        for match in sorted(glob.glob(source, recursive=True)):
+        fixed = len(_fixed_parts(path))
+        # Lazily, so the caller's limit stops a ``**`` walk early.
+        for match in glob.iglob(source, recursive=True):
             matched = Path(match)
+            # The folders the pattern matched (not those it names) skip hidden and tool folders too.
+            if _skipped(matched.parts[fixed:-1] if matched.is_file() else matched.parts[fixed:]):
+                continue
             if matched.is_dir():
                 yield from _walk(matched, readable)
             elif matched.is_file() and _is_readable(matched.name, readable):
@@ -153,10 +173,24 @@ def _expand(source: str, readable: frozenset[str]) -> Iterator[Path]:
 def _walk(top: Path, readable: frozenset[str]) -> Iterator[Path]:
     """Yield the readable files below ``top``, without entering hidden, tool or symlinked folders."""
     for folder, dirnames, filenames in os.walk(top, followlinks=False):
-        dirnames[:] = sorted(name for name in dirnames if not name.startswith(".") and name not in SKIP_DIRS)
+        dirnames[:] = sorted(name for name in dirnames if not _skipped([name]))
         for name in sorted(filenames):
             if not name.startswith(".") and _is_readable(name, readable):
                 yield Path(folder) / name
+
+
+def _fixed_parts(pattern: Path) -> tuple[str, ...]:
+    """Return the leading parts of a glob pattern that hold no wildcard."""
+    parts = []
+    for part in pattern.parts:
+        if _GLOB_CHARS & set(part):
+            break
+        parts.append(part)
+    return tuple(parts)
+
+
+def _skipped(folders: Sequence[str]) -> bool:
+    return any(name.startswith(".") or name in SKIP_DIRS for name in folders)
 
 
 def _is_readable(name: str, readable: frozenset[str]) -> bool:

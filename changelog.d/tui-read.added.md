@@ -6,4 +6,4 @@
   it, but it is never opened. The view keeps its place when the terminal is resized, and
   `all2md read -` reads the document from stdin. Needs the new `tui` extra
   (`pip install 'all2md[tui]'`, Wijjit, Python 3.11 or later); `rcat` without `-i`
-  works as before.
+  works as before, and `rcat --help` points to the viewer.
