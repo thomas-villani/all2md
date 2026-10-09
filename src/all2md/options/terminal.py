@@ -59,7 +59,7 @@ class TerminalRendererOptions(BaseRendererOptions):
         Wrap long lines. When off, lines are cropped at the width.
     color_system : {"auto", "standard", "256", "truecolor", "windows", "none"}, default "auto"
         Color depth of the output. ``auto`` detects it from the environment;
-        ``none`` writes text attributes such as bold but no color.
+        ``none`` writes plain text, with no escape codes.
     comment_mode : {"visible", "ignore"}, default "visible"
         Show comments (dimmed, with their author) or leave them out.
     styles : dict or None, default None
