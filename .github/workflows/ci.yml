@@ -500,7 +500,10 @@ jobs:
       # the pinned registry ruleset needs no token, and `p/python` plus `p/security-audit`
       # is the community equivalent of what `config: auto` resolved to unauthenticated.
       - name: Install Semgrep
-        run: pip install semgrep==1.145.0
+        # pydantic 2.14 dropped the internal `eval_type_backport` that semgrep 1.145.0's
+        # `mcp` (1.16.0) imports, so semgrep crashed at startup. Lift the cap with a semgrep
+        # whose `mcp` no longer imports it.
+        run: pip install semgrep==1.145.0 "pydantic<2.14"
 
       # A positive control, and it runs BEFORE the real scan so a broken ruleset fails the
       # job on its own terms rather than being reported as a clean repository. The canary is
