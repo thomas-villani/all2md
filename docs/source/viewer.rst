@@ -9,6 +9,9 @@ piping Markdown to a file:
 * ``all2md serve`` starts a small local HTTP server that converts documents on demand,
   including a live directory index when you point it at a folder.
 
+To read a document in the terminal instead, see ``rcat`` and ``all2md read`` in
+:doc:`cli`.
+
 Both share the same theming, diagram rendering, and syntax-highlighting features described
 below. For the exhaustive list of flags, see the ``view`` and ``serve`` sections of the
 :doc:`cli` reference.

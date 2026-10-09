@@ -91,6 +91,17 @@ cat notes.md | rcat                              # piped Markdown, front matter 
 
 `rcat FILE` is shorthand for `all2md FILE --rich`, so every conversion option works with it. Styling switches itself off when the output is piped, so `rcat report.docx | grep budget` sees plain text; `--force-rich` keeps it. Code themes (`--rich-code-theme dracula`) and the colors of headings, links and quotes (a `[rich]` table in the config file) are yours to set.
 
+To page through a document with an outline beside it, open it in the interactive viewer. Given a folder or a pattern, it starts on a tree of the documents there:
+
+```bash
+pip install "all2md[tui]"    # Python 3.11+
+
+all2md read handbook.pdf     # or: rcat -i handbook.pdf
+all2md read docs/            # choose from the documents in a folder
+```
+
+`o` shows the outline, `l` the links on screen, `t` the file tree and `?` the keys. Links to a heading or a footnote move the viewer; other links are shown, never opened.
+
 The rest of the toolkit reads well in a terminal too:
 
 ```bash
@@ -106,7 +117,7 @@ all2md report scan.pdf                                      # how far to trust t
 - **Bidirectional** — convert *to* Markdown and *back* to rich formats (DOCX, PDF, PPTX, HTML, EPUB, …).
 - **Python-native API** designed for embedding in apps and pipelines, not just CLI usage.
 - **A genuinely powerful CLI** — batch conversion, preview, grep, semantic search, diff, and chunking.
-- **A document reader for the terminal** — `rcat` renders any supported format as styled Markdown, with paging, outlines and section extraction.
+- **A document reader for the terminal** — `rcat` draws any supported format with headings, tables, code, math and footnotes, with paging, outlines and section extraction, and `all2md read` opens it in an interactive viewer.
 - **Lightweight by default** — the core has no dependencies; install only the extras you need.
 - **Extensible** — add custom formats and AST transforms via a simple entry-point plugin system.
 
@@ -219,7 +230,7 @@ The core library has no dependencies — install support for formats as you need
 uv tool install "all2md[all]"
 ```
 
-This installs two commands: `all2md`, and `rcat` for reading documents in the terminal.
+This installs `all2md`, `rcat` for reading documents in the terminal, and `all2md-mcp`, the MCP server.
 
 **Python library:**
 
@@ -266,6 +277,9 @@ pip install "all2md[xlsx,odf]"
 
 # Terminal rendering for --rich / rcat (rich), progress bars and watch mode
 pip install "all2md[cli_extras]"
+
+# The interactive terminal viewer, all2md read / rcat -i (Python 3.11+)
+pip install "all2md[tui]"
 
 # PDF with OCR for scanned documents (Tesseract engine; needs the system binary)
 pip install "all2md[pdf,ocr]"
@@ -561,7 +575,7 @@ Yes. Install OCR support (`pip install "all2md[pdf,ocr]"`) and use `--pdf-ocr-en
 Yes — use Jinja2 templates to render any text-based format. See [examples/templates/](examples/templates/) for DocBook XML, YAML, ANSI terminal output, and more.
 
 **Can I just read a document without converting it?**
-Yes: `rcat report.docx` renders it in the terminal (install `all2md[cli_extras]` for the styling), and `all2md view report.docx` opens an HTML preview in the browser.
+Yes: `rcat report.docx` renders it in the terminal (install `all2md[cli_extras]` for the styling), `all2md read report.docx` opens it in an interactive terminal viewer (`all2md[tui]`), and `all2md view report.docx` opens an HTML preview in the browser.
 
 **How do I add support for a new file format?**
 Create a parser class, define a `ConverterMetadata` object, and register it via the `all2md.converters` entry point in your `pyproject.toml`. See [examples/plugins/](examples/plugins/) for a complete example.

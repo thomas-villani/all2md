@@ -1,13 +1,13 @@
 # Design: reading documents in the terminal
 
-Status: stage 1 done (2026-10-05); stage 2's first version built (2026-10-07: `all2md read`,
-`rcat -i`) on Wijjit 0.1.2, with the directory browser and relative links next; stages 3-4
-proposed. Tracked in `ROADMAP.md` under **Next**.
+Status: stage 1 done (2026-10-05); stage 2 built on Wijjit 0.1.2 (2026-10-07: `all2md read`,
+`rcat -i`; 2026-10-08: the directory browser), with relative links next; stages 3-5
+proposed. Tracked in `ROADMAP.md` under **Now**.
 
 `rcat report.docx` (or `all2md report.docx --rich`) is the path the README now leads
 with, and a whole class of tools exists only to do this one thing: doxx for `.docx`,
 glow and mdcat for Markdown. This note records what we learned from them, what our own
-path loses today, and a four-stage plan.
+path loses today, and a five-stage plan.
 
 ## What the terminal path does today
 
@@ -62,8 +62,8 @@ The thing none of them has, and we can, is the same viewer over every format we 
 
 ## Plan
 
-Four stages, each its own PR stream. Stage 1 stands alone and fixes `rcat` everywhere;
-stages 2–4 build on it.
+Five stages, each its own PR stream. Stage 1 stands alone and fixes `rcat` everywhere;
+stages 2–5 build on it.
 
 ### Stage 1: a terminal renderer from the AST
 
@@ -370,4 +370,4 @@ parser side needs nothing new.
 - doxx: <https://github.com/bgreenwell/doxx>
 - glow: <https://github.com/charmbracelet/glow>
 - mdcat: <https://github.com/swsnr/mdcat>
-- Wijjit: <https://github.com/thomas-villani/wijjit> (0.1.1 on PyPI)
+- Wijjit: <https://github.com/thomas-villani/wijjit> (0.1.2 on PyPI)

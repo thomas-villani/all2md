@@ -1040,7 +1040,7 @@ on-disk cache stores the parsed result keyed by the input's fingerprint and the
 conversion options, so a repeat run skips the re-parse entirely (a warm cache cut
 a 31-candidate ``optimize`` run from 18.5s to 0.3s).
 
-The cache is available on ``grep``, ``search``, ``chunk``, ``view``, ``report``,
+The cache is available on ``grep``, ``search``, ``chunk``, ``view``, ``read``, ``report``,
 ``roundtrip`` and ``optimize``:
 
 .. code-block:: bash
@@ -3472,8 +3472,9 @@ Rich output needs the ``rich`` package, which the ``cli_extras`` and ``all`` ext
    outline, ``l`` lists the links on screen and ``?`` the keys; ``q`` quits. ``--keys vim`` adds ``j``/``k``,
    ``f``/``b``, ``d``/``u`` and ``g``/``G``. Links to a heading or a footnote in the document move the viewer
    (Left or Backspace goes back); any other link is shown in the status bar, and ``y`` copies it, but the viewer
-   never opens it. ``--no-outline`` starts with the outline hidden, and a ``[read]`` section in the config file
-   sets the defaults. ``all2md read --help`` lists every key, and the status bar names the one that shows them.
+   never opens it. ``--no-outline`` starts with the outline hidden; ``--format`` names the input format when
+   detection needs help, ``--code-theme`` picks the Pygments theme and ``--cache`` reuses parsed documents (see
+   below). A ``[read]`` section in the config file sets the defaults. ``all2md read --help`` lists every key, and the status bar names the one that shows them.
 
    Given a folder, a glob pattern or several files, or nothing at all on a terminal (the current folder), the
    viewer opens on a tree of the documents this installation of all2md can read there (a format whose parser

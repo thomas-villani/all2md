@@ -29,8 +29,8 @@ output to files and pipes is unchanged. It was forward-ported to `main` (#589, #
   the standard library (#565, #566, #568), and OLE2 containers routed by their streams,
   which made real `.msg` files read again (#548, #549).
 
-Since then `main` carries the terminal renderer (#580, #581) and its layout map (#596, in
-review), `all2md mcp` with an MCP Registry entry published by the release workflow (#584,
+Since then `main` carries the terminal renderer (#580, #581), the interactive viewer
+`all2md read` with its directory browser (#596, #598, #603, #604), `all2md mcp` with an MCP Registry entry published by the release workflow (#584,
 #586, #588), and the quality-gate action's docs rewritten for Marketplace readers (#587).
 
 The PDF side's numbers stand as of v1.15.0 (sealed 103-article holdout, reading of
@@ -69,16 +69,14 @@ design in `docs/plans/terminal-viewer.md`:
    document; `--extract`, `--outline`, `--slice` and the line windows in #581), and
    `--to terminal` writes it. Needs no new dependency. Preceded by #578 and #579, which
    gave admonitions a single metadata key and read GitHub alerts.
-2. 🌱 **An interactive viewer on Wijjit**, as `all2md read` (or `rcat -i`): a
-   `ContentView` body, a `Tree` outline that jumps to headings, a status bar,
-   default/vim/less keys. A `tui` extra, Python 3.11+ only, since Wijjit needs it;
-   testable headless in CI. Wijjit's gaps were fixed upstream first (wijjit #69–#73, in
-   0.1.2). On the all2md side, one layout pass reports where every heading and link lands
-   (#596); a layout cache and the key presets follow, then the app. Also decided:
-   - links are never launched; in-document links and footnotes jump, external targets are
-     shown and copyable;
-   - a **directory browser** when `read` gets no file, a directory or a glob, with a key
-     back to it from the document;
+2. 🌱 **An interactive viewer on Wijjit**, as `all2md read` (or `rcat -i`). ✅ Built: a
+   `ContentView` body, an outline that jumps to headings, the links on screen, a status
+   bar and the keys panel, with default and vim key presets (#596, #598, #603); a
+   **directory browser** for a folder, a glob or several files (#604). A `tui` extra,
+   Python 3.11+ only, since Wijjit needs it; tested headless in CI. Wijjit's gaps were
+   fixed upstream first (wijjit #69–#73, in 0.1.2; #94 is open). Links are never launched
+   by the viewer: in-document links and footnotes jump, external targets are shown and
+   copyable. Still to do:
    - **relative links to other local documents** open in the viewer, contained to the
      directory given or the file's folder, and tried by hand before they are pushed.
 3. 🌱 **A terminal editor on Wijjit**, as `all2md edit --tui`: Wijjit's `CodeEditor` with

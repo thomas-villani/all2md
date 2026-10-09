@@ -475,6 +475,29 @@ preview/editor in a native OS window with no browser chrome. It needs the
 This extra is GUI-only and is intentionally **not** part of the ``all`` extra.
 Without it, ``--window`` prints a hint and falls back to a normal browser tab.
 
+Reading in the Terminal (rcat, read)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``rcat`` and ``--rich`` draw documents in the terminal with rich, from the
+``cli_extras`` extra, which also brings progress bars and watch mode:
+
+.. code-block:: bash
+
+   pip install all2md[cli_extras]
+
+The interactive viewer, ``all2md read`` (or ``rcat -i``), needs the ``tui``
+extra, which installs `Wijjit <https://github.com/thomas-villani/wijjit>`_:
+
+.. code-block:: bash
+
+   pip install all2md[tui]
+
+**Dependencies:** rich, wijjit
+
+Wijjit needs **Python 3.11 or later**. On Python 3.10 the ``tui`` extra (and
+``all``) installs without it, ``all2md read`` says why it cannot start, and
+``rcat`` keeps working.
+
 Combined Installations
 ----------------------
 
@@ -505,7 +528,8 @@ supported formats and features:
 This covers PDF, the Office formats (DOCX/PPTX/XLSX), OpenDocument, web/HTML
 (including readability extraction), e-books (EPUB/FB2), RTF, reStructuredText,
 Org, Outlook/MSG, wiki formats, LaTeX, OCR, document rendering, ranked search,
-Jinja templates, the MCP server, and archive extraction.
+Jinja templates, the MCP server, archive extraction, and the terminal viewer (on
+Python 3.11 and later).
 
 **Note:** The ``eml`` and ``ipynb`` extras are not listed because these formats
 use built-in Python libraries. The ``pdf_layout`` extra is intentionally
