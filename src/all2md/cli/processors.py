@@ -1160,6 +1160,7 @@ def _terminal_renderer_options(args: argparse.Namespace) -> Any:
         code_theme=getattr(args, "rich_code_theme", None) or "monokai",
         inline_code_theme=getattr(args, "rich_inline_code_theme", None) or None,
         clickable_links=_clickable_links(args),
+        math_mode="unicode" if getattr(args, "math", None) == "unicode" else "latex",
         justify=getattr(args, "rich_justify", None) or None,
         word_wrap=not getattr(args, "rich_no_word_wrap", False),
         styles=dict(styles) if isinstance(styles, dict) and styles else None,

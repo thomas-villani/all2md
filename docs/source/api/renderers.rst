@@ -153,6 +153,9 @@ Specialized output formats:
      - :doc:`all2md.renderers.terminal`
      - Styled terminal output (rich), used by ``rcat`` and ``all2md read``; options in
        :doc:`all2md.options.terminal`
+   * - Terminal math
+     - :doc:`all2md.renderers.terminal_math`
+     - LaTeX math as Unicode text, for the terminal renderer's ``math_mode="unicode"``
 
 Base Renderer Class
 -------------------

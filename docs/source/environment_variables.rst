@@ -594,6 +594,9 @@ Pattern: ALL2MD_<OPTION_NAME>
    * - ``ALL2MD_CLICKABLE_LINKS``
      - ``--clickable-links``
      - ``web`` (``none`` is the default; ``all`` is unsafe for untrusted documents)
+   * - ``ALL2MD_MATH``
+     - ``--math``
+     - ``unicode`` (``latex`` is the default)
    * - ``ALL2MD_RICH_HYPERLINKS``
      - ``--no-rich-hyperlinks`` (deprecated)
      - ``false`` (forces ``--clickable-links none``)

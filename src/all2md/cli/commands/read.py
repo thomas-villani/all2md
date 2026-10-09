@@ -23,7 +23,7 @@ from typing import Any, Union
 from all2md.cli.builder import EXIT_DEPENDENCY_ERROR, EXIT_ERROR, EXIT_FILE_ERROR, EXIT_SUCCESS
 from all2md.cli.commands.shared import add_cache_arguments, conversion_cache_from_args
 from all2md.cli.config import apply_config_to_parser
-from all2md.options.terminal import CLICKABLE_LINKS_HELP
+from all2md.options.terminal import CLICKABLE_LINKS_HELP, MATH_MODE_HELP
 
 INSTALL_HINT = "all2md read needs the tui extra: pip install 'all2md[tui]'"
 
@@ -73,6 +73,7 @@ def _create_read_parser() -> argparse.ArgumentParser:
         default="none",
         help=CLICKABLE_LINKS_HELP,
     )
+    parser.add_argument("--math", choices=["latex", "unicode"], default="latex", help=MATH_MODE_HELP)
     parser.add_argument(
         "--config",
         help="Path to a configuration file. Values in its [read] section provide defaults "
@@ -207,7 +208,7 @@ def _lay_out(source: Union[bytes, str], parsed: argparse.Namespace) -> Any:
         to_ast_kwargs["source_format"] = parsed.format
     with conversion_cache_from_args(parsed):
         doc = to_ast(source, **to_ast_kwargs)
-    options = TerminalRendererOptions(clickable_links=parsed.clickable_links)
+    options = TerminalRendererOptions(clickable_links=parsed.clickable_links, math_mode=parsed.math)
     if parsed.code_theme:
         options = options.create_updated(code_theme=parsed.code_theme)
     return DocumentLayout(doc, options)

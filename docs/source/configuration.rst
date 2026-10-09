@@ -461,7 +461,7 @@ on every invocation. Each command reads a table named after the command:
      - ``strategy``, ``max_tokens``, ``overlap``, ``min_tokens``, ``token_counter``
    * - ``all2md read``
      - ``[read]``
-     - ``keys``, ``no_outline``, ``format``, ``code_theme``, ``cache``
+     - ``keys``, ``no_outline``, ``format``, ``code_theme``, ``clickable_links``, ``math``, ``cache``
 
 Example:
 
