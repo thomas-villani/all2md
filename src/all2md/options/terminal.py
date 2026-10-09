@@ -23,9 +23,12 @@ TerminalMathMode = Literal["latex", "unicode"]
 #: Help for the ``--math`` flag of ``all2md`` (``rcat``) and ``all2md read``.
 MATH_MODE_HELP = (
     "How math is shown: 'latex' (default) prints its LaTeX source; 'unicode' writes it with Unicode symbols, "
-    "superscripts and subscripts (\\alpha^2 + x_i as α² + xᵢ), with matrices and aligned equations on lines "
-    "of their own. 'unicode' needs pylatexenc (pip install 'all2md[latex]') and falls back to LaTeX without it."
+    "superscripts and subscripts (\\alpha^2 as a Greek alpha with a raised 2), with matrices and aligned "
+    "equations on lines of their own. 'unicode' needs pylatexenc (pip install 'all2md[latex]') and falls back "
+    "to LaTeX without it."
 )
+# Help text is ASCII: a Windows console or pipe may encode stdout as cp1252, and
+# ``all2md --help`` and ``all2md completion`` print every flag's help.
 
 #: Help for the ``--clickable-links`` flag of ``all2md`` (``rcat``) and ``all2md read``.
 CLICKABLE_LINKS_HELP = (
