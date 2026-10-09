@@ -74,6 +74,7 @@ class TestReadCommand:
         assert viewer.app.state["panel"] == "files"
 
     def test_no_stdin_at_all_browses_the_current_folder(self, monkeypatch, doc):
+        pytest.importorskip("wijjit")
         from all2md.tui import app
 
         # A stub: Wijjit itself reads sys.stdin when it is built on Linux.
