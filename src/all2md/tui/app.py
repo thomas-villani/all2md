@@ -118,7 +118,7 @@ class Viewer:
         # The external link last shown, for copying.
         self.shown_target: Optional[str] = None
         # The same callable on every render, so ContentView lays out only on a new width.
-        self.content = self._content
+        self.content = self._new_content()
 
         if layout is None and files is not None:
             panel = "files"
@@ -142,6 +142,15 @@ class Viewer:
     # ------------------------------------------------------------------
     # Rendering
     # ------------------------------------------------------------------
+
+    def _new_content(self) -> Callable[[int], str]:
+        """Return a content callable unequal to any before it.
+
+        ContentView caches its layout by the callable and the width, comparing
+        callables with ``==``, and every ``self._content`` is equal to the last
+        (same function, same instance), so a new document needs a new function.
+        """
+        return lambda width: self._content(width)
 
     def _content(self, width: int) -> str:
         """Lay the document out at the body's width, keeping the view in place on a resize."""
@@ -334,8 +343,7 @@ class Viewer:
         self.history.clear()
         self.future.clear()
         self.shown_target = None
-        # A new callable, so ContentView lays the new document out.
-        self.content = self._content
+        self.content = self._new_content()
         body = self._body()
         if body is not None:
             body.scroll_manager.state.scroll_position = 0
@@ -351,7 +359,7 @@ class Viewer:
             self.app.state["panel"] = ""
             return
         self.app.state["panel"] = "files"
-        if self.current is not None and self.current in self.files.files:
+        if self.current is not None and self.current in self.files:
             expanded = set(self.app.state.get("files_expanded") or [])
             self.app.state["files_expanded"] = sorted(expanded | set(self.files.folder_ids(self.current)))
         self._after_render(self._mark_current)
@@ -362,7 +370,7 @@ class Viewer:
         if tree is None or self.files is None:
             return
         self.app.focus_element_by_id("files")
-        if self.current is None or self.current not in self.files.files:
+        if self.current is None or self.current not in self.files:
             return
         node_id = self.files.node_id(self.current)
         for index, info in enumerate(tree.nodes):
