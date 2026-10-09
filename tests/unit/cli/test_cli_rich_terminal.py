@@ -194,7 +194,7 @@ class TestRichFlagsMapOntoOptions:
         args = argparse.Namespace(
             rich_code_theme="dracula",
             rich_inline_code_theme="native",
-            rich_hyperlinks=False,
+            clickable_links="web",
             rich_justify="full",
             rich_no_word_wrap=True,
             _rich_theme_styles={"h1": "bold red"},
@@ -202,14 +202,24 @@ class TestRichFlagsMapOntoOptions:
         options = _terminal_renderer_options(args)
         assert options.code_theme == "dracula"
         assert options.inline_code_theme == "native"
-        assert options.hyperlinks is False
+        assert options.clickable_links == "web"
         assert options.justify == "full"
         assert options.word_wrap is False
         assert options.styles == {"h1": "bold red"}
 
+    def test_deprecated_no_rich_hyperlinks_forces_none(self):
+        args = argparse.Namespace(clickable_links="all", rich_hyperlinks=False)
+        assert _terminal_renderer_options(args).clickable_links == "none"
+
+    def test_flag(self):
+        from all2md.cli.builder import create_parser
+
+        assert create_parser().parse_args(["x.md", "--clickable-links", "web"]).clickable_links == "web"
+        assert create_parser().parse_args(["x.md"]).clickable_links == "none"
+
     def test_defaults(self):
         options = _terminal_renderer_options(argparse.Namespace())
         assert options.code_theme == "monokai"
-        assert options.hyperlinks is True
+        assert options.clickable_links == "none"
         assert options.word_wrap is True
         assert options.styles is None

@@ -35,7 +35,7 @@ CLEAR = f"{ESC}[2J"
 
 
 def _render(*children) -> str:
-    return from_ast(Document(children=list(children)), "terminal", hyperlinks=True, color_system="truecolor")
+    return from_ast(Document(children=list(children)), "terminal", clickable_links="all", color_system="truecolor")
 
 
 def _text(content: str) -> Paragraph:

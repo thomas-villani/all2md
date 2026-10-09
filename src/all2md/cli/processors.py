@@ -44,6 +44,7 @@ from all2md.cli.progress import ProgressContext, SummaryRenderer, create_progres
 from all2md.constants import NEAR_SOURCE_ATTACHMENT_DIRNAME, DocumentFormat
 from all2md.converter_registry import registry
 from all2md.exceptions import All2MdError, DependencyError
+from all2md.options.terminal import ClickableLinks
 from all2md.transforms import AddHeadingIdsTransform, GenerateTocTransform
 from all2md.transforms import transform_registry as transform_registry
 from all2md.utils.input_sources import RemoteInputOptions
@@ -1105,7 +1106,7 @@ def _get_rich_markdown_kwargs(args: argparse.Namespace) -> dict:
     Supported Rich Markdown options:
     - code_theme: Pygments theme for code blocks
     - inline_code_theme: Pygments theme for inline code
-    - hyperlinks: Enable/disable hyperlinks
+    - hyperlinks: on only for --clickable-links all (rich cannot filter by scheme)
     - justify: Text justification (left, center, right, full)
 
     Note: line_numbers and indent_guides are not directly supported by
@@ -1120,13 +1121,23 @@ def _get_rich_markdown_kwargs(args: argparse.Namespace) -> dict:
     if hasattr(args, "rich_inline_code_theme") and args.rich_inline_code_theme:
         kwargs["inline_code_theme"] = args.rich_inline_code_theme
 
-    if hasattr(args, "rich_hyperlinks"):
-        kwargs["hyperlinks"] = args.rich_hyperlinks
+    # rich's Markdown cannot pick links by scheme, so only "all" makes them clickable here.
+    kwargs["hyperlinks"] = _clickable_links(args) == "all"
 
     if hasattr(args, "rich_justify") and args.rich_justify:
         kwargs["justify"] = args.rich_justify
 
     return kwargs
+
+
+def _clickable_links(args: argparse.Namespace) -> ClickableLinks:
+    """Return the ``--clickable-links`` level; the deprecated ``--no-rich-hyperlinks`` forces "none"."""
+    if getattr(args, "rich_hyperlinks", True) is False:
+        return "none"
+    level = getattr(args, "clickable_links", None)
+    if level == "web" or level == "all":
+        return level
+    return "none"
 
 
 def _terminal_renderer_options(args: argparse.Namespace) -> Any:
@@ -1148,7 +1159,7 @@ def _terminal_renderer_options(args: argparse.Namespace) -> Any:
     return TerminalRendererOptions(
         code_theme=getattr(args, "rich_code_theme", None) or "monokai",
         inline_code_theme=getattr(args, "rich_inline_code_theme", None) or None,
-        hyperlinks=getattr(args, "rich_hyperlinks", True),
+        clickable_links=_clickable_links(args),
         justify=getattr(args, "rich_justify", None) or None,
         word_wrap=not getattr(args, "rich_no_word_wrap", False),
         styles=dict(styles) if isinstance(styles, dict) and styles else None,
