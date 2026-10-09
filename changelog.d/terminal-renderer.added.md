@@ -9,6 +9,7 @@
   `[rich]` style table keep working, with new names for the new elements (`math`,
   `footnote`, `admonition.warning`, ...). It is also an output format: `--to terminal`
   writes ANSI text, and `--terminal-renderer-color-system none` writes plain text.
-  `--extract`, `--outline`, `--slice`, the line windows and `--line-numbers` still use the
-  old path. In the `[rich]` table, a dotted element name such as `"item.bullet"` now gets
-  the `markdown.` prefix, as the configuration docs always said it did.
+  With `--line-numbers` the numbered Markdown source is printed unstyled, since the
+  numbers count its lines. In the `[rich]` table, a dotted element name such as
+  `"item.bullet"` now gets the `markdown.` prefix, as the configuration docs always said
+  it did.

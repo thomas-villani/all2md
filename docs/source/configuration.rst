@@ -459,6 +459,9 @@ on every invocation. Each command reads a table named after the command:
    * - ``all2md chunk``
      - ``[chunk]``
      - ``strategy``, ``max_tokens``, ``overlap``, ``min_tokens``, ``token_counter``
+   * - ``all2md read``
+     - ``[read]``
+     - ``keys``, ``no_outline``, ``format``, ``code_theme``, ``cache``
 
 Example:
 

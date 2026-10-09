@@ -149,6 +149,10 @@ Specialized output formats:
    * - ArXiv LaTeX
      - :doc:`all2md.renderers.arxiv_latex`
      - ArXiv submission LaTeX with figure extraction
+   * - Terminal
+     - :doc:`all2md.renderers.terminal`
+     - Styled terminal output (rich), used by ``rcat`` and ``all2md read``; options in
+       :doc:`all2md.options.terminal`
 
 Base Renderer Class
 -------------------
