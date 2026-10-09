@@ -385,6 +385,14 @@ def main(args: list[str] | None = None) -> int:
     return process_multi_file(items, parsed_args, options, format_arg, transforms)
 
 
+RCAT_HELP = """rcat FILE is all2md FILE --rich: the document drawn in the terminal.
+rcat -i FILE (--interactive) opens it in the interactive viewer instead;
+see all2md read --help for its options and keys.
+
+The options of all2md follow.
+"""
+
+
 def rcat_main(args: list[str] | None = None) -> int:
     """Console-script entry point for ``rcat`` (rich cat).
 
@@ -398,6 +406,8 @@ def rcat_main(args: list[str] | None = None) -> int:
         from all2md.cli.commands.read import handle_read_command
 
         return handle_read_command([arg for arg in argv if arg not in ("-i", "--interactive")])
+    if "-h" in argv or "--help" in argv:
+        print(RCAT_HELP)
     return main(["--rich", *argv])
 
 

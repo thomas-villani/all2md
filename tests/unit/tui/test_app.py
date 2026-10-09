@@ -342,6 +342,16 @@ class TestFiles:
         assert v.title == "README.md"
         assert "Could not read broken.md: cannot parse" in status(h)
 
+    def test_a_second_file_at_the_same_width_replaces_the_first(self, harness, folder):
+        v = browser(folder, outline=False)
+        h = harness(v)
+        open_file(h, "README.md")
+        width = v.width
+        v.open(folder / "guide" / "intro.md")
+        h.settle()
+        assert v.width == width  # the body kept its width, so only a new content callable lays it out
+        assert "intro text" in h.screen() and "readme text" not in h.screen()
+
     def test_t_without_a_tree(self, harness):
         v = viewer()
         h = harness(v)
