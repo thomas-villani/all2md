@@ -73,12 +73,24 @@ class TestReadCommand:
         assert viewer.files.files == (doc,)
         assert viewer.app.state["panel"] == "files"
 
-    def test_no_stdin_at_all_browses_the_current_folder(self, runs, monkeypatch, doc):
+    def test_no_stdin_at_all_browses_the_current_folder(self, monkeypatch, doc):
+        from all2md.tui import app
+
+        # A stub: Wijjit itself reads sys.stdin when it is built on Linux.
+        made = []
+
+        class Viewer:
+            def __init__(self, layout, title, **kwargs):
+                made.append(kwargs["files"])
+
+            def run(self):
+                pass
+
+        monkeypatch.setattr(app, "Viewer", Viewer)
         monkeypatch.setattr("sys.stdin", None)
         monkeypatch.chdir(doc.parent)
         assert handle_read_command([]) == EXIT_SUCCESS
-        (viewer,) = runs
-        assert viewer.files.files == (doc,)
+        assert made[0].files == (doc,)
 
     def test_files_with_no_folder_in_common(self, runs, monkeypatch, doc, capsys):
         from all2md.tui import files
