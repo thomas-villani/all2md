@@ -139,8 +139,8 @@
                        Renderer Showcase
   
   Inline math such as E = mc^2 pairs with bold emphasis and a
-  link to Example.[Reviewer: Consider expanding this
-  introduction.]
+  link to Example (https://example.com).[Reviewer: Consider
+  expanding this introduction.]
   
   ╭────────────────────────────────╮
   │ \int_0^1 x^2\,dx = \frac{1}{3} │
@@ -164,7 +164,8 @@
   '''
                              Probe
   
-  A footnote[1], inline E=mc^2, gone, under, code, and a link.
+  A footnote[1], inline E=mc^2, gone, under, code, and a link
+  (https://example.com).
   
    ☑ done
    ☐ todo

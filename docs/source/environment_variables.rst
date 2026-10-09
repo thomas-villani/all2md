@@ -591,9 +591,12 @@ Pattern: ALL2MD_<OPTION_NAME>
    * - ``ALL2MD_RICH_NO_WORD_WRAP``
      - ``--rich-no-word-wrap``
      - ``true`` (disables word wrapping; wrapping is on by default)
+   * - ``ALL2MD_CLICKABLE_LINKS``
+     - ``--clickable-links``
+     - ``web`` (``none`` is the default; ``all`` is unsafe for untrusted documents)
    * - ``ALL2MD_RICH_HYPERLINKS``
-     - ``--no-rich-hyperlinks``
-     - ``false``
+     - ``--no-rich-hyperlinks`` (deprecated)
+     - ``false`` (forces ``--clickable-links none``)
    * - ``ALL2MD_RICH_JUSTIFY``
      - ``--rich-justify``
      - ``full``

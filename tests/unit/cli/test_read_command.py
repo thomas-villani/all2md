@@ -44,11 +44,11 @@ class TestReadCommand:
         assert [h.text for h in viewer.layout.headings] == ["Notes"]
 
     def test_options(self, runs, doc):
-        args = [str(doc), "--keys", "vim", "--no-outline", "--no-hyperlinks", "--code-theme", "dracula"]
+        args = [str(doc), "--keys", "vim", "--no-outline", "--clickable-links", "web", "--code-theme", "dracula"]
         assert handle_read_command(args) == EXIT_SUCCESS
         (viewer,) = runs
         assert viewer.preset == "vim" and viewer.app.state["panel"] == ""
-        assert viewer.layout.options.hyperlinks is False
+        assert viewer.layout.options.clickable_links == "web"
         assert viewer.layout.options.code_theme == "dracula"
 
     def test_format_hint(self, runs, tmp_path):
@@ -89,10 +89,10 @@ class TestReadCommand:
         assert sorted(p.name for p in runs[0].files.files) == ["notes.md", "other.md"]
 
     def test_the_tree_opens_files_with_the_options(self, runs, doc):
-        assert handle_read_command([str(doc.parent), "--no-hyperlinks"]) == EXIT_SUCCESS
+        assert handle_read_command([str(doc.parent), "--clickable-links", "all"]) == EXIT_SUCCESS
         layout = runs[0].opener(doc)
         assert [h.text for h in layout.headings] == ["Notes"]
-        assert layout.options.hyperlinks is False
+        assert layout.options.clickable_links == "all"
 
     def test_a_folder_without_documents(self, runs, tmp_path, capsys):
         assert handle_read_command([str(tmp_path)]) == EXIT_FILE_ERROR

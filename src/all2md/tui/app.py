@@ -9,8 +9,9 @@ opens it in the body.
 
 Links are never opened by the viewer. A ``#fragment`` link or a footnote
 reference moves the viewer (with back and forward); anything else is shown in
-the status bar, and can be copied, but not launched. With hyperlinks on, the
-terminal's own Ctrl+click still works, since Wijjit keeps OSC 8 links.
+the status bar, and can be copied, but not launched. The terminal's own
+Ctrl+click works only on the links ``--clickable-links`` makes clickable (none
+by default); Wijjit keeps those OSC 8 links.
 """
 
 from __future__ import annotations

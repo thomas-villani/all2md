@@ -10,6 +10,11 @@ dialect: footnotes, math, task lists, definition lists, admonitions and
 underline came out as raw source, and Markdown escapes inside math were eaten.
 Rendering from the AST keeps every node what it is.
 
+Links are not clickable unless ``clickable_links`` says so (``web`` for http
+and https, ``all`` for every scheme), and an external link's target is always
+printed after its text, because a document is untrusted and its link text can
+name a different site than its target.
+
 Style names follow ``rich.markdown`` (``markdown.h1``, ``markdown.code``, ...),
 so a ``[rich]`` theme written for the old path still applies; the nodes rich's
 Markdown never had get names in the same family (``markdown.math``,
@@ -226,6 +231,70 @@ class TerminalLayout:
 _HEADING_KEY = "all2md.heading"
 _LINK_KEY = "all2md.link"
 _FOOTNOTE_KEY = "all2md.footnote"
+
+#: Schemes ``clickable_links="web"`` lets the terminal open.
+WEB_SCHEMES = frozenset({"http", "https"})
+
+#: Longest link target printed in full; longer ones lose the middle of their path.
+SHOWN_URL_LIMIT = 60
+
+
+def link_scheme(url: str) -> str:
+    """Return a URL's scheme in lower case, or "" for a relative link or a Windows drive path."""
+    from urllib.parse import urlsplit
+
+    try:
+        scheme = urlsplit(url.strip()).scheme.lower()
+    except ValueError:
+        return ""
+    return scheme if len(scheme) > 1 else ""
+
+
+def is_clickable(url: str, level: str) -> bool:
+    """Return whether ``clickable_links=level`` lets the terminal open ``url``."""
+    scheme = link_scheme(url)
+    if level == "none" or not scheme or scheme == "data":
+        return False
+    return level == "all" or scheme in WEB_SCHEMES
+
+
+def shorten_url(url: str, limit: int = SHOWN_URL_LIMIT) -> str:
+    """Shorten ``url`` to about ``limit`` characters, keeping its scheme and whole host.
+
+    The host is what says where a link goes, so only the rest is shortened, in
+    the middle, with an ellipsis.
+    """
+    from urllib.parse import urlsplit
+
+    if len(url) <= limit:
+        return url
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        parts = None
+    head = f"{parts.scheme}://{parts.netloc}" if parts is not None and parts.netloc else ""
+    if not url.startswith(head):
+        head = ""
+    rest = url[len(head) :]
+    budget = max(limit - len(head) - 1, 16)
+    if len(rest) <= budget + 1:
+        return url
+    end = budget // 2
+    return head + rest[: budget - end] + "…" + rest[len(rest) - end :]
+
+
+def _text_is_target(text: str, url: str) -> bool:
+    """Return whether a link's text already says its target (``example.com`` for ``https://example.com/``)."""
+    text = text.strip().rstrip("/")
+    target = url.strip().rstrip("/")
+    if text == target:
+        return True
+    scheme = link_scheme(target)
+    if scheme == "mailto":
+        return text == target[len("mailto:") :]
+    if scheme and target.startswith(scheme + "://"):
+        return text == target[len(scheme) + 3 :]
+    return False
 
 
 def _iter_nodes(node: Any) -> Iterator[Node]:
@@ -937,7 +1006,7 @@ class TerminalRenderer(BaseRenderer):
         elif isinstance(node, Image):
             label = f"[image: {node.alt_text}]" if node.alt_text else "[image]"
             text.append(label, "markdown.image")
-            if self.options.hyperlinks and node.url and not node.url.startswith("data:"):
+            if node.url and is_clickable(node.url, self.options.clickable_links):
                 text.stylize(Style(link=node.url), len(text) - len(label), len(text))
         elif isinstance(node, LineBreak):
             text.append(" " if node.soft else "\n")
@@ -979,14 +1048,14 @@ class TerminalRenderer(BaseRenderer):
         if node.url:
             self._tag(text, start, _LINK_KEY, len(self._links))
             self._links.append((node.url, False))
-        if self.options.hyperlinks:
-            text.stylize("markdown.link", start, len(text))
-            text.stylize(Style(link=node.url), start, len(text))
-            return
         text.stylize("markdown.link", start, len(text))
-        if node.url and text.plain[start:] != node.url:
+        if not node.url or node.url.startswith("#"):
+            return  # in the document: the viewer follows it, and there is nothing to show
+        if is_clickable(node.url, self.options.clickable_links):
+            text.stylize(Style(link=node.url), start, len(text))
+        if not _text_is_target(text.plain[start:], node.url):
             text.append(" (")
-            text.append(node.url, "markdown.link_url")
+            text.append(shorten_url(node.url), "markdown.link_url")
             text.append(")")
 
     def _script(self, node: Union[Superscript, Subscript], text: "RichText") -> None:

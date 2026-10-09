@@ -17,6 +17,15 @@ from all2md.options.base import BaseRendererOptions
 TerminalColorSystem = Literal["auto", "standard", "256", "truecolor", "windows", "none"]
 TerminalJustify = Literal["left", "center", "right", "full"]
 TerminalCommentMode = Literal["visible", "ignore"]
+ClickableLinks = Literal["none", "web", "all"]
+
+#: Help for the ``--clickable-links`` flag of ``all2md`` (``rcat``) and ``all2md read``.
+CLICKABLE_LINKS_HELP = (
+    "Which links a click in the terminal may open (OSC 8 hyperlinks): 'none' (default), 'web' (http and "
+    "https only) or 'all'. 'all' includes file: links and the handlers installed applications register "
+    "(ms-msdt:, vscode:, ...), so a click on a link in a document you did not write can start a program; "
+    "use it only for documents you trust. External link targets are shown after their text either way."
+)
 
 
 @dataclass(frozen=True)
@@ -33,9 +42,17 @@ class TerminalRendererOptions(BaseRendererOptions):
     inline_code_theme : str or None, default None
         Pygments theme for inline code. ``None`` styles inline code with the
         ``markdown.code`` style instead of highlighting it.
-    hyperlinks : bool, default True
-        Make links clickable (OSC 8). When off, a link's URL follows its text in
-        parentheses unless the two are the same.
+    clickable_links : {"none", "web", "all"}, default "none"
+        Which links the terminal may open on a click (OSC 8 hyperlinks). A
+        document is untrusted, and a click hands the target to whatever program
+        the operating system registers for its scheme, so by default no link is
+        clickable. ``web`` makes ``http`` and ``https`` links clickable. ``all``
+        makes every scheme clickable, including ``file:`` and the handlers
+        installed applications register (``ms-msdt:``, ``vscode:``, ...), which
+        is unsafe for documents you did not write. Whatever the setting, an
+        external link's target is shown after its text (shortened in the middle,
+        never in the host) unless the text already is the target, so the text of
+        ``[bank.example](https://evil.example)`` cannot pass for its target.
     justify : {"left", "center", "right", "full"} or None, default None
         Justification for paragraphs. ``None`` is left.
     word_wrap : bool, default True
@@ -71,9 +88,13 @@ class TerminalRendererOptions(BaseRendererOptions):
             "importance": "advanced",
         },
     )
-    hyperlinks: bool = field(
-        default=True,
-        metadata={"help": "Clickable links (OSC 8)", "cli_name": "no-hyperlinks", "importance": "advanced"},
+    clickable_links: ClickableLinks = field(
+        default="none",
+        metadata={
+            "help": "Links a click in the terminal may open: none, web (http/https) or all schemes (unsafe)",
+            "choices": ["none", "web", "all"],
+            "importance": "advanced",
+        },
     )
     justify: TerminalJustify | None = field(
         default=None,

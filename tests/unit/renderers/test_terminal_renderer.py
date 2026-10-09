@@ -46,7 +46,7 @@ from all2md.ast.nodes import (
 )
 from all2md.converter_registry import registry
 from all2md.options.terminal import TerminalRendererOptions
-from all2md.renderers.terminal import HeadingPosition, TerminalRenderer, _iter_nodes
+from all2md.renderers.terminal import HeadingPosition, TerminalRenderer, _iter_nodes, shorten_url
 
 NL = chr(10)
 BACKSLASH = chr(92)
@@ -180,19 +180,71 @@ class TestInlines:
         )
         assert plain(doc) == "x^k y^(abc)"
 
-    def test_link_without_hyperlinks_shows_the_url(self):
+    @pytest.mark.parametrize("level", ["none", "web", "all"])
+    def test_link_shows_its_target_whether_clickable_or_not(self, level):
         link = Link(url="https://example.com", content=[Text(content="site")])
-        assert plain(Document(children=[para(link)]), hyperlinks=False) == "site (https://example.com)"
+        assert plain(Document(children=[para(link)]), clickable_links=level) == "site (https://example.com)"
 
-    def test_link_whose_text_is_the_url_is_not_repeated(self):
-        link = Link(url="https://example.com", content=[Text(content="https://example.com")])
-        assert plain(Document(children=[para(link)]), hyperlinks=False) == "https://example.com"
+    @pytest.mark.parametrize(
+        "text, url",
+        [
+            ("https://example.com", "https://example.com"),
+            ("example.com", "https://example.com/"),
+            ("a@example.com", "mailto:a@example.com"),
+        ],
+    )
+    def test_link_whose_text_is_the_target_is_not_repeated(self, text, url):
+        link = Link(url=url, content=[Text(content=text)])
+        assert plain(Document(children=[para(link)])) == text
 
-    def test_link_with_hyperlinks_is_osc8(self):
+    def test_link_text_naming_another_site_shows_the_real_target(self):
+        link = Link(url="https://evil.example/login", content=[Text(content="bank.example")])
+        assert (
+            plain(Document(children=[para(link)]), clickable_links="all") == "bank.example (https://evil.example/login)"
+        )
+
+    def test_in_document_link_shows_no_target(self):
+        link = Link(url="#setup", content=[Text(content="Setup")])
+        assert plain(Document(children=[para(link)])) == "Setup"
+        assert ESC + "]8;" not in colored(Document(children=[para(link)]), clickable_links="all")
+
+    def test_links_are_not_clickable_by_default(self):
         link = Link(url="https://example.com", content=[Text(content="site")])
-        output = colored(Document(children=[para(link)]))
-        assert ESC + "]8;" in output
-        assert "https://example.com" in output
+        assert ESC + "]8;" not in colored(Document(children=[para(link)]))
+
+    @pytest.mark.parametrize(
+        "url, web, all_",
+        [
+            ("https://example.com", True, True),
+            ("HTTP://example.com", True, True),
+            ("mailto:a@example.com", False, True),
+            ("file:///C:/Windows/System32/calc.exe", False, True),
+            ("ms-msdt:/id PCWDiagnostic", False, True),
+            ("javascript:alert(1)", False, True),
+            ("../other.md", False, False),
+            ("C:" + chr(92) + "Users" + chr(92) + "x.md", False, False),
+        ],
+    )
+    def test_clickable_by_level(self, url, web, all_):
+        doc = Document(children=[para(Link(url=url, content=[Text(content="x")]))])
+        assert (ESC + "]8;" in colored(doc, clickable_links="web")) is web
+        assert (ESC + "]8;" in colored(doc, clickable_links="all")) is all_
+
+    def test_image_follows_the_same_rule(self):
+        doc = Document(children=[para(Image(url="file:///etc/passwd", alt_text="cat"))])
+        assert ESC + "]8;" not in colored(doc, clickable_links="web")
+        assert ESC + "]8;" in colored(doc, clickable_links="all")
+        assert ESC + "]8;" not in colored(
+            Document(children=[para(Image(url="data:image/png;base64,AA"))]), clickable_links="all"
+        )
+
+    def test_a_long_target_is_shortened_in_the_middle_never_in_the_host(self):
+        host = "https://bank.example.com.attacker.example"
+        url = host + "/" + "a" * 80 + "/login"
+        shown = shorten_url(url)
+        assert shown.startswith(host + "/") and shown.endswith("/login") and "…" in shown
+        assert len(shown) < len(url)
+        assert shorten_url("https://example.com/short") == "https://example.com/short"
 
     def test_image_placeholder(self):
         image = Image(url="cat.png", alt_text="A cat")

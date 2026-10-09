@@ -10095,13 +10095,14 @@ Configuration options for AST to terminal (ANSI) rendering.
    :Default: ``None``
    :Importance: advanced
 
-**hyperlinks**
+**clickable_links**
 
-   Clickable links (OSC 8)
+   Links a click in the terminal may open: none, web (http/https) or all schemes (unsafe)
 
-   :Type: ``bool``
-   :CLI flag: ``--terminal-renderer-no-hyperlinks``
-   :Default: ``True``
+   :Type: ``Literal['none', 'web', 'all']``
+   :CLI flag: ``--terminal-renderer-clickable-links``
+   :Default: ``'none'``
+   :Choices: ``none``, ``web``, ``all``
    :Importance: advanced
 
 **justify**
