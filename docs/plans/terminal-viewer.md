@@ -242,6 +242,15 @@ on Windows). Open: the U+FE0F question above.
 in the viewer; a key goes back to the tree, which marks the file you came from. The
 viewer still shows one document at a time; the tree is how you pick it.
 
+*Built (2026-10-08).* The tree is a fourth side panel, beside the outline, the links and
+the keys, so the document stays in view while you pick the next one; `t` shows it, with
+the open file highlighted and its folders open. Several files, or a pattern the shell has
+already expanded, root the tree at the folder that holds them all. The walk skips hidden
+and tool folders and does not enter symlinked ones. Wijjit has no hook after a render and
+rebuilds a tree that reappears without its highlight, so the viewer calls Wijjit's
+internal `_render` before marking the file
+([wijjit#94](https://github.com/thomas-villani/wijjit/issues/94) asks for a public way).
+
 **Links (decided 2026-10-06).** Links are a malware vector, so the viewer never opens one
 by itself.
 

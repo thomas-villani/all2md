@@ -5,8 +5,10 @@
 
 The document is parsed once and shown in a scrolling viewer with an outline,
 a list of the links on screen and a status bar. In-document links and footnote
-references move the viewer; other links are shown, never opened. Needs the
-``tui`` extra (Wijjit, Python 3.11+); ``rcat`` without ``-i`` works without it.
+references move the viewer; other links are shown, never opened. Given a
+folder, a glob pattern or several files (or nothing, on a terminal), the viewer
+opens on a tree of the documents there instead. Needs the ``tui`` extra
+(Wijjit, Python 3.11+); ``rcat`` without ``-i`` works without it.
 """
 
 from __future__ import annotations
@@ -15,6 +17,7 @@ import argparse
 import os
 import sys
 from pathlib import Path
+from typing import Any, Union
 
 from all2md.cli.builder import EXIT_DEPENDENCY_ERROR, EXIT_ERROR, EXIT_FILE_ERROR, EXIT_SUCCESS
 from all2md.cli.commands.shared import add_cache_arguments, conversion_cache_from_args
@@ -34,9 +37,17 @@ def _create_read_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="all2md read",
         description="Read a document in an interactive terminal viewer, with an outline and a list of its "
-        "links. Links inside the document move the viewer; other links are shown, never opened.",
+        "links, or choose one from a tree of a folder's documents. Links inside the document move the viewer; "
+        "other links are shown, never opened.",
+        epilog=_keys_epilog(),
+        formatter_class=_KeysHelpFormatter,
     )
-    parser.add_argument("input", nargs="?", help="File to read (use '-' for stdin)")
+    parser.add_argument(
+        "input",
+        nargs="*",
+        help="File to read ('-' for stdin), or folders, glob patterns or several files to choose from in a "
+        "file tree (default: the current folder)",
+    )
     parser.add_argument(
         "--keys",
         choices=sorted(PRESETS),
@@ -50,7 +61,7 @@ def _create_read_parser() -> argparse.ArgumentParser:
         "--input-type",
         dest="format",
         default="auto",
-        help="Input format, when detection needs help (default: auto)",
+        help="Input format, when detection needs help; applies to every file opened (default: auto)",
     )
     parser.add_argument("--code-theme", default=None, help="Pygments theme for code blocks (default: monokai)")
     parser.add_argument(
@@ -66,6 +77,27 @@ def _create_read_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-config", action="store_true", help="Disable configuration file loading for this command.")
     add_cache_arguments(parser)
     return parser
+
+
+class _KeysHelpFormatter(argparse.HelpFormatter):
+    """Wrap the description as usual, but print the key table in the epilog as written."""
+
+    def _fill_text(self, text: str, width: int, indent: str) -> str:
+        if text.startswith("keys:"):
+            return text
+        return super()._fill_text(text, width, indent)
+
+
+def _keys_epilog() -> str:
+    """Return the key table for ``--help``: the default keys, then what ``--keys vim`` adds."""
+    from all2md.tui.keys import help_rows
+
+    def table(rows: list[tuple[str, str]]) -> list[str]:
+        width = max(len(keys) for keys, _ in rows)
+        return [f"  {keys.ljust(width)}  {description}" for keys, description in rows]
+
+    lines = ["keys:", *table(help_rows("default")), "", "--keys vim adds:", *table(help_rows("vim", only_new=True))]
+    return chr(10).join(lines)
 
 
 def handle_read_command(args: list[str] | None = None) -> int:
@@ -99,20 +131,18 @@ def handle_read_command(args: list[str] | None = None) -> int:
             print(INSTALL_HINT, file=sys.stderr)
         return EXIT_DEPENDENCY_ERROR
 
-    source = parsed.input
-    if source is None:
-        if sys.stdin.isatty():
-            print("Error: give a file to read (or '-' for stdin)", file=sys.stderr)
-            return EXIT_ERROR
-        source = "-"
+    from all2md.tui.app import Viewer
 
-    if source == "-":
+    sources: list[str] = list(parsed.input)
+    if not sources and not sys.stdin.isatty():
+        sources = ["-"]
+    viewer_args: dict[str, Any] = {"preset": parsed.keys, "outline": not parsed.no_outline}
+
+    if sources == ["-"]:
         data = sys.stdin.buffer.read()
         if not data:
             print("Error: No data received from stdin", file=sys.stderr)
             return EXIT_FILE_ERROR
-        input_source: bytes | str = data
-        title = "stdin"
         if not reattach_terminal_input():
             print(
                 "Error: cannot read the keyboard after reading the document from stdin; "
@@ -120,37 +150,63 @@ def handle_read_command(args: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
             return EXIT_ERROR
-    else:
-        path = Path(source)
-        if not path.is_file():
-            print(f"Error: Input file not found: {source}", file=sys.stderr)
-            return EXIT_FILE_ERROR
-        input_source = source
-        title = path.name
+        try:
+            layout = _lay_out(data, parsed)
+        except Exception as e:  # the converters raise their own All2MdError subclasses
+            print(f"Error: {e}", file=sys.stderr)
+            return EXIT_ERROR
+        Viewer(layout, "stdin", **viewer_args).run()
+        return EXIT_SUCCESS
 
+    if "-" in sources:
+        print("Error: '-' (stdin) cannot be read together with other inputs", file=sys.stderr)
+        return EXIT_ERROR
+
+    if len(sources) == 1 and Path(sources[0]).is_file():
+        try:
+            layout = _lay_out(sources[0], parsed)
+        except Exception as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return EXIT_ERROR
+        Viewer(layout, Path(sources[0]).name, **viewer_args).run()
+        return EXIT_SUCCESS
+
+    from all2md.tui.files import collect
+
+    try:
+        files = collect(sources)
+    except FileNotFoundError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return EXIT_FILE_ERROR
+    if not files.files:
+        print(f"Error: no documents all2md can read were found in {', '.join(sources) or '.'}", file=sys.stderr)
+        return EXIT_FILE_ERROR
+    title = files.root.name or str(files.root)
+    Viewer(None, title, files=files, opener=lambda path: _lay_out(str(path), parsed), **viewer_args).run()
+    return EXIT_SUCCESS
+
+
+def _lay_out(source: Union[bytes, str], parsed: argparse.Namespace) -> Any:
+    """Parse ``source`` (a path or stdin's bytes) and return its ``DocumentLayout``.
+
+    Raises whatever the parser raises.
+    """
     from all2md import to_ast
     from all2md.cli.processors import load_converter_config_options, prepare_options_for_execution
     from all2md.options.terminal import TerminalRendererOptions
-    from all2md.tui.app import Viewer
     from all2md.tui.layout import DocumentLayout
 
     converter_options = load_converter_config_options(explicit_path=parsed.config, no_config=parsed.no_config)
-    try:
-        opts_path = None if isinstance(input_source, bytes) else Path(input_source)
-        to_ast_kwargs = prepare_options_for_execution(converter_options, opts_path, parsed.format)
-        if parsed.format != "auto":
-            to_ast_kwargs["source_format"] = parsed.format
-        with conversion_cache_from_args(parsed):
-            doc = to_ast(input_source, **to_ast_kwargs)
-    except Exception as e:  # the converters raise their own All2MdError subclasses
-        print(f"Error: {e}", file=sys.stderr)
-        return EXIT_ERROR
-
+    opts_path = None if isinstance(source, bytes) else Path(source)
+    to_ast_kwargs = prepare_options_for_execution(converter_options, opts_path, parsed.format)
+    if parsed.format != "auto":
+        to_ast_kwargs["source_format"] = parsed.format
+    with conversion_cache_from_args(parsed):
+        doc = to_ast(source, **to_ast_kwargs)
     options = TerminalRendererOptions(hyperlinks=not parsed.no_hyperlinks)
     if parsed.code_theme:
         options = options.create_updated(code_theme=parsed.code_theme)
-    Viewer(DocumentLayout(doc, options), title, preset=parsed.keys, outline=not parsed.no_outline).run()
-    return EXIT_SUCCESS
+    return DocumentLayout(doc, options)
 
 
 def reattach_terminal_input() -> bool:

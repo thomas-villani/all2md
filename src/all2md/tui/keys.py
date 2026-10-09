@@ -33,6 +33,7 @@ class Action(str, Enum):
     PREVIOUS_HEADING = "previous_heading"
     TOGGLE_OUTLINE = "toggle_outline"
     LINKS = "links"
+    FILES = "files"
     BACK = "back"
     FORWARD = "forward"
     COPY_LINK = "copy_link"
@@ -55,6 +56,7 @@ DESCRIPTIONS: Mapping[Action, str] = MappingProxyType(
         Action.PREVIOUS_HEADING: "Go to the previous heading",
         Action.TOGGLE_OUTLINE: "Show or hide the outline",
         Action.LINKS: "List the links on screen",
+        Action.FILES: "Show the file tree (when reading a folder)",
         Action.BACK: "Go back to where a link was followed from",
         Action.FORWARD: "Go forward again",
         Action.COPY_LINK: "Copy the link last shown in the status bar",
@@ -75,6 +77,7 @@ _DEFAULT: dict[str, Action] = {
     "[": Action.PREVIOUS_HEADING,
     "o": Action.TOGGLE_OUTLINE,
     "l": Action.LINKS,
+    "t": Action.FILES,
     # As in Lynx. Wijjit has no Alt+arrow keys: Alt+Left arrives as Escape, then Left.
     "left": Action.BACK,
     "backspace": Action.BACK,
@@ -151,3 +154,46 @@ def bindings(preset: str = "default") -> list[tuple[Action, list[str]]]:
     for key, action in keymap(preset).items():
         keys.setdefault(action, []).append(key)
     return [(action, keys[action]) for action in Action if action in keys]
+
+
+#: Keys Wijjit handles itself, listed after the preset's.
+FIXED_KEYS: tuple[tuple[str, str], ...] = (
+    ("Tab", "Move between the panel and the body"),
+    ("Ctrl+Q", "Quit"),
+)
+
+
+def help_rows(preset: str = "default", only_new: bool = False) -> list[tuple[str, str]]:
+    """Return the help screen's rows: the keys, spelled for people, and what they do.
+
+    Parameters
+    ----------
+    preset : str, default "default"
+        A name from ``PRESETS``.
+    only_new : bool, default False
+        Only the keys ``preset`` adds to ``default`` (and no fixed keys).
+
+    Returns
+    -------
+    list of (str, str)
+
+    """
+    default = keymap("default")
+    rows = []
+    for action, keys in bindings(preset):
+        if only_new:
+            keys = [key for key in keys if default.get(key) is not action]
+        if keys:
+            rows.append((", ".join(key_name(key) for key in keys), DESCRIPTIONS[action]))
+    return rows if only_new else rows + list(FIXED_KEYS)
+
+
+def key_name(key: str) -> str:
+    """Spell a Wijjit key name the way a help screen does (``ctrl+d`` -> ``Ctrl+D``)."""
+    named = {"pagedown": "PgDn", "pageup": "PgUp", "space": "Space", "backspace": "Backspace"}
+    if key in named:
+        return named[key]
+    if "+" in key:
+        modifier, _, rest = key.partition("+")
+        return f"{modifier.capitalize()}+{rest.upper() if len(rest) == 1 else rest.capitalize()}"
+    return key.capitalize() if len(key) > 1 else key

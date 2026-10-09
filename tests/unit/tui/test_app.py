@@ -13,8 +13,8 @@ from wijjit.testing import WijjitHarness  # noqa: E402
 
 from all2md import to_ast  # noqa: E402
 from all2md.options.terminal import TerminalRendererOptions  # noqa: E402
-from all2md.tui.app import Viewer, _key_name  # noqa: E402
-from all2md.tui.keys import Action  # noqa: E402
+from all2md.tui.app import Viewer  # noqa: E402
+from all2md.tui.keys import Action, key_name  # noqa: E402
 from all2md.tui.layout import DocumentLayout  # noqa: E402
 
 NL = chr(10)
@@ -96,6 +96,13 @@ class TestLayout:
     def test_no_outline_when_asked_or_without_headings(self, harness):
         assert "Outline" not in harness(viewer(outline=False)).screen()
         assert "Outline" not in harness(viewer("just text" + NL)).screen()
+
+    def test_status_bar_names_the_help_key(self, harness):
+        v = viewer()
+        h = harness(v)
+        assert "doc.md  (? keys)" in status(h)
+        h.press("?").settle()
+        assert "(? keys)" not in status(h)
 
     def test_help_lists_the_keys(self, harness):
         v = viewer()
@@ -253,7 +260,7 @@ class TestQuit:
     [("pagedown", "PgDn"), ("ctrl+d", "Ctrl+D"), ("space", "Space"), ("left", "Left"), ("g", "g"), ("G", "G")],
 )
 def test_key_names(key, name):
-    assert _key_name(key) == name
+    assert key_name(key) == name
 
 
 @pytest.mark.unit
@@ -262,3 +269,81 @@ def test_copy_link_is_bound_in_every_preset():
 
     for preset in PRESETS.values():
         assert Action.COPY_LINK in preset.values()
+
+
+@pytest.fixture
+def folder(tmp_path):
+    (tmp_path / "guide").mkdir()
+    (tmp_path / "guide" / "intro.md").write_text("# Intro" + NL * 2 + "intro text" + NL, encoding="utf-8")
+    (tmp_path / "guide" / "broken.md").write_text("# Broken" + NL, encoding="utf-8")
+    (tmp_path / "README.md").write_text("# Readme" + NL * 2 + "readme text" + NL, encoding="utf-8")
+    return tmp_path
+
+
+def browser(folder, **kwargs) -> Viewer:
+    from all2md.tui.files import collect
+
+    def opener(path):
+        if path.name == "broken.md":
+            raise ValueError("cannot parse")
+        doc = to_ast(path.read_bytes(), source_format="markdown")
+        return DocumentLayout(doc, TerminalRendererOptions(color_system="none"))
+
+    return Viewer(None, folder.name, files=collect([str(folder)]), opener=opener, **kwargs)
+
+
+def open_file(h: WijjitHarness, name: str) -> None:
+    x, y = locate(h, name)
+    h.click(x, y).settle()
+    h.press("enter").settle()
+
+
+@pytest.mark.unit
+class TestFiles:
+    def test_starts_in_the_file_tree(self, harness, folder):
+        v = browser(folder)
+        h = harness(v)
+        h.assert_no_errors()
+        screen = h.screen()
+        assert folder.name in screen and "guide/" in screen and "intro.md" in screen and "README.md" in screen
+        assert "Choose a document" in screen
+        assert v.app.focus_manager.get_focused_element().id == "files"
+
+    def test_choosing_a_file_opens_it(self, harness, folder):
+        v = browser(folder)
+        h = harness(v)
+        open_file(h, "intro.md")
+        h.assert_no_errors()
+        assert v.title == "intro.md" and v.current == folder / "guide" / "intro.md"
+        assert "intro text" in h.screen()
+        assert v.app.state["panel"] == "outline"
+
+    def test_t_goes_back_to_the_tree_at_the_open_file(self, harness, folder):
+        v = browser(folder)
+        h = harness(v)
+        open_file(h, "README.md")
+        h.press("t").settle()
+        tree = v.app.get_element_by_id("files")
+        assert v.app.focus_manager.get_focused_element() is tree
+        assert tree.nodes[tree.highlighted_index]["node"]["id"] == "f:README.md"
+        open_file(h, "intro.md")
+        assert "intro text" in h.screen()
+        h.press("t").settle()
+        h.press("t").settle()
+        assert v.app.state["panel"] == ""
+
+    def test_a_file_that_fails_keeps_the_current_one(self, harness, folder):
+        v = browser(folder)
+        h = harness(v)
+        open_file(h, "README.md")
+        h.press("t").settle()
+        open_file(h, "broken.md")
+        h.assert_no_errors()
+        assert v.title == "README.md"
+        assert "Could not read broken.md: cannot parse" in status(h)
+
+    def test_t_without_a_tree(self, harness):
+        v = viewer()
+        h = harness(v)
+        h.press("t").settle()
+        assert "No file tree" in status(h)

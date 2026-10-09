@@ -3,7 +3,9 @@
 ``Viewer`` turns a ``DocumentLayout`` into a Wijjit app: the document in a
 scrolling body, a side panel that shows the outline, the links on screen or
 the keys, and a status bar with the file, the current section and the
-position. Keys come from ``keys.py``; nothing here hard-codes one.
+position. Keys come from ``keys.py``; nothing here hard-codes one. Given a
+``FileTree``, the panel also shows the files of a folder, and choosing one
+opens it in the body.
 
 Links are never opened by the viewer. A ``#fragment`` link or a footnote
 reference moves the viewer (with back and forward); anything else is shown in
@@ -13,17 +15,22 @@ terminal's own Ctrl+click still works, since Wijjit keeps OSC 8 links.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Callable, Optional
 
 from all2md.renderers.terminal import LinkPosition
-from all2md.tui.keys import DESCRIPTIONS, Action, bindings, keymap
+from all2md.tui.files import FileTree
+from all2md.tui.keys import Action, help_rows, key_name, keymap
 from all2md.tui.layout import DocumentLayout, OutlineEntry
 
 #: Keys a focused tree uses for itself; the viewer leaves them to it.
 TREE_KEYS = frozenset({"up", "down", "left", "right", "pageup", "pagedown", "home", "end", "space", "enter"})
 
 #: The side panel's choices.
-PANELS = ("outline", "links", "help")
+PANELS = ("outline", "links", "help", "files")
+
+#: Trees with at most this many files open with every folder open.
+OPEN_FOLDERS_UP_TO = 300
 
 _TEMPLATE = """
 {% vstack width="fill" height="fill" %}
@@ -34,6 +41,10 @@ _TEMPLATE = """
     {% elif panel == "links" %}
     {% tree id="links" data=link_data width=panel_width height="fill" show_root=false bind=false
        enter_selects=true on_select="link_select" border="single" title="Links on screen" %}{% endtree %}
+    {% elif panel == "files" %}
+    {% tree id="files" data=files_data width=files_width height="fill" show_root=false bind=false
+       expanded="files_expanded" on_select="file_select" border="single" title=files_title
+       autofocus=true %}{% endtree %}
     {% elif panel == "help" %}
     {% contentview id="help" content=help_text content_type="plain" width=panel_width height="fill"
        bind=false border="single" title="Keys" %}{% endcontentview %}
@@ -41,7 +52,7 @@ _TEMPLATE = """
     {% contentview id="body" content=content content_type="ansi" width="fill" height="fill"
        bind=false action="body_click" border="single" title=title %}{% endcontentview %}
   {% endhstack %}
-  {% statusbar id="status" left=title center=center right=position bind=false %}{% endstatusbar %}
+  {% statusbar id="status" left=status_left center=center right=position bind=false %}{% endstatusbar %}
 {% endvstack %}
 """
 
@@ -54,12 +65,12 @@ def wijjit_available() -> bool:
 
 
 class Viewer:
-    """A Wijjit app showing one document.
+    """A Wijjit app showing one document at a time.
 
     Parameters
     ----------
-    layout : DocumentLayout
-        The document to show.
+    layout : DocumentLayout or None
+        The document to show; None to start in the file tree.
     title : str
         Shown in the body's border and the status bar; usually the file name.
     preset : str, default "default"
@@ -68,22 +79,33 @@ class Viewer:
         Open with the outline panel showing (when the document has headings).
     panel_width : int, default 32
         Width of the side panel in columns.
+    files : FileTree, optional
+        Documents to choose from in the ``files`` panel.
+    opener : callable, optional
+        Lays out a file chosen there; what it raises is shown in the status bar.
 
     """
 
     def __init__(
         self,
-        layout: DocumentLayout,
+        layout: Optional[DocumentLayout],
         title: str,
         preset: str = "default",
         outline: bool = True,
         panel_width: int = 32,
+        files: Optional[FileTree] = None,
+        opener: Optional[Callable[[Path], DocumentLayout]] = None,
     ) -> None:
         """Build the app; ``run()`` starts it."""
         from wijjit import Wijjit
         from wijjit.core.events import EventType
 
-        self.layout = layout
+        self.files = files
+        self.opener = opener
+        # The file open from the tree, which the tree marks when it is shown again.
+        self.current: Optional[Path] = None
+        self.show_outline = outline
+        self.layout = layout if layout is not None else _placeholder(files)
         self.title = title
         self.keys = keymap(preset)
         self.preset = preset
@@ -98,13 +120,20 @@ class Viewer:
         # The same callable on every render, so ContentView lays out only on a new width.
         self.content = self._content
 
-        panel = "outline" if outline and layout.outline else ""
-        self.app: Wijjit = Wijjit(initial_state={"panel": panel, "message": ""})
+        if layout is None and files is not None:
+            panel = "files"
+        else:
+            panel = "outline" if outline and self.layout.outline else ""
+        expanded = ["root"]
+        if files is not None and len(files.files) <= OPEN_FOLDERS_UP_TO:
+            expanded += files.folder_ids()
+        self.app: Wijjit = Wijjit(initial_state={"panel": panel, "message": "", "files_expanded": expanded})
         self.app.view("main", default=True)(self._view)
         self.app.on(EventType.KEY)(self._on_key)
         self.app.on_action("outline_select")(self._on_outline_select)
         self.app.on_action("link_select")(self._on_link_select)
         self.app.on_action("body_click")(self._on_body_click)
+        self.app.on_action("file_select")(self._on_file_select)
 
     def run(self) -> None:
         """Run the viewer until it quits."""
@@ -139,13 +168,23 @@ class Viewer:
             panel_width=self.panel_width,
             content=self.content,
             title=self.title,
+            status_left=self._status_left(),
             outline_data=_root(_outline_nodes(self.layout.outline)) if panel == "outline" else _root([]),
             expanded=["root"] + [f"h{entry.index}" for entry in self.layout.outline],
             link_data=_root(self._link_nodes(top, height) if panel == "links" else []),
             help_text=self._help_text() if panel == "help" else "",
+            files_data=_root(self.files.nodes() if panel == "files" and self.files is not None else []),
+            files_width=self.panel_width + 8,
+            files_title=self._files_title(),
             center=state.get("message") or self._section(top),
             position=self._position(top, height),
         )
+
+    def _files_title(self) -> str:
+        if self.files is None:
+            return ""
+        more = f" (first {len(self.files.files)})" if self.files.truncated else ""
+        return f"{self.files.root.name or self.files.root}{more}"
 
     def _section(self, top: int) -> str:
         if self.width is None:
@@ -177,11 +216,16 @@ class Viewer:
 
     def _help_text(self) -> str:
         rows = []
-        for action, keys in bindings(self.preset):
-            rows.append(f"{', '.join(_key_name(key) for key in keys)}")
-            rows.append(f"  {DESCRIPTIONS[action]}")
-        rows += ["Tab", "  Move between the panel and the body", "Ctrl+Q", "  Quit"]
+        for keys, description in help_rows(self.preset):
+            rows += [keys, f"  {description}"]
         return chr(10).join(rows)
+
+    def _status_left(self) -> str:
+        """Return the title, with the key that shows the keys while the help panel is closed."""
+        help_keys = [key for key, action in self.keys.items() if action is Action.HELP]
+        if not help_keys or self.app.state.get("panel") == "help":
+            return self.title
+        return f"{self.title}  ({key_name(help_keys[0])} keys)"
 
     # ------------------------------------------------------------------
     # Moving around
@@ -222,7 +266,7 @@ class Viewer:
             return
         self.shown_target = position.target
         copy_keys = [key for key, action in self.keys.items() if action is Action.COPY_LINK]
-        hint = f"  ({_key_name(copy_keys[0])} copies it)" if copy_keys else ""
+        hint = f"  ({key_name(copy_keys[0])} copies it)" if copy_keys else ""
         self.app.state["message"] = f"Not opened: {position.target}{hint}"
 
     # ------------------------------------------------------------------
@@ -234,7 +278,7 @@ class Viewer:
         if action is None:
             return
         focused = self.app.focus_manager.get_focused_element()
-        if getattr(focused, "id", None) in ("outline", "links") and event.key in TREE_KEYS:
+        if getattr(focused, "id", None) in ("outline", "links", "files") and event.key in TREE_KEYS:
             return
         event.cancel()
         self.app.state["message"] = ""
@@ -260,6 +304,8 @@ class Viewer:
         elif action in (Action.TOGGLE_OUTLINE, Action.LINKS, Action.HELP):
             panel = {Action.TOGGLE_OUTLINE: "outline", Action.LINKS: "links", Action.HELP: "help"}[action]
             self.app.state["panel"] = "" if self.app.state.get("panel") == panel else panel
+        elif action is Action.FILES:
+            self._toggle_files()
         elif action is Action.BACK and self.history and self.width is not None:
             self.future.append((top, self.width))
             line, _ = self.history.pop()
@@ -271,6 +317,71 @@ class Viewer:
         elif action is Action.COPY_LINK:
             self._copy()
         self.app.refresh()
+
+    def open(self, path: Path) -> None:
+        """Open a file from the tree in the body, in place of the document shown."""
+        if self.opener is None:
+            return
+        try:
+            layout = self.opener(path)
+        except Exception as error:  # any parser's error; the viewer stays on the current document
+            self.app.state["message"] = f"Could not read {path.name}: {error}"
+            return
+        self.layout = layout
+        self.title = path.name
+        self.current = path
+        self.width = None
+        self.history.clear()
+        self.future.clear()
+        self.shown_target = None
+        # A new callable, so ContentView lays the new document out.
+        self.content = self._content
+        body = self._body()
+        if body is not None:
+            body.scroll_manager.state.scroll_position = 0
+        self.app.state["panel"] = "outline" if self.show_outline and layout.outline else ""
+        self.app.state["message"] = ""
+        self._after_render(lambda: self.app.focus_element_by_id("body"))
+
+    def _toggle_files(self) -> None:
+        if self.files is None:
+            self.app.state["message"] = "No file tree: give all2md read a folder or a pattern"
+            return
+        if self.app.state.get("panel") == "files":
+            self.app.state["panel"] = ""
+            return
+        self.app.state["panel"] = "files"
+        if self.current is not None and self.current in self.files.files:
+            expanded = set(self.app.state.get("files_expanded") or [])
+            self.app.state["files_expanded"] = sorted(expanded | set(self.files.folder_ids(self.current)))
+        self._after_render(self._mark_current)
+
+    def _mark_current(self) -> None:
+        """Focus the file tree, with the open file highlighted and in view."""
+        tree: Any = self.app.get_element_by_id("files")
+        if tree is None or self.files is None:
+            return
+        self.app.focus_element_by_id("files")
+        if self.current is None or self.current not in self.files.files:
+            return
+        node_id = self.files.node_id(self.current)
+        for index, info in enumerate(tree.nodes):
+            if info["node"]["id"] == node_id:
+                tree.selected_node_id = node_id
+                tree.highlighted_index = index
+                tree.scroll_manager.scroll_to(max(0, index - tree.scroll_manager.state.viewport_size // 2))
+                break
+
+    def _after_render(self, then: Callable[[], Any]) -> None:
+        """Render now, then call ``then`` on the elements just built.
+
+        Wijjit has no hook after a render, and a tree shown again is a new
+        element that has forgotten its highlight, so the viewer renders itself
+        (``_render`` is internal to Wijjit; ``wijjit<0.2`` is pinned). wijjit#94 asks for a
+        public way.
+        """
+        self.app._render()
+        then()
 
     def _copy(self) -> None:
         if not self.shown_target:
@@ -303,6 +414,13 @@ class Viewer:
                 if position.index == index:
                     self.follow(position)
                     break
+            self.app.refresh()
+
+    def _on_file_select(self, event: Any) -> None:
+        node = getattr(event, "data", None) or {}
+        path = self.files.path_of(str(node.get("id", ""))) if self.files is not None else None
+        if path is not None:
+            self.open(path)
             self.app.refresh()
 
     def _on_body_click(self, event: Any) -> None:
@@ -338,12 +456,13 @@ def _outline_nodes(entries: tuple[OutlineEntry, ...]) -> list[dict[str, Any]]:
     ]
 
 
-def _key_name(key: str) -> str:
-    """Spell a Wijjit key name the way a help screen does (``ctrl+d`` -> ``Ctrl+D``)."""
-    named = {"pagedown": "PgDn", "pageup": "PgUp", "space": "Space", "backspace": "Backspace"}
-    if key in named:
-        return named[key]
-    if "+" in key:
-        modifier, _, rest = key.partition("+")
-        return f"{modifier.capitalize()}+{rest.upper() if len(rest) == 1 else rest.capitalize()}"
-    return key.capitalize() if len(key) > 1 else key
+def _placeholder(files: Optional[FileTree]) -> DocumentLayout:
+    """Lay out the note the body shows before a file is chosen."""
+    from all2md.ast import Document, Paragraph, Text
+    from all2md.options.terminal import TerminalRendererOptions
+
+    if files is not None and not files.files:
+        note = f"No documents all2md can read were found in {files.root}."
+    else:
+        note = "Choose a document in the file tree: arrows move, Enter opens a folder or a file."
+    return DocumentLayout(Document(children=[Paragraph(content=[Text(content=note)])]), TerminalRendererOptions())
