@@ -119,6 +119,10 @@ class TestReadCommand:
         assert handle_read_command([str(doc), str(other)]) == EXIT_SUCCESS
         assert sorted(p.name for p in runs[0].files.files) == ["notes.md", "other.md"]
 
+    def test_math(self, runs, doc):
+        assert handle_read_command([str(doc), "--math", "unicode"]) == EXIT_SUCCESS
+        assert runs[0].layout.options.math_mode == "unicode"
+
     def test_the_tree_opens_files_with_the_options(self, runs, doc):
         assert handle_read_command([str(doc.parent), "--clickable-links", "all"]) == EXIT_SUCCESS
         layout = runs[0].opener(doc)

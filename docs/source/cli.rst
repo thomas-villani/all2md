@@ -3438,7 +3438,7 @@ Rich output needs the ``rich`` package, which the ``cli_extras`` and ``all`` ext
    With a target other than Markdown (``--to html``, ``--to json``, ...), the output is syntax-highlighted.
 
    The document is drawn by the ``terminal`` renderer straight from the parsed document, so footnotes
-   (numbered, collected at the end), math (verbatim), task lists, definition lists, admonitions and GitHub alerts
+   (numbered, collected at the end), math (its LaTeX, or Unicode text with ``--math unicode``), task lists, definition lists, admonitions and GitHub alerts
    (titled panels), underline, and sub/superscripts all show as what they are. The same holds for ``--extract``,
    ``--slice`` (its "next slice" hint is the last line), ``--outline`` (a nested list of the headings) and the
    line windows (``--head``, ``--tail``, ``--lines``, ``--extract line:``). A line window is still chosen from
@@ -3509,6 +3509,26 @@ Rich output needs the ``rich`` package, which the ``cli_extras`` and ``all`` ext
    shows it in full. Links within the document show no target. Set it with ``ALL2MD_CLICKABLE_LINKS``, or
    ``clickable_links`` in the ``[read]`` config section.
 
+``--math {latex,unicode}``
+   How ``rcat``, ``--rich`` and ``all2md read`` show math (``--to terminal`` takes the same values as
+   ``--terminal-renderer-math-mode``). ``latex``, the default, prints the formula's LaTeX source, which loses
+   nothing. ``unicode`` writes it with Unicode symbols, superscripts and subscripts, the way it would be typed in
+   plain text:
+
+   .. code-block:: text
+
+      \frac{a}{b} + \alpha^2                        a/b + α²
+      \sum_{i=1}^n x_i                              ∑ᵢ₌₁ⁿ xᵢ
+      x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}        x = (-b ± √(b² - 4ac))/(2a)
+      \int_0^\infty e^{-x^2} dx                     ∫₀^∞ e^(-x²) dx
+
+   Nothing is dropped: a character Unicode has no superscript or subscript for keeps its ``^`` or ``_``, with
+   parentheses when a fraction or script spans more than one term, and a macro the converter does not know is kept
+   as written. In display math, the rows of ``aligned``, ``cases`` and the ``matrix`` family go on lines of their
+   own, with their columns lined up and tall brackets around a matrix; inline math puts the rows on one line,
+   separated by ``;``. ``unicode`` needs ``pylatexenc`` (``pip install 'all2md[latex]'``); without it the LaTeX
+   is shown. Set it with ``ALL2MD_MATH``, or ``math`` in the ``[read]`` config section.
+
 ``--no-rich-hyperlinks``
    Deprecated: links are no longer clickable unless ``--clickable-links`` says so. Kept for scripts; it forces
    ``none``.
@@ -3517,8 +3537,8 @@ Rich output needs the ``rich`` package, which the ``cli_extras`` and ``all`` ext
    Control text justification for Rich Markdown (``left`` | ``center`` | ``right`` | ``full``).
 
 The related environment variables are ``ALL2MD_RICH``, ``ALL2MD_FORCE_RICH``, ``ALL2MD_RICH_CODE_THEME``,
-``ALL2MD_RICH_INLINE_CODE_THEME``, ``ALL2MD_RICH_NO_WORD_WRAP``, ``ALL2MD_CLICKABLE_LINKS``, ``ALL2MD_RICH_JUSTIFY``
-and ``ALL2MD_PAGER``. The colors of Markdown elements are set in the ``[rich]`` table of a
+``ALL2MD_RICH_INLINE_CODE_THEME``, ``ALL2MD_RICH_NO_WORD_WRAP``, ``ALL2MD_CLICKABLE_LINKS``, ``ALL2MD_MATH``,
+``ALL2MD_RICH_JUSTIFY`` and ``ALL2MD_PAGER``. The colors of Markdown elements are set in the ``[rich]`` table of a
 config file (see :doc:`configuration`). Besides Rich's Markdown names (``h1``, ``block_quote``, ``code``, ...), the
 terminal renderer reads ``u``, ``mark``, ``math``, ``footnote``, ``dt``, ``image``, ``caption``, ``comment``,
 ``html``, ``task.checked``, ``task.unchecked``, ``admonition`` and ``admonition.<kind>`` (``admonition.warning``,

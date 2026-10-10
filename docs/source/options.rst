@@ -10105,6 +10105,16 @@ Configuration options for AST to terminal (ANSI) rendering.
    :Choices: ``none``, ``web``, ``all``
    :Importance: advanced
 
+**math_mode**
+
+   Show math as LaTeX source or as Unicode text (unicode needs pylatexenc)
+
+   :Type: ``Literal['latex', 'unicode']``
+   :CLI flag: ``--terminal-renderer-math-mode``
+   :Default: ``'latex'``
+   :Choices: ``latex``, ``unicode``
+   :Importance: core
+
 **justify**
 
    Paragraph justification

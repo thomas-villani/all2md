@@ -40,7 +40,7 @@ from all2md.exceptions import (
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
 from all2md.options.common import AttachmentOptionsMixin
 from all2md.options.markdown import MarkdownRendererOptions
-from all2md.options.terminal import CLICKABLE_LINKS_HELP
+from all2md.options.terminal import CLICKABLE_LINKS_HELP, MATH_MODE_HELP
 from all2md.utils.input_sources import RemoteInputOptions
 
 # Note: transform_registry is imported lazily in functions that need it
@@ -1896,6 +1896,7 @@ Examples:
             "rich_no_word_wrap",
             "rich_hyperlinks",
             "clickable_links",
+            "math",
             "rich_justify",
             "force_rich",
             # Security presets from cli.create_parser
@@ -2352,6 +2353,13 @@ def create_parser() -> argparse.ArgumentParser:
         choices=["none", "web", "all"],
         default="none",
         help=CLICKABLE_LINKS_HELP,
+    )
+    rich_group.add_argument(
+        "--math",
+        action=TrackingStoreAction,
+        choices=["latex", "unicode"],
+        default="latex",
+        help=MATH_MODE_HELP,
     )
     rich_group.add_argument(
         "--no-rich-hyperlinks",

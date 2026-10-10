@@ -217,9 +217,17 @@ class TestRichFlagsMapOntoOptions:
         assert create_parser().parse_args(["x.md", "--clickable-links", "web"]).clickable_links == "web"
         assert create_parser().parse_args(["x.md"]).clickable_links == "none"
 
+    def test_math_flag(self):
+        from all2md.cli.builder import create_parser
+
+        args = create_parser().parse_args(["x.md", "--math", "unicode"])
+        assert _terminal_renderer_options(args).math_mode == "unicode"
+        assert create_parser().parse_args(["x.md"]).math == "latex"
+
     def test_defaults(self):
         options = _terminal_renderer_options(argparse.Namespace())
         assert options.code_theme == "monokai"
         assert options.clickable_links == "none"
+        assert options.math_mode == "latex"
         assert options.word_wrap is True
         assert options.styles is None

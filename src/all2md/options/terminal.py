@@ -18,6 +18,17 @@ TerminalColorSystem = Literal["auto", "standard", "256", "truecolor", "windows",
 TerminalJustify = Literal["left", "center", "right", "full"]
 TerminalCommentMode = Literal["visible", "ignore"]
 ClickableLinks = Literal["none", "web", "all"]
+TerminalMathMode = Literal["latex", "unicode"]
+
+#: Help for the ``--math`` flag of ``all2md`` (``rcat``) and ``all2md read``.
+MATH_MODE_HELP = (
+    "How math is shown: 'latex' (default) prints its LaTeX source; 'unicode' writes it with Unicode symbols, "
+    "superscripts and subscripts (\\alpha^2 as a Greek alpha with a raised 2), with matrices and aligned "
+    "equations on lines of their own. 'unicode' needs pylatexenc (pip install 'all2md[latex]') and falls back "
+    "to LaTeX without it."
+)
+# Help text is ASCII: a Windows console or pipe may encode stdout as cp1252, and
+# ``all2md --help`` and ``all2md completion`` print every flag's help.
 
 #: Help for the ``--clickable-links`` flag of ``all2md`` (``rcat``) and ``all2md read``.
 CLICKABLE_LINKS_HELP = (
@@ -30,7 +41,7 @@ CLICKABLE_LINKS_HELP = (
 
 @dataclass(frozen=True)
 class TerminalRendererOptions(BaseRendererOptions):
-    """Configuration options for AST to terminal (ANSI) rendering.
+    r"""Configuration options for AST to terminal (ANSI) rendering.
 
     Parameters
     ----------
@@ -53,6 +64,15 @@ class TerminalRendererOptions(BaseRendererOptions):
         external link's target is shown after its text (shortened in the middle,
         never in the host) unless the text already is the target, so the text of
         ``[bank.example](https://evil.example)`` cannot pass for its target.
+    math_mode : {"latex", "unicode"}, default "latex"
+        How math is shown. ``latex`` prints the formula's LaTeX source, which
+        loses nothing. ``unicode`` writes it with Unicode symbols, superscripts
+        and subscripts (``\alpha^2 + x_i`` as ``α² + xᵢ``, ``\frac{a+b}{2}`` as
+        ``(a+b)/2``), and lays the rows of display math (``aligned``,
+        ``cases``, matrices) out on lines of their own. A character Unicode has
+        no superscript or subscript for keeps its ``^`` or ``_``. Needs
+        ``pylatexenc`` (the ``latex`` extra); without it, and for a formula
+        that does not parse, the LaTeX is shown.
     justify : {"left", "center", "right", "full"} or None, default None
         Justification for paragraphs. ``None`` is left.
     word_wrap : bool, default True
@@ -94,6 +114,14 @@ class TerminalRendererOptions(BaseRendererOptions):
             "help": "Links a click in the terminal may open: none, web (http/https) or all schemes (unsafe)",
             "choices": ["none", "web", "all"],
             "importance": "advanced",
+        },
+    )
+    math_mode: TerminalMathMode = field(
+        default="latex",
+        metadata={
+            "help": "Show math as LaTeX source or as Unicode text (unicode needs pylatexenc)",
+            "choices": ["latex", "unicode"],
+            "importance": "core",
         },
     )
     justify: TerminalJustify | None = field(

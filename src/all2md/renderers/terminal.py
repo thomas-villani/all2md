@@ -24,6 +24,7 @@ Markdown never had get names in the same family (``markdown.math``,
 
 from __future__ import annotations
 
+import importlib.util
 import io
 import logging
 import shutil
@@ -478,6 +479,8 @@ class TerminalRenderer(BaseRenderer):
         options = options or TerminalRendererOptions()
         BaseRenderer.__init__(self, options)
         self.options: TerminalRendererOptions = options
+        if options.math_mode == "unicode" and importlib.util.find_spec("pylatexenc") is None:
+            logger.warning("math_mode='unicode' needs pylatexenc (pip install 'all2md[latex]'); math is shown as LaTeX")
         self._footnote_numbers: dict[str, int] = {}
         self._footnote_definitions: dict[str, FootnoteDefinition] = {}
         # What the meta tags in the last render_renderables() output point at.
@@ -917,12 +920,23 @@ class TerminalRenderer(BaseRenderer):
         from rich.panel import Panel
         from rich.text import Text as RichText
 
-        content, _ = node.get_preferred_representation("latex")
+        content = self._math_text(node, inline=False)
         return Panel(
             RichText(content.strip("\n"), style="markdown.math"),
             border_style="markdown.math.border",
             expand=False,
         )
+
+    def _math_text(self, node: Union[MathBlock, MathInline], inline: bool) -> str:
+        """Return a formula as LaTeX, or as Unicode text with ``math_mode="unicode"`` when it converts."""
+        content, notation = node.get_preferred_representation("latex")
+        if self.options.math_mode == "unicode" and notation == "latex":
+            from all2md.renderers.terminal_math import latex_to_unicode
+
+            converted = latex_to_unicode(content, inline=inline)
+            if converted is not None:
+                return converted
+        return content
 
     def _figure(self, node: Figure) -> "RenderableType":
         from rich.console import Group
@@ -1013,8 +1027,7 @@ class TerminalRenderer(BaseRenderer):
         elif isinstance(node, (Superscript, Subscript)):
             self._script(node, text)
         elif isinstance(node, MathInline):
-            content, _ = node.get_preferred_representation("latex")
-            text.append(content, "markdown.math")
+            text.append(self._math_text(node, inline=True), "markdown.math")
         elif isinstance(node, FootnoteReference):
             number = self._footnote_numbers.get(node.identifier)
             start = len(text)
