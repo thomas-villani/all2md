@@ -5242,6 +5242,9 @@ Check which dependencies are available for a specific format:
    # Check all spreadsheet dependencies
    all2md check-deps spreadsheet
 
+   # Check a feature: read, mcp, watch, chunk or search
+   all2md check-deps read
+
    # Show help for check command
    all2md check-deps --help
 
