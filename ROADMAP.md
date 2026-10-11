@@ -6,7 +6,7 @@
 
 Legend: 🌱 natural next step · 🚀 ambitious · 🌙 moonshot · ⏸️ parked with a reason
 
-## Where we are (2026-10-06)
+## Where we are (2026-10-10)
 
 **v1.16.1 shipped on 2026-10-06**, a security patch on a `release/1.16` branch: a
 document's control characters (ESC and the C1 controls) reached the terminal through
@@ -29,9 +29,20 @@ output to files and pipes is unchanged. It was forward-ported to `main` (#589, #
   the standard library (#565, #566, #568), and OLE2 containers routed by their streams,
   which made real `.msg` files read again (#548, #549).
 
-Since then `main` carries the terminal renderer (#580, #581), the interactive viewer
-`all2md read` with its directory browser (#596, #598, #603, #604), `all2md mcp` with an MCP Registry entry published by the release workflow (#584,
-#586, #588), and the quality-gate action's docs rewritten for Marketplace readers (#587).
+Since then `main` carries, for 1.17:
+
+- **Reading documents in the terminal.** The terminal renderer (#580, #581), the
+  interactive viewer `all2md read` with its directory browser (#596, #598, #603, #604,
+  #607), links that are clickable only on request and always show their target (#608,
+  a security default), and `--math unicode` for formulas as Unicode text (#609).
+- **The outward push.** `all2md mcp` with an MCP Registry entry published by the release
+  workflow (#584, #586, #588), and the quality-gate action's docs rewritten for
+  Marketplace readers (#587).
+- **What the docs audit of 2026-10-06 found in the code.** `ALL2MD_<OPTION>` environment
+  variables now set options (#601), `config generate` writes a config that works (#599),
+  HTML fragments and short Markdown on stdin are detected (#600), the MCP read tool
+  returns Markdown under fastmcp 3 (#602), and `check-deps` reports features such as
+  `all2md read` beside the formats (#610).
 
 The PDF side's numbers stand as of v1.15.0 (sealed 103-article holdout, reading of
 2026-08-29): attainable recall **97.3%**, novel share **0.55%** against Docling's 2.05%
@@ -41,7 +52,8 @@ remainder) is Theme 8 Stage 4 layout reconstruction and is carried there.
 
 **Open issues at this date:** #570 (the Org parser flattens nested lists), #186 (decided;
 it closes with the Marketplace listing on the 1.17 release), and two parked by design
-(#256, #183).
+(#256, #183). Upstream, wijjit #94 (a tree shown again forgets its highlight) is open;
+the directory browser works around it.
 
 ## Next
 
@@ -76,7 +88,8 @@ design in `docs/plans/terminal-viewer.md`:
    Python 3.11+ only, since Wijjit needs it; tested headless in CI. Wijjit's gaps were
    fixed upstream first (wijjit #69–#73, in 0.1.2; #94 is open). Links are never launched
    by the viewer: in-document links and footnotes jump, external targets are shown and
-   copyable. Still to do:
+   copyable, and a click opens one only when `--clickable-links` allows it (#608). Math
+   can be shown as Unicode text with `--math unicode` (#609). Still to do:
    - **relative links to other local documents** open in the viewer, contained to the
      directory given or the file's folder, and tried by hand before they are pushed.
 3. 🌱 **A terminal editor on Wijjit**, as `all2md edit --tui`: Wijjit's `CodeEditor` with
@@ -104,6 +117,25 @@ order:
   beside the control that could falsify it.
 - Fillers if the moment wants something new: the RAG-framework loader adapters (Theme 1,
   about a day each), the chunking tutorial, rich `--help` by default.
+
+### Next: docs a first-time user can navigate
+
+The docs are thorough (about 45,000 lines) but flat: a newcomer meets fourteen
+subcommands before the core conversion flags, and the same topic is documented in two to
+four places. The tasks people actually come for should be the way in, each a short guide
+that ends in a working command:
+
+- a document → Markdown for an LLM or a RAG pipeline, and the MCP server;
+- Markdown → a professional Word document, with a reference template, often from
+  LLM-written Markdown;
+- `all2md view` to read documentation and LLM-written files, and `all2md read` / `rcat`
+  in the terminal;
+- `all2md grep` to search business documents;
+- what to expect from PDF and DOCX conversion, and how to check a result.
+
+Reference (CLI flags, options, API) and engineering notes move behind those. Audited
+2026-10-06 (correctness) and 2026-10-10 (structure and the guides above); the
+restructure is decided with the maintainer before any page moves.
 
 ### PDF → DOCX fidelity (Theme 2): instruments 3 and 4 remain
 
