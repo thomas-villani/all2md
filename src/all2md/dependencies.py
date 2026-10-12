@@ -7,8 +7,10 @@ optional dependencies for various converter modules.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import sys
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 from all2md.cli.output import should_use_rich_output
@@ -133,6 +135,98 @@ def is_valid_format(format_name: str) -> bool:
     """
     registry.auto_discover()
     return format_name in registry.list_formats()
+
+
+@dataclass(frozen=True)
+class Feature:
+    """An optional capability that belongs to no single format.
+
+    Parameters
+    ----------
+    name : str
+        Name given to ``all2md check-deps`` (``read``, ``mcp``, ...).
+    description : str
+        What the feature gives, as the report shows it.
+    extra : str
+        The ``all2md[...]`` extra that installs it.
+    packages : tuple of (str, str)
+        ``(install name, import name)`` of each package it needs.
+    min_python : tuple of int or None
+        Oldest Python the feature runs on, when newer than all2md's own.
+
+    """
+
+    name: str
+    description: str
+    extra: str
+    packages: Tuple[Tuple[str, str], ...]
+    min_python: Optional[Tuple[int, int]] = None
+
+
+#: Capabilities ``check-deps`` reports beside the formats.
+FEATURES: Tuple[Feature, ...] = (
+    Feature(
+        "read", "all2md read and rcat -i, the interactive terminal viewer", "tui", (("wijjit", "wijjit"),), (3, 11)
+    ),
+    Feature("mcp", "all2md mcp, the MCP server", "mcp", (("fastmcp", "fastmcp"), ("rank-bm25", "rank_bm25"))),
+    Feature("watch", "--watch, converting again when a file changes", "cli_extras", (("watchdog", "watchdog"),)),
+    Feature(
+        "chunk", "exact token counts in all2md chunk (--token-counter tiktoken)", "chunk", (("tiktoken", "tiktoken"),)
+    ),
+    Feature(
+        "search",
+        "all2md search in bm25, vector and hybrid modes",
+        "search",
+        (("rank-bm25", "rank_bm25"), ("faiss-cpu", "faiss"), ("sentence-transformers", "sentence_transformers")),
+    ),
+)
+
+
+def get_feature(name: str) -> Optional[Feature]:
+    """Return the feature called ``name``, or None."""
+    return next((feature for feature in FEATURES if feature.name == name), None)
+
+
+def check_feature(feature: Feature) -> Dict[str, Any]:
+    """Check whether a feature can run here.
+
+    Packages are found without importing them: the search feature's packages
+    import torch, which takes seconds.
+
+    Returns
+    -------
+    dict
+        ``{"available": bool, "python_ok": bool, "packages": {install name: bool},
+        "install_command": str}``
+
+    """
+    python_ok = feature.min_python is None or sys.version_info[:2] >= feature.min_python
+    packages = {install: _importable(module) for install, module in feature.packages}
+    return {
+        "available": python_ok and all(packages.values()),
+        "python_ok": python_ok,
+        "packages": packages,
+        "install_command": f'pip install "all2md[{feature.extra}]"',
+    }
+
+
+def _importable(module: str) -> bool:
+    try:
+        return importlib.util.find_spec(module) is not None
+    except (ImportError, ValueError):
+        return False
+
+
+def _feature_lines(feature: Feature) -> List[str]:
+    """Report lines for one feature: its packages, and how to get it when it is missing."""
+    status = check_feature(feature)
+    lines = [f"  {'[OK]' if ok else '[MISSING]'} {package}" for package, ok in status["packages"].items()]
+    if feature.min_python and not status["python_ok"]:
+        major, minor = feature.min_python
+        lines.append(f"  Needs Python {major}.{minor} or later")
+    elif not status["available"]:
+        lines.append(f"  Install with: {status['install_command']}")
+    return lines
 
 
 def get_missing_dependencies(format_name: str) -> List[Tuple[str, str]]:
@@ -296,6 +390,12 @@ def print_dependency_report() -> str:
                     cmd = generate_install_command(missing)
                     lines.append(f"  Install with: {cmd}")
 
+    lines.extend(["", "", "Features", "=" * 40])
+    for feature in FEATURES:
+        state = "OK" if check_feature(feature)["available"] else "MISSING"
+        lines.append(f"\n{feature.name.upper()}: [{state}] {feature.description}")
+        lines.extend(_feature_lines(feature))
+
     return "\n".join(lines)
 
 
@@ -436,6 +536,30 @@ def format_json_all_formats() -> Dict[str, Any]:
         "status": overall_status,
         "formats": formats_data,
         "summary": {"total_formats": total_formats, "formats_ok": formats_ok, "formats_missing": formats_missing},
+        "features": {feature.name: format_json_feature(feature) for feature in FEATURES},
+    }
+
+
+def format_json_feature(feature: Feature) -> Dict[str, Any]:
+    """Generate JSON output for one feature.
+
+    Returns
+    -------
+    dict
+        ``status`` ("ok" or "missing"), ``feature``, ``description``, ``extra``,
+        ``min_python`` ("3.11" or None), ``packages`` ({install name: "ok" or
+        "missing"}) and ``install_command``.
+
+    """
+    status = check_feature(feature)
+    return {
+        "status": "ok" if status["available"] else "missing",
+        "feature": feature.name,
+        "description": feature.description,
+        "extra": feature.extra,
+        "min_python": ".".join(map(str, feature.min_python)) if feature.min_python else None,
+        "packages": {name: "ok" if ok else "missing" for name, ok in status["packages"].items()},
+        "install_command": status["install_command"],
     }
 
 
@@ -563,6 +687,22 @@ def print_dependency_report_rich() -> None:
 
     console.print(table)
 
+    features = Table(title="Features")
+    features.add_column("Feature", style="cyan", no_wrap=True)
+    features.add_column("What it gives", style="white")
+    features.add_column("Status", style="white")
+    features.add_column("Install", style="yellow")
+    for feature in FEATURES:
+        state = check_feature(feature)
+        if state["available"]:
+            features.add_row(feature.name, feature.description, "[green]OK[/green]", "")
+        elif not state["python_ok"] and feature.min_python:
+            major, minor = feature.min_python
+            features.add_row(feature.name, feature.description, "[red]MISSING[/red]", f"needs Python {major}.{minor}+")
+        else:
+            features.add_row(feature.name, feature.description, "[red]MISSING[/red]", state["install_command"])
+    console.print(features)
+
 
 def print_dependency_report_rich_specific(format_name: str) -> None:
     """Generate a rich formatted dependency report for a specific format.
@@ -643,7 +783,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     # check command
     check_parser = subparsers.add_parser("check", help="Check dependency status")
-    check_parser.add_argument("--format", help="Check dependencies for specific format only")
+    check_parser.add_argument("--format", help="Check one format, or one feature (read, mcp, watch, chunk, search)")
 
     # Create mutually exclusive group for output modes
     output_group = check_parser.add_mutually_exclusive_group()
@@ -653,6 +793,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "check":
+        feature = get_feature(args.format) if args.format and not is_valid_format(args.format) else None
+        if feature:
+            result = format_json_feature(feature)
+            if args.json:
+                print(json.dumps(result, indent=2))
+            elif result["status"] == "ok":
+                print(f"All dependencies for {feature.name} ({feature.description}) are installed.")
+            else:
+                print(f"{feature.name} ({feature.description}) is not available:")
+                print("\n".join(_feature_lines(feature)))
+            return 0 if result["status"] == "ok" else 1
         if args.format:
             # Validate format exists
             if not is_valid_format(args.format):
@@ -662,12 +813,14 @@ def main(argv: Optional[List[str]] = None) -> int:
                         "status": "error",
                         "error": f"Unknown format: {args.format}",
                         "available_formats": sorted(registry.list_formats()),
+                        "available_features": [feature.name for feature in FEATURES],
                     }
                     print(json.dumps(error_result, indent=2))
                 else:
                     # Human-readable error
                     print(f"Error: Unknown format '{args.format}'", file=sys.stderr)
                     print(f"\nAvailable formats: {', '.join(sorted(registry.list_formats()))}", file=sys.stderr)
+                    print(f"Features: {', '.join(feature.name for feature in FEATURES)}", file=sys.stderr)
                 return 1
 
             # Check specific format

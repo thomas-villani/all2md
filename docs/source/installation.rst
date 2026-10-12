@@ -560,6 +560,16 @@ Check which dependencies are currently installed:
    all2md check-deps pdf
    all2md check-deps docx
 
+   # Check a feature that belongs to no single format
+   all2md check-deps read    # all2md read / rcat -i (the tui extra, Python 3.11+)
+   all2md check-deps mcp     # all2md mcp, the MCP server
+
+After the formats, the report lists features: ``read`` (the interactive terminal
+viewer), ``mcp`` (the MCP server), ``watch`` (``--watch``), ``chunk`` (exact token
+counts) and ``search`` (``all2md search``). A missing feature names the extra that
+installs it, such as ``pip install "all2md[tui]"``. The exit code reflects formats
+only; asking for one feature exits 1 when it is missing.
+
 Check and Install Dependencies
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
