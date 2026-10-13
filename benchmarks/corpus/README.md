@@ -208,9 +208,11 @@ weekly by the `Corpus Fidelity Gate` workflow (and on dispatch).
 
 It gates **which documents fail to convert** — a set of names, compared exactly, with
 no tolerance and no runner variance to argue about. It deliberately does **not** gate
-throughput: that needs a variance study on the runners it would run on before any
-threshold is defensible, and a flaky gate gets disabled, which leaves the appearance
-of coverage rather than coverage.
+throughput. The #183 variance study found the corpus timings behave like the
+per-format ones (one runner-wide factor, which normalizing by the run's median
+document divides out), but a weekly job had produced only 13 comparable runs, too few
+to calibrate a per-document threshold against tails. Per-format throughput, PDF
+included, is gated by `benchmarks/throughput.py` on every push instead.
 
 Four ways to go red, so the baseline can't rot in any direction:
 

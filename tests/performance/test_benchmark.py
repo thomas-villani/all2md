@@ -13,11 +13,10 @@ CI to notice, because a bare ``pytest tests/`` deselects everything marked
 
 What is checked here is deterministic and cannot flake: every format still converts,
 and converts to something rather than to an empty string. The timings are *recorded*
--- printed, and written to ``results/`` under ``--benchmark-save`` -- and left
-ungated, the same stance ``benchmarks/corpus`` takes on throughput. Gating a 5 ms
-measurement needs a variance study on the runners it would run on first; measured CI
-runner variance is already ~7%, and the denominator jitter on a small measurement is
-worse. See ``benchmarks/startup.py`` for what that costs to get right.
+-- printed, and written to ``results/`` under ``--benchmark-save`` -- and never
+asserted here. ``benchmarks/throughput.py`` gates them in CI, but only relative to the
+other formats measured in the same run: the CI runner pool has CPU classes up to
+1.75x apart that move every raw number at once (#183).
 """
 
 from pathlib import Path

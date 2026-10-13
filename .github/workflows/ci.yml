@@ -356,11 +356,9 @@ jobs:
     # converts to something rather than to an empty string: deterministic, and
     # unable to flake.
     #
-    # The timings are recorded to the artifact and left ungated on purpose, the same
-    # stance benchmarks/corpus takes on throughput. These fixtures convert in 5-885
-    # ms; gating a 5 ms measurement needs a variance study on these runners first,
-    # and measured runner variance is already ~7% before denominator jitter. The
-    # artifact is what such a study would be built from.
+    # The timings are recorded to the artifact and not gated by this job. The
+    # Throughput Gate job below gates them, relative to the rest of the run, on
+    # the variance study (#183) these artifacts made possible - keep uploading them.
     steps:
       - name: Check out code
         uses: actions/checkout@v7
@@ -405,6 +403,76 @@ jobs:
         with:
           name: format-benchmarks-${{ github.run_number }}
           path: tests/performance/results/
+          if-no-files-found: warn
+
+  throughput:
+    name: Throughput Gate
+    runs-on: ubuntu-latest
+
+    # Per-format throughput gate (#183): red when one format got markedly slower
+    # RELATIVE TO THE OTHER FORMATS measured in the same job. See
+    # benchmarks/throughput.py for the variance study behind every choice here:
+    #
+    # - Raw time is not gated. The ubuntu-latest pool has CPU classes ~0.57x,
+    #   ~0.73x and 1.0x apart, which move every format at once; the median across
+    #   formats divides that out, leaving 1.5-4% noise per format.
+    # - Two passes, because a contention burst can make one format 3x slow for a
+    #   single pass. A SLOW verdict needs the slowdown in both.
+    # - It cannot see a slowdown shared by every format; that reads the same as a
+    #   slower runner. startup and the corpus gate cover cross-cutting cost.
+    #
+    # Separate from Format Benchmarks (a required check) and continue-on-error so
+    # that adding it changes nothing that blocks a merge or a release: a red run
+    # shows on the PR but does not fail the workflow. Whether it becomes required
+    # is a decision for after it has run on real PRs for a while.
+    continue-on-error: true
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[all,dev]"
+
+      # Two full passes on the same VM; each writes its own timestamped JSON.
+      - name: Run format benchmarks (two passes)
+        run: |
+          pytest tests/performance --benchmark --benchmark-save -q -p no:cacheprovider
+          sleep 2
+          pytest tests/performance --benchmark --benchmark-save -q -p no:cacheprovider
+
+      - name: Gate
+        run: |
+          set -o pipefail
+          python -m benchmarks.throughput tests/performance/results/*.json \
+            --baseline benchmarks/throughput_baseline.json | tee throughput-gate.txt
+
+      - name: Write summary
+        if: always()
+        run: |
+          {
+            echo "## Throughput gate"
+            echo
+            echo '```'
+            cat throughput-gate.txt 2>/dev/null || echo "gate did not run"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: throughput-gate-${{ github.run_number }}
+          path: |
+            tests/performance/results/*.json
+            throughput-gate.txt
           if-no-files-found: warn
 
   quality-gate-action:
