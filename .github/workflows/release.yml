@@ -23,6 +23,7 @@ on:
 
 permissions:
   contents: read
+  actions: read    # Finding the tag's CI run and downloading its `dist` artifact
   id-token: write  # Required for PyPI trusted publishing
 
 jobs:
@@ -31,7 +32,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: pypi
     # On a CI-completion trigger, publish only when CI succeeded for a pushed
-    # version tag. Manual dispatch and UI-release events run unconditionally.
+    # version tag. Manual dispatch and UI-release events pass this condition, but
+    # the "Find the CI run" step below refuses them unless a CI run on the tag's
+    # commit succeeded -- they used to publish any v* tag without a check.
     if: >-
       github.event_name != 'workflow_run' ||
       (github.event.workflow_run.conclusion == 'success' &&
@@ -52,10 +55,36 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install build dependencies
+      - name: Find the CI run that tested this tag
+        id: ci
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          WORKFLOW_RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
-          python -m pip install --upgrade pip
-          pip install build hatchling
+          if [ "$EVENT" = "workflow_run" ]; then
+            RUN_ID="$WORKFLOW_RUN_ID"
+          else
+            SHA=$(git rev-parse HEAD)
+            RUN_ID=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml --commit "$SHA" \
+              --event push --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+            if [ -z "$RUN_ID" ]; then
+              echo "::error::No successful CI push run for $SHA. Push the tag (or main) and let CI pass first."
+              exit 1
+            fi
+          fi
+          echo "CI run: $RUN_ID"
+          echo "run-id=$RUN_ID" >> "$GITHUB_OUTPUT"
+
+      # The files CI built, installed and smoke-tested (the `package` job), not a
+      # second build made here.
+      - name: Download the tested distribution
+        uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+          run-id: ${{ steps.ci.outputs.run-id }}
+          github-token: ${{ github.token }}
 
       - name: Verify version matches release tag
         env:
@@ -74,14 +103,17 @@ jobs:
             echo "pyproject.toml version ($PROJECT_VERSION) does not match release tag ($RELEASE_VERSION)"
             exit 1
           fi
+          ls -l dist/
+          if [ ! -f "dist/all2md-$RELEASE_VERSION-py3-none-any.whl" ] || [ ! -f "dist/all2md-$RELEASE_VERSION.tar.gz" ]; then
+            echo "Error: the CI artifact does not hold all2md $RELEASE_VERSION's wheel and sdist"
+            exit 1
+          fi
           echo "Version check passed!"
 
-      - name: Build package
-        run: |
-          python -m build
-
+      # Pinned to a commit: this step holds the PyPI credential. Dependabot updates
+      # the pin; the comment names the release it points at.
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
         with:
           print-hash: true
           # Idempotent: if this version is already on PyPI (e.g. a tag push and
