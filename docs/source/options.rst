@@ -1871,20 +1871,20 @@ including fonts, styles, and formatting preferences.
 
 **default_font**
 
-   Default font for body text
+   Font for body text (default Calibri; a template keeps its own unless set)
 
-   :Type: ``str``
+   :Type: ``str | None``
    :CLI flag: ``--docx-renderer-default-font``
-   :Default: ``'Calibri'``
+   :Default: ``None``
    :Importance: core
 
 **default_font_size**
 
-   Default font size in points
+   Body font size in points (default 11; a template keeps its own unless set)
 
-   :Type: ``int``
+   :Type: ``int | None``
    :CLI flag: ``--docx-renderer-default-font-size``
-   :Default: ``11``
+   :Default: ``None``
    :Importance: core
 
 **heading_font_sizes**
@@ -1943,7 +1943,7 @@ including fonts, styles, and formatting preferences.
 
 **template_path**
 
-   Path to .docx template file for styles (None = default blank document)
+   Path to a .docx or .dotx template whose styles the output uses (None = blank document)
 
    :Type: ``str | None``
    :CLI flag: ``--docx-renderer-template-path``
