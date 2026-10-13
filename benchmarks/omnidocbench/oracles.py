@@ -6,7 +6,7 @@ import re
 import unicodedata
 from collections import Counter
 from dataclasses import dataclass
-from difflib import SequenceMatcher
+from difflib import Match, SequenceMatcher
 from html.parser import HTMLParser
 from typing import Any, Callable, Iterable, Literal, Mapping, TypeVar
 
@@ -534,27 +534,6 @@ def content_similarity(expected: str, actual: str) -> float:
     return _string_similarity(normalize_text(expected), normalize_text(actual))
 
 
-def _sequence_similarity(expected: tuple[str, ...], actual: tuple[str, ...]) -> float:
-    if not expected and not actual:
-        return 1.0
-    if not expected or not actual:
-        return 0.0
-    previous = list(range(len(actual) + 1))
-    for expected_item in expected:
-        current = [previous[0] + 1]
-        for index, actual_item in enumerate(actual, 1):
-            current.append(
-                min(
-                    current[-1] + 1,
-                    previous[index] + 1,
-                    previous[index - 1] + (expected_item != actual_item),
-                )
-            )
-        previous = current
-    distance = previous[-1]
-    return 1.0 - distance / max(len(expected), len(actual))
-
-
 def _count_similarity(expected: int, actual: int) -> float:
     if expected == actual == 0:
         return 1.0
@@ -667,12 +646,120 @@ def _locate(haystack: str, needle: str) -> tuple[int, float]:
     Position is taken from the longest run, offset by where that run sits inside the needle, so
     it is where the block *starts* rather than where its most recognizable part does.
     """
-    matcher = SequenceMatcher(None, haystack, needle, autojunk=False)
-    runs = [run for run in matcher.get_matching_blocks() if run.size]
+    runs = _aligned_runs(haystack, needle)
     if not runs:
         return -1, 0.0
     anchor = max(runs, key=lambda run: run.size)
     return anchor.a - anchor.b, sum(run.size for run in runs) / len(needle)
+
+
+def _aligned_runs(haystack: str, needle: str) -> list[Match]:
+    """Return the monotonic runs of characters ``needle`` shares with ``haystack``.
+
+    A needle found verbatim takes a fast path with the same answer ``SequenceMatcher`` gives:
+    its longest match is the whole needle at the earliest occurrence, and nothing is left on
+    either side to recurse into. Most emitted blocks on a born-digital page are verbatim.
+    """
+    start = haystack.find(needle)
+    if start >= 0 and needle:
+        return [Match(start, 0, len(needle))]
+    matcher = SequenceMatcher(None, haystack, needle, autojunk=False)
+    return [run for run in matcher.get_matching_blocks() if run.size]
+
+
+def text_block_kinds(projection: PageProjection) -> tuple[str, ...]:
+    """Return the kind of each entry of ``projection.text_blocks``, index for index.
+
+    Both projections append exactly one text-stream entry for every block kind except
+    ``equation_isolated``, whose content lives in ``formulas`` instead, so dropping those
+    kinds pairs the two sequences. A projection that breaks the invariant is a bug in
+    whatever built it, and pairing it anyway would score kinds against the wrong text.
+    """
+    kinds = tuple(kind for kind in projection.block_kinds if kind != "equation_isolated")
+    if len(kinds) != len(projection.text_blocks):
+        raise ValueError(
+            f"projection pairs {len(kinds)} text-bearing block kinds with {len(projection.text_blocks)} text blocks"
+        )
+    return kinds
+
+
+def _labeled_text(projection: PageProjection) -> tuple[str, list[str | None]]:
+    """Return the page's normalized text and, per character, the kind of block it came from."""
+    pieces: list[str] = []
+    labels: list[str | None] = []
+    for kind, block in zip(text_block_kinds(projection), projection.text_blocks, strict=True):
+        normalized = normalize_text(block)
+        if not normalized:
+            continue
+        if pieces:
+            # The separator belongs to no block, so it can never vote for a kind.
+            pieces.append(" ")
+            labels.append(None)
+        pieces.append(normalized)
+        labels.extend([kind] * len(normalized))
+    return "".join(pieces), labels
+
+
+def _kind_precision(blocks: PageProjection, other: PageProjection) -> float | None:
+    """Return the share of ``blocks``' text blocks found in ``other`` *as the same kind*.
+
+    Each block is located in ``other``'s concatenated text. Below ``_IDENTIFIED_MATCH`` of
+    its characters aligned it has not been found and counts as a miss; otherwise each of its
+    aligned characters votes for the kind of the ``other`` block it landed in, and the block
+    matches when at least half the votes go to its own kind. ``None`` when ``blocks`` has no
+    text to locate.
+    """
+    haystack, labels = _labeled_text(other)
+    candidates = 0
+    matched = 0
+    for kind, block in zip(text_block_kinds(blocks), blocks.text_blocks, strict=True):
+        needle = normalize_text(block)
+        if not needle:
+            continue
+        candidates += 1
+        if not haystack:
+            continue
+        runs = _aligned_runs(haystack, needle)
+        aligned = sum(run.size for run in runs)
+        if aligned / len(needle) < _IDENTIFIED_MATCH:
+            continue
+        votes = Counter(labels[run.a + offset] for run in runs for offset in range(run.size))
+        if votes[kind] / aligned >= 0.5:
+            matched += 1
+    return matched / candidates if candidates else None
+
+
+def _block_structure_similarity(expected: PageProjection, actual: PageProjection) -> float:
+    """Score whether each piece of the page came out as the right *kind* of block.
+
+    Two directions, combined as an F1. Recall locates every ground-truth block in the emitted
+    text and asks whether the emitted block holding it has the same kind; precision does the
+    converse, locating every emitted block in the ground truth. Both answer by *position in
+    the text*, never by block index, which is what makes the score blind to granularity.
+
+    It replaces an edit distance over the two kind sequences, which had two defects (#256).
+    It never looked at the text under a block, so one block of anything on a one-block page
+    scored a perfect 1.0 -- the shape of the defect the reading-order identification floor
+    closed in #246, and closed here the same way: a block must be located with at least
+    ``_IDENTIFIED_MATCH`` of its characters aligned before its kind counts. And because an
+    edit distance is at least the length difference, the old score could never exceed the
+    ratio of the two block counts, with eleven text categories collapsed to ``text_block``
+    making the two equal in practice. OmniDocBench annotates a whole list as one region where
+    all2md emits a block per item, so most of what that ratio measured was two definitions of
+    a block disagreeing. Splitting or merging blocks of one kind is now free; a title emitted
+    as body text, a table emitted as a paragraph, or body text promoted to a heading is not.
+
+    Order is deliberately not part of this -- ``reading_order_similarity`` scores it -- and
+    display equations are not either: they carry no text to locate, and the formula
+    dimensions already score whether each one was emitted as a display formula.
+    """
+    recall = _kind_precision(expected, actual)
+    precision = _kind_precision(actual, expected)
+    if recall is None and precision is None:
+        return 1.0
+    if not recall or not precision:
+        return 0.0
+    return 2 * recall * precision / (recall + precision)
 
 
 def _reading_order_similarity(expected: PageProjection, actual: PageProjection) -> float:
@@ -740,13 +827,11 @@ def score_page(expected: PageProjection, actual: PageProjection) -> dict[str, fl
             " ".join(actual.text_blocks),
         ),
         "reading_order_similarity": _reading_order_similarity(expected, actual),
-        # The sequence of block categories, on its own rather than folded into the order
-        # score. It answers "did the page come apart into the right pieces", which is a
-        # different question from "did the pieces come out in the right order" -- and eleven
-        # text categories collapse to `text_block`, so it cannot answer the second one: fully
-        # reversed output scores exactly 1.0 here on 153 of the 981 pinned pages, and any
-        # permutation is free on the 113 pages with a single repeated kind.
-        "block_structure_similarity": _sequence_similarity(expected.block_kinds, actual.block_kinds),
+        # Whether each located piece of text came out as the right kind of block, on its own
+        # rather than folded into the order score. It answers "is this a title, a table, or
+        # body text", which is a different question from "did the pieces come out in the
+        # right order", and it is deliberately blind to the second one.
+        "block_structure_similarity": _block_structure_similarity(expected, actual),
     }
     if expected.tables or actual.tables:
         structure, content = _table_similarities(expected.tables, actual.tables)

@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 from benchmarks.omnidocbench.dimensions import UNGATEABLE as SHARED_UNGATEABLE
-from benchmarks.omnidocbench.oracles import PageProjection, project_ast, score_page
+from benchmarks.omnidocbench.oracles import PageProjection, project_ast, score_page, text_block_kinds
 from benchmarks.pmc.alignment import MIN_NGRAMS, TOKEN_PLACEMENT_MIN, ngrams, normalize
 from benchmarks.pmc.article import (
     RECALL_MIN,
@@ -83,6 +83,10 @@ from benchmarks.pmc.pages import ASSIGNMENTS, assign_pages, index_pages
 #: pinned bytes exactly or bytes accepted because only volatile metadata had moved. The
 #: corpus pin moves with it: the manifests gained a second, content-only digest.
 SCHEMA_VERSION = 8
+#: 4 = the shared oracle's ``block_structure_similarity`` is content-backed and blind to
+#: granularity (#256). Only that dimension moves, and this lane does not gate on it, so
+#: ``SCHEMA_VERSION`` stays where it is; the committed reference's figures for that one row
+#: describe the old definition until the lane is next re-recorded.
 #: 3 = the shared projection admits any container of inline text, by shape rather than by
 #: type name, so a node holding inline content with no ``Paragraph`` wrapper is no longer
 #: invisible to measurement (#443). ``SCHEMA_VERSION`` deliberately does *not* move with
@@ -91,7 +95,7 @@ SCHEMA_VERSION = 8
 #: version tracks the oracle; the lane version tracks what the lane measures.
 #: 2 = the shared projection reads caption attributes (see schema 6 above and
 #: ``benchmarks.omnidocbench.oracles._semantic_blocks``).
-ORACLE_SCHEMA_VERSION = 3
+ORACLE_SCHEMA_VERSION = 4
 
 #: Fixed seed: a control that scrambles differently every run cannot be compared across
 #: runs, and a resolution change would be indistinguishable from a parser change.
@@ -105,9 +109,13 @@ UNGATEABLE: Mapping[str, str] = SHARED_UNGATEABLE
 
 
 def _reorder(projection: PageProjection, order: Sequence[int]) -> PageProjection:
+    # Kinds are paired with text through `text_block_kinds`, not indexed alongside it: a
+    # display equation contributes a kind but no text, so indexing both sequences by the
+    # same position silently pairs every later kind with the wrong block.
+    kinds = text_block_kinds(projection)
     return PageProjection(
         text_blocks=tuple(projection.text_blocks[index] for index in order),
-        block_kinds=tuple(projection.block_kinds[index] for index in order),
+        block_kinds=tuple(kinds[index] for index in order),
         tables=projection.tables,
         formulas=projection.formulas,
     )
@@ -125,9 +133,10 @@ def _shuffled(projection: PageProjection) -> PageProjection:
 
 def _halved(projection: PageProjection) -> PageProjection:
     keep = list(range(0, len(projection.text_blocks), 2))
+    kinds = text_block_kinds(projection)
     return PageProjection(
         text_blocks=tuple(projection.text_blocks[index] for index in keep),
-        block_kinds=tuple(projection.block_kinds[index] for index in keep),
+        block_kinds=tuple(kinds[index] for index in keep),
         tables=projection.tables[: len(projection.tables) // 2],
         formulas=projection.formulas,
     )
