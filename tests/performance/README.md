@@ -6,11 +6,11 @@ This directory contains performance benchmarking tests for the all2md document c
 
 **Conversion, not time.** Each benchmark asserts that its format still converts and produces a non-empty document. That is deterministic and cannot flake.
 
-Timings are *recorded* — printed, and written to `results/` under `--benchmark-save` — and deliberately left ungated. They used to be gated, and it was theatre: the first time anyone actually ran this suite, the absolute ceilings had **11x–231x headroom** (`basic.xlsx` at 13 ms against a 3 s limit), so a conversion had to get two orders of magnitude slower before one fired. The remaining assertions compared `mean_time > 0` against the mean of `perf_counter` deltas, which is true by construction.
+Timings are *recorded* — printed, and written to `results/` under `--benchmark-save` — and the tests themselves never assert on them. They used to, and it was theatre: the first time anyone actually ran this suite, the absolute ceilings had **11x–231x headroom** (`basic.xlsx` at 13 ms against a 3 s limit), so a conversion had to get two orders of magnitude slower before one fired. The remaining assertions compared `mean_time > 0` against the mean of `perf_counter` deltas, which is true by construction.
 
 Nothing had ever run them to notice, because a bare `pytest tests/` deselects everything marked `benchmark`.
 
-Gating these numbers for real needs a variance study on the runners first: these fixtures convert in 5–885 ms, measured CI runner variance is already ~7%, and denominator jitter on a small measurement is worse. `benchmarks/startup.py` shows what that costs to get right — it needs two metrics that agree before it will go red. The CI artifact is what such a study would be built from.
+Time is gated separately, by `benchmarks/throughput.py` (CI's `Throughput Gate` job, #183), and only in a form the runners can support. The variance study behind it read 1,003 CI runs of this suite: the ubuntu-latest pool has CPU classes roughly 0.57x, 0.73x and 1.0x apart that move every format at once, so no threshold on raw time can work. Read relative to the median of the other formats in the same run, each format's noise is 1.5–4%. The gate goes red when one format is more than 30% slower than its baseline *relative to the rest of the run*, in both of two passes on the same VM. It does not see a slowdown shared by every format; that is indistinguishable from a slower runner.
 
 For regression detection over *real* documents rather than small fixtures, see `benchmarks/corpus/`, which gates the failure set against a committed baseline.
 
