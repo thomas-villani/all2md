@@ -64,6 +64,7 @@ name = "all2md"
 version = "1.16.0"
 source = { editable = "." }
 dependencies = [
+    { name = "mistune" },
     { name = "platformdirs" },
     { name = "pyyaml" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
@@ -220,7 +221,6 @@ latex = [
 ]
 markdown = [
     { name = "chardet" },
-    { name = "mistune" },
 ]
 mcp = [
     { name = "beautifulsoup4" },
@@ -230,7 +230,6 @@ mcp = [
     { name = "ebooklib" },
     { name = "fastmcp" },
     { name = "httpx" },
-    { name = "mistune" },
     { name = "odfpy" },
     { name = "openpyxl" },
     { name = "pymupdf" },
@@ -355,8 +354,8 @@ requires-dist = [
     { name = "jinja2", marker = "extra == 'templates'", specifier = ">=3.1.0" },
     { name = "langdetect", marker = "extra == 'all'", specifier = ">=1.0.9" },
     { name = "langdetect", marker = "extra == 'langdetect'", specifier = ">=1.0.9" },
+    { name = "mistune", specifier = ">=3.3.2" },
     { name = "mistune", marker = "extra == 'all'", specifier = ">=3.3.2" },
-    { name = "mistune", marker = "extra == 'markdown'", specifier = ">=3.3.2" },
     { name = "mwparserfromhell", marker = "extra == 'all'", specifier = ">=0.7.2" },
     { name = "mwparserfromhell", marker = "extra == 'wiki'", specifier = ">=0.7.2" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=2.1.0" },
