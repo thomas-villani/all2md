@@ -63,6 +63,9 @@ dependencies = [
     "typing_extensions>=4.0.0;python_version<'3.11'",  # For Self type on Python <3.11
     "pyyaml>=6.0",
     "platformdirs>=4.0.0",  # Per-OS cache/config dirs (zero-dependency); used by the conversion cache
+    # Markdown is the hub format: `all2md README.md`, `view` and `read` all parse it. Pure
+    # Python with no dependencies of its own, so it is core rather than an extra.
+    "mistune>=3.3.2",  # 3.3 fixes single-line $$...$$ block-math parsing
 ]
 
 [project.urls]
@@ -193,7 +196,8 @@ xlsx = [
     "chardet>=5.2.0",
 ]
 markdown = [
-    "mistune>=3.3.2",  # 3.3 fixes single-line $$...$$ block-math parsing
+    # mistune is a core dependency; the extra is kept so existing `all2md[markdown]`
+    # install lines keep working, and still adds encoding detection.
     "chardet>=5.2.0",
 ]
 pdf_render = [
