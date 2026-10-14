@@ -25,10 +25,10 @@ from typing import Mapping
 #: not evidence of a regression and a rise in it is not evidence of an improvement.
 UNGATEABLE: Mapping[str, str] = {
     "block_structure_similarity": (
-        "compares kind sequences without inspecting the text under a block, so content-free "
-        "output scores 1.0 (issue #256); eleven text categories collapse to `text_block`, so "
-        "fully reversed output scores exactly 1.0 on 153 of the 981 pinned pages; and on the "
-        "born-digital lane it separates own-page from wrong-page output by only ~0.06 while "
-        "*rising* when half the emitted content is deleted, which rewards dropping blocks"
+        "its content-backed definition (issue #256) has not yet been measured against the "
+        "wrong-page and mutation controls; the edit-distance definition it replaced scored "
+        "content-free output 1.0, read mostly as a block-count ratio, separated own-page from "
+        "wrong-page output by only ~0.06 on the born-digital lane, and *rose* when half the "
+        "emitted content was deleted, which rewards dropping blocks"
     ),
 }

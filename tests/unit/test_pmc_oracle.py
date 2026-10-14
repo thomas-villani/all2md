@@ -665,13 +665,42 @@ def test_every_mutation_actually_damages_the_output_it_is_given() -> None:
     assert benchmark.MUTATIONS["shuffled"](original).text_blocks != original.text_blocks
 
 
+def test_mutations_keep_each_kind_with_its_own_text_past_a_display_equation() -> None:
+    """A display equation has a kind but no text, so the two sequences cannot share an index.
+
+    Indexing both by position paired every kind after the equation with the wrong block, which
+    the content-backed ``block_structure_similarity`` (#256) would read as a wrong kind.
+    """
+    from benchmarks.omnidocbench.oracles import PageProjection, text_block_kinds
+
+    original = PageProjection(
+        text_blocks=("Methods", "alpha", "beta"),
+        block_kinds=("title", "equation_isolated", "text_block", "table"),
+        tables=(),
+        formulas=(),
+    )
+    reversed_page = benchmark.MUTATIONS["reversed"](original)
+    assert list(zip(reversed_page.text_blocks, text_block_kinds(reversed_page), strict=True)) == [
+        ("beta", "table"),
+        ("alpha", "text_block"),
+        ("Methods", "title"),
+    ]
+    halved = benchmark.MUTATIONS["halved"](original)
+    assert list(zip(halved.text_blocks, halved.block_kinds, strict=True)) == [("Methods", "title"), ("beta", "table")]
+
+
 def test_shuffling_is_seeded_so_two_runs_are_comparable() -> None:
     original = _projection(*(f"block {index}" for index in range(12)))
     assert benchmark.MUTATIONS["shuffled"](original) == benchmark.MUTATIONS["shuffled"](original)
 
 
 def test_block_structure_is_recorded_but_marked_unusable_as_a_gate() -> None:
-    """It rises when half the content is deleted, so gating on it would reward dropping blocks."""
+    """Not gated until the content-backed definition (#256) has been re-measured against controls.
+
+    The definition this was decided on rose when half the content was deleted, so gating on it
+    would have rewarded dropping blocks. The current one falls under that damage by construction,
+    but whether it separates own-page from wrong-page output is a measurement, not a proof.
+    """
     assert "block_structure_similarity" in benchmark.UNGATEABLE
 
 

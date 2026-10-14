@@ -17,6 +17,7 @@ from all2md.ast.nodes import (
     Figure,
     Heading,
     Image,
+    List,
     ListItem,
     MathBlock,
     MathInline,
@@ -311,13 +312,13 @@ def test_page_scores_have_exact_independent_dimension_semantics() -> None:
     """Each metric must react to the fact it names rather than a shared output-length proxy."""
     expected = PageProjection(
         text_blocks=("A B",),
-        block_kinds=("title", "text_block", "table"),
+        block_kinds=("table", "equation_isolated"),
         tables=(TableProjection(2, 2, 4, "A B"),),
         formulas=(FormulaProjection("block", "$$x$$"),),
     )
     actual = PageProjection(
         text_blocks=("AB",),
-        block_kinds=("title", "table"),
+        block_kinds=("table",),
         tables=(TableProjection(1, 2, 2, "AB"),),
         formulas=(),
     )
@@ -329,10 +330,10 @@ def test_page_scores_have_exact_independent_dimension_semantics() -> None:
         # "A B" is located in "AB" on two of its three characters, which clears the
         # identification floor, and one located block cannot be out of order.
         "reading_order_similarity": 1.0,
-        # One of three kinds dropped. This is the dimension the kind sequence answers;
-        # it used to be folded into the reading-order score, which made that score react
-        # to segmentation rather than to order.
-        "block_structure_similarity": pytest.approx(2 / 3),
+        # The table's text is found, and found as a table, in both directions. The dropped
+        # display equation is the formula dimensions' finding, not a second charge here:
+        # an equation carries no text to locate (#256).
+        "block_structure_similarity": 1.0,
         "formula_presence_accuracy": 0.0,
         "table_structure_similarity": pytest.approx(2 / 3),
         "table_content_similarity": pytest.approx(2 / 3),
@@ -431,11 +432,15 @@ def test_table_alignment_recovers_later_exact_matches_without_reordering() -> No
     """An early omission must not shift every later table comparison, and swaps must not score as exact."""
     alpha = TableProjection(1, 1, 1, "alpha")
     beta = TableProjection(1, 1, 1, "beta")
-    expected = PageProjection((), ("table", "table"), (alpha, beta), ())
 
-    omitted = score_page(expected, PageProjection((), ("table",), (beta,), ()))
-    reversed_order = score_page(expected, PageProjection((), ("table", "table"), (beta, alpha), ()))
-    exact = score_page(expected, PageProjection((), ("table", "table"), (alpha, beta), ()))
+    def page(*tables: TableProjection) -> PageProjection:
+        return PageProjection(tuple(table.text for table in tables), ("table",) * len(tables), tables, ())
+
+    expected = page(alpha, beta)
+
+    omitted = score_page(expected, page(beta))
+    reversed_order = score_page(expected, page(beta, alpha))
+    exact = score_page(expected, page(alpha, beta))
 
     assert omitted["table_content_similarity"] == pytest.approx(0.5)
     assert exact["table_content_similarity"] == 1.0
@@ -801,15 +806,19 @@ def test_block_structure_is_scored_separately_from_reading_order() -> None:
     The block-kind sequence used to be a factor of the reading-order score, which is how
     chunking got back into a metric that had just been made blind to it: four blocks correctly
     merged into one scored 0.25 on order for no reason connected to order. It is now its own
-    dimension -- and it cannot answer the ordering question itself, because eleven text
-    categories collapse to ``text_block``, so reversed output scores a perfect 1.0 on it.
+    dimension -- and it does not answer the ordering question itself: it asks only what kind of
+    block each piece of text came out as, so reversed output scores a perfect 1.0 on it.
+
+    Merging blocks of one kind is not charged on either dimension any more (#256). The kind
+    sequence used to be compared by edit distance, which could never exceed the ratio of the
+    block counts, so this merge scored 1/3 for a difference in granularity alone.
     """
     blocks = ("Alpha beta gamma", "Delta epsilon zeta", "Eta theta iota")
     expected = PageProjection(blocks, ("text_block",) * 3, (), ())
     merged = PageProjection((" ".join(blocks),), ("text_block",), (), ())
     reversed_blocks = PageProjection(tuple(reversed(blocks)), ("text_block",) * 3, (), ())
 
-    assert score_page(expected, merged)["block_structure_similarity"] == pytest.approx(1 / 3)
+    assert score_page(expected, merged)["block_structure_similarity"] == 1.0
     assert score_page(expected, merged)["reading_order_similarity"] == 1.0
 
     assert score_page(expected, reversed_blocks)["block_structure_similarity"] == 1.0
@@ -835,8 +844,8 @@ def test_a_block_fragmented_by_character_level_noise_is_still_located() -> None:
 def test_a_paragraph_holding_table_cells_costs_exactly_one_kind_substitution() -> None:
     """Recovering a table as a paragraph must be charged for segmentation and nothing else.
 
-    The expected cost is one substitution in the block-kind sequence, ``1 - 1/n``, and it lands
-    on ``block_structure_similarity``. Because the table's cell text sits in both text streams,
+    The cost lands on ``block_structure_similarity``: one of the two blocks is found as the
+    wrong kind in each direction, so recall and precision are both 1/2. Because the table's cell text sits in both text streams,
     this variant's text is byte-identical to exact reproduction and in the same order, so the
     other two dimensions must be exactly 1.0. Anything lower would mean they double-charge a
     variant whose text and order are right, and the ratchet would red the first time all2md
@@ -853,4 +862,81 @@ def test_a_paragraph_holding_table_cells_costs_exactly_one_kind_substitution() -
     scores = score_page(truth, paragraph)
     assert scores["text_content_similarity"] == 1.0
     assert scores["reading_order_similarity"] == 1.0
-    assert scores["block_structure_similarity"] == 1 - 1 / len(truth.block_kinds)
+    assert scores["block_structure_similarity"] == pytest.approx(0.5)
+
+
+# ---------------------------------------------------------------------------
+# block_structure_similarity: content-backed and blind to granularity (#256)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("emitted", ["", "zzz qqq xxx"], ids=["empty", "garbage"])
+def test_content_free_output_does_not_earn_block_structure_credit(emitted: str) -> None:
+    """One block of anything used to score a perfect 1.0 on a one-block page.
+
+    The kind sequences matched -- ``("text_block",)`` against ``("text_block",)`` -- and the
+    metric never looked at the text underneath. A kind now counts only when the block it
+    belongs to is located in the other side's text with at least half its characters aligned,
+    the identification floor reading order adopted in #246.
+    """
+    expected = PageProjection(("The quick brown fox jumps over the lazy dog",), ("text_block",), (), ())
+    content_free = PageProjection((emitted,), ("text_block",), (), ())
+
+    assert score_page(expected, content_free)["block_structure_similarity"] == 0.0
+    assert score_page(expected, expected)["block_structure_similarity"] == 1.0
+
+
+def test_a_list_annotated_as_one_region_is_not_charged_for_its_items() -> None:
+    """OmniDocBench annotates a whole list as one ``text_block``; all2md emits one per item.
+
+    That is a difference in what a "block" is, not a structural defect, and it was the
+    dominant signal: the edit distance over kind sequences can never exceed the ratio of the
+    two block counts, so a heading and a three-item list scored 1/2 with every word and every
+    kind right.
+    """
+    items = ("First item of the list", "Second item of the list", "Third item of the list")
+    truth = PageProjection(("Shopping", " ".join(items)), ("title", "text_block"), (), ())
+    document = Document(
+        children=[
+            Heading(level=1, content=[Text(content="Shopping")]),
+            List(
+                ordered=False,
+                items=[ListItem(children=[Paragraph(content=[Text(content=item)])]) for item in items],
+            ),
+        ]
+    )
+    emitted = project_ast(document)
+
+    assert emitted.block_kinds == ("title", "text_block", "text_block", "text_block")
+    assert score_page(truth, emitted)["block_structure_similarity"] == 1.0
+
+
+def test_block_structure_still_charges_a_wrong_kind_at_any_granularity() -> None:
+    """Blind to chunking must not mean blind to structure: a title read as body text costs."""
+    truth = PageProjection(
+        ("Results", "Alpha beta gamma delta", "Epsilon zeta eta theta"),
+        ("title", "text_block", "text_block"),
+        (),
+        (),
+    )
+    demoted = PageProjection(truth.text_blocks, ("text_block",) * 3, (), ())
+    promoted = PageProjection(truth.text_blocks, ("title",) * 3, (), ())
+
+    assert score_page(truth, demoted)["block_structure_similarity"] < 1.0
+    assert score_page(truth, promoted)["block_structure_similarity"] < 1.0
+
+
+def test_block_structure_falls_when_half_the_output_is_deleted() -> None:
+    """The born-digital lane caught the old definition *rising* under this damage."""
+    blocks = (
+        "The committee met on Tuesday",
+        "Budget figures were reviewed",
+        "Several motions passed unanimously",
+        "Adjournment followed at noon",
+    )
+    truth = PageProjection(blocks, ("text_block",) * 4, (), ())
+    halved = PageProjection(blocks[::2], ("text_block",) * 2, (), ())
+
+    # Half the ground truth is missing (recall 1/2) and everything emitted is right
+    # (precision 1), so the F1 is 2/3.
+    assert score_page(truth, halved)["block_structure_similarity"] == pytest.approx(2 / 3)

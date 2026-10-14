@@ -133,8 +133,8 @@ def pdf_options(**overrides: Any) -> PdfOptions:
     disturbing the published figures: the shared oracle's ``_node_text`` returns ``""`` for
     an `Image` -- the node has no ``content`` and no children -- so extracted images add
     empty entries to the block stream and contribute not one word to recall or precision.
-    They do add ``text_block`` kinds, which moves ``block_structure_similarity``; that
-    dimension is already declared ungateable here for unrelated reasons.
+    Nor do they move ``block_structure_similarity``: it locates each block by its text and
+    skips a block with none (#256).
 
     Parameters
     ----------

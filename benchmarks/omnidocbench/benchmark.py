@@ -39,13 +39,20 @@ SCHEMA_VERSION = 3
 #: at 6 for exactly that reason, and moves now only because a baseline was re-recorded
 #: alongside it.
 #:
+#: 8 redefines ``block_structure_similarity`` (#256). It compared the two kind sequences by
+#: edit distance, which never inspected the text under a block -- one block of anything on a
+#: one-block page scored 1.0 -- and could never exceed the ratio of the block counts, so it
+#: mostly measured granularity. Each block is now located in the other side's text, must clear
+#: the reading-order identification floor before its kind counts, and the score is the F1 of
+#: kinds matched in both directions. The other dimensions are unchanged.
+#:
 #: **This constant may only change together with a re-recorded** ``baseline.json``. The
 #: gate ratchets against that file and compares this version to the one it carries; move
 #: one without the other and the lane reports identity drift instead of a fidelity result.
 #: The recording is a 981-page OCR run, dispatched from ``omnidocbench-gate.yml`` with
 #: ``record_baseline: true`` -- and it stamps whatever this constant says at the commit it
 #: runs on, so the bump has to be on the branch *before* the run, not after it.
-ORACLE_SCHEMA_VERSION = 7
+ORACLE_SCHEMA_VERSION = 8
 
 
 class DegradedConversionError(RuntimeError):
