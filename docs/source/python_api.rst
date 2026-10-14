@@ -327,6 +327,10 @@ letterhead, cover page, or boilerplate-prefix template:
    )
    from_ast(doc, "docx", output="letter.docx", renderer_options=options)
 
+The template may be a ``.docx`` or a Word template (``.dotx``). Its body font
+and size are kept: ``default_font`` and ``default_font_size`` replace them only
+when you set them, and without a template they default to Calibri 11.
+
 **What round-trips and what doesn't.** When ``preserve_formatting=True``
 or ``template_path`` is set, the parser also stashes the originating Word
 style name on AST nodes via ``metadata['source_style']``. The renderer
