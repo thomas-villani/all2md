@@ -9,5 +9,6 @@
   of one format 99% of the time and 2x every time, raised no false alarm, and would
   have gone red on the 1.35-1.4x PDF slowdown that #380/#381 shipped in August. It
   cannot see a slowdown shared by every format, which looks the same as a slower
-  runner. The job is `continue-on-error` and not a required check.
+  runner. It blocks merges and releases; a deliberate slowdown re-records the
+  baseline in the same PR (the job comment in `ci.yml` has the two commands).
   ([#183](https://github.com/thomas-villani/all2md/issues/183))
