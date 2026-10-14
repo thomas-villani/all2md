@@ -1952,3 +1952,71 @@ class TestTitlePromotion:
                 break
         assert section_para is not None
         assert section_para.style.name == "Heading 2"
+
+
+def _georgia_template(tmp_path, *, suffix: str = ".docx"):
+    """Build a template whose Normal style is Georgia 12; ``.dotx`` declares the template type."""
+    import zipfile
+
+    from docx.shared import Pt
+
+    template_doc = DocxDocument()
+    template_doc.styles["Normal"].font.name = "Georgia"
+    template_doc.styles["Normal"].font.size = Pt(12)
+    docx_path = tmp_path / "template.docx"
+    template_doc.save(str(docx_path))
+    if suffix == ".docx":
+        return docx_path
+    dotx_path = tmp_path / "template.dotx"
+    with zipfile.ZipFile(docx_path) as zin, zipfile.ZipFile(dotx_path, "w", zipfile.ZIP_DEFLATED) as zout:
+        for info in zin.infolist():
+            data = zin.read(info.filename)
+            if info.filename == "[Content_Types].xml":
+                data = data.replace(b"wordprocessingml.document.main+xml", b"wordprocessingml.template.main+xml")
+            zout.writestr(info, data)
+    return dotx_path
+
+
+def _normal_font(docx_bytes: bytes) -> tuple:
+    font = DocxDocument(BytesIO(docx_bytes)).styles["Normal"].font
+    return font.name, font.size.pt if font.size else None
+
+
+@pytest.mark.unit
+@pytest.mark.docx
+class TestTemplateFont:
+    """A template's body font is the reason to pass the template, so it is kept."""
+
+    doc = Document(children=[Paragraph(content=[Text(content="Body")])])
+
+    def test_a_blank_document_gets_calibri_11(self):
+        assert _normal_font(DocxRenderer().render_to_bytes(self.doc)) == ("Calibri", 11)
+
+    def test_a_template_keeps_its_own_font(self, tmp_path):
+        """It used to be overwritten with Calibri 11, the defaults, on every render."""
+        options = DocxRendererOptions(template_path=str(_georgia_template(tmp_path)))
+
+        assert _normal_font(DocxRenderer(options).render_to_bytes(self.doc)) == ("Georgia", 12)
+
+    def test_a_named_font_still_wins_over_the_template(self, tmp_path):
+        options = DocxRendererOptions(
+            template_path=str(_georgia_template(tmp_path)), default_font="Arial", default_font_size=14
+        )
+
+        assert _normal_font(DocxRenderer(options).render_to_bytes(self.doc)) == ("Arial", 14)
+
+    def test_a_named_size_alone_keeps_the_templates_face(self, tmp_path):
+        options = DocxRendererOptions(template_path=str(_georgia_template(tmp_path)), default_font_size=10)
+
+        assert _normal_font(DocxRenderer(options).render_to_bytes(self.doc)) == ("Georgia", 10)
+
+    def test_a_dotx_template_is_accepted(self, tmp_path):
+        """python-docx refuses the template content type; the renderer reads it anyway."""
+        template = _georgia_template(tmp_path, suffix=".dotx")
+        before = template.read_bytes()
+
+        result = DocxRenderer(DocxRendererOptions(template_path=str(template))).render_to_bytes(self.doc)
+
+        assert _normal_font(result) == ("Georgia", 12)
+        assert "Body" in [p.text for p in DocxDocument(BytesIO(result)).paragraphs]
+        assert template.read_bytes() == before

@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 import re
 import tempfile
+import zipfile
 from io import BytesIO
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Union, cast
@@ -70,7 +71,7 @@ from all2md.ast.nodes import (
 )
 from all2md.ast.transforms import remove_xml_illegal_characters
 from all2md.ast.visitors import NodeVisitor
-from all2md.constants import DEPS_DOCX_RENDER
+from all2md.constants import DEFAULT_DOCX_FONT, DEFAULT_DOCX_FONT_SIZE, DEPS_DOCX_RENDER
 from all2md.exceptions import RenderingError
 from all2md.options.docx import DocxRendererOptions
 from all2md.renderers.base import BaseRenderer
@@ -79,6 +80,36 @@ from all2md.utils.images import decode_base64_image_to_file
 from all2md.utils.network_security import RateLimiter, fetch_image_with_network_options, is_network_disabled
 
 logger = logging.getLogger(__name__)
+
+_WORD_TEMPLATE_CONTENT_TYPE = b"application/vnd.openxmlformats-officedocument.wordprocessingml.template.main+xml"
+_WORD_DOCUMENT_CONTENT_TYPE = b"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"
+
+
+def _open_word_template(path: str) -> str | BytesIO:
+    """Return ``path``, or an in-memory copy python-docx will open when it is a .dotx.
+
+    A Word template (.dotx) is a .docx whose main part declares the template content
+    type, and python-docx refuses to open it ("is not a Word file"). The parts are the
+    same, so declaring the document type in ``[Content_Types].xml`` is all it takes;
+    the file on disk is left untouched.
+    """
+    try:
+        with zipfile.ZipFile(path) as source:
+            content_types = source.read("[Content_Types].xml")
+            if _WORD_TEMPLATE_CONTENT_TYPE not in content_types:
+                return path
+            buffer = BytesIO()
+            with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as target:
+                for info in source.infolist():
+                    data = source.read(info.filename)
+                    if info.filename == "[Content_Types].xml":
+                        data = data.replace(_WORD_TEMPLATE_CONTENT_TYPE, _WORD_DOCUMENT_CONTENT_TYPE)
+                    target.writestr(info, data)
+    except (OSError, KeyError, zipfile.BadZipFile):
+        # Not a package we can read: let python-docx raise its own, clearer error.
+        return path
+    buffer.seek(0)
+    return buffer
 
 
 class DocxRenderer(NodeVisitor, BaseRenderer):
@@ -214,7 +245,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         try:
             # Create new Word document (with template if specified)
             if self.options.template_path:
-                self.document = self._Document(self.options.template_path)
+                self.document = self._Document(_open_word_template(self.options.template_path))
                 if self.options.clear_template_body:
                     self._clear_template_body()
             else:
@@ -295,12 +326,21 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         if not self.document:
             return
 
-        # Set default font for Normal style
+        # Set the Normal style's font. A template's own font is the reason to pass the
+        # template, so it is overwritten only by a font the caller names. The defaults
+        # used to be applied unconditionally, turning a Georgia 12 template into
+        # Calibri 11.
+        font_name = self.options.default_font
+        font_size = self.options.default_font_size
+        if not self.options.template_path:
+            font_name = font_name or DEFAULT_DOCX_FONT
+            font_size = font_size or DEFAULT_DOCX_FONT_SIZE
         if self._has_style("Normal"):
-            style = self.document.styles["Normal"]
-            font = style.font
-            font.name = self.options.default_font
-            font.size = self._Pt(self.options.default_font_size)
+            font = self.document.styles["Normal"].font
+            if font_name:
+                font.name = font_name
+            if font_size:
+                font.size = self._Pt(font_size)
 
         # Set creator metadata if configured
         if self.options.creator:
