@@ -38,10 +38,12 @@ class DocxRendererOptions(BaseRendererOptions):
 
     Parameters
     ----------
-    default_font : str, default "Calibri"
-        Default font name for body text.
-    default_font_size : int, default 11
-        Default font size in points for body text.
+    default_font : str or None, default None
+        Font name for body text (the Normal style). None means Calibri for a blank
+        document and the template's own font when ``template_path`` is set.
+    default_font_size : int or None, default None
+        Font size in points for body text. None means 11 for a blank document and the
+        template's own size when ``template_path`` is set.
     heading_font_sizes : dict[int, int] or None, default None
         Font sizes for heading levels 1-6. If None, uses built-in Word heading styles.
     use_styles : bool, default True
@@ -78,12 +80,20 @@ class DocxRendererOptions(BaseRendererOptions):
 
     """
 
-    default_font: str = field(
-        default=DEFAULT_DOCX_FONT, metadata={"help": "Default font for body text", "importance": "core"}
+    default_font: str | None = field(
+        default=None,
+        metadata={
+            "help": f"Font for body text (default {DEFAULT_DOCX_FONT}; a template keeps its own unless set)",
+            "importance": "core",
+        },
     )
-    default_font_size: int = field(
-        default=DEFAULT_DOCX_FONT_SIZE,
-        metadata={"help": "Default font size in points", "type": int, "importance": "core"},
+    default_font_size: int | None = field(
+        default=None,
+        metadata={
+            "help": f"Body font size in points (default {DEFAULT_DOCX_FONT_SIZE}; a template keeps its own unless set)",
+            "type": int,
+            "importance": "core",
+        },
     )
 
     heading_font_sizes: dict[int, int] | None = field(
@@ -122,7 +132,7 @@ class DocxRendererOptions(BaseRendererOptions):
     template_path: str | None = field(
         default=None,
         metadata={
-            "help": "Path to .docx template file for styles (None = default blank document)",
+            "help": "Path to a .docx or .dotx template whose styles the output uses (None = blank document)",
             "importance": "core",
         },
     )
@@ -182,7 +192,7 @@ class DocxRendererOptions(BaseRendererOptions):
         super().__post_init__()
 
         # Validate positive font sizes
-        if self.default_font_size <= 0:
+        if self.default_font_size is not None and self.default_font_size <= 0:
             raise ValueError(f"default_font_size must be positive, got {self.default_font_size}")
 
         if self.code_font_size <= 0:
