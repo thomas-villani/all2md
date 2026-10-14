@@ -27,6 +27,7 @@ from all2md.ast import Image, Link, Node, NodeTransformer, Text, extract_text
 from all2md.cli import EXIT_FILE_ERROR
 from all2md.cli.builder import EXIT_ERROR, EXIT_SUCCESS
 from all2md.cli.config import apply_config_to_parser
+from all2md.cli.files_from import add_files_from_arguments, resolve_files_from
 
 
 def _create_llm_minify_parser() -> argparse.ArgumentParser:
@@ -39,7 +40,8 @@ def _create_llm_minify_parser() -> argparse.ArgumentParser:
         prog="all2md llm-minify",
         description="Convert a document to token-lean Markdown (or plain text) for LLM consumption.",
     )
-    parser.add_argument("input", help="File to convert (use '-' for stdin)")
+    parser.add_argument("input", nargs="?", help="File to convert (use '-' for stdin)")
+    add_files_from_arguments(parser)
     parser.add_argument("-o", "--out", help="Write output to a file instead of stdout")
     parser.add_argument(
         "--aggressive",
@@ -186,6 +188,10 @@ def handle_llm_minify_command(args: list[str] | None = None) -> int:
         parsed = parser.parse_args(args or [])
     except SystemExit as e:
         return e.code if isinstance(e.code, int) else EXIT_ERROR
+
+    files_from_error = resolve_files_from(parsed, "input", single=True)
+    if files_from_error is not None:
+        return files_from_error
 
     # Resolve input (file or stdin).
     if parsed.input == "-":

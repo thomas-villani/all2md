@@ -149,7 +149,12 @@ def _handle_batch_list_expansion(parsed_args: argparse.Namespace) -> int | None:
     """
     if hasattr(parsed_args, "batch_from_list") and parsed_args.batch_from_list:
         try:
-            batch_paths = parse_batch_list(parsed_args.batch_from_list)
+            if getattr(parsed_args, "null", False):
+                from all2md.cli.files_from import read_files_from
+
+                batch_paths = read_files_from(parsed_args.batch_from_list, null=True)
+            else:
+                batch_paths = parse_batch_list(parsed_args.batch_from_list)
             parsed_args.input.extend(batch_paths)
         except argparse.ArgumentTypeError as e:
             print(f"Error: {e}", file=sys.stderr)

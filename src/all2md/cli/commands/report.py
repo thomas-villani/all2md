@@ -36,6 +36,7 @@ from all2md.cli.builder import (
     EXIT_VALIDATION_ERROR,
 )
 from all2md.cli.commands.shared import add_cache_arguments, conversion_cache_from_args, protect_stdout
+from all2md.cli.files_from import add_files_from_arguments, resolve_files_from
 from all2md.confidence import ConfidenceReport
 from all2md.exceptions import All2MdError, DependencyError
 
@@ -61,9 +62,10 @@ def _create_report_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "inputs",
-        nargs="+",
+        nargs="*",
         help="One or more documents to inspect (any supported format; use '-' for stdin).",
     )
+    add_files_from_arguments(parser)
     parser.add_argument(
         "--json",
         action="store_true",
@@ -214,6 +216,10 @@ def handle_report_command(args: list[str] | None = None) -> int:
         parsed = parser.parse_args(args or [])
     except SystemExit as e:
         return e.code if isinstance(e.code, int) else 0
+
+    files_from_error = resolve_files_from(parsed, "inputs")
+    if files_from_error is not None:
+        return files_from_error
 
     if parsed.fail_under is not None and not 0 <= parsed.fail_under <= 100:
         print("Error: --fail-under must be between 0 and 100.", file=sys.stderr)
