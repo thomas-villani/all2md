@@ -3,11 +3,11 @@
   "provenance": {
     "dataset_revision": "f5f559bddf50e36f7f9899d842d0006f13ce8afc",
     "annotation_sha256": "2fafe9329dc92fc426b30036aee51c716b3fcdcc1d20cb964dc7670579533817",
-    "oracle_schema_version": 7,
-    "all2md_commit": "1c02e03038bf0e7deec0e2fc7a49fc1aca1b51f9",
+    "oracle_schema_version": 8,
+    "all2md_commit": "b075f5bd38d624bbaf275719bc26cecb1b6f2224",
     "worktree_dirty": false,
-    "created_at": "2026-08-27T01:40:03.302211+00:00",
-    "python": "3.12.3 (main, Jun 19 2026, 12:46:00) [GCC 13.3.0]",
+    "created_at": "2026-10-14T02:41:44.091755+00:00",
+    "python": "3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]",
     "platform": "linux",
     "parser_runtime": {
       "pillow": "12.3.0",
@@ -47,24 +47,24 @@
   },
   "dimensions": {
     "block_structure_similarity": {
-      "value": 0.3991838397384642,
+      "value": 0.5160698641100735,
       "direction": "higher",
       "eligible_items": 981,
-      "variance": 0.05764953483879777,
+      "variance": 0.10617430683476271,
       "tolerance": 0.005
     },
     "reading_order_similarity": {
-      "value": 0.602660075239759,
+      "value": 0.6028185880729136,
       "direction": "higher",
       "eligible_items": 981,
-      "variance": 0.12081693528841556,
+      "variance": 0.1208562747067459,
       "tolerance": 0.005
     },
     "text_content_similarity": {
-      "value": 0.5051742182219761,
+      "value": 0.5053493416620007,
       "direction": "higher",
       "eligible_items": 981,
-      "variance": 0.11669091205295054,
+      "variance": 0.11679214585489604,
       "tolerance": 0.005
     }
   },

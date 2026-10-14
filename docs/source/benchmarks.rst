@@ -373,9 +373,10 @@ other three score all 706.
 The middle column is each dimension scored against the *wrong* page of the same article, and
 the gap is what is left. A measure with no gap is not measuring the output. That is the case
 against ``block_structure_similarity``, which is recorded here and excluded from the verdict
-in both lanes, for the reasons set out in the scanned-pages section below: on this corpus it
-separates own-page from wrong-page output by 0.10, and it *rises* when half the emitted
-content is deleted.
+in both lanes, for the reasons set out in the scanned-pages section below: on this corpus its
+original definition separated own-page from wrong-page output by 0.10, and it *rose* when
+half the emitted content was deleted. The row above is that original definition; the
+redefinition in #256 has not been re-recorded here yet.
 
 These are the numbers the figure-placement work moves. Figures and their captions used to be
 flushed at the end of whichever page they appeared on, no matter where on the page they were
@@ -419,13 +420,21 @@ The ``omnidocbench`` lane scores 981 scanned pages against human annotation, fro
      - 0.603
      - over 981 pages
    * - ``block_structure_similarity``
-     - 0.399
+     - 0.516
      - **not gated** — see below
 
-``block_structure_similarity`` is recorded but excluded from the verdict. It compares
-sequences of block *categories* without ever inspecting the text underneath, so output with
-no correct content at all can score well on it. A measurement that cannot distinguish those
-two cases must not be allowed to support one.
+``block_structure_similarity`` is recorded but excluded from the verdict. Until #256 it
+compared sequences of block *categories* without ever inspecting the text underneath, so
+output with no correct content at all could score well on it, and its edit distance mostly
+measured whether the two sides split lists into the same number of blocks. It now locates
+each annotated block's text in the output (with the floor reading order uses) and asks
+whether the output put that text in a block of the same kind, and the reverse for each
+emitted block; the score is the F1 of the two. Splitting or merging blocks of one kind costs
+nothing, and a block whose text is missing counts as a miss. That change took the value from
+0.399 to 0.516 in a re-record where text and order held to three decimals. The new definition has not yet been measured
+against the wrong-page and deletion controls that disqualified the old one, so it stays
+ungated; the born-digital row above still reports the old definition until that lane is
+next re-recorded.
 
 This baseline carries the resolution of issue #411. An earlier re-recording had exposed
 a drift across the v1.12/v1.13 parser arc (text 0.506 → 0.482, order 0.603 → 0.578) —
