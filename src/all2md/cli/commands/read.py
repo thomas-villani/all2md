@@ -23,6 +23,7 @@ from typing import Any, Union
 from all2md.cli.builder import EXIT_DEPENDENCY_ERROR, EXIT_ERROR, EXIT_FILE_ERROR, EXIT_SUCCESS
 from all2md.cli.commands.shared import add_cache_arguments, conversion_cache_from_args
 from all2md.cli.config import apply_config_to_parser
+from all2md.cli.files_from import add_files_from_arguments, resolve_files_from
 from all2md.options.terminal import CLICKABLE_LINKS_HELP, MATH_MODE_HELP
 
 INSTALL_HINT = "all2md read needs the tui extra: pip install 'all2md[tui]'"
@@ -51,6 +52,7 @@ def _create_read_parser() -> argparse.ArgumentParser:
         help="File to read ('-' for stdin), or folders, glob patterns or several files to choose from in a "
         "file tree (default: the current folder)",
     )
+    add_files_from_arguments(parser)
     parser.add_argument(
         "--keys",
         choices=sorted(PRESETS),
@@ -137,6 +139,15 @@ def handle_read_command(args: list[str] | None = None) -> int:
         return EXIT_DEPENDENCY_ERROR
 
     from all2md.tui.app import Viewer
+
+    files_from_error = resolve_files_from(parsed, "input", required=False)
+    if files_from_error is not None:
+        return files_from_error
+    # `fzf | all2md read --files-from -` spent stdin on the list of paths, and the viewer
+    # needs the keyboard.
+    if parsed.files_from == "-" and not reattach_terminal_input():
+        print("Error: cannot read the keyboard after reading --files-from from stdin", file=sys.stderr)
+        return EXIT_ERROR
 
     sources: list[str] = list(parsed.input)
     # sys.stdin is None under pythonw and some launchers: then there is nothing piped.

@@ -375,6 +375,104 @@ class TestLists:
         assert [item.children[0].content[0].content for item in lst.items] == ["a", "b"]
 
 
+def _item_shape(item: ListItem) -> list:
+    """Describe an item as its paragraph texts and nested lists, recursively."""
+    shape: list = []
+    for child in item.children:
+        if isinstance(child, Paragraph):
+            shape.append("".join(node.content for node in child.content if isinstance(node, Text)))
+        elif isinstance(child, List):
+            shape.append(("ol" if child.ordered else "ul", [_item_shape(sub) for sub in child.items]))
+    return shape
+
+
+@pytest.mark.unit
+class TestNestedLists:
+    """A sub-item is marked only by its indentation, so the parser must keep it (#570)."""
+
+    def _lists(self, org: str) -> list[List]:
+        return [node for node in OrgParser().parse(org).children if isinstance(node, List)]
+
+    def test_a_nested_bullet_stays_under_its_parent(self) -> None:
+        """It used to come back as a third sibling."""
+        (lst,) = self._lists("- parent\n  - child\n- second\n")
+
+        assert [_item_shape(item) for item in lst.items] == [["parent", ("ul", [["child"]])], ["second"]]
+
+    def test_a_nested_list_of_the_other_kind_is_not_folded_into_the_parent(self) -> None:
+        """It used to read as the parent's text: `parent 1. child`."""
+        (bullets,) = self._lists("- parent\n  1. child\n- second\n")
+        (numbers,) = self._lists("1. a\n   - b\n2. c\n")
+
+        assert [_item_shape(item) for item in bullets.items] == [["parent", ("ol", [["child"]])], ["second"]]
+        assert [_item_shape(item) for item in numbers.items] == [["a", ("ul", [["b"]])], ["c"]]
+
+    def test_three_levels_and_text_after_a_nested_list(self) -> None:
+        """A line back at the sub-item's column ends it and continues the parent."""
+        (lst,) = self._lists("- a\n  - b\n    - c\n  more a\n- d\n")
+
+        assert [_item_shape(item) for item in lst.items] == [
+            ["a", ("ul", [["b", ("ul", [["c"]])]]), "more a"],
+            ["d"],
+        ]
+
+    def test_an_indented_list_under_a_heading_keeps_its_siblings_level(self) -> None:
+        """Stripping the body took the first item's indent alone, nesting its siblings."""
+        doc = OrgParser().parse("  - a\n  - b\n\n* H\n  DEADLINE: <2025-03-15 Fri>\n  - x\n    - y\n  - z\n")
+        lists = [node for node in doc.children if isinstance(node, List)]
+
+        assert [[_item_shape(item) for item in lst.items] for lst in lists] == [
+            [["a"], ["b"]],
+            [["x", ("ul", [["y"]])], ["z"]],
+        ]
+
+    def test_two_kinds_of_sub_list_under_one_item(self) -> None:
+        (lst,) = self._lists("- a\n  1. x\n  - y\n")
+
+        assert [_item_shape(item) for item in lst.items] == [["a", ("ol", [["x"]]), ("ul", [["y"]])]]
+
+    def test_bullets_then_numbers_at_one_level_are_two_lists(self) -> None:
+        bullets, numbers = self._lists("- a\n- b\n1. x\n2. y\n")
+
+        assert not bullets.ordered and len(bullets.items) == 2
+        assert numbers.ordered and len(numbers.items) == 2
+
+    def test_wrapped_and_empty_items_are_unchanged(self) -> None:
+        """The run-on join (#343) and the empty bullet still hold at the top level."""
+        (lst,) = self._lists("- one wraps\n  onto two\n- \n- b\n")
+
+        assert [_item_shape(item) for item in lst.items] == [["one wraps onto two"], [], ["b"]]
+
+    def test_a_nested_list_round_trips_through_the_renderer(self) -> None:
+        from all2md.renderers.org import OrgRenderer
+
+        source = Document(
+            children=[
+                List(
+                    ordered=False,
+                    items=[
+                        ListItem(
+                            children=[
+                                Paragraph(content=[Text(content="parent")]),
+                                List(
+                                    ordered=True,
+                                    start=3,
+                                    items=[ListItem(children=[Paragraph(content=[Text(content="child")])])],
+                                ),
+                            ]
+                        ),
+                        ListItem(children=[Paragraph(content=[Text(content="second")])]),
+                    ],
+                )
+            ]
+        )
+
+        (lst,) = self._lists(OrgRenderer().render_to_string(source))
+
+        assert [_item_shape(item) for item in lst.items] == [["parent", ("ol", [["child"]])], ["second"]]
+        assert lst.items[0].children[1].start == 3
+
+
 @pytest.mark.unit
 class TestCodeBlocks:
     """Tests for code block parsing."""

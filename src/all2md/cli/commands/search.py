@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Mapping
 from all2md.cli.builder import EXIT_DEPENDENCY_ERROR, EXIT_ERROR, EXIT_FILE_ERROR, EXIT_SUCCESS, EXIT_VALIDATION_ERROR
 from all2md.cli.commands.shared import add_cache_arguments, collect_input_files, conversion_cache_from_args
 from all2md.cli.config import load_config_with_priority
+from all2md.cli.files_from import add_files_from_arguments, resolve_files_from
 from all2md.cli.input_items import CLIInputItem
 from all2md.exceptions import DependencyError
 from all2md.options.search import SearchOptions
@@ -548,6 +549,7 @@ def _build_search_argument_parser() -> argparse.ArgumentParser:
         nargs="*",
         help="Files, directories, or globs to index. Omit when reusing persisted index.",
     )
+    add_files_from_arguments(parser)
     parser.add_argument("--config", help="Optional configuration file overriding defaults")
     parser.add_argument("--index-dir", help="Directory containing or storing persisted index data")
     parser.add_argument("--persist", action="store_true", help="Persist index state to --index-dir")
@@ -824,6 +826,10 @@ def handle_search_command(args: list[str] | None = None) -> int:
     except SystemExit as exc:
         return exc.code if isinstance(exc.code, int) else 0
 
+    files_from_error = resolve_files_from(parsed, "inputs", required=False)
+    if files_from_error is not None:
+        return files_from_error
+
     _validate_search_args(parsed, parser)
 
     options, error_code = _load_search_options_from_config(parsed)
@@ -894,9 +900,10 @@ def handle_grep_command(args: list[str] | None = None) -> int:
     parser.add_argument("query", help="Search query text or pattern")
     parser.add_argument(
         "inputs",
-        nargs="+",
+        nargs="*",
         help="Files, directories, or globs to search (use '-' for stdin)",
     )
+    add_files_from_arguments(parser)
     parser.add_argument(
         "-e",
         "--regex",
@@ -953,6 +960,10 @@ def handle_grep_command(args: list[str] | None = None) -> int:
     add_cache_arguments(parser)
 
     parsed = parser.parse_args(args)
+
+    files_from_error = resolve_files_from(parsed, "inputs")
+    if files_from_error is not None:
+        return files_from_error
 
     # Apply context shortcuts
     if parsed.grep_context is not None:

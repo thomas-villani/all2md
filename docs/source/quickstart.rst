@@ -12,7 +12,7 @@ Start with the basic installation:
 
    pip install all2md
 
-This includes support for HTML, CSV/TSV, text files, and images. For other formats, install the specific dependencies you need:
+This reads Markdown, plain text and source files, CSV/TSV, email and Jupyter notebooks, and includes ``all2md view`` and ``all2md grep``. For other formats, install the specific dependencies you need:
 
 .. code-block:: bash
 

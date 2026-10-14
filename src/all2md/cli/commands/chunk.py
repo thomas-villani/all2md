@@ -36,6 +36,7 @@ from all2md.cli.builder import (
 )
 from all2md.cli.commands.shared import add_cache_arguments, conversion_cache_from_args
 from all2md.cli.config import apply_config_to_parser
+from all2md.cli.files_from import add_files_from_arguments, resolve_files_from
 from all2md.exceptions import All2MdError, DependencyError
 
 
@@ -81,9 +82,10 @@ def _create_chunk_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "inputs",
-        nargs="+",
+        nargs="*",
         help="One or more documents to chunk (any supported format; use '-' for stdin).",
     )
+    add_files_from_arguments(parser)
 
     parser.add_argument(
         "--strategy",
@@ -295,6 +297,10 @@ def handle_chunk_command(args: list[str] | None = None) -> int:
         parsed = parser.parse_args(args or [])
     except SystemExit as e:
         return e.code if isinstance(e.code, int) else 0
+
+    files_from_error = resolve_files_from(parsed, "inputs")
+    if files_from_error is not None:
+        return files_from_error
 
     stdin_count = sum(1 for src in parsed.inputs if src == "-")
     if stdin_count > 1:

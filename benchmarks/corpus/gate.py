@@ -7,10 +7,10 @@ That is a set of names, and sets compare exactly - no tolerance, no runner
 variance, no threshold to argue about. So that is what this module gates.
 
 Throughput is the other thing a corpus run measures, and it is *not* gated here.
-It needs a variance study on the runners it will actually run on before any
-threshold is defensible; guessing buys a flaky gate, and a flaky gate gets
-disabled, which leaves the appearance of coverage. See ``benchmarks/startup_spread.py``
-for the instrument and what it cost to learn that lesson on a much quieter metric.
+The #183 variance study had only 13 comparable weekly runs of it - too few to
+calibrate a per-document threshold against tails - so per-format throughput is
+gated on every push by ``benchmarks/throughput.py`` instead, which the same study
+calibrated on 1,003 runs of ``tests/performance``.
 
 **Only reproducible sources are judged.** ``corpus.toml`` marks each source with
 ``reproducible``; ``arxiv`` and ``poi`` resolve against upstream state that moves

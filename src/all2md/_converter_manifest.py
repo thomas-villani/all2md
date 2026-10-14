@@ -306,7 +306,7 @@ _MANIFEST_RECORDS: list[ConverterMetadata] = [
         renderer_class="all2md.renderers.markdown.MarkdownRenderer",
         parser_required_packages=[("mistune", "mistune", ">=3.0.0")],
         renders_as_string=True,
-        import_error_message="Markdown parsing requires 'mistune'. Install with: pip install 'all2md[markdown]'",
+        import_error_message="Markdown parsing requires 'mistune'. Reinstall with: pip install --force-reinstall all2md",
         parser_options_class="all2md.options.markdown.MarkdownParserOptions",
         renderer_options_class="all2md.options.markdown.MarkdownRendererOptions",
         description="Parse Markdown to AST and render AST to Markdown",

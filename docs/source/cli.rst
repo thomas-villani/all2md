@@ -4893,36 +4893,60 @@ When processing multiple formats in a single batch, you can use format-specific 
 
 For a complete list of format-specific flags, see :doc:`attachments` or run ``all2md help <format>``.
 
-Batch from List
-~~~~~~~~~~~~~~~
+Input Paths from a List (``--files-from``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Process each entry from a plain text list file as a standalone conversion. Unlike ``--merge-from-list``, every item is
-rendered separately using the normal multi-file pipeline so per-file outputs, summaries, and progress reporting stay
-intact.
+Take the input paths from a list rather than the command line, the way ``tar -T`` and
+``rsync --files-from`` do. The list is a file, or ``-`` for standard input, which is what
+lets a picker such as `fzf <https://github.com/junegunn/fzf>`_ or ``find`` drive any
+all2md command. Every command that takes files accepts it: the conversion itself and
+``read``, ``view``, ``grep``, ``search``, ``report``, ``lint``, ``chunk``, ``roundtrip``,
+``optimize``, ``llm-minify`` and ``generate-site``.
 
-``--batch-from-list``
-   Read file paths (one per line) from a list file or ``-`` (stdin). Lines beginning with ``#`` and blank lines are
-   ignored, and relative paths are resolved relative to the list file itself (or the current directory when streaming via
-   stdin). Paths must exist; nonexistent entries trigger a validation error before processing begins.
+``--files-from FILE``
+   Read paths, one per line, from ``FILE`` or from ``-`` (stdin). Lines beginning with
+   ``#`` and blank lines are ignored, surrounding whitespace is trimmed, and relative
+   paths resolve against the list file's folder (the current folder for stdin). Every
+   path must exist; the missing ones are named before anything runs. Listed paths are
+   added to any given on the command line. For the conversion, each one is converted on
+   its own, unlike ``--merge-from-list``. The original spelling, ``--batch-from-list``,
+   still works there.
 
-   .. code-block:: text
+``--null``
+   The list is NUL-separated (``find -print0``, ``fzf --print0``) instead of
+   line-separated. NUL is the one character a file name cannot contain, so this is the
+   safe choice for names with newlines or leading spaces. Entries are taken exactly as
+   written.
 
-      # docs_to_convert.txt
-      ./reports/q1.docx
-      ./reports/q2.docx
-      # Relative paths resolve from the list location
-      ../shared/summary.pdf
+.. code-block:: text
 
-   .. code-block:: bash
+   # docs_to_convert.txt
+   ./reports/q1.docx
+   ./reports/q2.docx
+   # Relative paths resolve from the list location
+   ../shared/summary.pdf
 
-      # Convert every listed file into the output directory
-      all2md --batch-from-list docs_to_convert.txt --output-dir ./converted
+.. code-block:: bash
 
-      # Feed a dynamically generated list from stdin
-      find ./incoming -name '*.pptx' -print | all2md --batch-from-list - --output-dir ./slides
+   # Pick a document and read it in the terminal viewer
+   fzf | all2md read --files-from -
 
-   ``--batch-from-list`` cannot be combined with ``--merge-from-list``. When you provide an explicit list file, stdin
-   inputs (``-``) are ignored; use ``--batch-from-list -`` if you need to stream the list over stdin.
+   # Pick a document and open it in the browser
+   fzf | all2md view --files-from -
+
+   # Search the documents you picked
+   fzf -m --print0 | all2md grep invoice --files-from - --null
+
+   # Convert every listed file into the output directory
+   all2md --files-from docs_to_convert.txt --output-dir ./converted
+   find ./incoming -name '*.pptx' -print0 | all2md --files-from - --null --output-dir ./slides
+
+``read`` opens one picked file directly and several as a file tree. It reads the list
+from stdin and then takes the keyboard back from the terminal (``/dev/tty``, or the
+console on Windows). ``view`` and ``llm-minify`` open exactly one file, so the list must
+name one. Stdin can carry either the list or a document, not both: ``--files-from -``
+cannot be combined with a ``-`` input. ``--files-from`` cannot be combined with
+``--merge-from-list``.
 
 Merge from List
 ~~~~~~~~~~~~~~~

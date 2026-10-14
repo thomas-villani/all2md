@@ -620,14 +620,7 @@ INVARIANTS: dict[str, tuple[Document, object, object]] = {
 #: syntax, so the renderer emits the caption twice over -- an italic paragraph for
 #: readers, a marker comment for the parser -- and the invariant holds without
 #: making the caption invisible in the file.
-KNOWN_INVARIANT_GAPS: dict[tuple[str, str], str] = {
-    ("org", "nested-list-keeps-its-parent-paragraph"): (
-        "The org PARSER does not read nested lists: the renderer writes the nested list "
-        "indented under its item, but a nested bullet comes back as a sibling item and a "
-        "nested numbered item folds into the parent's text ('parent 1. child'). Words "
-        "survive; the nesting does not. Found with #517's invariant. #570"
-    ),
-}
+KNOWN_INVARIANT_GAPS: dict[tuple[str, str], str] = {}
 
 #: Formats the invariant gate covers. Text formats only: the invariants probe
 #: specific node attributes, and the container formats lose so much structure

@@ -1,0 +1,46 @@
+{
+  "_comment": [
+    "Per-format baseline for the CI throughput gate (benchmarks/throughput.py). NOT a",
+    "dev-box measurement: record it from format-benchmarks-* CI artifacts with",
+    "`python -m benchmarks.throughput <json>... --record <out>`, never from a laptop.",
+    "",
+    "The gate reads each format relative to the other formats in the same run, so only",
+    "the RATIOS between these numbers matter, not their absolute scale. That is what",
+    "makes a CPU-class change (0.57x / 0.73x / 1.0x in the #183 study) invisible to it.",
+    "",
+    "The tolerance is set against the #183 replay of 1,003 CI runs: relative-to-run",
+    "spread is a robust sigma of 1.5-4% per format, CPU classes shift it by at most 9%,",
+    "and single-run contention bursts reach 3.4x on one format - which is why the gate",
+    "needs the slowdown in both passes. 30% caught an injected 1.5x slowdown 99% of",
+    "the time and 2x every time, with no false SLOW over the replay.",
+    "",
+    "Re-record in the commit that changes a format's cost on purpose. Do not re-record",
+    "to chase a red run whose slowdown you did not intend."
+  ],
+  "tolerance_pct": 30.0,
+  "provenance": {
+    "recorded": "2026-10-13",
+    "source": "format-benchmarks-* artifacts of every main-branch CI run 2026-09-16..2026-10-12",
+    "runs": 99,
+    "statistic": "min over iterations; each run rescaled by its median ratio before the per-format median"
+  },
+  "metrics_seconds": {
+    "csv:basic.csv": 0.000806,
+    "docx:basic.docx": 0.044059,
+    "docx:complex.docx": 0.079964,
+    "docx:footnotes-endnotes-comments.docx": 0.019889,
+    "epub:epub-simple.epub": 0.004389,
+    "html:basic.html": 0.003935,
+    "html:html_readability_article.html": 0.001823,
+    "ipynb:ipynb-simple.ipynb": 0.000708,
+    "md->docx->md:basic.md": 0.17392,
+    "mhtml:mhtml-simple.mht": 0.003101,
+    "odt:basic.odt": 0.017171,
+    "odt:complex.odt": 0.02323,
+    "pdf:basic.pdf": 0.042408,
+    "pdf:complex.pdf": 0.195012,
+    "pptx:basic.pptx": 0.023074,
+    "rtf:basic-format.rtf": 0.02679,
+    "xlsx:basic.xlsx": 0.004529
+  }
+}
