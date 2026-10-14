@@ -83,6 +83,18 @@ _FILE_PROPERTY_KEYWORDS = frozenset(
 )
 
 
+def _trim_body(text: str) -> str:
+    """Drop a body's surrounding blank lines, keeping its first line's indentation.
+
+    ``str.strip`` took the first line's indent alone, and a list read by its
+    indentation then saw that line's siblings as nested under it (#570).
+    """
+    lines = text.rstrip().split("\n")
+    while lines and not lines[0].strip():
+        lines.pop(0)
+    return "\n".join(lines)
+
+
 class OrgParser(BaseParser):
     r"""Convert Org-Mode to AST representation.
 
@@ -208,11 +220,7 @@ class OrgParser(BaseParser):
 
         # Process root node body first (plain text without headings)
         # Use format='raw' to preserve link syntax
-        root_body = (
-            root.get_body(format="raw").strip()
-            if hasattr(root, "get_body")
-            else (root.body.strip() if root.body else "")
-        )
+        root_body = _trim_body(root.get_body(format="raw") if hasattr(root, "get_body") else (root.body or ""))
         if root_body:
             filtered_body = self._strip_file_properties(root_body)
 
@@ -269,7 +277,7 @@ class OrgParser(BaseParser):
             if keyword and keyword.group(1).upper() in _FILE_PROPERTY_KEYWORDS:
                 continue
             filtered_lines.append(line)
-        return "\n".join(filtered_lines).strip()
+        return _trim_body("\n".join(filtered_lines))
 
     def _process_node(self, node: Any) -> Node | list[Node] | None:
         """Process an orgparse node into an AST node.
@@ -294,11 +302,7 @@ class OrgParser(BaseParser):
 
         # Process body content
         # Use format='raw' to preserve link syntax
-        body_text = (
-            node.get_body(format="raw").strip()
-            if hasattr(node, "get_body")
-            else (node.body.strip() if node.body else "")
-        )
+        body_text = _trim_body(node.get_body(format="raw") if hasattr(node, "get_body") else (node.body or ""))
         if body_text:
             body_nodes = self._process_body(body_text)
             result.extend(body_nodes)
@@ -764,7 +768,8 @@ class OrgParser(BaseParser):
 
         index = 0
         while index < len(blocks):
-            block = blocks[index][1].strip()
+            raw_block = blocks[index][1]
+            block = raw_block.strip()
             index += 1
             if not block:
                 continue
@@ -842,9 +847,10 @@ class OrgParser(BaseParser):
 
             # Lists require a space after the marker (+gone+ is strikethrough, not a list)
             if re.match(r"^([\-\+\*]\s+|\d+[\.\)]\s*)", block):
-                list_node = self._parse_list(block)
-                if list_node:
-                    result.append(list_node)
+                # The list parser reads indentation, so it gets the block as written:
+                # stripping takes the first item's indent alone, and its siblings then
+                # read as nested under it. A caption line was cut from the head already.
+                result.extend(self._parse_lists(block if caption else raw_block))
                 continue
 
             # Check for block quotes (lines starting with :)
@@ -1145,8 +1151,50 @@ class OrgParser(BaseParser):
 
         return Table(header=header, rows=rows)
 
+    #: An Org list item's marker: a bullet, or a number closed by ``.`` or ``)``. The
+    #: content group is optional -- a bullet with nothing after it is still an item.
+    _BULLET_MARKER = re.compile(r"^[\-\+\*](?:\s+(.*))?$")
+    _ORDERED_MARKER = re.compile(r"^(\d+)[\.\)](?:\s+(.*))?$")
+
+    def _parse_lists(self, block: str) -> list[List]:
+        """Parse an Org list block, nested lists included.
+
+        Parameters
+        ----------
+        block : str
+            List block text
+
+        Returns
+        -------
+        list of List
+            One List per run of same-kind items at the block's outer indentation;
+            bullets followed by numbered items at the same level are two lists
+
+        Notes
+        -----
+        Indentation is what marks a sub-item, so every line is read as
+        ``(indent, text)``. A line indented past an item's marker belongs to that
+        item: a marker there opens a nested list of either kind, and an unmarked line
+        continues the item's text. The loop used to strip each line before matching
+        it and choose one marker kind for the whole block, so a nested bullet came
+        back as a sibling and a nested numbered item folded into its parent's text
+        (#570). The result is the ``ListItem > [Paragraph, List]`` shape the Markdown
+        and AsciiDoc parsers already build.
+
+        """
+        lines = [(len(line) - len(line.lstrip()), line.strip()) for line in block.split("\n") if line.strip()]
+        lists: list[List] = []
+        index = 0
+        while index < len(lines):
+            list_node, next_index = self._parse_list_lines(lines, index)
+            if list_node is None or next_index == index:
+                break
+            lists.append(list_node)
+            index = next_index
+        return lists
+
     def _parse_list(self, block: str) -> List | None:
-        """Parse an Org list.
+        """Parse an Org list block and return its first list.
 
         Parameters
         ----------
@@ -1158,66 +1206,104 @@ class OrgParser(BaseParser):
         List or None
             List AST node
 
-        Notes
-        -----
-        Nested items are still flattened to a single level: the loop strips a line
-        before matching it, so a sub-item's indentation -- the only thing marking it as
-        one -- is gone by the time the marker is read.
+        """
+        lists = self._parse_lists(block)
+        return lists[0] if lists else None
+
+    def _match_list_marker(self, text: str) -> tuple[bool, int, str] | None:
+        """Match a list marker, returning ``(ordered, number, rest)`` or None."""
+        ordered_match = self._ORDERED_MARKER.match(text)
+        if ordered_match:
+            return True, int(ordered_match.group(1)), (ordered_match.group(2) or "").strip()
+        bullet_match = self._BULLET_MARKER.match(text)
+        if bullet_match:
+            return False, 1, (bullet_match.group(1) or "").strip()
+        return None
+
+    def _parse_list_lines(self, lines: list[tuple[int, str]], index: int) -> tuple[List | None, int]:
+        """Parse one list starting at ``lines[index]``.
+
+        Parameters
+        ----------
+        lines : list of (int, str)
+            The block's non-blank lines as ``(indent, stripped text)``
+        index : int
+            Position of the list's first item
+
+        Returns
+        -------
+        tuple of (List or None, int)
+            The list, and the position of the first line it did not consume: a line
+            indented less than the list, or a marker of the other kind at its level
 
         """
-        lines = block.split("\n")
+        first = self._match_list_marker(lines[index][1])
+        if first is None:
+            return None, index
+        base_indent = lines[index][0]
+        ordered = first[0]
+        # The list's own first number is its start. Taking it is what the Markdown
+        # parser already does, and without it a list written `5.` came back at 1 --
+        # the number was present in the document and discarded on the way in.
+        start = first[1] if ordered else 1
         items: list[ListItem] = []
-        ordered = False
-        start = 1
 
-        # Check if ordered or unordered
-        first_line = lines[0].strip()
-        first_number = re.match(r"^(\d+)[\.\)]", first_line)
-        if first_number:
-            ordered = True
-            # The list's own first number is its start. Taking it is what the Markdown
-            # parser already does, and without it a list written `5.` came back at 1 --
-            # the number was present in the document and discarded on the way in.
-            start = int(first_number.group(1))
+        while index < len(lines):
+            indent, text = lines[index]
+            marker = self._match_list_marker(text)
+            # Only a same-kind marker at the list's own indentation opens an item.
+            if marker is None or indent != base_indent or marker[0] != ordered:
+                break
+            index += 1
 
-        # Match list item. The content group is optional: a bullet with nothing
-        # after it is still an item, and requiring content silently deleted it --
-        # `- \n- b` came back as a one-item list. An empty item carries no
-        # Paragraph, which is the shape the Markdown parser already produces.
-        marker = re.compile(r"^\d+[\.\)](?:\s+(.*))?$" if ordered else r"^[\-\+\*](?:\s+(.*))?$")
+            # An item owns every line indented past its marker. A marker there opens a
+            # nested list; any other line continues the item's text. In a nested list, an
+            # unmarked line back at the marker's own column ends the item, as in Org, and
+            # goes to the parent. At the outermost level there is no parent, so such a
+            # line is read as a lazy wrap rather than dropped. Run-on lines join with a
+            # single space, as the AsciiDoc parser joins them (#343).
+            texts = [marker[2]]
+            children: list[Node] = []
+            while index < len(lines):
+                child_indent, child_text = lines[index]
+                child_marker = self._match_list_marker(child_text)
+                if child_marker is not None and child_indent > base_indent:
+                    self._flush_item_text(texts, children)
+                    texts = []
+                    nested, index = self._parse_list_lines(lines, index)
+                    if nested is not None:
+                        children.append(nested)
+                    continue
+                if child_marker is None and (child_indent > base_indent or base_indent == 0):
+                    texts.append(child_text)
+                    index += 1
+                    continue
+                break
+            counter = self._flush_item_text(texts, children)
+            if counter is not None and not items:
+                start = counter
+            items.append(ListItem(children=children))
 
-        # Group the block's lines into one text per item. A line carrying no marker is
-        # not a line to discard: it is the previous item's principal text wrapping onto
-        # the next line. The loop kept only matching lines and had no other branch, so
-        # `- item one continues` / `  onto a wrapped line` lost the second line
-        # entirely. The AsciiDoc parser joins an item's run-on lines the same way,
-        # separated by a single space (#343).
-        item_texts: list[str] = []
-        for line in lines:
-            line_stripped = line.strip()
-            if not line_stripped:
-                continue
+        return List(ordered=ordered, start=start, items=items), index
 
-            match = marker.match(line_stripped)
-            if match:
-                item_texts.append((match.group(1) or "").strip())
-            elif item_texts:
-                item_texts[-1] = f"{item_texts[-1]} {line_stripped}".strip()
+    def _flush_item_text(self, texts: list[str], children: list[Node]) -> int | None:
+        """Append an item's pending run-on lines to ``children`` as one Paragraph.
 
-        for item_text in item_texts:
-            # `[@N]` is Org's own counter set, and it wins over the literal number
-            # it follows -- that is the whole point of writing it.
-            counter = re.match(r"^\[@(\d+)\]\s*(.*)$", item_text, re.DOTALL)
-            if counter:
-                if not items:
-                    start = int(counter.group(1))
-                item_text = counter.group(2).strip()
-            if item_text:
-                items.append(ListItem(children=[Paragraph(content=self._parse_inline(item_text))]))
-            else:
-                items.append(ListItem(children=[]))
+        Returns the item's ``[@N]`` counter when the text opens with one. That is
+        Org's own counter set, and it wins over the literal number it follows -- that
+        is the whole point of writing it. Only the item's first text can carry it.
 
-        return List(ordered=ordered, start=start, items=items)
+        """
+        item_text = " ".join(t for t in texts if t).strip()
+        counter = None
+        if not children:
+            counter_match = re.match(r"^\[@(\d+)\]\s*(.*)$", item_text, re.DOTALL)
+            if counter_match:
+                counter = int(counter_match.group(1))
+                item_text = counter_match.group(2).strip()
+        if item_text:
+            children.append(Paragraph(content=self._parse_inline(item_text)))
+        return counter
 
     def _parse_definition_list(self, block: str) -> DefinitionList | None:
         """Parse an Org definition list.
