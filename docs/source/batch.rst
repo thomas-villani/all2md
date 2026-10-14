@@ -51,7 +51,9 @@ Filtering and exclusion:
    all2md ./project --recursive --include-hidden --output-dir converted/
 
    # Drive the list from a file (one path per line; '#' comments; '-' reads stdin)
-   all2md --batch-from-list files.txt --output-dir converted/
+   all2md --files-from files.txt --output-dir converted/
+
+   # Or let a picker choose: fzf -m | all2md --files-from - --output-dir converted/
 
 .. tip::
    Quote glob patterns (``'**/*.pdf'``) so all2md performs the expansion consistently

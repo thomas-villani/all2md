@@ -112,6 +112,10 @@ curl https://example.com/doc.pdf | all2md - | grep "important"
 echo "<h1>Note</h1>" | all2md view -
 cat doc.pdf | all2md grep "term" -
 echo "<p>v1</p>" | all2md diff - v2.html
+
+# Paths, not content: --files-from reads a list of files ('-' = stdin)
+fzf | all2md read --files-from -              # pick a document, read it
+fzf -m --print0 | all2md grep "term" --files-from - --null
 ```
 
 ## Utilities

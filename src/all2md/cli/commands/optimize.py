@@ -41,6 +41,7 @@ from all2md.cli.builder import (
     EXIT_VALIDATION_ERROR,
 )
 from all2md.cli.commands.shared import add_cache_arguments, conversion_cache_from_args, protect_stdout
+from all2md.cli.files_from import add_files_from_arguments, resolve_files_from
 from all2md.constants import DocumentFormat
 from all2md.exceptions import All2MdError, DependencyError
 from all2md.optimize import OptimizationReport
@@ -60,9 +61,10 @@ def _create_optimize_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "inputs",
-        nargs="+",
+        nargs="*",
         help=f"Documents to tune ({', '.join(sorted(KNOBS))}; use '-' for stdin).",
     )
+    add_files_from_arguments(parser)
     parser.add_argument(
         "--format",
         "-f",
@@ -297,6 +299,10 @@ def handle_optimize_command(args: list[str] | None = None) -> int:
         parsed = parser.parse_args(args or [])
     except SystemExit as e:
         return e.code if isinstance(e.code, int) else 0
+
+    files_from_error = resolve_files_from(parsed, "inputs")
+    if files_from_error is not None:
+        return files_from_error
 
     if parsed.rounds < 1:
         print("Error: --rounds must be at least 1.", file=sys.stderr)

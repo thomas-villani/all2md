@@ -17,6 +17,7 @@ from pathlib import Path
 from all2md.cli.builder import EXIT_ERROR, EXIT_SUCCESS, EXIT_VALIDATION_ERROR
 from all2md.cli.commands.shared import collect_input_files
 from all2md.cli.config import apply_config_to_parser
+from all2md.cli.files_from import add_files_from_arguments, resolve_files_from
 from all2md.renderers.markdown import MarkdownRenderer
 from all2md.utils.attachments import ensure_unique_attachment_path
 from all2md.utils.static_site import (
@@ -41,7 +42,8 @@ def _create_generate_site_parser() -> argparse.ArgumentParser:
         prog="all2md generate-site",
         description="Generate Hugo, Jekyll, MkDocs, Zola, or Eleventy static site from documents.",
     )
-    parser.add_argument("input", nargs="+", help="Input files or directories to convert")
+    parser.add_argument("input", nargs="*", help="Input files or directories to convert")
+    add_files_from_arguments(parser)
     parser.add_argument("--output-dir", required=True, help="Output directory for the static site")
     parser.add_argument(
         "--generator",
@@ -99,6 +101,10 @@ def handle_generate_site_command(args: list[str] | None = None) -> int:
         parsed = parser.parse_args(args or [])
     except SystemExit as e:
         return e.code if isinstance(e.code, int) else 0
+
+    files_from_error = resolve_files_from(parsed, "input")
+    if files_from_error is not None:
+        return files_from_error
 
     # Parse generator type
     generator = StaticSiteGenerator(parsed.generator)

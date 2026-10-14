@@ -1916,6 +1916,7 @@ Examples:
             "section_titles",
             # Batch-from-list arguments
             "batch_from_list",
+            "null",
             # Section extraction and outline arguments
             "extract",
             "outline",
@@ -2229,13 +2230,23 @@ def create_parser() -> argparse.ArgumentParser:
         help="Merge files from a list file (TSV format: path[<tab>section_title])",
     )
 
+    # `--files-from` is the name every subcommand shares (tar -T, rsync --files-from);
+    # `--batch-from-list` is the original spelling and keeps working.
     batch_group.add_argument(
+        "--files-from",
         "--batch-from-list",
+        dest="batch_from_list",
         action=TrackingStoreAction,
         type=str,
-        metavar="PATH",
-        help="Process files from a list file (one path per line, # for comments). "
-        'Use "-" to read from stdin. Paths are processed individually unlike --merge-from-list.',
+        metavar="FILE",
+        help="Read input paths from FILE, one per line ('#' starts a comment), or from stdin with '-': "
+        "`fzf | all2md --files-from -`. Each path is converted on its own, unlike --merge-from-list. "
+        "Also spelled --batch-from-list.",
+    )
+    batch_group.add_argument(
+        "--null",
+        action=TrackingStoreTrueAction,
+        help="With --files-from, paths are separated by NUL characters (find -print0, fzf --print0), not lines",
     )
 
     parser.add_argument(

@@ -22,6 +22,7 @@ from all2md.cli.builder import EXIT_ERROR, EXIT_SUCCESS
 from all2md.cli.commands.shared import add_cache_arguments, conversion_cache_from_args
 from all2md.cli.commands.web_assets import ThemeError, inject_web_assets, resolve_theme
 from all2md.cli.config import apply_config_to_parser, load_config_with_priority
+from all2md.cli.files_from import add_files_from_arguments, resolve_files_from
 
 
 def _create_view_parser() -> argparse.ArgumentParser:
@@ -34,7 +35,8 @@ def _create_view_parser() -> argparse.ArgumentParser:
         prog="all2md view",
         description="Convert and view document in browser with HTML themes.",
     )
-    parser.add_argument("input", help="File to view (use '-' for stdin)")
+    parser.add_argument("input", nargs="?", help="File to view (use '-' for stdin)")
+    add_files_from_arguments(parser)
     parser.add_argument(
         "--keep",
         nargs="?",
@@ -124,6 +126,10 @@ def handle_view_command(args: list[str] | None = None) -> int:
         parsed = parser.parse_args(args or [])
     except SystemExit as e:
         return e.code if isinstance(e.code, int) else EXIT_ERROR
+
+    files_from_error = resolve_files_from(parsed, "input", single=True)
+    if files_from_error is not None:
+        return files_from_error
 
     # Handle stdin or validate input file exists
     is_stdin = parsed.input == "-"

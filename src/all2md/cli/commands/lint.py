@@ -11,6 +11,7 @@ from typing import Any
 from all2md.cli.builder import EXIT_ERROR, EXIT_FILE_ERROR, EXIT_SUCCESS, EXIT_VALIDATION_ERROR
 from all2md.cli.commands.shared import collect_input_files
 from all2md.cli.config import load_config_with_priority
+from all2md.cli.files_from import add_files_from_arguments, resolve_files_from
 from all2md.linter import FixSafety, LintConfig, LintRunner, Severity
 from all2md.linter.profiles import available_profiles, describe_profiles, get_profile_config, merge_profile_dicts
 from all2md.linter.reporters import ReportableResult, get_reporter
@@ -38,6 +39,10 @@ def handle_lint_command(args: list[str] | None = None) -> int:
         parsed = parser.parse_args(args or [])
     except SystemExit as exc:
         return exc.code if isinstance(exc.code, int) else EXIT_ERROR
+
+    files_from_error = resolve_files_from(parsed, "inputs", required=False)
+    if files_from_error is not None:
+        return files_from_error
 
     if parsed.list_profiles:
         print(describe_profiles())
@@ -146,6 +151,7 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument("inputs", nargs="*", help="Files, directories, or globs to lint")
+    add_files_from_arguments(parser)
     parser.add_argument(
         "-R",
         "-r",
@@ -215,7 +221,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help=("Used with --fix: report what would be fixed without writing the file. " "Has no effect without --fix."),
+        help=("Used with --fix: report what would be fixed without writing the file. Has no effect without --fix."),
     )
     return parser
 
