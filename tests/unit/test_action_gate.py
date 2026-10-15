@@ -402,3 +402,13 @@ def test_the_script_is_importable_without_all2md():
 
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__]))
+
+
+def test_the_action_metadata_fits_the_marketplace():
+    """GitHub Marketplace refuses a listing whose description is 125 characters or more."""
+    import yaml
+
+    metadata = yaml.safe_load((_SCRIPT.parents[1] / "action.yml").read_text(encoding="utf-8"))
+
+    assert len(metadata["description"]) < 125
+    assert metadata["branding"]["icon"] and metadata["branding"]["color"]

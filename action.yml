@@ -1,7 +1,5 @@
 name: "all2md conversion-quality gate"
-description: >-
-  Fail the build when your documents stop converting cleanly. Scores every matched
-  document for round-trip fidelity and conversion confidence, and gates on the worst.
+description: "Fail the build when your documents stop converting cleanly: gates on round-trip fidelity and conversion confidence."
 author: "Tom Villani"
 
 branding:
