@@ -7,6 +7,295 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-10-14
+
+### Added
+
+- **CI gates per-format throughput, relative to the rest of the run.** A new
+  `Throughput Gate` job runs the `tests/performance` suite twice and fails when one
+  format is more than 30% slower than `benchmarks/throughput_baseline.json` *relative
+  to the median of the other formats in the same pass*, in both passes. A variance
+  study of 1,003 CI runs set the design: the ubuntu-latest pool has CPU classes about
+  0.57x, 0.73x and 1.0x apart that move every format at once, so raw time cannot be
+  gated, while relative to the run each format's noise is 1.5-4% and no CPU class
+  shifts it by more than 9%. On those runs the gate caught an injected 1.5x slowdown
+  of one format 99% of the time and 2x every time, raised no false alarm, and would
+  have gone red on the 1.35-1.4x PDF slowdown that #380/#381 shipped in August. It
+  cannot see a slowdown shared by every format, which looks the same as a slower
+  runner. It blocks merges and releases; a deliberate slowdown re-records the
+  baseline in the same PR (the job comment in `ci.yml` has the two commands).
+  ([#183](https://github.com/thomas-villani/all2md/issues/183))
+- **`all2md check-deps` reports features as well as formats.** A "Features" section
+  says whether `all2md read` (the `tui` extra, Python 3.11+), `all2md mcp`, `--watch`,
+  exact token counts in `all2md chunk` and `all2md search` can run, and names the extra
+  that installs each one (`pip install "all2md[tui]"`). `all2md check-deps read` checks
+  one feature, and `--json` output gains a `features` object.
+- **`--files-from` takes input paths from a list, so a picker can drive any command.**
+  `fzf | all2md read --files-from -` opens the document you pick in the terminal
+  viewer, and `fzf -m --print0 | all2md grep invoice --files-from - --null` searches
+  the ones you pick. The flag follows `tar -T` and `rsync --files-from`: one path per
+  line from a file or `-` (stdin), `#` comments, and `--null` for NUL-separated lists
+  from `find -print0` or `fzf --print0`. It works on the conversion and on `read`,
+  `view`, `grep`, `search`, `report`, `lint`, `chunk`, `roundtrip`, `optimize`,
+  `llm-minify` and `generate-site`. `read` takes the keyboard back from the terminal
+  after reading the list from stdin. On the conversion it is the new name of
+  `--batch-from-list`, which keeps working.
+- **GitHub alerts are read and written.** A quote whose first line is `[!NOTE]`, `[!TIP]`,
+  `[!IMPORTANT]`, `[!WARNING]` or `[!CAUTION]` (in any case) is now an admonition, with
+  the same `admonition_type` metadata as RST, MkDocs and AsciiDoc ones, instead of a
+  quote that opens with the marker as text. As on GitHub, a marker sharing its line with
+  text, a quote holding only the marker, or another kind stays an ordinary quote, and
+  `parse_admonitions=False` turns it off. GFM, the default flavor, writes an untitled
+  admonition of those five kinds back as an alert, from any source: a README with alerts
+  round trips unchanged, and an RST `.. warning::` becomes `> [!WARNING]`. A titled
+  admonition keeps its title as the bold label, since alerts have none, and other flavors
+  keep the label too (`markdown_plus` still writes `!!!`). Flavors gain
+  `supports_github_alerts()`.
+- **all2md is listed in the [MCP Registry](https://registry.modelcontextprotocol.io/)**
+  as `io.github.thomas-villani/all2md`, and each release updates the listing. A release
+  job publishes `server.json` after the PyPI upload. It first waits for PyPI to serve the
+  new version with the README's ownership marker, which the registry checks. The entry
+  offers two ways to install: the PyPI package through `uvx`, and the `.mcpb` bundle
+  attached to the GitHub release, with its SHA-256 checksum. Releases already in the
+  registry, and older releases that have no `server.json`, are skipped rather than
+  failed.
+- **`all2md mcp`** runs the MCP server, the same server and options as `all2md-mcp`.
+  Clients that install servers from the MCP Registry can only launch a package's own
+  executable (`uvx all2md@<version> <args>`), so the server must be reachable through
+  `all2md` itself. A `server.json` at the repository root describes the registry entry:
+  it installs the server with the same format extras as the `.mcpb` bundle, and the
+  version bump keeps it in step with each release.
+- **The terminal renderer reports where things land.** `TerminalRenderer.layout()`
+  lays a document out once and returns the text together with the line of every
+  heading and footnote definition and the line and columns of every link and
+  footnote reference, groundwork for the interactive viewer. `heading_positions()`
+  now comes from the same pass and includes nested headings (in quotes, lists and
+  footnotes).
+- **`--extract`, `--outline`, `--slice` and the line windows draw with the terminal
+  renderer under `--rich` too.** An extracted section, a slice, or a `--head`/`--tail`/
+  `--lines`/`--extract line:` window now shows footnotes, task lists, math and admonitions
+  as `rcat` does for a whole document. The outline is a nested list of the headings with
+  their formatting, and a slice's "next slice" hint is a dimmed last line instead of an
+  HTML comment. Line windows are still chosen from the Markdown rendering, so their numbers
+  agree with `--outline --line-numbers`.
+- **`rcat` and `--rich` draw the document itself, not Markdown text.** A new `terminal`
+  renderer builds rich output straight from the parsed document. The old path rendered
+  Markdown and let `rich.markdown` parse it again, so footnotes, math, task lists,
+  definition lists, admonitions and GitHub alerts printed as raw syntax, underline
+  vanished, and display math lost the backslash in `\,`. Now footnotes are numbered and
+  collected at the end, math is verbatim (display math in a box), task items show ☑/☐,
+  definitions are indented under their term, admonitions are titled panels colored by
+  kind, and sub/superscripts use Unicode where they can. The `--rich-*` flags and the
+  `[rich]` style table keep working, with new names for the new elements (`math`,
+  `footnote`, `admonition.warning`, ...). It is also an output format: `--to terminal`
+  writes ANSI text, and `--terminal-renderer-color-system none` writes plain text.
+  With `--line-numbers` the numbered Markdown source is printed unstyled, since the
+  numbers count its lines. In the `[rich]` table, a dotted element name such as
+  `"item.bullet"` now gets the `markdown.` prefix, as the configuration docs always said
+  it did.
+- **Math in the terminal can be shown as Unicode text.** `--math unicode` (for `rcat`,
+  `--rich` and `all2md read`; `TerminalRendererOptions.math_mode`, `ALL2MD_MATH`, `math`
+  in the `[read]` config section) writes formulas with Unicode symbols, superscripts and
+  subscripts instead of their LaTeX source: `\alpha^2 + x_i` reads `α² + xᵢ` and
+  `\frac{a+b}{2}` reads `(a+b)/2`. Display math lays out the rows of `aligned`, `cases` and
+  matrices on lines of their own, with tall brackets around a matrix. Nothing is dropped: a
+  character Unicode cannot raise or lower keeps its `^` or `_`, and an unknown macro is
+  kept as written. It needs `pylatexenc` (the `latex` extra); `latex` stays the default.
+- **`all2md read` opens a tree of a folder's documents.** Given a folder, a glob pattern
+  or several files (or nothing, on a terminal: the current folder), the viewer starts on a
+  file tree of the documents this installation of all2md can read there (a format whose
+  parser needs a package that is not installed is left out); Enter opens one, and `t` goes
+  back to the tree with that file marked. Hidden, symlinked and tool folders
+  (`node_modules`, `__pycache__`, `venv`, `site-packages`) are skipped, by a pattern's
+  `**` too unless the pattern names them, and the tree stops at 5,000 files. The status bar names the key that shows the keys (`?`), and
+  `all2md read --help` lists them all.
+- **The groundwork for the terminal viewer (`all2md.tui`).** `DocumentLayout` lays a
+  document out at whatever width the terminal has and keeps the last few widths. It
+  answers what the viewer needs: the outline, which section a line is in, the next
+  and previous heading, the links on screen, where a `#fragment` link or footnote
+  reference jumps to, and where to scroll after a resize. Fragments match
+  GitHub-style heading anchors and explicit heading ids. `all2md.tui.keys` holds the
+  key presets as data: a default preset, and a `vim` one that adds the keys of less
+  and vim. Neither needs Wijjit, which the viewer itself will. The terminal
+  renderer's `HeadingPosition` gains an `anchor` field with the heading's explicit
+  id.
+- **`all2md read` (and `rcat -i`): an interactive viewer in the terminal.** The document
+  scrolls in one pane beside an outline, with a status bar showing the section and the
+  position; `[`/`]` move between headings, `l` lists the links on screen, `?` shows the
+  keys, and `--keys vim` adds the keys of less and vim. Links to a heading or a footnote
+  move the viewer (Left or Backspace goes back); any other link is shown, and `y` copies
+  it, but it is never opened. The view keeps its place when the terminal is resized, and
+  `all2md read -` reads the document from stdin. Needs the new `tui` extra
+  (`pip install 'all2md[tui]'`, Wijjit, Python 3.11 or later); `rcat` without `-i`
+  works as before, and `rcat --help` points to the viewer.
+
+### Changed
+
+- **`pip install "all2md[mcp]"` gives a server that reads documents.** The `mcp` extra
+  used to install only FastMCP, and core all2md has no format parsers. A server
+  installed with it alone read plain text and nothing else, not even Markdown. Its
+  default search mode also failed, because `rank-bm25` was missing. The extra now
+  includes the `pdf`, `pdf_render`, `docx`, `html`, `xlsx`, `pptx`, `epub`, `rst`,
+  `markdown` and `odf` extras and `rank-bm25`: the set the `.mcpb` bundle already
+  installed, which now just says `all2md[mcp]`, as the MCP Registry entry does. This
+  brings in PyMuPDF, which is AGPL-licensed, as `all2md[pdf]` and `all2md[all]` already
+  do. The noncommercial `pymupdf-layout` stays out.
+- **A plain `pip install all2md` reads Markdown.** `mistune` moved from the `markdown`
+  extra into the core dependencies, so `all2md README.md`, `all2md view` and
+  `all2md read` work on a bare install. It is pure Python with no dependencies of its
+  own. The `markdown` extra still exists, so `all2md[markdown]` install lines keep
+  working. The quick start no longer claims the base install reads HTML and images.
+
+### Deprecated
+
+- **`--no-rich-hyperlinks` (and `ALL2MD_RICH_HYPERLINKS=false`).** Links are no longer
+  clickable unless `--clickable-links` makes them so; the old flag still works and forces
+  `none`.
+
+### Fixed
+
+- **`block_structure_similarity` no longer scores content-free output 1.0, and no longer
+  reads as a block-count ratio.** The benchmark dimension compared the two block-kind
+  sequences by edit distance and never looked at the text under a block, so one block of
+  anything on a one-block page scored a perfect 1.0 — one slide reproducing 7% of its text
+  did. And because an edit distance is at least the length difference, the score could
+  never exceed the ratio of the two block counts: OmniDocBench annotates a whole list as one
+  region where all2md emits a block per item, so most of what it measured was two
+  definitions of a block disagreeing. Each block is now located in the other side's text
+  and must clear the identification floor reading order adopted in #246 — half its
+  characters aligned — before its kind counts; its aligned characters vote for the kind of
+  the block they landed in, and the score is the F1 of kinds matched in both directions.
+  Splitting or merging blocks of one kind is free; a title emitted as body text, or a table
+  recovered as a paragraph, is still charged. Display equations carry no text to locate and
+  are left to the formula dimensions. The OmniDocBench oracle schema moves to 8 with a
+  re-recorded baseline, and the PMC lane's oracle version to 4. The dimension stays ungated
+  in both lanes until it has been measured against the wrong-page and mutation controls.
+  The PMC lane's mutation controls also pair each kind with its own text past a display
+  equation, which they previously misaligned.
+  ([#256](https://github.com/thomas-villani/all2md/issues/256))
+- **The GitHub Action's Quick Start workflow works as written.** It set
+  `report-fail-under` on Markdown files, which have no confidence detector, so the gate
+  refused the run with exit code `2` (it refuses any threshold that could only ever pass).
+  The docs now gate Markdown on round-trip fidelity alone, show the confidence check
+  separately for PDFs, and explain both scores before the first example. The README
+  links to the action from its header.
+  ([#186](https://github.com/thomas-villani/all2md/issues/186))
+- **AsciiDoc admonitions are admonitions everywhere, in all three of their forms.** The
+  AsciiDoc parser marked `[NOTE]` with a `role`, where the RST and MkDocs parsers write
+  `admonition_type` and `admonition_title`, so an AsciiDoc note or warning reached every
+  other format as a plain quote with its label gone. It now writes the same keys (the
+  contract is documented on `BlockQuote`), and it reads the two forms it used to miss:
+  the paragraph form `NOTE: text`, which most AsciiDoc uses and which was read as an
+  ordinary paragraph with "NOTE:" in it, and `[WARNING]` above a `====` block, which was
+  read as an example block. A `.Title` above an admonition, before or after the label,
+  becomes its title. The Markdown renderer now labels an admonition from any source
+  (`> **Warning:** ...`), not only RST and MkDocs ones, and on a flavor with admonitions
+  (`markdown_plus`) writes every one natively as `!!! warning`.
+- **No more "Keyword arguments were ignored" from the CLI's own modes.** `--outline`,
+  `--extract`, `--slice`, `--head`/`--tail`/`--lines`, `--collate`, `--split-by` and
+  `--merge-from-list` parse to an AST and render it in two steps, and they passed every
+  option to both. Each step warned about the other's options, so
+  `all2md guide.md --to man --man-renderer-section 8 --head 3` warned about `section`.
+  Parser options now go to the parser and renderer options to the renderer.
+- **`all2md config generate` no longer writes a config that breaks conversion.** The
+  template included the Markdown renderer's internal `_unsupported_inline_mode_was_explicit`
+  field, so every later conversion in that directory failed with "unexpected keyword
+  argument". Fields a constructor does not take, and private fields, are now left out.
+  A config generated by an earlier version still has the line; delete it, or generate
+  the file again.
+- **A DOCX template keeps its own body font, and `.dotx` templates are accepted.**
+  The renderer set the Normal style to Calibri 11 on every render, so a template's
+  Georgia 12 came out as Calibri 11, the very styling the template was passed for.
+  `default_font` and `default_font_size` now default to unset: a blank document still
+  gets Calibri 11, a template keeps its own, and a font you name still wins. A Word
+  template (`.dotx`) passed as `template_path` was refused with "is not a Word file";
+  it is now read as a template.
+- **`ALL2MD_<OPTION>` environment variables now set converter options.** Each
+  variable was read into the command-line default and then dropped, because only
+  flags typed on the command line reached the options; `ALL2MD_PDF_PAGES`,
+  `ALL2MD_ATTACHMENT_MODE` and the rest did nothing. They now apply as documented:
+  above the built-in defaults, below a config file and explicit flags.
+  `ALL2MD_FORMAT` and `ALL2MD_STRICT_ARGS`, which were never read, work too. A value
+  that is not valid (a boolean that is not `true`/`false`/`1`/`0`/`yes`/`no`/`on`/`off`,
+  a choice not on the list) is ignored with a warning instead of quietly becoming
+  `false` or being passed through.
+- **`--extract` takes a section's subsections with it.** Extracting `Introduction`
+  stopped at the next heading of any level, so a section that opens with a
+  subheading came back as its heading alone. A section now runs to the next heading
+  at its level or above, in `--extract` (with or without `--line-numbers`), in
+  `extract_sections()` and in the MCP tools that use it. Selecting a section together
+  with one of its own subsections (`#:2-3`) no longer repeats the subsection.
+- **The MCP setup docs install a server that can read documents.** The README and the
+  MCP guide said `pip install "all2md[mcp]"`, but that extra adds only the server. With
+  it alone, the server reads plain text and nothing else, not even Markdown. The docs
+  now recommend `all2md[all]`, or `[mcp]` combined with the format extras you need.
+- **The MCP `read_document_as_markdown` tool returns Markdown again under fastmcp 3.**
+  fastmcp 3 derived an output schema from the tool's `-> list` annotation, so the
+  Markdown reached the client as a JSON-encoded list (`["# Title\n\n..."]`), and with
+  `include_images` the call failed output validation. The tool now declares no output
+  schema and returns MCP content blocks itself: the Markdown as a text block, then an
+  image block per image. The `[mcp]` extra now needs fastmcp 2.11.3 or later, the
+  oldest release that installs alongside current `mcp` and `pydantic`.
+- **The MCP server reports all2md's version in its handshake.** `serverInfo.version`
+  in the `initialize` response was fastmcp's own version (for example `3.4.2`), because the
+  server never passed one. Clients and registry listings show this field. The `mcp`
+  extra now requires `fastmcp>=2.9.0`, the first release that accepts a version, up from
+  `>=2.0.0`.
+- **Content without a filename is detected better: HTML fragments are HTML, and a
+  `#` comment alone is not TOML.** `echo "<p>V1</p>" | all2md -` printed the tags as
+  plain text, because only a whole page (`<!DOCTYPE html>`, `<html>`) was recognized;
+  content that opens with an HTML element and closes it is now read as HTML, asked
+  last so a Markdown README that opens with `<p align="center">` stays Markdown. And
+  `echo "# Test" | all2md -` came back in a TOML code block, since comments alone are
+  a valid, empty TOML document; TOML now needs at least one key.
+- **The Org parser reads nested lists.** A sub-item is marked only by its indentation,
+  and the parser stripped each line before reading its marker, so a nested bullet came
+  back as a sibling of its parent and a nested numbered item was folded into the
+  parent's text (`parent 1. child`). A nested list of either kind now stays under its
+  item, text after a nested list returns to the parent, and bullets followed by
+  numbered items at the same level read as two lists.
+  ([#570](https://github.com/thomas-villani/all2md/issues/570))
+- **`--line-numbers` with `--rich` keeps one numbered line per line.** Rich's
+  Markdown reader reflowed the numbered source (and the numbered `--outline`) into a
+  single paragraph; the numbered Markdown is now printed as it is. `--to terminal --rich`
+  no longer passes the already-styled output through a syntax highlighter, which broke its
+  layout.
+- **Attachment names are logged escaped.** `sanitize_attachment_filename` and the
+  attachment helpers logged an untrusted name as it was, so a lone surrogate (which
+  `surrogateescape` decoding produces) made the log record unencodable and broke the
+  handler writing it, and a control character reached a terminal showing the log. They
+  now log the name's `repr`.
+- **The terminal renderer draws a document's control characters as nothing.** The
+  renderer behind `--to terminal`, `--rich` and `rcat` removes the C0 controls other than
+  tab and line feed, DEL and the C1 controls from text, headings, alt text and link
+  targets before drawing, with the same tree-wide pass the DOCX and EPUB renderers use for
+  characters XML cannot carry. (Unstyled output to a terminal shipped in 1.16.1.)
+
+### Security
+
+- **Links in `rcat`, `--rich` and `all2md read` are no longer clickable by default, and
+  always show where they go.** A terminal hands a clicked link (OSC 8) to whatever program
+  the operating system registers for its scheme, and every link was clickable, so one
+  Ctrl+click on a link in an untrusted document could open a `file:` path or start an
+  application's handler (`ms-msdt:`, `vscode:`, ...); the text could also name a different
+  site than the target. Now no link is clickable unless `--clickable-links` says so:
+  `web` for `http` and `https`, `all` for every scheme (only for documents you trust). Set
+  it with `ALL2MD_CLICKABLE_LINKS`, or in the `[read]` config section; `--to terminal`
+  takes `--terminal-renderer-clickable-links`. Whatever the setting, an external link's
+  target follows its text, shortened in the middle of its path but never in its host,
+  unless the text already is the target. **This changes the default:** to click web links
+  as before, pass `--clickable-links web`.
+- **Releases publish the files CI tested, and every publish path checks CI.** A new
+  CI job builds the sdist and wheel once, runs `twine check --strict`, installs the
+  wheel alone into a clean environment and smoke-tests it (bare, then with
+  `[markdown,docx]`), audits the resolved dependencies with `pip-audit` (blocking on
+  release tags), and uploads the result; `release.yml` publishes that artifact rather
+  than rebuilding. Publishes from a UI-made release or a manual dispatch now refuse a
+  commit without a successful CI run. The release job also requires the quality-gate,
+  format-benchmark and package jobs, and fails while the latest scheduled corpus,
+  DOCX ledger or OmniDocBench run is red. The PyPI publish action is pinned to a
+  commit, and changelog fragments are checked on every PR.
+
 ## [1.16.1] - 2026-10-06
 
 ### Fixed
@@ -4752,7 +5041,8 @@ surfaced one real conversion bug, which is the reason to take the release.
 - NumPy-style docstrings
 - Modular architecture with clear separation of concerns
 
-[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.16.0...HEAD
+[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.17.0...HEAD
+[1.17.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.17.0
 [1.16.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.16.0
 [1.15.1]: https://github.com/thomas-villani/all2md/releases/tag/v1.15.1
 [1.15.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.15.0
