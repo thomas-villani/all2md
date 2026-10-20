@@ -639,7 +639,9 @@ def _make_pdf(path: Path, *, pages: int, drawings: int, text: bool, full_page_im
             page.draw_rect(pymupdf.Rect(10 + index, 10 + index, 40 + index, 40 + index), color=(0, 0, 0))
         if full_page_image:
             pixmap = pymupdf.Pixmap(pymupdf.csRGB, pymupdf.IRect(0, 0, 8, 8))
-            page.insert_image(page.rect, pixmap=pixmap)
+            # Stretched to the page, as a scan is: PyMuPDF 2.0 keeps a square pixmap's
+            # aspect ratio, which letterboxes it to 71% of an A4 page and below the threshold.
+            page.insert_image(page.rect, pixmap=pixmap, keep_proportion=False)
     document.save(path)
     document.close()
 
