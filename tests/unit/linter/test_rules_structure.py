@@ -120,7 +120,7 @@ class TestStructureRules:
                     content=[
                         Text(
                             content=(
-                                "This section has more than ten words by a " "comfortable margin to satisfy the rule."
+                                "This section has more than ten words by a comfortable margin to satisfy the rule."
                             )
                         )
                     ]
@@ -158,14 +158,12 @@ class TestStructureFixes:
                 Heading(level=1, content=[Text(content="Title")]),
                 Heading(level=2, content=[]),  # empty — to be removed
                 Paragraph(
-                    content=[
-                        Text(content=("Section content with at least ten words to " "avoid the short-section rule."))
-                    ]
+                    content=[Text(content=("Section content with at least ten words to avoid the short-section rule."))]
                 ),
                 kept,
                 Paragraph(
                     content=[
-                        Text(content=("Another long-enough paragraph that satisfies " "the short-section threshold."))
+                        Text(content=("Another long-enough paragraph that satisfies the short-section threshold."))
                     ]
                 ),
             ]

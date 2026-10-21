@@ -116,7 +116,7 @@ def generate_bash_completion(catalog: dict[str, Any]) -> str:
 #   Or source it from your .bashrc: source <(all2md completion bash)
 
 # Supported file extensions (based on installed dependencies)
-_all2md_supported_extensions=({' '.join(f'"{ext}"' for ext in available_extensions)})
+_all2md_supported_extensions=({" ".join(f'"{ext}"' for ext in available_extensions)})
 
 _all2md_completion() {{
     local cur prev words cword
@@ -166,11 +166,11 @@ _all2md_completion() {{
     # Handle option-specific completions
     case "$prev" in
         --format|-f)
-            COMPREPLY=($(compgen -W "{' '.join(formats)}" -- "$cur"))
+            COMPREPLY=($(compgen -W "{" ".join(formats)}" -- "$cur"))
             return 0
             ;;
         --output-type)
-            COMPREPLY=($(compgen -W "{' '.join(formats)}" -- "$cur"))
+            COMPREPLY=($(compgen -W "{" ".join(formats)}" -- "$cur"))
             return 0
             ;;
 """
@@ -179,7 +179,7 @@ _all2md_completion() {{
     for flag, choices in choices_map.items():
         if flag not in ["--format", "-f", "--output-type"]:
             script += f"""        {flag})
-            COMPREPLY=($(compgen -W "{' '.join(choices)}" -- "$cur"))
+            COMPREPLY=($(compgen -W "{" ".join(choices)}" -- "$cur"))
             return 0
             ;;
 """

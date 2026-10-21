@@ -666,8 +666,7 @@ class Pipeline:
 
         # Neither method is implemented
         raise NotImplementedError(
-            f"Renderer {self.renderer.__class__.__name__} must implement "
-            f"either render_to_string() or render_to_bytes()"
+            f"Renderer {self.renderer.__class__.__name__} must implement either render_to_string() or render_to_bytes()"
         )
 
     def get_diagnostics(self) -> dict[str, Any]:

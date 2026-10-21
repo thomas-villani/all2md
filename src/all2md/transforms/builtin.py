@@ -174,8 +174,7 @@ class RemoveNodesTransform(NodeTransformer):
 
         if invalid_types:
             raise ValueError(
-                f"Unknown node type(s): {', '.join(invalid_types)}. "
-                f"Valid types are: {', '.join(sorted(known_types))}"
+                f"Unknown node type(s): {', '.join(invalid_types)}. Valid types are: {', '.join(sorted(known_types))}"
             )
 
         self.node_types = set(node_types)

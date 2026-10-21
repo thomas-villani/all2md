@@ -87,9 +87,9 @@ class TestFilenameSanitizationFuzzing:
         for char in result:
             # ord values 0-31 and 127-159 are control characters
             char_code = ord(char)
-            assert not (
-                0 <= char_code < 32 or 127 <= char_code < 160
-            ), f"Control character found in output: {char!r} (code {char_code})"
+            assert not (0 <= char_code < 32 or 127 <= char_code < 160), (
+                f"Control character found in output: {char!r} (code {char_code})"
+            )
 
     @given(
         st.text(alphabet=st.characters(whitelist_categories=["L", "N"]), min_size=1, max_size=50),

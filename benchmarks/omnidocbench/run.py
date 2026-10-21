@@ -130,7 +130,7 @@ def _parser_runtime(ocr_languages: str) -> dict[str, str]:
         )
     except (metadata.PackageNotFoundError, OSError, subprocess.CalledProcessError) as exc:
         raise RuntimeError(
-            "cannot identify the pinned PDF/OCR runtime; install the pdf_layout and ocr extras " f"and Tesseract: {exc}"
+            f"cannot identify the pinned PDF/OCR runtime; install the pdf_layout and ocr extras and Tesseract: {exc}"
         ) from exc
     first_line = completed.stdout.splitlines()
     if not first_line or not first_line[0].strip():

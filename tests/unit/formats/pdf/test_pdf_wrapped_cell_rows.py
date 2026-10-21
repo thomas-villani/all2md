@@ -195,6 +195,6 @@ class TestSectionHeadingRowsSurvive:
         rows = merge_continuation_lines([list(r) for r in self.LINES], self.EXTENTS)
 
         for row in rows:
-            assert (
-                "\n" not in row[0] or not row[1]
-            ), f"row label {row[0]!r} fused two printed labels onto data {row[1]!r}"
+            assert "\n" not in row[0] or not row[1], (
+                f"row label {row[0]!r} fused two printed labels onto data {row[1]!r}"
+            )

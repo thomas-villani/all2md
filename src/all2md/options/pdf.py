@@ -551,8 +551,7 @@ class PdfOptions(PaginatedParserOptions):
         default=DEFAULT_LINK_OVERLAP_THRESHOLD,
         metadata={
             "help": (
-                "Percentage overlap required for link detection (0-100). "
-                "Lower values detect links with less overlap."
+                "Percentage overlap required for link detection (0-100). Lower values detect links with less overlap."
             ),
             "type": float,
             "importance": "advanced",
@@ -627,28 +626,28 @@ class PdfOptions(PaginatedParserOptions):
         # Validate percentage-based thresholds (0-100)
         if not 0 <= self.header_percentile_threshold <= 100:
             raise ValueError(
-                f"header_percentile_threshold must be in range [0, 100], " f"got {self.header_percentile_threshold}"
+                f"header_percentile_threshold must be in range [0, 100], got {self.header_percentile_threshold}"
             )
         if not 0 <= self.link_overlap_threshold <= 100:
-            raise ValueError(f"link_overlap_threshold must be in range [0, 100], " f"got {self.link_overlap_threshold}")
+            raise ValueError(f"link_overlap_threshold must be in range [0, 100], got {self.link_overlap_threshold}")
 
         # Validate quality settings (1-100)
         if not 1 <= self.image_quality <= 100:
-            raise ValueError(f"image_quality must be in range [1, 100], " f"got {self.image_quality}")
+            raise ValueError(f"image_quality must be in range [1, 100], got {self.image_quality}")
 
         # Validate ratio thresholds (0.0-1.0)
         if not 0.0 <= self.table_ruling_line_threshold <= 1.0:
             raise ValueError(
-                f"table_ruling_line_threshold must be in range [0.0, 1.0], " f"got {self.table_ruling_line_threshold}"
+                f"table_ruling_line_threshold must be in range [0.0, 1.0], got {self.table_ruling_line_threshold}"
             )
         if not 0.0 <= self.layout_iou_threshold <= 1.0:
-            raise ValueError(f"layout_iou_threshold must be in range [0.0, 1.0], " f"got {self.layout_iou_threshold}")
+            raise ValueError(f"layout_iou_threshold must be in range [0.0, 1.0], got {self.layout_iou_threshold}")
 
         # Validate positive values
         if self.header_font_size_ratio <= 0:
-            raise ValueError(f"header_font_size_ratio must be positive, " f"got {self.header_font_size_ratio}")
+            raise ValueError(f"header_font_size_ratio must be positive, got {self.header_font_size_ratio}")
         if self.column_gap_threshold <= 0:
-            raise ValueError(f"column_gap_threshold must be positive, " f"got {self.column_gap_threshold}")
+            raise ValueError(f"column_gap_threshold must be positive, got {self.column_gap_threshold}")
 
         # Validate dependent fields: auto_trim vs manual trim settings
         if self.auto_trim_headers_footers and (self.header_height > 0 or self.footer_height > 0):

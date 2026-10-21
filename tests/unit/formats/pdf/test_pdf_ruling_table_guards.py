@@ -232,7 +232,7 @@ def test_both_detectors_agree_on_what_counts_as_a_table(cells):
     )
 
     assert isinstance(by_ruling, AstTable) == isinstance(by_find_tables, AstTable), (
-        f"the ruling-line detector and find_tables() disagree about {cells!r}: " f"{by_ruling!r} vs {by_find_tables!r}"
+        f"the ruling-line detector and find_tables() disagree about {cells!r}: {by_ruling!r} vs {by_find_tables!r}"
     )
 
 

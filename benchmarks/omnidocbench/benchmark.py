@@ -322,8 +322,7 @@ def _input_shape_clause(evaluations: list[PageEvaluation]) -> str:
         return "; see provenance.corpus_characterization"
     rasters = sum(traits.one_full_page_image for traits in measured)
     return (
-        f" ({rasters} of {pages} characterized page(s) are a full-page image); "
-        f"see provenance.corpus_characterization"
+        f" ({rasters} of {pages} characterized page(s) are a full-page image); see provenance.corpus_characterization"
     )
 
 

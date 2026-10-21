@@ -181,7 +181,6 @@ class TextileParser(BaseParser):
 
         # If document is a string, try to extract title from first h1
         if isinstance(document, str):
-
             # Try to find h1. Title pattern
             h1_match = re.search(r"^h1\.\s+(.+?)$", document, re.MULTILINE)
             if h1_match:

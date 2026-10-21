@@ -58,7 +58,7 @@ def _build_parser() -> argparse.ArgumentParser:
         nargs="?",
         choices=("all", "download", "benchmark", "report", "purge"),
         default="all",
-        help=("Stage of the pipeline to run (default: all). " "'purge' deletes the corpus cache directory and exits."),
+        help=("Stage of the pipeline to run (default: all). 'purge' deletes the corpus cache directory and exits."),
     )
     p.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST, help="Path to corpus.toml")
     p.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE, help="Where to cache downloaded docs")
@@ -224,7 +224,7 @@ def main(argv: list[str] | None = None) -> int:
         empty = sorted(name for name, lst in items.items() if not lst)
         if empty:
             print(
-                f"No documents cached for: {', '.join(empty)}. " "Check the download log above for the cause.",
+                f"No documents cached for: {', '.join(empty)}. Check the download log above for the cause.",
                 file=sys.stderr,
             )
             return 1

@@ -671,9 +671,9 @@ def assert_markdown_valid(markdown: str) -> None:
                 f"(previous line: {previous!r}); this will not render as a table"
             )
 
-    assert (
-        open_fence_char is None
-    ), f"unclosed code fence opened on line {open_fence_lineno} ({open_fence_char * open_fence_len!r})"
+    assert open_fence_char is None, (
+        f"unclosed code fence opened on line {open_fence_lineno} ({open_fence_char * open_fence_len!r})"
+    )
 
 
 def create_test_temp_dir() -> Path:

@@ -212,7 +212,7 @@ def _summarise(rows: list[DocumentScores], thresholds: dict[str, int], calibrati
         lines.append(f"| `{row.path}` | " + " | ".join(cells) + " |")
     body = "\n".join(lines)
     thresholds_text = ", ".join(f"{_METRIC[t]} ≥ {v}" for t, v in thresholds.items())
-    return f"## all2md quality gate\n\n" f"{len(rows)} document(s), gated on {thresholds_text}.\n\n{body}\n\n" + (
+    return f"## all2md quality gate\n\n{len(rows)} document(s), gated on {thresholds_text}.\n\n{body}\n\n" + (
         "\n".join(calibration) + "\n" if calibration else ""
     )
 

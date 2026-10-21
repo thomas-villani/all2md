@@ -64,8 +64,7 @@ def should_use_rich_output(
                 converter_name="rich-output",
                 missing_packages=[("rich", "")],
                 message=(
-                    "Rich output requires the optional 'rich' dependency. "
-                    "Install with: pip install all2md[cli_extras]"
+                    "Rich output requires the optional 'rich' dependency. Install with: pip install all2md[cli_extras]"
                 ),
             )
         else:

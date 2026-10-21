@@ -507,9 +507,9 @@ class TestHeadingPrefixMerge:
         out = to_markdown(str(pdf_path))
         # The "I." should not appear as its own heading; should be merged.
         heading_lines = [line for line in out.splitlines() if line.startswith("#")]
-        assert any(
-            "I." in line and "Background" in line for line in heading_lines
-        ), f"expected merged 'I. Background' heading, got {heading_lines!r}"
-        assert not any(
-            line.strip() in ("# I.", "## I.", "# **I.**", "## **I.**") for line in heading_lines
-        ), f"'I.' should not appear as standalone heading: {heading_lines!r}"
+        assert any("I." in line and "Background" in line for line in heading_lines), (
+            f"expected merged 'I. Background' heading, got {heading_lines!r}"
+        )
+        assert not any(line.strip() in ("# I.", "## I.", "# **I.**", "## **I.**") for line in heading_lines), (
+            f"'I.' should not appear as standalone heading: {heading_lines!r}"
+        )

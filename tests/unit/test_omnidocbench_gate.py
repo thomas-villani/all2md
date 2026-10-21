@@ -287,7 +287,7 @@ def test_identity_drift_is_red() -> None:
     assert verdict.findings == _finding(
         "IDENTITY_DRIFT",
         "provenance.annotation_sha256",
-        'expected "2fafe9329dc92fc426b30036aee51c716b3fcdcc1d20cb964dc7670579533817", ' f'got "{"0" * 64}"',
+        f'expected "2fafe9329dc92fc426b30036aee51c716b3fcdcc1d20cb964dc7670579533817", got "{"0" * 64}"',
     )
     assert verdict.failed is True
 
@@ -743,7 +743,7 @@ def test_parser_runtime_drift_is_red() -> None:
     assert gate.compare(results, _baseline()).findings == _finding(
         "IDENTITY_DRIFT",
         "provenance.parser_runtime",
-        'expected {"pymupdf": "1.26.3", "tesseract": "5.3.0"}, ' 'got {"pymupdf": "1.26.3", "tesseract": "5.4.0"}',
+        'expected {"pymupdf": "1.26.3", "tesseract": "5.3.0"}, got {"pymupdf": "1.26.3", "tesseract": "5.4.0"}',
     )
 
 
@@ -882,8 +882,7 @@ def test_cli_rejects_duplicate_json_keys(tmp_path, capsys) -> None:
     captured = capsys.readouterr()
     assert captured.out == ""
     assert captured.err == (
-        f"OMNIDOCBENCH GATE ERROR: cannot read strict JSON from {results_path}: "
-        "duplicate JSON key 'schema_version'\n"
+        f"OMNIDOCBENCH GATE ERROR: cannot read strict JSON from {results_path}: duplicate JSON key 'schema_version'\n"
     )
 
 
@@ -896,7 +895,7 @@ def test_cli_rejects_nonfinite_json_numbers(tmp_path, capsys) -> None:
     captured = capsys.readouterr()
     assert captured.out == ""
     assert captured.err == (
-        f"OMNIDOCBENCH GATE ERROR: cannot read strict JSON from {results_path}: " "non-finite JSON number NaN\n"
+        f"OMNIDOCBENCH GATE ERROR: cannot read strict JSON from {results_path}: non-finite JSON number NaN\n"
     )
 
 

@@ -1439,8 +1439,7 @@ def optimize_options(
     knobs = tunable_knobs(actual_format)
     if not knobs:
         raise FormatError(
-            f"No tunable options for format {actual_format!r}. "
-            f"Optimizable formats: {', '.join(optimizable_formats())}"
+            f"No tunable options for format {actual_format!r}. Optimizable formats: {', '.join(optimizable_formats())}"
         )
 
     options_class = _get_parser_options_class_for_format(cast(DocumentFormat, actual_format))

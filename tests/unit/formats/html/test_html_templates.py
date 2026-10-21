@@ -237,8 +237,7 @@ class TestJinjaTemplateMode:
 
         template = tmp_path / "template.html"
         template.write_text(
-            "<html><head><meta name='author' content='{{ metadata.author }}'></head>"
-            "<body>{{ content }}</body></html>",
+            "<html><head><meta name='author' content='{{ metadata.author }}'></head><body>{{ content }}</body></html>",
             encoding="utf-8",
         )
 

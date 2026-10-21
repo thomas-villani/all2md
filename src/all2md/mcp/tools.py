@@ -290,7 +290,7 @@ def read_document_as_markdown_impl(input_data: ReadDocumentAsMarkdownInput, conf
         valid_formats = get_args(SourceFormat)
         if input_data.format_hint not in valid_formats:
             raise ValueError(
-                f"Invalid format_hint: '{input_data.format_hint}'. " f"Must be one of: {', '.join(valid_formats)}"
+                f"Invalid format_hint: '{input_data.format_hint}'. Must be one of: {', '.join(valid_formats)}"
             )
 
     # Perform conversion using AST approach

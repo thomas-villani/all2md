@@ -306,7 +306,7 @@ def compile_release(
     preamble, sections = _split_unreleased(lines[heading + 1 : end])
     if not sections and not fragments:
         raise CompileError(
-            "nothing to release: '## [Unreleased]' has no '###' sections and " "changelog.d/ holds no fragments"
+            "nothing to release: '## [Unreleased]' has no '###' sections and changelog.d/ holds no fragments"
         )
     if not preamble:
         preamble = [newline]

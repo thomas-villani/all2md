@@ -89,9 +89,9 @@ def test_no_tracked_file_names_a_held_out_article() -> None:
         if named:
             offenders[relative] = named
 
-    assert (
-        offenders == {}
-    ), f"these files name a held-out article: score against the holdout, never tune against it. {offenders}"
+    assert offenders == {}, (
+        f"these files name a held-out article: score against the holdout, never tune against it. {offenders}"
+    )
 
 
 @pytest.mark.parametrize("development_corpus", ["manifest.json", "manifest-tuned.json"])

@@ -151,7 +151,6 @@ def create_server(
 
     # Conditionally register read_document_as_markdown tool
     if config.enable_to_md:
-
         # No output schema: the result is content blocks (the Markdown text, then any
         # images), not structured data. fastmcp 3 derives a schema from ``-> list`` and
         # sent the list as a JSON array, or failed validation once an image was in it.

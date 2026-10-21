@@ -52,36 +52,38 @@ Thank you for your interest in contributing to all2md! This guide will help you 
 
 We use several tools to maintain code quality and consistency across the codebase.
 
-### Code Formatting with Black
+### Code Formatting with Ruff
 
-Black is "the uncompromising Python code formatter" that ensures consistent code style across the project.
+`ruff format` formats the code. It replaced Black and keeps Black's style, so there
+is nothing to configure beyond what `pyproject.toml` sets.
 
 **Configuration:**
-- Line length: 120 characters (configured in `pyproject.toml`)
+- Line length: 120 characters (`[tool.ruff]` in `pyproject.toml`)
 - Target: Python 3.11+
-- String normalization: enabled
+- Double quotes
 
-**Running Black manually:**
+**Running the formatter manually:**
 
 ```bash
 # Format all code (Windows)
-.venv/Scripts/python.exe -m black src/ tests/
+.venv/Scripts/python.exe -m ruff format src/ tests/ benchmarks/
 
-# Check formatting without making changes
-.venv/Scripts/python.exe -m black --check src/ tests/
+# Check formatting without making changes (what CI runs)
+.venv/Scripts/python.exe -m ruff format --check src/ tests/ benchmarks/
 
 # Format specific file
-.venv/Scripts/python.exe -m black src/all2md/api.py
+.venv/Scripts/python.exe -m ruff format src/all2md/api.py
 
 # macOS/Linux
-python -m black src/ tests/
+python -m ruff format src/ tests/ benchmarks/
 ```
 
-**Why Black?**
-- Zero configuration needed (opinionated by design)
-- Deterministic formatting (same code always formats the same way)
-- Fast formatting
-- Reduces code review time by eliminating style debates
+The one-time reformat when we switched is listed in `.git-blame-ignore-revs`. To have
+`git blame` skip it locally:
+
+```bash
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
 
 ### Linting with Ruff
 
@@ -113,16 +115,6 @@ Ruff is an extremely fast Python linter that replaces multiple tools (Flake8, is
 
 # macOS/Linux
 python -m ruff check
-```
-
-**Ruff can also format code:**
-
-```bash
-# Format code (alternative to Black, but we use Black primarily)
-.venv/Scripts/python.exe -m ruff format
-
-# Check formatting without changes
-.venv/Scripts/python.exe -m ruff format --check
 ```
 
 ### Type Checking with mypy
@@ -181,15 +173,11 @@ The project uses the following pre-commit hooks (see `.pre-commit-config.yaml`):
    - `format-sync-update`: Auto-updates DocumentFormat Literal in constants.py
    - `format-sync-validate`: Validates DocumentFormat synchronization
 
-2. **Black** (v26.5.1)
-   - Automatically formats Python code on commit
-   - Configuration: 120 char line length, Python 3.11+
+2. **Ruff** (v0.15.20)
+   - `ruff`: lints code and auto-fixes common issues (`--fix`)
+   - `ruff-format`: then formats it (120 char line length, Python 3.11+)
 
-3. **Ruff** (v0.15.20)
-   - Lints code and auto-fixes common issues
-   - Runs with `--fix` flag to automatically correct problems
-
-4. **Pre-commit-hooks** (v6.0.0) - Basic file checks:
+3. **Pre-commit-hooks** (v6.0.0) - Basic file checks:
    - `trailing-whitespace`: Removes trailing whitespace
    - `end-of-file-fixer`: Ensures files end with newline
    - `check-yaml`: Validates YAML syntax
@@ -200,7 +188,7 @@ The project uses the following pre-commit hooks (see `.pre-commit-config.yaml`):
    - The `.ambr` snapshots and the round-trip corpus are excluded from the whitespace
      and line-ending fixers, because their whitespace is test data
 
-5. **Bandit** (v1.9.4) - Security linting of `src/` with the configuration in
+4. **Bandit** (v1.9.4) - Security linting of `src/` with the configuration in
    `pyproject.toml`; `tests/` is excluded
 
 **Using pre-commit:**
@@ -216,8 +204,8 @@ pre-commit run --all-files
 pre-commit run
 
 # Run specific hook
-pre-commit run black --all-files
 pre-commit run ruff --all-files
+pre-commit run ruff-format --all-files
 
 # Update hook versions
 pre-commit autoupdate
@@ -246,14 +234,14 @@ git commit --no-verify -m "Emergency fix"
 Before submitting a PR, run all checks manually to ensure everything passes:
 
 ```bash
-# 1. Format code with Black
-.venv/Scripts/python.exe -m black src/ tests/
+# 1. Format code
+.venv/Scripts/python.exe -m ruff format src/ tests/ benchmarks/
 
 # 2. Run linting
 .venv/Scripts/python.exe -m ruff check
 
 # 3. Check formatting
-.venv/Scripts/python.exe -m black --check src/ tests/
+.venv/Scripts/python.exe -m ruff format --check src/ tests/ benchmarks/
 
 # 4. Run type checking
 .venv/Scripts/python.exe -m mypy src/
@@ -269,10 +257,10 @@ pre-commit run --all-files
 
 ```bash
 # Windows
-.venv/Scripts/python.exe -m black src/ tests/ && .venv/Scripts/python.exe -m ruff check && .venv/Scripts/python.exe -m mypy src/ && .venv/Scripts/python.exe -m pytest -m unit
+.venv/Scripts/python.exe -m ruff format src/ tests/ benchmarks/ && .venv/Scripts/python.exe -m ruff check && .venv/Scripts/python.exe -m mypy src/ && .venv/Scripts/python.exe -m pytest -m unit
 
 # macOS/Linux
-python -m black src/ tests/ && python -m ruff check && python -m mypy src/ && python -m pytest -m unit
+python -m ruff format src/ tests/ benchmarks/ && python -m ruff check && python -m mypy src/ && python -m pytest -m unit
 ```
 
 ## Testing
@@ -570,7 +558,7 @@ For third-party plugins, see the detailed guide in `docs/source/plugins.rst`.
 
 2. **Make your changes:**
 
-   - Follow code style guidelines (Black + Ruff)
+   - Follow code style guidelines (Ruff)
    - Add/update tests
    - Add/update documentation
    - Use NumPy-style docstrings
@@ -582,8 +570,8 @@ For third-party plugins, see the detailed guide in `docs/source/plugins.rst`.
 3. **Run quality checks:**
 
    ```bash
-   # Format with Black
-   .venv/Scripts/python.exe -m black src/ tests/
+   # Format with Ruff
+   .venv/Scripts/python.exe -m ruff format src/ tests/ benchmarks/
 
    # Lint with Ruff
    .venv/Scripts/python.exe -m ruff check
