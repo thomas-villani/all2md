@@ -3,4 +3,4 @@
   `tomli` and `typing_extensions` backports are gone from the core dependencies, so a
   bare install is four packages: `tomli-w`, `pyyaml`, `platformdirs` and `mistune`. The
   `tui` extra (`all2md read`) no longer needs a Python marker, and `check-deps read` no
-  longer reports a minimum Python for it. CI tests 3.11 to 3.14.
+  longer reports a minimum Python for it. CI tests 3.11 to 3.15.

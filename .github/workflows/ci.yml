@@ -123,7 +123,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
 
     steps:
       - name: Check out code
@@ -133,6 +133,8 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
+          # Lets the newest leg run on a release candidate before setup-python lists the final.
+          allow-prereleases: true
           cache: 'pip'
 
       - name: Install dependencies
