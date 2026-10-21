@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import IO, Any, Optional, Union
+from typing import IO, Any
 
 from all2md.ast import (
     BlockQuote,
@@ -123,7 +123,7 @@ class LatexParser(BaseParser):
 
     """
 
-    def __init__(self, options: LatexOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: LatexOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the LaTeX parser."""
         BaseParser._validate_options_type(options, LatexOptions, "latex")
         options = options or LatexOptions()
@@ -131,7 +131,7 @@ class LatexParser(BaseParser):
         self.options: LatexOptions = options
         self.document_metadata: dict[str, Any] = {}
 
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse LaTeX input into AST Document.
 
         Parameters

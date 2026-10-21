@@ -20,7 +20,7 @@ import os
 import tempfile
 from io import BytesIO
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Union
+from typing import IO, TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 if TYPE_CHECKING:
@@ -135,7 +135,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         self._network_rate_limiter: RateLimiter | None = None
 
     @requires_dependencies("pptx_render", DEPS_PPTX_RENDER)
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
+    def render(self, doc: Document, output: str | Path | IO[bytes]) -> None:
         """Render the AST to a PPTX file.
 
         Parameters
@@ -253,8 +253,8 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             return auto_split_ast(doc, heading_level=self.options.slide_split_heading_level)
 
     def _create_slide(
-        self, prs: "Presentation", heading: Heading | None, content_nodes: list[Node], is_first: bool = False
-    ) -> "Slide":
+        self, prs: Presentation, heading: Heading | None, content_nodes: list[Node], is_first: bool = False
+    ) -> Slide:
         """Create a slide with content.
 
         Parameters
@@ -327,7 +327,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
 
         return slide
 
-    def _render_slide_content(self, slide: "Slide", nodes: list[Node], *, is_title_slide: bool = False) -> None:
+    def _render_slide_content(self, slide: Slide, nodes: list[Node], *, is_title_slide: bool = False) -> None:
         """Render AST nodes as slide content.
 
         Dispatches to flow layout (default) or legacy fixed-position layout
@@ -356,7 +356,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
     # Legacy fixed-position layout
     # ------------------------------------------------------------------
 
-    def _render_slide_content_fixed(self, slide: "Slide", nodes: list[Node]) -> None:
+    def _render_slide_content_fixed(self, slide: Slide, nodes: list[Node]) -> None:
         """Render AST nodes using legacy fixed-position layout.
 
         All text nodes share a single text frame, and tables/images are placed
@@ -532,7 +532,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         return max(1, -(-len(text) // chars_per_line))  # ceiling division
 
     def _render_table_at(
-        self, slide: "Slide", table: Table, left_inches: float, top_inches: float, width_inches: float
+        self, slide: Slide, table: Table, left_inches: float, top_inches: float, width_inches: float
     ) -> float:
         """Render a table at an explicit position and return its height.
 
@@ -610,7 +610,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             return image.url
 
     def _render_image_at(
-        self, slide: "Slide", image: Image, left_inches: float, top_inches: float, max_width_inches: float
+        self, slide: Slide, image: Image, left_inches: float, top_inches: float, max_width_inches: float
     ) -> float:
         """Render an image at an explicit position and return its height.
 
@@ -657,7 +657,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             return 0.0
 
     @staticmethod
-    def _find_content_placeholder(slide: "Slide") -> Any | None:
+    def _find_content_placeholder(slide: Slide) -> Any | None:
         """Find the first non-title content placeholder on a slide.
 
         Returns the placeholder shape, or ``None`` if none exists.
@@ -685,7 +685,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         return content_ph
 
     @staticmethod
-    def _remove_content_placeholders(slide: "Slide", *, keep_idx: int | None = None) -> None:
+    def _remove_content_placeholders(slide: Slide, *, keep_idx: int | None = None) -> None:
         """Remove non-title content placeholders from a slide.
 
         Template slides typically contain placeholder shapes with default text
@@ -713,7 +713,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
                 sp_element = ph._element
                 sp_tree.remove(sp_element)
 
-    def _render_slide_content_flow(self, slide: "Slide", nodes: list[Node]) -> None:
+    def _render_slide_content_flow(self, slide: Slide, nodes: list[Node]) -> None:
         """Render AST nodes using flow layout (no overlap).
 
         Positions text blocks, tables, and images sequentially from top to
@@ -824,11 +824,11 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
     # Thin wrappers (used by fixed-position path)
     # ------------------------------------------------------------------
 
-    def _render_table(self, slide: "Slide", table: Table) -> None:
+    def _render_table(self, slide: Slide, table: Table) -> None:
         """Render a table at the fixed configured position."""
         self._render_table_at(slide, table, self.options.table_left, self.options.table_top, self.options.table_width)
 
-    def _render_image(self, slide: "Slide", image: Image) -> None:
+    def _render_image(self, slide: Slide, image: Image) -> None:
         """Render an image at the fixed configured position."""
         if not image.url:
             return
@@ -973,7 +973,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
 
         return slide_content, notes_content
 
-    def _write_speaker_notes(self, slide: "Slide", notes_nodes: list[Node]) -> None:
+    def _write_speaker_notes(self, slide: Slide, notes_nodes: list[Node]) -> None:
         """Write speaker notes to a slide.
 
         Parameters
@@ -1363,7 +1363,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         for child in node.content:
             child.accept(self)
 
-    def visit_block_quote(self, node: "BlockQuote") -> None:
+    def visit_block_quote(self, node: BlockQuote) -> None:
         """Render block quote as indented text.
 
         Parameters
@@ -1379,7 +1379,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         for child in node.children:
             child.accept(self)
 
-    def visit_figure(self, node: "Figure") -> None:
+    def visit_figure(self, node: Figure) -> None:
         """Render a figure's child blocks, then its caption.
 
         Table and Image children are routed to the slide-level renderers
@@ -1411,7 +1411,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             run.text = node.caption
             run.font.italic = True
 
-    def visit_thematic_break(self, node: "ThematicBreak") -> None:
+    def visit_thematic_break(self, node: ThematicBreak) -> None:
         """Render thematic break as separator line.
 
         Parameters
@@ -1428,7 +1428,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         run = p.add_run()
         run.text = "---"
 
-    def visit_strikethrough(self, node: "Strikethrough") -> None:
+    def visit_strikethrough(self, node: Strikethrough) -> None:
         """Render strikethrough text.
 
         Parameters
@@ -1444,7 +1444,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         for child in node.content:
             child.accept(self)
 
-    def visit_subscript(self, node: "Subscript") -> None:
+    def visit_subscript(self, node: Subscript) -> None:
         """Render subscript text.
 
         Parameters
@@ -1460,7 +1460,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         for child in node.content:
             child.accept(self)
 
-    def visit_superscript(self, node: "Superscript") -> None:
+    def visit_superscript(self, node: Superscript) -> None:
         """Render superscript text.
 
         Parameters
@@ -1476,7 +1476,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         for child in node.content:
             child.accept(self)
 
-    def visit_html_block(self, node: "HTMLBlock") -> None:
+    def visit_html_block(self, node: HTMLBlock) -> None:
         """Skip HTML blocks in PPTX rendering.
 
         Parameters
@@ -1487,7 +1487,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         """
         pass
 
-    def visit_html_inline(self, node: "HTMLInline") -> None:
+    def visit_html_inline(self, node: HTMLInline) -> None:
         """Skip inline HTML in PPTX rendering.
 
         Parameters
@@ -1498,7 +1498,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         """
         pass
 
-    def visit_footnote_reference(self, node: "FootnoteReference") -> None:
+    def visit_footnote_reference(self, node: FootnoteReference) -> None:
         """Render footnote reference as superscript number.
 
         Parameters
@@ -1513,7 +1513,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         run = self._current_paragraph.add_run()
         run.text = f"[{node.identifier}]"
 
-    def visit_footnote_definition(self, node: "FootnoteDefinition") -> None:
+    def visit_footnote_definition(self, node: FootnoteDefinition) -> None:
         """Skip footnote definitions in PPTX rendering.
 
         Parameters
@@ -1524,7 +1524,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         """
         pass
 
-    def visit_math_inline(self, node: "MathInline") -> None:
+    def visit_math_inline(self, node: MathInline) -> None:
         """Render inline math as plain text.
 
         Parameters
@@ -1546,7 +1546,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         else:
             run.text = content
 
-    def visit_math_block(self, node: "MathBlock") -> None:
+    def visit_math_block(self, node: MathBlock) -> None:
         """Render math block as plain text.
 
         Parameters
@@ -1569,7 +1569,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         else:
             run.text = content
 
-    def visit_definition_list(self, node: "DefinitionList") -> None:
+    def visit_definition_list(self, node: DefinitionList) -> None:
         """Render definition list.
 
         Parameters
@@ -1583,7 +1583,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             for desc in descriptions:
                 desc.accept(self)
 
-    def visit_definition_term(self, node: "DefinitionTerm") -> None:
+    def visit_definition_term(self, node: DefinitionTerm) -> None:
         """Render definition term as bold text.
 
         Parameters
@@ -1604,7 +1604,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
 
         self._current_paragraph = None
 
-    def visit_definition_description(self, node: "DefinitionDescription") -> None:
+    def visit_definition_description(self, node: DefinitionDescription) -> None:
         """Render definition description as indented text.
 
         Parameters

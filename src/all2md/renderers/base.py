@@ -12,10 +12,11 @@ into various output formats.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
-from typing import IO, Any, Dict, Mapping, Union
+from typing import IO, Any
 
 from all2md.ast import Document
 from all2md.ast.nodes import Node, TableCell, TableRow
@@ -132,7 +133,7 @@ class BaseRenderer(ABC):
         self.metadata_policy: MetadataRenderPolicy = options.metadata_policy if options else MetadataRenderPolicy()
 
     @abstractmethod
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
+    def render(self, doc: Document, output: str | Path | IO[bytes]) -> None:
         """Render the AST to the specified output format.
 
         This method must be implemented by all renderer subclasses. It should
@@ -231,7 +232,7 @@ class BaseRenderer(ABC):
         except (NotImplementedError, AttributeError, TypeError):
             raise NotImplementedError(f"{self.__class__.__name__} does not support rendering to bytes.") from None
 
-    def _prepare_metadata(self, metadata: Union[Mapping[str, Any], "DocumentMetadata", None]) -> Dict[str, Any]:
+    def _prepare_metadata(self, metadata: Mapping[str, Any] | DocumentMetadata | None) -> dict[str, Any]:
         """Normalize and filter metadata according to the renderer policy."""
         return prepare_metadata_for_render(metadata, self.metadata_policy)
 
@@ -361,7 +362,7 @@ class BaseRenderer(ABC):
             )
 
     @staticmethod
-    def write_text_output(text: str, output: Union[str, Path, IO[bytes], IO[str]]) -> None:
+    def write_text_output(text: str, output: str | Path | IO[bytes] | IO[str]) -> None:
         """Write text output to file or IO stream.
 
         Helper method to handle text output writing for text-based renderers.

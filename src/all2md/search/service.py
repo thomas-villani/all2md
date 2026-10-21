@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Iterable, Mapping, MutableMapping, Sequence, cast
+from typing import cast
 
 from all2md.api import to_ast
 from all2md.ast.nodes import Document
@@ -281,7 +282,7 @@ class SearchService:
         return bool(stored == current)
 
     @classmethod
-    def load(cls, directory: Path, options: SearchOptions | None = None) -> "SearchService":
+    def load(cls, directory: Path, options: SearchOptions | None = None) -> SearchService:
         """Rehydrate indexes from disk."""
         service = cls(options=options)
         chunks: list[Chunk] = []

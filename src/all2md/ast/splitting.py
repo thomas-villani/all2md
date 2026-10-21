@@ -42,7 +42,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from all2md.ast.nodes import Document, Node, Paragraph, Text, ThematicBreak
 from all2md.ast.sections import get_all_sections, get_preamble
@@ -71,7 +71,7 @@ class SplitResult:
 
     document: Document
     index: int
-    title: Optional[str] = None
+    title: str | None = None
     word_count: int = 0
     metadata: dict = field(default_factory=dict)
 
@@ -426,7 +426,7 @@ class DocumentSplitter:
         slices: list[SplitResult] = []
         for slice_index, (start, end) in enumerate(bounds, start=1):
             children: list[Node] = []
-            title: Optional[str] = None
+            title: str | None = None
             word_count = 0
             for atom in atoms[start:end]:
                 children.extend(atom.document.children)

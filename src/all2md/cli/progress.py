@@ -268,7 +268,7 @@ class SummaryRenderer:
                 print(f"{col1:30} {col2}", file=sys.stderr)
 
 
-def create_progress_context_callback(progress: "ProgressContext") -> "ProgressCallback":
+def create_progress_context_callback(progress: ProgressContext) -> ProgressCallback:
     """Create a callback that feeds progress events into ProgressContext.
 
     This wrapper translates progress events from parsers and retrievers into

@@ -13,15 +13,16 @@ from __future__ import annotations
 import importlib
 import logging
 import time
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from functools import wraps
-from typing import Any, Callable, Generator, List, Tuple
+from typing import Any
 
 from all2md.exceptions import DependencyError
 from all2md.utils.packages import check_version_requirement
 
 
-def requires_dependencies(converter_name: str, packages: List[Tuple[str, str, str]]) -> Callable:
+def requires_dependencies(converter_name: str, packages: list[tuple[str, str, str]]) -> Callable:
     """Check required dependencies and versions before method execution.
 
     This decorator eliminates repeated try/except ImportError blocks across

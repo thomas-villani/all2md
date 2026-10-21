@@ -13,9 +13,10 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Callable, Literal, cast
+from typing import IO, TYPE_CHECKING, Any, Literal, cast
 
 from all2md.constants import DEFAULT_INDENTATION_PT_PER_LEVEL, DEPS_DOCX
 from all2md.exceptions import MalformedFileError
@@ -447,7 +448,7 @@ class DocxToAstConverter(BaseParser):
 
         return self.convert_to_ast(doc, base_filename)
 
-    def _open_repaired(self, input_data: Any) -> "docx.document.Document | None":
+    def _open_repaired(self, input_data: Any) -> docx.document.Document | None:
         """Open the package again as Transitional and without relationships to missing parts.
 
         Returns None when neither repair applies or the repaired package fails too.
@@ -478,7 +479,7 @@ class DocxToAstConverter(BaseParser):
         self._doc_is_ours = True
         return doc  # type: ignore[return-value]
 
-    def extract_metadata(self, document: "docx.document.Document") -> DocumentMetadata:
+    def extract_metadata(self, document: docx.document.Document) -> DocumentMetadata:
         """Extract metadata from DOCX document.
 
         Parameters
@@ -517,7 +518,7 @@ class DocxToAstConverter(BaseParser):
 
         return metadata
 
-    def _process_document_blocks(self, doc: "docx.document.Document", base_filename: str, children: list[Node]) -> None:
+    def _process_document_blocks(self, doc: docx.document.Document, base_filename: str, children: list[Node]) -> None:
         """Process document blocks and append to children list.
 
         Parameters
@@ -566,7 +567,7 @@ class DocxToAstConverter(BaseParser):
             image_node.metadata["source_data"] = block.source_data
         children.append(AstParagraph(content=[image_node]))
 
-    def _process_paragraph_block(self, block: "Paragraph", doc: "docx.document.Document", children: list[Node]) -> None:
+    def _process_paragraph_block(self, block: Paragraph, doc: docx.document.Document, children: list[Node]) -> None:
         """Process a paragraph block.
 
         Parameters
@@ -586,7 +587,7 @@ class DocxToAstConverter(BaseParser):
             else:
                 children.append(nodes)
 
-    def _process_table_block(self, block: "Table", doc: "docx.document.Document", children: list[Node]) -> None:
+    def _process_table_block(self, block: Table, doc: docx.document.Document, children: list[Node]) -> None:
         """Process a table block.
 
         Parameters
@@ -641,7 +642,7 @@ class DocxToAstConverter(BaseParser):
                 children.append(final_list)
             self._list_stack = []
 
-    def _finalize_lists_and_notes(self, doc: "docx.document.Document", children: list[Node]) -> None:
+    def _finalize_lists_and_notes(self, doc: docx.document.Document, children: list[Node]) -> None:
         """Finalize lists and add footnotes/endnotes/comments to document.
 
         Parameters
@@ -685,7 +686,7 @@ class DocxToAstConverter(BaseParser):
                 children, self._attachment_footnotes, self.options.attachments_footnotes_section
             )
 
-    def convert_to_ast(self, doc: "docx.document.Document", base_filename: str = "document") -> Document:
+    def convert_to_ast(self, doc: docx.document.Document, base_filename: str = "document") -> Document:
         """Convert DOCX document to AST Document.
 
         Parameters
@@ -748,7 +749,7 @@ class DocxToAstConverter(BaseParser):
         self._comments_map = {}
         return document
 
-    def _normalize_document(self, doc: "docx.document.Document") -> "docx.document.Document":
+    def _normalize_document(self, doc: docx.document.Document) -> docx.document.Document:
         """Resolve wrapper markup away, returning the document to read.
 
         Tracked changes, content controls and the transparent wrappers (``w:dir``,
@@ -801,7 +802,7 @@ class DocxToAstConverter(BaseParser):
             resolve_fields(target)
         return doc
 
-    def _note_roots(self, doc: "docx.document.Document") -> list[Any]:
+    def _note_roots(self, doc: docx.document.Document) -> list[Any]:
         """Element roots of the footnote and endnote parts, when the document has them."""
         try:
             from docx.opc.constants import RELATIONSHIP_TYPE as RT
@@ -850,7 +851,7 @@ class DocxToAstConverter(BaseParser):
         return parsed
 
     @staticmethod
-    def _copy_document(doc: "docx.document.Document") -> "docx.document.Document | None":
+    def _copy_document(doc: docx.document.Document) -> docx.document.Document | None:
         """Return a private copy of a caller's document, or ``None`` if impossible.
 
         Saving to a buffer and reopening is the only copy python-docx supports that
@@ -1029,7 +1030,7 @@ class DocxToAstConverter(BaseParser):
                     counts["smartart_dropped"] += 1
         return counts
 
-    def _try_process_title(self, paragraph: "Paragraph", style_name: str) -> Heading | None:
+    def _try_process_title(self, paragraph: Paragraph, style_name: str) -> Heading | None:
         """Try to process a Word ``Title`` paragraph as a title heading.
 
         This is the inverse of :class:`TitlePromotionTransform`, which the DOCX
@@ -1048,7 +1049,7 @@ class DocxToAstConverter(BaseParser):
         heading.metadata["source_style"] = style_name
         return heading
 
-    def _try_process_heading(self, paragraph: "Paragraph", style_name: str, label: str | None = None) -> Heading | None:
+    def _try_process_heading(self, paragraph: Paragraph, style_name: str, label: str | None = None) -> Heading | None:
         """Try to process paragraph as a heading. Returns Heading or None.
 
         A numbered heading keeps the label Word prints in front of its text --
@@ -1076,7 +1077,7 @@ class DocxToAstConverter(BaseParser):
         lowered = style_name.lower()
         return any(lowered == name.lower() for name in self.options.quote_style_names)
 
-    def _process_quote_paragraph(self, paragraph: "Paragraph", style_name: str) -> Node | list[Node] | None:
+    def _process_quote_paragraph(self, paragraph: Paragraph, style_name: str) -> Node | list[Node] | None:
         """Map a Word ``Quote``-styled paragraph back to a :class:`BlockQuote`.
 
         The inverse of the renderer, which sends a ``BlockQuote`` to Word's ``Quote``
@@ -1099,7 +1100,7 @@ class DocxToAstConverter(BaseParser):
             return None
         return nodes[0] if len(nodes) == 1 else nodes
 
-    def _try_process_code_block(self, paragraph: "Paragraph", style_name: str) -> CodeBlock | None:
+    def _try_process_code_block(self, paragraph: Paragraph, style_name: str) -> CodeBlock | None:
         """Try to process paragraph as a code block. Returns CodeBlock or None."""
         if not style_name or not self.options.code_style_names:
             return None
@@ -1108,7 +1109,7 @@ class DocxToAstConverter(BaseParser):
                 return CodeBlock(content=paragraph.text)
         return None
 
-    def _try_process_thematic_break(self, paragraph: "Paragraph") -> ThematicBreak | None:
+    def _try_process_thematic_break(self, paragraph: Paragraph) -> ThematicBreak | None:
         """Try to process paragraph as a thematic break. Returns ThematicBreak or None."""
         text = paragraph.text.strip()
         if text in ("---", "___", "***", "—" * 3, "–" * 3):
@@ -1145,7 +1146,7 @@ class DocxToAstConverter(BaseParser):
         return not any(not isinstance(node, Text) or node.content.strip() for node in content)
 
     def _process_regular_paragraph(
-        self, paragraph: "Paragraph", math_blocks: list[MathBlock], style_name: str = ""
+        self, paragraph: Paragraph, math_blocks: list[MathBlock], style_name: str = ""
     ) -> Node | list[Node] | None:
         """Process a regular (non-list) paragraph with optional math blocks."""
         content = self._process_paragraph_runs_to_inline(paragraph)
@@ -1160,9 +1161,7 @@ class DocxToAstConverter(BaseParser):
 
         return None
 
-    def _process_paragraph_to_ast(
-        self, paragraph: "Paragraph", doc: "docx.document.Document"
-    ) -> Node | list[Node] | None:
+    def _process_paragraph_to_ast(self, paragraph: Paragraph, doc: docx.document.Document) -> Node | list[Node] | None:
         """Process a DOCX paragraph to AST nodes.
 
         Parameters
@@ -1227,7 +1226,7 @@ class DocxToAstConverter(BaseParser):
         return self._process_regular_paragraph(paragraph, math_blocks, style_name)
 
     def _process_list_item_paragraph(
-        self, paragraph: "Paragraph", list_type: str, level: int, number: int | None = None
+        self, paragraph: Paragraph, list_type: str, level: int, number: int | None = None
     ) -> Node | None:
         """Process a paragraph that is part of a list.
 
@@ -1324,7 +1323,7 @@ class DocxToAstConverter(BaseParser):
         return finished
 
     def _list_mark(
-        self, paragraph: "Paragraph", doc: "docx.document.Document" | None
+        self, paragraph: Paragraph, doc: docx.document.Document | None
     ) -> tuple[int | None, str | None, bool]:
         """Advance Word's list counter for a paragraph and return what Word prints for it.
 
@@ -1364,7 +1363,7 @@ class DocxToAstConverter(BaseParser):
         return [finished, node] if finished else node
 
     def _process_labelled_paragraph(
-        self, paragraph: "Paragraph", label: str, style_name: str
+        self, paragraph: Paragraph, label: str, style_name: str
     ) -> Node | list[Node] | None:
         """Write a numbered paragraph whose label no Markdown list can print as that label, then its text.
 
@@ -1408,7 +1407,7 @@ class DocxToAstConverter(BaseParser):
         else:
             current_text.append(text)
 
-    def _process_paragraph_runs_to_inline(self, paragraph: "Paragraph") -> list[Node]:
+    def _process_paragraph_runs_to_inline(self, paragraph: Paragraph) -> list[Node]:
         """Process paragraph runs to inline AST nodes.
 
         Parameters
@@ -1517,7 +1516,7 @@ class DocxToAstConverter(BaseParser):
         return result
 
     @staticmethod
-    def _bare_omath_children(paragraph: "Paragraph") -> list[Any]:
+    def _bare_omath_children(paragraph: Paragraph) -> list[Any]:
         """Direct ``m:oMath`` children of ``w:p``, which are not runs.
 
         Word wraps an equation in ``m:oMathPara`` only when it shares its paragraph
@@ -1535,7 +1534,7 @@ class DocxToAstConverter(BaseParser):
             return []
         return [child for child in element if _omml_local_name(getattr(child, "tag", None) or "") == "oMath"]
 
-    def _iter_inner_content_with_math(self, paragraph: "Paragraph") -> list[Any]:
+    def _iter_inner_content_with_math(self, paragraph: Paragraph) -> list[Any]:
         """Paragraph inner content in document order, with bare ``m:oMath`` interleaved.
 
         Returns the objects ``iter_inner_content`` yields, plus any bare ``m:oMath``
@@ -1562,7 +1561,7 @@ class DocxToAstConverter(BaseParser):
                 ordered.append(child)
         return ordered
 
-    def _display_omath(self, paragraph: "Paragraph") -> list[Any]:
+    def _display_omath(self, paragraph: Paragraph) -> list[Any]:
         """Bare ``m:oMath`` children that are the paragraph's whole content.
 
         An equation alone in its paragraph is displayed as a block, and Word gives it
@@ -1577,7 +1576,7 @@ class DocxToAstConverter(BaseParser):
             return []
         return bare
 
-    def _extract_math_blocks_from_paragraph(self, paragraph: "Paragraph") -> list[MathBlock]:
+    def _extract_math_blocks_from_paragraph(self, paragraph: Paragraph) -> list[MathBlock]:
         if not hasattr(paragraph, "_element"):
             return []
 
@@ -1804,7 +1803,7 @@ class DocxToAstConverter(BaseParser):
         # have to know which of the two encodings produced the link.
         return field_target(getattr(run, "_element", None)), run
 
-    def _paragraph_formatting_context(self, paragraph: "Paragraph") -> ParagraphContext | None:
+    def _paragraph_formatting_context(self, paragraph: Paragraph) -> ParagraphContext | None:
         """Resolve the paragraph's place in the style cascade, or ``None`` if unreachable.
 
         The resolver is built once per styles part and reused. The cascade is
@@ -1893,7 +1892,7 @@ class DocxToAstConverter(BaseParser):
             return None
         return name
 
-    def _has_bottom_border(self, paragraph: "Paragraph") -> bool:
+    def _has_bottom_border(self, paragraph: Paragraph) -> bool:
         """Check if paragraph has a bottom border that could represent a horizontal rule.
 
         Parameters
@@ -1936,7 +1935,7 @@ class DocxToAstConverter(BaseParser):
             logger.debug(f"Could not determine paragraph border (missing attribute): {exc}")
             return False
 
-    def _process_table_to_ast(self, table: "Table", doc: "docx.document.Document" | None = None) -> AstTable | None:
+    def _process_table_to_ast(self, table: Table, doc: docx.document.Document | None = None) -> AstTable | None:
         """Process a DOCX table to AST Table node.
 
         Parameters
@@ -1969,7 +1968,7 @@ class DocxToAstConverter(BaseParser):
 
         return AstTable(header=header_row, rows=data_rows)
 
-    def _cell_inline_content(self, paragraphs: list["Paragraph"], doc: "docx.document.Document" | None) -> list[Node]:
+    def _cell_inline_content(self, paragraphs: list[Paragraph], doc: docx.document.Document | None) -> list[Node]:
         """Inline content of one table cell, with a hard line break between its paragraphs.
 
         A table cell holds inline content only, so a cell's paragraphs cannot stay
@@ -2019,7 +2018,7 @@ class DocxToAstConverter(BaseParser):
 
     def _process_notes(
         self,
-        doc: "docx.document.Document",
+        doc: docx.document.Document,
         relationship_type: str,
         part_attr_name: str,
         tag_name: str,
@@ -2076,7 +2075,7 @@ class DocxToAstConverter(BaseParser):
         except (AttributeError, KeyError) as exc:
             logger.debug(f"Could not access {note_type}s (missing element): {exc}")
 
-    def _process_footnotes(self, doc: "docx.document.Document") -> None:
+    def _process_footnotes(self, doc: docx.document.Document) -> None:
         """Populate the collector with footnote definitions from the document."""
         try:
             from docx.opc.constants import RELATIONSHIP_TYPE as RT
@@ -2085,7 +2084,7 @@ class DocxToAstConverter(BaseParser):
 
         self._process_notes(doc, RT.FOOTNOTES, "footnotes_part", "footnote", "footnote")
 
-    def _process_endnotes(self, doc: "docx.document.Document") -> None:
+    def _process_endnotes(self, doc: docx.document.Document) -> None:
         """Populate the collector with endnote definitions from the document."""
         try:
             from docx.opc.constants import RELATIONSHIP_TYPE as RT
@@ -2096,7 +2095,7 @@ class DocxToAstConverter(BaseParser):
 
     def _get_note_part(
         self,
-        doc: "docx.document.Document",
+        doc: docx.document.Document,
         relationship_type: str,
         attr_name: str | None,
     ) -> Any | None:
@@ -2140,7 +2139,7 @@ class DocxToAstConverter(BaseParser):
             return None
 
     def _build_note_definition_content(
-        self, note_element: Any, note_part: Any, doc: "docx.document.Document"
+        self, note_element: Any, note_part: Any, doc: docx.document.Document
     ) -> list[Node]:
         """Create block content for a single footnote or endnote definition.
 
@@ -2209,7 +2208,7 @@ class DocxToAstConverter(BaseParser):
         combined_text = "".join(text_fragments)
         return [Text(content=combined_text)]
 
-    def _numbering_definitions(self, doc: "docx.document.Document" | None) -> dict[str, dict[str, str]]:
+    def _numbering_definitions(self, doc: docx.document.Document | None) -> dict[str, dict[str, str]]:
         """Return this document's numId -> level -> list-type map, parsed once.
 
         Every numbered paragraph asks for this, and style-inherited numbering
@@ -2220,7 +2219,7 @@ class DocxToAstConverter(BaseParser):
             self._numbering_defs = _get_numbering_definitions(doc) if doc is not None else {}
         return self._numbering_defs
 
-    def _load_comments(self, doc: "docx.document.Document") -> dict[str, CommentData]:
+    def _load_comments(self, doc: docx.document.Document) -> dict[str, CommentData]:
         comments: dict[str, CommentData] = {}
 
         if not self.options.include_comments:
@@ -2275,7 +2274,7 @@ class DocxToAstConverter(BaseParser):
 
     def _apply_comment_threads(
         self,
-        doc: "docx.document.Document",
+        doc: docx.document.Document,
         comments: dict[str, CommentData],
         key_by_id: dict[str, str],
         label_by_key: dict[str, str],
@@ -2532,7 +2531,7 @@ def _map_num_ids_to_abstract_nums(
     return numbering_defs
 
 
-def _get_numbering_definitions(doc: "docx.document.Document") -> dict[str, dict[str, str]]:
+def _get_numbering_definitions(doc: docx.document.Document) -> dict[str, dict[str, str]]:
     """Extract and cache numbering definitions from document.
 
     Returns a mapping of numId -> {level -> format_type} where format_type is 'bullet' or 'number'.
@@ -2549,7 +2548,7 @@ def _get_numbering_definitions(doc: "docx.document.Document") -> dict[str, dict[
         return {}
 
 
-def _numbering_element(doc: "docx.document.Document") -> Any | None:
+def _numbering_element(doc: docx.document.Document) -> Any | None:
     """Return the root element of the document's numbering part, or None if it has none."""
     part = getattr(doc, "_part", None)
     if part is None:
@@ -2870,7 +2869,7 @@ def _read_numbering_props(pr_element: Any) -> tuple[str | None, str | None] | No
     )
 
 
-def _effective_numbering_props(paragraph: "Paragraph") -> tuple[str | None, str | None, bool]:
+def _effective_numbering_props(paragraph: Paragraph) -> tuple[str | None, str | None, bool]:
     """Resolve the numbering a paragraph really carries, style chain included.
 
     Corporate templates put ``w:numPr`` on the paragraph *style*, leaving the
@@ -2913,8 +2912,8 @@ def _effective_numbering_props(paragraph: "Paragraph") -> tuple[str | None, str 
 
 
 def _detect_list_from_numbering_props(
-    paragraph: "Paragraph",
-    doc: "docx.document.Document" | None,
+    paragraph: Paragraph,
+    doc: docx.document.Document | None,
     numbering_defs: dict[str, dict[str, str]] | None = None,
 ) -> tuple[str | None, int] | None:
     """Check for Word native numbering properties (numPr element).
@@ -2967,7 +2966,7 @@ def _detect_list_from_numbering_props(
         return None
 
 
-def _implied_list_level(paragraph: "Paragraph") -> int:
+def _implied_list_level(paragraph: Paragraph) -> int:
     """Read the depth a paragraph implies without an explicit ``w:ilvl``.
 
     The trailing digit of a built-in list style name, plus whatever the
@@ -3005,7 +3004,7 @@ def _detect_list_from_style_name(style_name: str) -> tuple[str | None, int]:
     return None, 1
 
 
-def _get_paragraph_indent_level(paragraph: "Paragraph") -> int:
+def _get_paragraph_indent_level(paragraph: Paragraph) -> int:
     """Get indentation level from paragraph formatting."""
     try:
         indent = paragraph.paragraph_format.left_indent
@@ -3019,8 +3018,8 @@ def _get_paragraph_indent_level(paragraph: "Paragraph") -> int:
 
 
 def _detect_list_level(
-    paragraph: "Paragraph",
-    doc: "docx.document.Document" | None = None,
+    paragraph: Paragraph,
+    doc: docx.document.Document | None = None,
     numbering_defs: dict[str, dict[str, str]] | None = None,
 ) -> tuple[str | None, int]:
     """Detect the list level of a paragraph based on its style, numbering, and indentation.

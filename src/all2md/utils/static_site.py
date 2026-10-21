@@ -23,7 +23,7 @@ import shutil
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import tomli_w
 import yaml
@@ -78,7 +78,7 @@ class FrontmatterGenerator:
     def __init__(
         self,
         generator: StaticSiteGenerator,
-        format: Optional[FrontmatterFormat] = None,
+        format: FrontmatterFormat | None = None,
     ):
         """Initialize frontmatter generator.
 
@@ -114,7 +114,7 @@ class FrontmatterGenerator:
             return FrontmatterFormat.TOML
         return FrontmatterFormat.YAML
 
-    def generate(self, metadata: Dict[str, Any]) -> str:
+    def generate(self, metadata: dict[str, Any]) -> str:
         """Generate frontmatter from document metadata.
 
         Parameters
@@ -158,7 +158,7 @@ class FrontmatterGenerator:
             content += "\n"
         return f"---\n{content}---\n\n"
 
-    def _normalize_metadata(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
+    def _normalize_metadata(self, metadata: dict[str, Any]) -> dict[str, Any]:
         """Normalize metadata to generator-specific fields.
 
         Parameters
@@ -218,12 +218,12 @@ class FrontmatterGenerator:
             # Zola validates front matter against a fixed schema and errors on
             # unknown top-level keys: tags/categories must live under
             # [taxonomies] and non-standard fields (author) under [extra].
-            taxonomies: Dict[str, Any] = {}
+            taxonomies: dict[str, Any] = {}
             if "tags" in normalized:
                 taxonomies["tags"] = normalized.pop("tags")
             if "categories" in normalized:
                 taxonomies["categories"] = normalized.pop("categories")
-            extra: Dict[str, Any] = {}
+            extra: dict[str, Any] = {}
             if "author" in normalized:
                 extra["author"] = normalized.pop("author")
             normalized["draft"] = metadata.get("draft", False)
@@ -237,7 +237,7 @@ class FrontmatterGenerator:
 
         return normalized
 
-    def _extract_taxonomy(self, metadata: Dict[str, Any], primary_key: str, fallback_key: str) -> Optional[List[str]]:
+    def _extract_taxonomy(self, metadata: dict[str, Any], primary_key: str, fallback_key: str) -> list[str] | None:
         """Extract taxonomy terms from metadata.
 
         Parameters
@@ -825,7 +825,7 @@ class ImageCollector:
 
     def __init__(self) -> None:
         """Initialize the image collector."""
-        self.images: List[Image] = []
+        self.images: list[Image] = []
 
     def collect(self, node: Node) -> None:
         """Collect images from a node and its children.
@@ -856,8 +856,8 @@ def copy_document_assets(
     doc: Document,
     output_dir: Path,
     generator: StaticSiteGenerator,
-    source_file: Optional[Path] = None,
-) -> Tuple[Document, List[str]]:
+    source_file: Path | None = None,
+) -> tuple[Document, list[str]]:
     """Copy document assets to static site directory and update references.
 
     This function walks the document AST, finds all images with file paths,
@@ -913,7 +913,7 @@ def copy_document_assets(
     collector = ImageCollector()
     collector.collect(doc)
 
-    copied_assets: List[str] = []
+    copied_assets: list[str] = []
 
     for image in collector.images:
         # Skip data URIs and remote URLs
@@ -967,7 +967,7 @@ def copy_document_assets(
 
 def generate_output_filename(
     source_file: Path,
-    metadata: Dict[str, Any],
+    metadata: dict[str, Any],
     generator: StaticSiteGenerator,
     index: int = 1,
 ) -> str:

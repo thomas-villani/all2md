@@ -5,10 +5,11 @@ import json
 import statistics
 import subprocess
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 import pytest
 
@@ -56,17 +57,17 @@ class BenchmarkResult:
     file_path: Path
     file_size: int
     iterations: int
-    timings: List[float]
+    timings: list[float]
     mean_time: float
     median_time: float
     min_time: float
     max_time: float
     std_dev: float
     throughput_mbps: float
-    output_chars: Optional[int] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    output_chars: int | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert result to dictionary for serialization.
 
         Returns
@@ -109,21 +110,21 @@ class BenchmarkRunner:
     """
 
     def __init__(
-        self, warmup_iterations: int = 1, default_iterations: int = 3, results_dir: Optional[Path] = None
+        self, warmup_iterations: int = 1, default_iterations: int = 3, results_dir: Path | None = None
     ) -> None:
         """Initialize the benchmark runner."""
         self.warmup_iterations = warmup_iterations
         self.default_iterations = default_iterations
         self.results_dir = results_dir or Path(__file__).parent / "results"
-        self.results: List[BenchmarkResult] = []
+        self.results: list[BenchmarkResult] = []
         self.timer = OperationTimer()
 
     def run(
         self,
         format_name: str,
         file_path: Path,
-        iterations: Optional[int] = None,
-        conversion_func: Optional[Callable] = None,
+        iterations: int | None = None,
+        conversion_func: Callable | None = None,
         **conversion_kwargs: Any,
     ) -> BenchmarkResult:
         """Run a benchmark for a specific file.
@@ -154,7 +155,7 @@ class BenchmarkRunner:
             conversion_func = to_markdown
 
         file_size = file_path.stat().st_size
-        timings: List[float] = []
+        timings: list[float] = []
 
         # Warmup iterations
         for _ in range(self.warmup_iterations):
@@ -205,7 +206,7 @@ class BenchmarkRunner:
         self.results.append(result)
         return result
 
-    def _get_metadata(self) -> Dict[str, Any]:
+    def _get_metadata(self) -> dict[str, Any]:
         """Get metadata about the current environment.
 
         Returns
@@ -259,7 +260,7 @@ class BenchmarkRunner:
 
         print("=" * 80 + "\n")
 
-    def save_results_csv(self, filename: Optional[str] = None) -> Path:
+    def save_results_csv(self, filename: str | None = None) -> Path:
         """Save benchmark results to CSV file.
 
         Parameters
@@ -311,7 +312,7 @@ class BenchmarkRunner:
 
         return filepath
 
-    def save_results_json(self, filename: Optional[str] = None) -> Path:
+    def save_results_json(self, filename: str | None = None) -> Path:
         """Save benchmark results to JSON file.
 
         Parameters

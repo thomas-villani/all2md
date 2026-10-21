@@ -25,7 +25,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING
 
 from all2md.linter.config import LintConfig
 from all2md.linter.fixes import AppliedFix, FixSafety, apply_fixes
@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 class LintResult:
     """Result of linting a single document."""
 
-    file_path: Optional[str]
+    file_path: str | None
     violations: list[Violation] = field(default_factory=list)
     rules_checked: int = 0
 
@@ -76,7 +76,7 @@ class LintFixResult:
     show "applied N fixes, M remaining" without recomputing.
     """
 
-    file_path: Optional[str]
+    file_path: str | None
     initial: LintResult
     final: LintResult
     applied: list[AppliedFix] = field(default_factory=list)
@@ -117,7 +117,7 @@ class LintFixResult:
 class LintRunner:
     """Run a ``LintConfig`` over one or more documents."""
 
-    def __init__(self, config: Optional[LintConfig] = None, registry: Optional[RuleRegistry] = None) -> None:
+    def __init__(self, config: LintConfig | None = None, registry: RuleRegistry | None = None) -> None:
         """Initialise the runner with a config and a registry.
 
         Either argument can be omitted; defaults are a blank ``LintConfig``
@@ -153,7 +153,7 @@ class LintRunner:
             fix=violation.fix,
         )
 
-    def lint_document(self, doc: "Document", file_path: Optional[str] = None) -> LintResult:
+    def lint_document(self, doc: Document, file_path: str | None = None) -> LintResult:
         """Run all enabled rules against ``doc`` and return a ``LintResult``."""
         rules = self._collect_rules()
         all_violations: list[Violation] = []
@@ -194,7 +194,7 @@ class LintRunner:
         )
         return LintResult(file_path=file_path, violations=filtered, rules_checked=len(rules))
 
-    def lint_file(self, file_path: Union[str, Path]) -> LintResult:
+    def lint_file(self, file_path: str | Path) -> LintResult:
         """Parse ``file_path`` to an AST and lint it."""
         from all2md.api import to_ast
 
@@ -202,15 +202,15 @@ class LintRunner:
         doc = to_ast(file_path)
         return self.lint_document(doc, file_path=path_str)
 
-    def lint_files(self, file_paths: list[Union[str, Path]]) -> list[LintResult]:
+    def lint_files(self, file_paths: list[str | Path]) -> list[LintResult]:
         """Run ``lint_file()`` against every path in the list."""
         return [self.lint_file(p) for p in file_paths]
 
     def lint_and_fix_document(
         self,
-        doc: "Document",
+        doc: Document,
         *,
-        file_path: Optional[str] = None,
+        file_path: str | None = None,
         max_safety: FixSafety = FixSafety.SAFE,
         max_passes: int = 5,
     ) -> LintFixResult:
@@ -255,7 +255,7 @@ class LintRunner:
 
     def lint_and_fix_file(
         self,
-        file_path: Union[str, Path],
+        file_path: str | Path,
         *,
         max_safety: FixSafety = FixSafety.SAFE,
         write: bool = True,
@@ -282,26 +282,26 @@ class LintRunner:
 
 
 def lint_document(
-    doc: "Document",
-    config: Optional[LintConfig] = None,
-    file_path: Optional[str] = None,
+    doc: Document,
+    config: LintConfig | None = None,
+    file_path: str | None = None,
 ) -> LintResult:
     """Lint an already-parsed ``Document``."""
     runner = LintRunner(config=config)
     return runner.lint_document(doc, file_path=file_path)
 
 
-def lint_file(file_path: Union[str, Path], config: Optional[LintConfig] = None) -> LintResult:
+def lint_file(file_path: str | Path, config: LintConfig | None = None) -> LintResult:
     """Parse ``file_path`` into an AST and lint it with ``config``."""
     runner = LintRunner(config=config)
     return runner.lint_file(file_path)
 
 
 def lint_and_fix_document(
-    doc: "Document",
-    config: Optional[LintConfig] = None,
+    doc: Document,
+    config: LintConfig | None = None,
     *,
-    file_path: Optional[str] = None,
+    file_path: str | None = None,
     max_safety: FixSafety = FixSafety.SAFE,
 ) -> LintFixResult:
     """Lint and fix ``doc`` in place; re-lint and return the combined result."""
@@ -310,8 +310,8 @@ def lint_and_fix_document(
 
 
 def lint_and_fix_file(
-    file_path: Union[str, Path],
-    config: Optional[LintConfig] = None,
+    file_path: str | Path,
+    config: LintConfig | None = None,
     *,
     max_safety: FixSafety = FixSafety.SAFE,
     write: bool = True,

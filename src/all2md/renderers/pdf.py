@@ -19,7 +19,7 @@ import io
 import logging
 import tempfile
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Union
+from typing import IO, TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 if TYPE_CHECKING:
@@ -125,7 +125,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
         self._paragraph_buffer: list[str] | None = None
 
     @requires_dependencies("pdf_render", DEPS_PDF_RENDER)
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
+    def render(self, doc: Document, output: str | Path | IO[bytes]) -> None:
         """Render the AST to a PDF file.
 
         Parameters

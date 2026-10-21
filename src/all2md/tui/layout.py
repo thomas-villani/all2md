@@ -18,7 +18,6 @@ import re
 import unicodedata
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Optional
 from urllib.parse import unquote
 
 from all2md.ast.nodes import Document
@@ -67,7 +66,7 @@ class OutlineEntry:
     index: int
     level: int
     text: str
-    children: tuple["OutlineEntry", ...] = field(default_factory=tuple)
+    children: tuple[OutlineEntry, ...] = field(default_factory=tuple)
 
 
 def github_slug(text: str) -> str:
@@ -123,11 +122,11 @@ class DocumentLayout:
         self._cache_size = cache_size
         self._layouts: OrderedDict[int, TerminalLayout] = OrderedDict()
         # Per width: outline index -> output line, and the sorted lines for bisecting.
-        self._heading_lines: dict[int, tuple[list[Optional[int]], list[tuple[int, int]]]] = {}
-        self._headings: Optional[tuple[HeadingPosition, ...]] = None
-        self._outline: Optional[tuple[OutlineEntry, ...]] = None
-        self._anchors: Optional[dict[str, int]] = None
-        self._loose_anchors: Optional[dict[str, int]] = None
+        self._heading_lines: dict[int, tuple[list[int | None], list[tuple[int, int]]]] = {}
+        self._headings: tuple[HeadingPosition, ...] | None = None
+        self._outline: tuple[OutlineEntry, ...] | None = None
+        self._anchors: dict[str, int] | None = None
+        self._loose_anchors: dict[str, int] | None = None
 
     # ------------------------------------------------------------------
     # Laying out
@@ -207,7 +206,7 @@ class DocumentLayout:
             self._outline = _build_outline(self.headings)
         return self._outline
 
-    def heading_line(self, index: int, width: int) -> Optional[int]:
+    def heading_line(self, index: int, width: int) -> int | None:
         """Return the output line heading ``index`` starts on at ``width``.
 
         Parameters
@@ -228,7 +227,7 @@ class DocumentLayout:
         lines, _ = self._lines_at(width)
         return lines[index] if 0 <= index < len(lines) else None
 
-    def section_at(self, line: int, width: int) -> Optional[int]:
+    def section_at(self, line: int, width: int) -> int | None:
         """Return the heading whose section ``line`` is in, or ``None`` above the first.
 
         Parameters
@@ -248,13 +247,13 @@ class DocumentLayout:
         position = bisect.bisect_right(ordered, (line, len(self.headings)))
         return ordered[position - 1][1] if position else None
 
-    def next_heading(self, line: int, width: int) -> Optional[int]:
+    def next_heading(self, line: int, width: int) -> int | None:
         """Return the line of the first heading below ``line``, if any."""
         _, ordered = self._lines_at(width)
         position = bisect.bisect_right(ordered, (line, len(self.headings)))
         return ordered[position][0] if position < len(ordered) else None
 
-    def previous_heading(self, line: int, width: int) -> Optional[int]:
+    def previous_heading(self, line: int, width: int) -> int | None:
         """Return the line of the last heading above ``line``, if any."""
         _, ordered = self._lines_at(width)
         position = bisect.bisect_left(ordered, (line, -1))
@@ -287,8 +286,8 @@ class DocumentLayout:
         line = min(max(line, 0), old.line_count - 1)
         section = self.section_at(line, from_width)
         if section is None:
-            old_start: Optional[int] = 0
-            new_start: Optional[int] = 0
+            old_start: int | None = 0
+            new_start: int | None = 0
         else:
             old_start = self.heading_line(section, from_width)
             new_start = self.heading_line(section, to_width)
@@ -359,7 +358,7 @@ class DocumentLayout:
                 found.append(position)
         return found
 
-    def resolve_fragment(self, fragment: str) -> Optional[int]:
+    def resolve_fragment(self, fragment: str) -> int | None:
         """Return the heading a ``#fragment`` names, or ``None``.
 
         An explicit heading id matches first, then the anchor GitHub would give
@@ -390,7 +389,7 @@ class DocumentLayout:
         loose = slugify(fragment)
         return self._loose_anchors.get(loose) if loose else None
 
-    def jump_target(self, position: LinkPosition, width: int) -> Optional[int]:
+    def jump_target(self, position: LinkPosition, width: int) -> int | None:
         """Return the line a link moves the viewer to, or ``None`` if it leaves the document.
 
         Footnote references go to their definition and ``#fragment`` links to
@@ -420,14 +419,14 @@ class DocumentLayout:
     # Internals
     # ------------------------------------------------------------------
 
-    def _lines_at(self, width: int) -> tuple[list[Optional[int]], list[tuple[int, int]]]:
+    def _lines_at(self, width: int) -> tuple[list[int | None], list[tuple[int, int]]]:
         """Map each outline heading to its line at ``width``, and sort them by line."""
         cached = self._heading_lines.get(width)
         if cached is not None and width in self._layouts:
             return cached
         found = self.at(width).headings
         reference = self.headings
-        lines: list[Optional[int]]
+        lines: list[int | None]
         if len(found) == len(reference):
             lines = [heading.line for heading in found]
         else:

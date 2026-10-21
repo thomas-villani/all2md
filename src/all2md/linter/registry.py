@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import importlib.metadata
 import logging
-from typing import Iterable, Optional
+from collections.abc import Iterable
 
 from all2md.linter.rule import LintRule
 
@@ -22,11 +22,11 @@ _ENTRY_POINT_GROUP = "all2md.lint_rules"
 class RuleRegistry:
     """Singleton registry mapping rule codes to ``LintRule`` classes."""
 
-    _instance: Optional["RuleRegistry"] = None
+    _instance: RuleRegistry | None = None
     _rules: dict[str, type[LintRule]]
     _initialized: bool
 
-    def __new__(cls) -> "RuleRegistry":
+    def __new__(cls) -> RuleRegistry:
         """Return the process-wide singleton instance."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
@@ -70,7 +70,7 @@ class RuleRegistry:
         self._ensure_initialized()
         return code in self._rules
 
-    def list_rules(self, category: Optional[str] = None) -> list[str]:
+    def list_rules(self, category: str | None = None) -> list[str]:
         """List all registered rule codes, optionally filtered by category."""
         self._ensure_initialized()
         if category is None:

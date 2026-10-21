@@ -41,7 +41,8 @@ deletion halves they are.
 
 from __future__ import annotations
 
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 WORDPROCESSING_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 W = f"{{{WORDPROCESSING_NS}}}"

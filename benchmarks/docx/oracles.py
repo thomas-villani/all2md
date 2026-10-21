@@ -19,8 +19,9 @@ dropped construct and cheap enough to stay honest.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 from benchmarks.docx.corpus import Case
 

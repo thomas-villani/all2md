@@ -7,7 +7,6 @@ This module provides functions to programmatically create Safari WebArchive file
 import plistlib
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 
 def create_simple_webarchive() -> bytes:
@@ -503,7 +502,7 @@ def create_invalid_plist() -> bytes:
     return b"This is not a valid plist file.\nJust random text."
 
 
-def create_webarchive_file(content: bytes, temp_dir: Optional[Path] = None) -> Path:
+def create_webarchive_file(content: bytes, temp_dir: Path | None = None) -> Path:
     """Create a temporary WebArchive file with the given content.
 
     Parameters

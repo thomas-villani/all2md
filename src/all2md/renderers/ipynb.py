@@ -7,7 +7,7 @@ import json
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import IO, Any, Dict, List, Optional, Tuple, Union, cast
+from typing import IO, Any, cast
 
 from all2md.ast import Document
 from all2md.ast.nodes import CodeBlock, Comment, CommentInline, Image, Node
@@ -20,18 +20,18 @@ from all2md.renderers.markdown import MarkdownRenderer
 class _CellAccumulator:
     """Holds intermediate state while grouping AST nodes into notebook cells."""
 
-    key: Tuple[Optional[int], Optional[str]]
+    key: tuple[int | None, str | None]
     cell_type: str
-    cell_id: Optional[str]
-    metadata: Dict[str, Any]
-    attachments: Optional[Dict[str, Any]]
-    execution_count: Optional[int]
-    source_override: Optional[str]
+    cell_id: str | None
+    metadata: dict[str, Any]
+    attachments: dict[str, Any] | None
+    execution_count: int | None
+    source_override: str | None
     execution_count_was_inlined: bool
     markdown_plaintext: bool = False
-    body_nodes: List[Node] = field(default_factory=list)
-    outputs: List[Optional[Dict[str, Any]]] = field(default_factory=list)
-    raw_outputs: List[Dict[str, Any]] = field(default_factory=list)
+    body_nodes: list[Node] = field(default_factory=list)
+    outputs: list[dict[str, Any] | None] = field(default_factory=list)
+    raw_outputs: list[dict[str, Any]] = field(default_factory=list)
 
 
 class IpynbRenderer(BaseRenderer):
@@ -55,7 +55,7 @@ class IpynbRenderer(BaseRenderer):
     # Public API
     # ---------------------------------------------------------------------
 
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes], IO[str]]) -> None:
+    def render(self, doc: Document, output: str | Path | IO[bytes] | IO[str]) -> None:
         """Render the AST document to a file path or binary stream."""
         notebook_str = self.render_to_string(doc)
         data = notebook_str.encode("utf-8")
@@ -83,7 +83,7 @@ class IpynbRenderer(BaseRenderer):
     # Notebook assembly
     # ---------------------------------------------------------------------
 
-    def _build_notebook(self, document: Document) -> Dict[str, Any]:
+    def _build_notebook(self, document: Document) -> dict[str, Any]:
         bundle = self._extract_notebook_bundle(document)
         metadata = self._build_notebook_metadata(document, bundle)
         nbformat = self._resolve_nbformat(bundle)
@@ -97,7 +97,7 @@ class IpynbRenderer(BaseRenderer):
             "nbformat_minor": nbformat_minor,
         }
 
-    def _extract_notebook_bundle(self, document: Document) -> Dict[str, Any]:
+    def _extract_notebook_bundle(self, document: Document) -> dict[str, Any]:
         meta = document.metadata or {}
         bundle = meta.get("ipynb_notebook")
         if isinstance(bundle, dict):
@@ -105,7 +105,7 @@ class IpynbRenderer(BaseRenderer):
             return deepcopy(bundle)
         return {}
 
-    def _resolve_nbformat(self, bundle: Dict[str, Any]) -> int:
+    def _resolve_nbformat(self, bundle: dict[str, Any]) -> int:
         option_value = self.options.nbformat
         if option_value == "auto":
             candidate = bundle.get("nbformat")
@@ -114,7 +114,7 @@ class IpynbRenderer(BaseRenderer):
             return 4
         return option_value
 
-    def _resolve_nbformat_minor(self, bundle: Dict[str, Any], nbformat: int) -> int:
+    def _resolve_nbformat_minor(self, bundle: dict[str, Any], nbformat: int) -> int:
         option_value = self.options.nbformat_minor
         if option_value == "auto":
             candidate = bundle.get("nbformat_minor")
@@ -128,7 +128,7 @@ class IpynbRenderer(BaseRenderer):
     # Metadata handling
     # ------------------------------------------------------------------
 
-    def _build_notebook_metadata(self, document: Document, bundle: Dict[str, Any]) -> Dict[str, Any]:
+    def _build_notebook_metadata(self, document: Document, bundle: dict[str, Any]) -> dict[str, Any]:
         """Construct notebook-level metadata with inference heuristics."""
         metadata = bundle.get("metadata")
         if not isinstance(metadata, dict):
@@ -143,7 +143,7 @@ class IpynbRenderer(BaseRenderer):
 
         return metadata
 
-    def _resolve_language(self, document: Document, metadata: Dict[str, Any]) -> str:
+    def _resolve_language(self, document: Document, metadata: dict[str, Any]) -> str:
         """Determine preferred programming language for language_info."""
         if isinstance(metadata.get("language_info"), dict):
             lang = metadata["language_info"].get("name")
@@ -168,7 +168,7 @@ class IpynbRenderer(BaseRenderer):
     def _ensure_language_metadata(
         self,
         document: Document,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
         language: str,
     ) -> None:
         lang_info = metadata.get("language_info")
@@ -189,7 +189,7 @@ class IpynbRenderer(BaseRenderer):
     def _ensure_kernel_metadata(
         self,
         document: Document,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
         language: str,
     ) -> None:
         kernelspec = metadata.get("kernelspec")
@@ -215,10 +215,10 @@ class IpynbRenderer(BaseRenderer):
     # Cell assembly
     # ------------------------------------------------------------------
 
-    def _collect_cells(self, document: Document) -> List[Dict[str, Any]]:
-        cells: List[Dict[str, Any]] = []
-        pending_markdown: List[Node] = []
-        current: Optional[_CellAccumulator] = None
+    def _collect_cells(self, document: Document) -> list[dict[str, Any]]:
+        cells: list[dict[str, Any]] = []
+        pending_markdown: list[Node] = []
+        current: _CellAccumulator | None = None
 
         def finalize_current() -> None:
             nonlocal current
@@ -259,10 +259,10 @@ class IpynbRenderer(BaseRenderer):
 
         return cells
 
-    def _cell_key_from_info(self, info: Dict[str, Any]) -> Tuple[Optional[int], Optional[str]]:
+    def _cell_key_from_info(self, info: dict[str, Any]) -> tuple[int | None, str | None]:
         return info.get("cell_index"), info.get("cell_id")
 
-    def _start_cell_from_info(self, info: Dict[str, Any]) -> _CellAccumulator:
+    def _start_cell_from_info(self, info: dict[str, Any]) -> _CellAccumulator:
         cell_type = info.get("cell_type") or "markdown"
         metadata = info.get("cell_metadata")
         if not isinstance(metadata, dict):
@@ -291,7 +291,7 @@ class IpynbRenderer(BaseRenderer):
             raw_outputs=raw_outputs_copy,
         )
 
-    def _append_output_node(self, cell: _CellAccumulator, node: Node, info: Dict[str, Any]) -> None:
+    def _append_output_node(self, cell: _CellAccumulator, node: Node, info: dict[str, Any]) -> None:
         output_data = info.get("output")
         if output_data is not None:
             output_entry = deepcopy(output_data)
@@ -307,7 +307,7 @@ class IpynbRenderer(BaseRenderer):
         else:
             cell.outputs.append(output_entry)
 
-    def _fallback_output_from_node(self, node: Node) -> Optional[Dict[str, Any]]:
+    def _fallback_output_from_node(self, node: Node) -> dict[str, Any] | None:
         if isinstance(node, CodeBlock) and node.content.strip():
             text = node.content
             if not text.endswith("\n"):
@@ -333,7 +333,7 @@ class IpynbRenderer(BaseRenderer):
 
         return None
 
-    def _finalize_cell(self, cell: _CellAccumulator) -> Dict[str, Any]:
+    def _finalize_cell(self, cell: _CellAccumulator) -> dict[str, Any]:
         cell_type = cell.cell_type or "markdown"
         metadata = self._filter_cell_metadata(cell.metadata)
 
@@ -342,7 +342,7 @@ class IpynbRenderer(BaseRenderer):
 
         outputs = [entry for entry in cell.outputs if entry is not None]
 
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "cell_type": cell_type,
             "metadata": metadata,
             "source": self._string_to_source_lines(source_text),
@@ -419,7 +419,7 @@ class IpynbRenderer(BaseRenderer):
     # Utility helpers
     # ------------------------------------------------------------------
 
-    def _render_markdown_nodes(self, nodes: List[Node]) -> str:
+    def _render_markdown_nodes(self, nodes: list[Node]) -> str:
         if not nodes:
             return ""
         renderer_options = self.options.markdown_options or None
@@ -427,7 +427,7 @@ class IpynbRenderer(BaseRenderer):
         temp_doc = Document(children=nodes)
         return renderer.render_to_string(temp_doc)
 
-    def _filter_cell_metadata(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
+    def _filter_cell_metadata(self, metadata: dict[str, Any]) -> dict[str, Any]:
         if not metadata:
             return {}
 
@@ -452,7 +452,7 @@ class IpynbRenderer(BaseRenderer):
 
         return filtered
 
-    def _markdown_nodes_to_cell(self, nodes: List[Node]) -> Dict[str, Any]:
+    def _markdown_nodes_to_cell(self, nodes: list[Node]) -> dict[str, Any]:
         text = self._render_markdown_nodes(nodes)
         return {
             "cell_type": "markdown",
@@ -460,7 +460,7 @@ class IpynbRenderer(BaseRenderer):
             "source": self._string_to_source_lines(text),
         }
 
-    def _extract_ipynb_info(self, node: Node) -> Optional[Dict[str, Any]]:
+    def _extract_ipynb_info(self, node: Node) -> dict[str, Any] | None:
         metadata = getattr(node, "metadata", {}) or {}
         info = metadata.get("ipynb")
         if isinstance(info, dict):
@@ -468,12 +468,12 @@ class IpynbRenderer(BaseRenderer):
         return None
 
     @staticmethod
-    def _ensure_list_size(items: List[Optional[Dict[str, Any]]], size: int) -> None:
+    def _ensure_list_size(items: list[dict[str, Any] | None], size: int) -> None:
         while len(items) < size:
             items.append(None)
 
     @staticmethod
-    def _string_to_source_lines(text: str) -> List[str]:
+    def _string_to_source_lines(text: str) -> list[str]:
         if not text:
             return []
         if not text.endswith("\n"):

@@ -12,10 +12,11 @@ from __future__ import annotations
 import abc
 import os
 import time
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from io import BytesIO
 from pathlib import Path
-from typing import IO, Any, Iterable, Optional, Sequence, Union, cast
+from typing import IO, Any, cast
 from urllib.parse import urlparse
 
 from all2md.constants import DEFAULT_ROBOTS_TXT_POLICY, DEFAULT_USER_AGENT, RobotsTxtPolicy
@@ -30,7 +31,7 @@ from all2md.utils.network_security import fetch_content_securely, is_network_dis
 # lightweight (stdlib only) and several tests patch its functions as module-level
 # attributes of this module.
 
-InputType = Union[str, Path, IO[bytes], IO[str], bytes]
+InputType = str | Path | IO[bytes] | IO[str] | bytes
 
 
 def _looks_like_path(value: str) -> bool:
@@ -167,7 +168,7 @@ class DocumentSourceRequest:
     raw_input: InputType
     remote_options: RemoteInputOptions | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-    progress_callback: Optional[ProgressCallback] = None
+    progress_callback: ProgressCallback | None = None
 
     def scheme(self) -> str | None:
         """Best-effort scheme detection for string inputs."""
@@ -186,7 +187,7 @@ class DocumentSourceRequest:
 class DocumentSource:
     """Resolved document payload returned by retrievers."""
 
-    payload: Union[str, Path, IO[bytes], IO[str], bytes]
+    payload: str | Path | IO[bytes] | IO[str] | bytes
     display_name: str
     origin_uri: str | None = None
 
@@ -648,7 +649,7 @@ DEFAULT_RETRIEVERS: tuple[DocumentSourceRetriever, ...] = (
 )
 
 
-def default_loader(additional_retrievers: Optional[Iterable[DocumentSourceRetriever]] = None) -> DocumentSourceLoader:
+def default_loader(additional_retrievers: Iterable[DocumentSourceRetriever] | None = None) -> DocumentSourceLoader:
     """Create a loader with built-in retrievers and optional extensions."""
     retriever_list: list[DocumentSourceRetriever] = list(DEFAULT_RETRIEVERS)
     if additional_retrievers:

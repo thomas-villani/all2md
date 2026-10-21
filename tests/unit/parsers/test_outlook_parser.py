@@ -58,7 +58,7 @@ class TestOutlookMessageFiltering:
             "from": "test@example.com",
             "to": "recipient@example.com",
             "subject": "Test",
-            "date": datetime.datetime(2024, 6, 15, tzinfo=datetime.timezone.utc),
+            "date": datetime.datetime(2024, 6, 15, tzinfo=datetime.UTC),
             "content": "Test content",
         }
         options = OutlookOptions()
@@ -70,26 +70,26 @@ class TestOutlookMessageFiltering:
             "from": "test@example.com",
             "to": "recipient@example.com",
             "subject": "Test",
-            "date": datetime.datetime(2024, 6, 15, tzinfo=datetime.timezone.utc),
+            "date": datetime.datetime(2024, 6, 15, tzinfo=datetime.UTC),
             "content": "Test content",
         }
 
         # Message should pass when in range
         options = OutlookOptions(
-            date_range_start=datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc),
-            date_range_end=datetime.datetime(2024, 12, 31, tzinfo=datetime.timezone.utc),
+            date_range_start=datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC),
+            date_range_end=datetime.datetime(2024, 12, 31, tzinfo=datetime.UTC),
         )
         assert _filter_message(msg_data, options) is True
 
         # Message should not pass when before range
         options = OutlookOptions(
-            date_range_start=datetime.datetime(2024, 7, 1, tzinfo=datetime.timezone.utc),
+            date_range_start=datetime.datetime(2024, 7, 1, tzinfo=datetime.UTC),
         )
         assert _filter_message(msg_data, options) is False
 
         # Message should not pass when after range
         options = OutlookOptions(
-            date_range_end=datetime.datetime(2024, 6, 1, tzinfo=datetime.timezone.utc),
+            date_range_end=datetime.datetime(2024, 6, 1, tzinfo=datetime.UTC),
         )
         assert _filter_message(msg_data, options) is False
 
@@ -104,7 +104,7 @@ class TestOutlookMessageFiltering:
         }
 
         options = OutlookOptions(
-            date_range_start=datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc),
+            date_range_start=datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC),
         )
         assert _filter_message(msg_data, options) is False
 
@@ -127,8 +127,8 @@ class TestOutlookOptions:
         """Test that invalid date range raises ValueError."""
         with pytest.raises(ValueError, match="date_range_start must be before"):
             OutlookOptions(
-                date_range_start=datetime.datetime(2024, 12, 31, tzinfo=datetime.timezone.utc),
-                date_range_end=datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc),
+                date_range_start=datetime.datetime(2024, 12, 31, tzinfo=datetime.UTC),
+                date_range_end=datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC),
             )
 
     def test_invalid_max_messages(self):
@@ -360,7 +360,7 @@ class TestConvertMsgToEmailMessage:
     def test_datetime_date(self):
         from all2md.parsers.outlook import _convert_msg_to_email_message
 
-        sent = datetime.datetime(2026, 9, 30, 14, 5, tzinfo=datetime.timezone.utc)
+        sent = datetime.datetime(2026, 9, 30, 14, 5, tzinfo=datetime.UTC)
         email_msg = _convert_msg_to_email_message(_fake_message(date=sent))
         assert email_msg["Date"].datetime == sent
 

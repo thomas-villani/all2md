@@ -21,7 +21,7 @@ import tempfile
 from email import policy
 from email.message import EmailMessage
 from pathlib import Path
-from typing import IO, Any, Optional, Union
+from typing import IO, Any
 
 from all2md.ast import Document, Heading, Node, Paragraph, Text, ThematicBreak
 from all2md.constants import DEPS_OUTLOOK
@@ -45,7 +45,7 @@ from all2md.utils.metadata import DocumentMetadata
 logger = logging.getLogger(__name__)
 
 
-def _detect_outlook_format(input_data: Union[str, Path, IO[bytes], bytes]) -> str:
+def _detect_outlook_format(input_data: str | Path | IO[bytes] | bytes) -> str:
     """Detect Outlook format from input data.
 
     Parameters
@@ -103,7 +103,7 @@ def _detect_outlook_format(input_data: Union[str, Path, IO[bytes], bytes]) -> st
         return "msg"  # Default fallback
 
 
-def _reject_non_message_cfb(input_data: Union[str, Path, IO[bytes], bytes]) -> None:
+def _reject_non_message_cfb(input_data: str | Path | IO[bytes] | bytes) -> None:
     """Raise FormatError when a CFB container is a legacy Office file, not a message.
 
     Word, PowerPoint and Excel 97-2003 files share the ``.msg`` signature, and
@@ -354,7 +354,7 @@ class OutlookToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: OutlookOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: OutlookOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the Outlook parser with options and progress callback."""
         BaseParser._validate_options_type(options, OutlookOptions, "outlook")
         options = options or OutlookOptions()
@@ -363,7 +363,7 @@ class OutlookToAstConverter(BaseParser):
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
 
     @requires_dependencies("outlook", DEPS_OUTLOOK)
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse Outlook file into an AST Document.
 
         Parameters
@@ -420,7 +420,7 @@ class OutlookToAstConverter(BaseParser):
                 original_error=e,
             ) from e
 
-    def _parse_msg(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def _parse_msg(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse MSG file using extract-msg.
 
         Parameters
@@ -519,7 +519,7 @@ class OutlookToAstConverter(BaseParser):
                 original_error=e,
             ) from e
 
-    def _parse_pst(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def _parse_pst(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse PST/OST file using pypff.
 
         Parameters

@@ -36,7 +36,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, replace
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from all2md.ast.sections import Section
@@ -102,10 +102,10 @@ class SourceLocation:
     """
 
     format: str
-    page: Optional[int] = None
-    line: Optional[int] = None
-    column: Optional[int] = None
-    element_id: Optional[str] = None
+    page: int | None = None
+    line: int | None = None
+    column: int | None = None
+    element_id: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -125,7 +125,7 @@ class Node(ABC):
     """
 
     metadata: dict[str, Any]
-    source_location: Optional[SourceLocation]
+    source_location: SourceLocation | None
 
     @abstractmethod
     def accept(self, visitor: Any) -> Any:
@@ -170,7 +170,7 @@ class Document(Node):
 
     children: list[Node] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this document.
@@ -189,7 +189,7 @@ class Document(Node):
         return visitor.visit_document(self)
 
     def add_section_after(
-        self, target: str | int, new_section: "Section | Document", case_sensitive: bool = False
+        self, target: str | int, new_section: Section | Document, case_sensitive: bool = False
     ) -> Document:
         """Add a new section after the specified target section.
 
@@ -247,7 +247,7 @@ class Document(Node):
         return Document(children=new_children, metadata=self.metadata.copy(), source_location=self.source_location)
 
     def add_section_before(
-        self, target: str | int, new_section: "Section | Document", case_sensitive: bool = False
+        self, target: str | int, new_section: Section | Document, case_sensitive: bool = False
     ) -> Document:
         """Add a new section before the specified target section.
 
@@ -349,7 +349,7 @@ class Document(Node):
         return Document(children=new_children, metadata=self.metadata.copy(), source_location=self.source_location)
 
     def replace_section(
-        self, target: str | int, new_content: "Section | Document | list[Node]", case_sensitive: bool = False
+        self, target: str | int, new_content: Section | Document | list[Node], case_sensitive: bool = False
     ) -> Document:
         """Replace a section with new content.
 
@@ -418,7 +418,7 @@ class Document(Node):
     def insert_into_section(
         self,
         target: str | int,
-        content: "Node | list[Node]",
+        content: Node | list[Node],
         position: Literal["start", "end", "after_heading"] = "end",
         case_sensitive: bool = False,
     ) -> Document:
@@ -512,7 +512,7 @@ class Heading(Node):
     level: int
     content: list[Node] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def __post_init__(self) -> None:
         """Validate heading level is between 1 and 6."""
@@ -555,7 +555,7 @@ class Paragraph(Node):
 
     content: list[Node] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this paragraph.
@@ -598,11 +598,11 @@ class CodeBlock(Node):
     """
 
     content: str
-    language: Optional[str] = None
+    language: str | None = None
     fence_char: str = "`"
     fence_length: int = 3
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this code block.
@@ -648,7 +648,7 @@ class BlockQuote(Node):
 
     children: list[Node] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this block quote.
@@ -695,7 +695,7 @@ class List(Node):
     start: int = 1
     tight: bool = True
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this list.
@@ -735,9 +735,9 @@ class ListItem(Node):
     """
 
     children: list[Node] = field(default_factory=list)
-    task_status: Optional[Literal["checked", "unchecked"]] = None
+    task_status: Literal["checked", "unchecked"] | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this list item.
@@ -780,11 +780,11 @@ class Table(Node):
     """
 
     rows: list[TableRow] = field(default_factory=list)
-    header: Optional[TableRow] = None
+    header: TableRow | None = None
     alignments: list[Alignment | None] = field(default_factory=list)
-    caption: Optional[str] = None
+    caption: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this table.
@@ -825,7 +825,7 @@ class TableRow(Node):
     cells: list[TableCell] = field(default_factory=list)
     is_header: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this table row.
@@ -872,7 +872,7 @@ class TableCell(Node):
     rowspan: int = 1
     alignment: Alignment | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this table cell.
@@ -922,9 +922,9 @@ class Figure(Node):
     """
 
     children: list[Node] = field(default_factory=list)
-    caption: Optional[str] = None
+    caption: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this figure.
@@ -959,7 +959,7 @@ class ThematicBreak(Node):
     """
 
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this thematic break.
@@ -1010,7 +1010,7 @@ class HTMLBlock(Node):
 
     content: str
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this HTML block.
@@ -1053,7 +1053,7 @@ class Text(Node):
 
     content: str
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this text.
@@ -1091,7 +1091,7 @@ class Emphasis(Node):
 
     content: list[Node] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this emphasis.
@@ -1129,7 +1129,7 @@ class Strong(Node):
 
     content: list[Node] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this strong emphasis.
@@ -1167,7 +1167,7 @@ class Code(Node):
 
     content: str
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this inline code.
@@ -1209,9 +1209,9 @@ class Link(Node):
 
     url: str
     content: list[Node] = field(default_factory=list)
-    title: Optional[str] = None
+    title: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this link.
@@ -1264,12 +1264,12 @@ class Image(Node):
 
     url: str
     alt_text: str = ""
-    title: Optional[str] = None
-    width: Optional[int] = None
-    height: Optional[int] = None
-    caption: Optional[str] = None
+    title: str | None = None
+    width: int | None = None
+    height: int | None = None
+    caption: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this image.
@@ -1307,7 +1307,7 @@ class LineBreak(Node):
 
     soft: bool = False
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this line break.
@@ -1350,7 +1350,7 @@ class Strikethrough(Node):
 
     content: list[Node] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this strikethrough.
@@ -1390,7 +1390,7 @@ class Mark(Node):
 
     content: list[Node] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this mark.
@@ -1440,7 +1440,7 @@ class Underline(Node):
     content: list[Node] = field(default_factory=list)
     semantic: Literal["underline", "insert"] = "underline"
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this underline.
@@ -1478,7 +1478,7 @@ class Superscript(Node):
 
     content: list[Node] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this superscript.
@@ -1516,7 +1516,7 @@ class Subscript(Node):
 
     content: list[Node] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this subscript.
@@ -1567,7 +1567,7 @@ class HTMLInline(Node):
 
     content: str
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this inline HTML.
@@ -1606,7 +1606,7 @@ class FootnoteReference(Node):
 
     identifier: str
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this footnote reference.
@@ -1652,7 +1652,7 @@ class MathInline(Node):
     notation: MathNotation = "latex"
     representations: dict[MathNotation, str] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this inline math.
@@ -1746,7 +1746,7 @@ class CommentInline(Node):
 
     content: str
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this inline comment.
@@ -1793,7 +1793,7 @@ class FootnoteDefinition(Node):
     identifier: str
     content: list[Node] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this footnote definition.
@@ -1832,7 +1832,7 @@ class DefinitionList(Node):
 
     items: list[tuple[DefinitionTerm, list[DefinitionDescription]]] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this definition list.
@@ -1870,7 +1870,7 @@ class DefinitionTerm(Node):
 
     content: list[Node] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this definition term.
@@ -1908,7 +1908,7 @@ class DefinitionDescription(Node):
 
     content: list[Node] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this definition description.
@@ -1954,7 +1954,7 @@ class MathBlock(Node):
     notation: MathNotation = "latex"
     representations: dict[MathNotation, str] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this math block.
@@ -2043,7 +2043,7 @@ class Comment(Node):
 
     content: str
     metadata: dict[str, Any] = field(default_factory=dict)
-    source_location: Optional[SourceLocation] = None
+    source_location: SourceLocation | None = None
 
     def accept(self, visitor: Any) -> Any:
         """Accept a visitor for processing this comment block.

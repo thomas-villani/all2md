@@ -487,7 +487,7 @@ class TestParseMultipartFormData:
         boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW"
         body = (
             f'------{boundary}\r\nContent-Disposition: form-data; name="format"\r\n\r\nhtml\r\n------{boundary}--'
-        ).encode("utf-8")
+        ).encode()
 
         content_type = f"multipart/form-data; boundary=----{boundary}"
         result = _parse_multipart_form_data(body, content_type)
@@ -505,9 +505,9 @@ class TestParseMultipartFormData:
                 f'Content-Disposition: form-data; name="file"; filename="test.txt"\r\n'
                 f"Content-Type: text/plain\r\n"
                 f"\r\n"
-            ).encode("utf-8")
+            ).encode()
             + file_content
-            + f"\r\n------{boundary}--".encode("utf-8")
+            + f"\r\n------{boundary}--".encode()
         )
 
         content_type = f"multipart/form-data; boundary=----{boundary}"
@@ -535,7 +535,7 @@ class TestParseMultipartFormData:
             f"\r\n"
             f"value\r\n"
             f"------{boundary}--"
-        ).encode("utf-8")
+        ).encode()
 
         content_type = f"multipart/form-data; boundary=----{boundary}"
         result = _parse_multipart_form_data(body, content_type)
@@ -554,9 +554,7 @@ class TestParseMultipartFormData:
     def test_parse_boundary_with_quotes(self):
         """Test parsing boundary with quotes."""
         boundary = "testboundary"
-        body = (f'--{boundary}\r\nContent-Disposition: form-data; name="field"\r\n\r\nvalue\r\n--{boundary}--').encode(
-            "utf-8"
-        )
+        body = (f'--{boundary}\r\nContent-Disposition: form-data; name="field"\r\n\r\nvalue\r\n--{boundary}--').encode()
 
         content_type = f'multipart/form-data; boundary="{boundary}"'
         result = _parse_multipart_form_data(body, content_type)
@@ -566,7 +564,7 @@ class TestParseMultipartFormData:
     def test_parse_empty_parts(self):
         """Test parsing with empty parts is handled."""
         boundary = "testboundary"
-        body = f"--{boundary}--".encode("utf-8")
+        body = f"--{boundary}--".encode()
 
         content_type = f"multipart/form-data; boundary={boundary}"
         result = _parse_multipart_form_data(body, content_type)
@@ -577,7 +575,7 @@ class TestParseMultipartFormData:
         """Test parsing with different newline styles."""
         boundary = "testboundary"
         # Using just \n instead of \r\n
-        body = (f'--{boundary}\nContent-Disposition: form-data; name="field"\n\nvalue\n--{boundary}--').encode("utf-8")
+        body = (f'--{boundary}\nContent-Disposition: form-data; name="field"\n\nvalue\n--{boundary}--').encode()
 
         content_type = f"multipart/form-data; boundary={boundary}"
         result = _parse_multipart_form_data(body, content_type)

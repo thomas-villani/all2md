@@ -7,7 +7,6 @@ for testing various aspects of DOCX-to-Markdown conversion.
 import tempfile
 from io import BytesIO
 from pathlib import Path
-from typing import Optional
 
 import docx
 from docx.shared import Inches, Pt, RGBColor
@@ -316,7 +315,7 @@ def save_docx_to_bytes(doc: docx.Document) -> bytes:
     return doc_io.read()
 
 
-def create_docx_file(doc: docx.Document, file_path: Optional[Path] = None) -> Path:
+def create_docx_file(doc: docx.Document, file_path: Path | None = None) -> Path:
     """Save a DOCX document to a temporary file.
 
     Parameters

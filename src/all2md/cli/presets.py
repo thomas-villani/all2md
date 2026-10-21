@@ -6,12 +6,12 @@ This module defines preset configurations for common use cases like fast
 processing, high quality output, minimal text extraction, etc.
 """
 
-from typing import Any, Dict
+from typing import Any
 
 from all2md.cli.config import merge_configs
 
 # Preset definitions
-PRESETS: Dict[str, Dict[str, Any]] = {
+PRESETS: dict[str, dict[str, Any]] = {
     "fast": {
         "description": "Fast processing optimized for speed over quality",
         "config": {
@@ -153,7 +153,7 @@ def get_preset_names() -> list[str]:
     return list(PRESETS.keys())
 
 
-def get_preset_config(preset_name: str) -> Dict[str, Any]:
+def get_preset_config(preset_name: str) -> dict[str, Any]:
     """Get configuration dictionary for a preset.
 
     Parameters
@@ -217,7 +217,7 @@ def get_preset_description(preset_name: str) -> str:
     return PRESETS[preset_name]["description"]
 
 
-def apply_preset(preset_name: str, base_config: Dict[str, Any]) -> Dict[str, Any]:
+def apply_preset(preset_name: str, base_config: dict[str, Any]) -> dict[str, Any]:
     """Apply a preset to a base configuration.
 
     Merges preset configuration into base config, with base config taking

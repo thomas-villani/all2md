@@ -8,10 +8,10 @@ configurations to test edge cases and real-world scenarios.
 """
 
 import json
-from typing import Any, Dict
+from typing import Any
 
 
-def create_simple_notebook() -> Dict[str, Any]:
+def create_simple_notebook() -> dict[str, Any]:
     """Create a simple notebook with basic cell types.
 
     Returns
@@ -35,7 +35,7 @@ def create_simple_notebook() -> Dict[str, Any]:
     }
 
 
-def create_notebook_with_images() -> Dict[str, Any]:
+def create_notebook_with_images() -> dict[str, Any]:
     """Create a notebook containing image outputs.
 
     Returns
@@ -92,7 +92,7 @@ def create_notebook_with_images() -> Dict[str, Any]:
     }
 
 
-def create_notebook_with_long_outputs() -> Dict[str, Any]:
+def create_notebook_with_long_outputs() -> dict[str, Any]:
     """Create a notebook with very long outputs for testing truncation.
 
     Returns
@@ -156,7 +156,7 @@ def create_notebook_with_long_outputs() -> Dict[str, Any]:
     }
 
 
-def create_multi_language_notebook() -> Dict[str, Any]:
+def create_multi_language_notebook() -> dict[str, Any]:
     """Create a notebook with cells in different programming languages.
 
     Returns
@@ -204,7 +204,7 @@ def create_multi_language_notebook() -> Dict[str, Any]:
     }
 
 
-def create_notebook_with_errors() -> Dict[str, Any]:
+def create_notebook_with_errors() -> dict[str, Any]:
     """Create a notebook with error outputs for testing error handling.
 
     Returns
@@ -255,7 +255,7 @@ def create_notebook_with_errors() -> Dict[str, Any]:
     }
 
 
-def create_data_science_notebook() -> Dict[str, Any]:
+def create_data_science_notebook() -> dict[str, Any]:
     """Create a comprehensive data science notebook.
 
     Returns
@@ -578,7 +578,7 @@ def create_data_science_notebook() -> Dict[str, Any]:
     }
 
 
-def create_notebook_with_widgets() -> Dict[str, Any]:
+def create_notebook_with_widgets() -> dict[str, Any]:
     """Create a notebook with interactive widgets and rich outputs.
 
     Returns
@@ -654,7 +654,7 @@ def create_notebook_with_widgets() -> Dict[str, Any]:
     }
 
 
-def save_notebook_to_file(notebook: Dict[str, Any], filepath: str) -> None:
+def save_notebook_to_file(notebook: dict[str, Any], filepath: str) -> None:
     """Save a notebook dictionary to a .ipynb file.
 
     Parameters
@@ -670,7 +670,7 @@ def save_notebook_to_file(notebook: Dict[str, Any], filepath: str) -> None:
 
 
 # Convenience function to create all fixtures
-def create_all_fixtures(output_dir: str = "test_notebooks") -> Dict[str, str]:
+def create_all_fixtures(output_dir: str = "test_notebooks") -> dict[str, str]:
     """Create all notebook fixtures and save them to files.
 
     Parameters

@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import IO, Any, Optional, Union
+from typing import IO, Any
 
 from all2md import HtmlOptions, NetworkFetchOptions
 from all2md.ast import Document
@@ -61,9 +61,7 @@ class TextileParser(BaseParser):
 
     """
 
-    def __init__(
-        self, options: TextileParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
-    ):
+    def __init__(self, options: TextileParserOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the Textile parser with options and progress callback."""
         BaseParser._validate_options_type(options, TextileParserOptions, "textile")
         options = options or TextileParserOptions()
@@ -71,7 +69,7 @@ class TextileParser(BaseParser):
         self.options: TextileParserOptions = options
 
     @requires_dependencies("textile", DEPS_TEXTILE)
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse Textile input into AST Document.
 
         Parameters

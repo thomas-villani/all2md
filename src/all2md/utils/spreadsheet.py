@@ -9,7 +9,8 @@ to reduce code duplication and improve maintainability.
 
 from __future__ import annotations
 
-from typing import Any, Literal, Sequence
+from collections.abc import Sequence
+from typing import Any, Literal
 
 from all2md.ast import Alignment, Node, Table, TableCell, TableRow, Text
 

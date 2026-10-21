@@ -14,12 +14,10 @@ import io
 import shutil
 from io import BytesIO, StringIO
 from pathlib import Path
-from typing import IO, Union, cast
+from typing import IO, cast
 
 
-def write_content(
-    content: Union[str, bytes], output: Union[str, Path, IO[bytes], IO[str], None]
-) -> Union[StringIO, BytesIO, None]:
+def write_content(content: str | bytes, output: str | Path | IO[bytes] | IO[str] | None) -> StringIO | BytesIO | None:
     """Write content to output destination or return as file-like object.
 
     This function provides a centralized way to handle output destinations,

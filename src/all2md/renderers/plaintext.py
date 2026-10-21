@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import textwrap
 from pathlib import Path
-from typing import IO, Literal, Union
+from typing import IO, Literal
 
 from all2md.ast.nodes import (
     BlockQuote,
@@ -739,7 +739,7 @@ class PlainTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         if comment_mode == "visible":
             self._output.append(comment_text)
 
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
+    def render(self, doc: Document, output: str | Path | IO[bytes]) -> None:
         """Render AST to plain text and write to output.
 
         Parameters

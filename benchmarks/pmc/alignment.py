@@ -30,9 +30,10 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections import Counter
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any
 
 #: Token n-gram width. Five is long enough that ordinary prose cannot collide by chance --
 #: the mismatch control puts the false-placement rate under 1% -- and short enough to

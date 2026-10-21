@@ -54,10 +54,11 @@ from __future__ import annotations
 import re
 import time
 from collections import Counter
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any
 from urllib.parse import unquote, urlsplit, urlunsplit
 
 from benchmarks.pmc.docx_reparse import (
@@ -752,6 +753,6 @@ def run(
         "all2md_version": importlib.metadata.version("all2md"),
         "word_build": word_build,
         "python": sys.version.split()[0],
-        "recorded_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "recorded_at": datetime.now(UTC).isoformat(timespec="seconds"),
     }
     return payload

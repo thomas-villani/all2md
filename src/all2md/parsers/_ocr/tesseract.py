@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 @requires_dependencies("pdf", DEPS_PDF_OCR)
-def ocr_pixmap(pix: "pymupdf.Pixmap", page: "pymupdf.Page", options: "PdfOptions") -> str:
+def ocr_pixmap(pix: pymupdf.Pixmap, page: pymupdf.Page, options: PdfOptions) -> str:
     """Extract text from a rendered page pixmap using Tesseract.
 
     Parameters
@@ -85,7 +85,7 @@ def ocr_pixmap(pix: "pymupdf.Pixmap", page: "pymupdf.Page", options: "PdfOptions
     return ocr_text
 
 
-def _resolve_language(page: "pymupdf.Page", options: "PdfOptions") -> str:
+def _resolve_language(page: pymupdf.Page, options: PdfOptions) -> str:
     ocr_opts = options.ocr
     if ocr_opts.auto_detect_language:
         return detect_page_language(page, options)
@@ -96,10 +96,10 @@ def _resolve_language(page: "pymupdf.Page", options: "PdfOptions") -> str:
 
 @requires_dependencies("pdf", DEPS_PDF_OCR)
 def ocr_pixmap_layout(
-    pix: "pymupdf.Pixmap",
-    page: "pymupdf.Page",
-    options: "PdfOptions",
-) -> "list[OcrParagraph] | None":
+    pix: pymupdf.Pixmap,
+    page: pymupdf.Page,
+    options: PdfOptions,
+) -> list[OcrParagraph] | None:
     """Extract text from a pixmap while keeping Tesseract's own segmentation.
 
     ``image_to_string`` discards the block, paragraph and line numbers Tesseract already
@@ -204,7 +204,7 @@ def ocr_pixmap_layout(
     return paragraphs
 
 
-def _union(boxes: "Iterable[tuple[float, float, float, float]]") -> tuple[float, float, float, float]:
+def _union(boxes: Iterable[tuple[float, float, float, float]]) -> tuple[float, float, float, float]:
     collected = list(boxes)
     return (
         min(box[0] for box in collected),

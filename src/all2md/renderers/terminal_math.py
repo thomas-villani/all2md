@@ -27,7 +27,7 @@ import logging
 import re
 import unicodedata
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +127,7 @@ _WORD = re.compile(r"[^\W\d_]+")
 _ROOTS = "√∛∜"
 
 
-def latex_to_unicode(latex: str, inline: bool = False) -> Optional[str]:
+def latex_to_unicode(latex: str, inline: bool = False) -> str | None:
     r"""Return LaTeX math as Unicode text, or ``None`` when it cannot be converted.
 
     Parameters
@@ -189,7 +189,7 @@ class _Box:
         return max((text_width(line) for line in self.lines), default=0)
 
 
-Fragment = Union[str, _Box]
+Fragment = str | _Box
 
 
 def _collapse(text: str) -> str:

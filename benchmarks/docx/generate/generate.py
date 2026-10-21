@@ -314,7 +314,7 @@ def main() -> int:
             "word_version": str(session.app.Version),
             "wordlive_version": wordlive_version,
             "word_user_name": CORPUS_AUTHOR,
-            "generated_utc": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+            "generated_utc": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
         },
         "cases": [existing[key] for key in sorted(existing)],
     }

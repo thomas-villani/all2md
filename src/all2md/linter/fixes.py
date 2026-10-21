@@ -15,9 +15,10 @@ handles the parent lookup lazily.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import TYPE_CHECKING, Callable, Optional
+from typing import TYPE_CHECKING
 
 from all2md.ast import (
     BlockQuote,
@@ -93,7 +94,7 @@ class LintFix:
     """
 
     target: Node
-    apply: Callable[["FixContext"], None]
+    apply: Callable[[FixContext], None]
     safety: FixSafety
     description: str = ""
 
@@ -103,7 +104,7 @@ class AppliedFix:
     """Record of a fix that was (or would have been) applied."""
 
     rule_code: str
-    line: Optional[int]
+    line: int | None
     description: str
     safety: FixSafety
 
@@ -131,13 +132,13 @@ class FixContext:
         :meth:`parent_of`, :meth:`remove`, or :meth:`replace`.
         """
         self.document = document
-        self._parent_map: Optional[dict[int, Node]] = None
+        self._parent_map: dict[int, Node] | None = None
 
     def _ensure_parent_map(self) -> None:
         if self._parent_map is None:
             self._parent_map = _build_parent_map(self.document)
 
-    def parent_of(self, node: Node) -> Optional[Node]:
+    def parent_of(self, node: Node) -> Node | None:
         """Return the parent of ``node`` in this context's document, or ``None``."""
         self._ensure_parent_map()
         assert self._parent_map is not None
@@ -278,7 +279,7 @@ def _list_replace_identity(seq: list, old: Node, new: Node) -> bool:
 def _node_depth(parent_map: dict[int, Node], node: Node) -> int:
     """Return the depth of ``node`` in the document tree (root is 0)."""
     depth = 0
-    cursor: Optional[Node] = parent_map.get(id(node))
+    cursor: Node | None = parent_map.get(id(node))
     while cursor is not None:
         depth += 1
         cursor = parent_map.get(id(cursor))
@@ -287,7 +288,7 @@ def _node_depth(parent_map: dict[int, Node], node: Node) -> int:
 
 def apply_fixes(
     doc: Document,
-    violations: list["Violation"],
+    violations: list[Violation],
     max_safety: FixSafety,
 ) -> tuple[list[AppliedFix], list[AppliedFix]]:
     """Apply every fix attached to ``violations`` whose safety is ``<= max_safety``.

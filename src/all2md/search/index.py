@@ -5,10 +5,11 @@ from __future__ import annotations
 import json
 import secrets
 from abc import ABC, abstractmethod
+from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, ClassVar, Iterable, Mapping, MutableMapping, Sequence
+from typing import Any, ClassVar
 
 from all2md.progress import ProgressCallback, ProgressEvent
 
@@ -29,7 +30,7 @@ class IndexManifest:
     backend: Mapping[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_json(cls, raw: Mapping[str, Any]) -> "IndexManifest":
+    def from_json(cls, raw: Mapping[str, Any]) -> IndexManifest:
         """Create manifest from JSON-compatible mapping."""
         mode_value = raw.get("mode")
         mode = SearchMode[mode_value] if isinstance(mode_value, str) else SearchMode(mode_value)
@@ -104,7 +105,7 @@ class BaseIndex(ABC):
 
     @classmethod
     @abstractmethod
-    def load(cls, directory: Path) -> "BaseIndex":
+    def load(cls, directory: Path) -> BaseIndex:
         """Rehydrate index from persisted files."""
 
     def _write_manifest(self, directory: Path, backend_payload: Mapping[str, Any]) -> None:

@@ -18,7 +18,7 @@ from email.message import EmailMessage, Message
 from email.utils import getaddresses, parsedate_to_datetime
 from io import BytesIO
 from pathlib import Path
-from typing import IO, Any, Optional, Union
+from typing import IO, Any
 from urllib.parse import unquote
 
 from all2md.api import to_markdown
@@ -1046,7 +1046,7 @@ class EmlToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: EmlOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: EmlOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the EML parser with options and progress callback."""
         BaseParser._validate_options_type(options, EmlOptions, "eml")
         options = options or EmlOptions()
@@ -1054,7 +1054,7 @@ class EmlToAstConverter(BaseParser):
         self.options: EmlOptions = options
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
 
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse EML file into an AST Document.
 
         Parameters

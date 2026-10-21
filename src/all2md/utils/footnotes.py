@@ -5,8 +5,8 @@ from __future__ import annotations
 import itertools
 import re
 from collections import defaultdict
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass, field
-from typing import Dict, Iterator, List, Optional, Sequence, Tuple
 
 from all2md.ast import FootnoteDefinition, Node
 
@@ -38,24 +38,24 @@ class FootnoteCollector:
 
     auto_number_start: int = 1
     _next_auto_number: itertools.count = field(init=False, repr=False)
-    _orders: Dict[str, List[str]] = field(default_factory=lambda: defaultdict(list), init=False, repr=False)
-    _definitions: Dict[str, Dict[str, List[Node]]] = field(
+    _orders: dict[str, list[str]] = field(default_factory=lambda: defaultdict(list), init=False, repr=False)
+    _definitions: dict[str, dict[str, list[Node]]] = field(
         default_factory=lambda: defaultdict(dict), init=False, repr=False
     )
-    _id_map: Dict[Tuple[str, str], str] = field(default_factory=dict, init=False, repr=False)
+    _id_map: dict[tuple[str, str], str] = field(default_factory=dict, init=False, repr=False)
 
     def __post_init__(self) -> None:
         """Initialize the auto-number counter after dataclass initialization."""
         self._next_auto_number = itertools.count(self.auto_number_start)
 
-    def register_reference(self, identifier: Optional[str], *, note_type: str = "footnote") -> str:
+    def register_reference(self, identifier: str | None, *, note_type: str = "footnote") -> str:
         """Record a reference and return the canonical identifier."""
         return self._ensure_identifier(identifier, note_type=note_type)
 
     def register_definition(
         self,
-        identifier: Optional[str],
-        content: List[Node],
+        identifier: str | None,
+        content: list[Node],
         *,
         note_type: str = "footnote",
     ) -> str:
@@ -68,7 +68,7 @@ class FootnoteCollector:
     def iter_definitions(self, *, note_type_priority: Sequence[str] | None = None) -> Iterator[FootnoteDefinition]:
         """Yield collected definitions in priority order."""
         priority = list(note_type_priority or self._orders.keys())
-        seen: set[Tuple[str, str]] = set()
+        seen: set[tuple[str, str]] = set()
 
         for note_type in priority:
             for identifier in self._orders.get(note_type, []):
@@ -86,7 +86,7 @@ class FootnoteCollector:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _ensure_identifier(self, identifier: Optional[str], *, note_type: str) -> str:
+    def _ensure_identifier(self, identifier: str | None, *, note_type: str) -> str:
         raw = "" if identifier is None else str(identifier)
         key = (note_type, raw)
         if key in self._id_map:

@@ -1,6 +1,7 @@
 """Type stubs for docx.text.paragraph module."""
 
-from typing import Any, Iterator
+from collections.abc import Iterator
+from typing import Any
 
 class Paragraph:
     """Represents a paragraph in a Word document."""

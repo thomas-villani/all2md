@@ -13,7 +13,7 @@ would drag `all2md.ast` into it and give the gate an opinion about the code unde
 
 from __future__ import annotations
 
-from typing import Mapping
+from collections.abc import Mapping
 
 #: Dimensions the oracle records but no lane may gate on, mapped to the measurement that
 #: disqualified each.

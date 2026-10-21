@@ -7,8 +7,8 @@ fixtures easy to regenerate in tests.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from io import BytesIO
-from typing import Iterable
 
 
 def create_basic_csv() -> str:

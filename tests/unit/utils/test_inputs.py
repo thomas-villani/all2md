@@ -261,7 +261,7 @@ class TestValidateAndConvertInput:
         test_file.write_text("content")
 
         # Open in text mode
-        with open(test_file, "r") as f:
+        with open(test_file) as f:
             with pytest.raises(ValidationError) as excinfo:
                 validate_and_convert_input(f, require_binary=True)
             assert "binary mode" in str(excinfo.value)

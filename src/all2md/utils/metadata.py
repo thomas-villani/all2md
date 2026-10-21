@@ -14,9 +14,10 @@ creation date, keywords, and format-specific metadata fields.
 
 import json
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Mapping, Optional, Tuple, Union
+from typing import Any, Literal, Union
 
 import tomli_w
 import yaml
@@ -44,7 +45,7 @@ OFFICE_FIELD_MAPPING = {
     "modification_date": "modified",
 }
 
-SPREADSHEET_FIELD_MAPPING: Mapping[str, Union[str, List[str]]] = {
+SPREADSHEET_FIELD_MAPPING: Mapping[str, str | list[str]] = {
     "title": "title",
     "author": "creator",
     "subject": ["subject", "description"],
@@ -146,10 +147,10 @@ class MetadataRenderPolicy:
     """Configuration describing how document metadata should be rendered."""
 
     visibility: MetadataVisibility = "extended"
-    include_fields: Tuple[str, ...] = field(default_factory=tuple)
-    exclude_fields: Tuple[str, ...] = field(default_factory=tuple)
+    include_fields: tuple[str, ...] = field(default_factory=tuple)
+    exclude_fields: tuple[str, ...] = field(default_factory=tuple)
     include_custom_fields: bool = True
-    field_aliases: Dict[str, str] = field(default_factory=dict)
+    field_aliases: dict[str, str] = field(default_factory=dict)
 
 
 DEFAULT_METADATA_RENDER_POLICY = MetadataRenderPolicy()
@@ -166,9 +167,9 @@ def _value_is_meaningful(value: Any) -> bool:
     return True
 
 
-def _normalize_metadata_dict(metadata: Mapping[str, Any]) -> Tuple[Dict[str, Any], set[str]]:
+def _normalize_metadata_dict(metadata: Mapping[str, Any]) -> tuple[dict[str, Any], set[str]]:
     """Normalize metadata keys and collect custom fields."""
-    normalized: Dict[str, Any] = {}
+    normalized: dict[str, Any] = {}
     custom_fields: set[str] = set()
 
     for key, value in metadata.items():
@@ -208,7 +209,7 @@ def _normalize_metadata_dict(metadata: Mapping[str, Any]) -> Tuple[Dict[str, Any
 
 def prepare_metadata_for_render(
     metadata: Union["DocumentMetadata", Mapping[str, Any], None], policy: MetadataRenderPolicy | None = None
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Return metadata filtered for rendering according to the policy."""
     if not metadata:
         return {}
@@ -316,26 +317,26 @@ class DocumentMetadata:
 
     """
 
-    title: Optional[str] = None
-    author: Optional[str] = None
-    subject: Optional[str] = None
-    keywords: Optional[List[str]] = None
-    creation_date: Optional[Union[datetime, str]] = None
-    modification_date: Optional[Union[datetime, str]] = None
-    creator: Optional[str] = None
-    producer: Optional[str] = None
-    category: Optional[str] = None
-    language: Optional[str] = None
-    url: Optional[str] = None
-    source_path: Optional[str] = None
-    page_count: Optional[int] = None
-    word_count: Optional[int] = None
-    sha256: Optional[str] = None
-    extraction_date: Optional[str] = None
-    version: Optional[str] = None
-    custom: Dict[str, Any] = field(default_factory=dict)
+    title: str | None = None
+    author: str | None = None
+    subject: str | None = None
+    keywords: list[str] | None = None
+    creation_date: datetime | str | None = None
+    modification_date: datetime | str | None = None
+    creator: str | None = None
+    producer: str | None = None
+    category: str | None = None
+    language: str | None = None
+    url: str | None = None
+    source_path: str | None = None
+    page_count: int | None = None
+    word_count: int | None = None
+    sha256: str | None = None
+    extraction_date: str | None = None
+    version: str | None = None
+    custom: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert metadata to dictionary, excluding None values.
 
         Returns
@@ -344,7 +345,7 @@ class DocumentMetadata:
             Dictionary containing only non-None metadata fields
 
         """
-        result: Dict[str, Any] = {}
+        result: dict[str, Any] = {}
 
         # Standard fields
         if self.title:
@@ -399,7 +400,7 @@ class DocumentMetadata:
 
 
 def format_yaml_frontmatter(
-    metadata: Union[DocumentMetadata, Dict[str, Any]], policy: MetadataRenderPolicy | None = None
+    metadata: DocumentMetadata | dict[str, Any], policy: MetadataRenderPolicy | None = None
 ) -> str:
     """Format metadata as YAML front matter.
 
@@ -453,7 +454,7 @@ def format_yaml_frontmatter(
 
 
 def format_toml_frontmatter(
-    metadata: Union[DocumentMetadata, Dict[str, Any]], policy: MetadataRenderPolicy | None = None
+    metadata: DocumentMetadata | dict[str, Any], policy: MetadataRenderPolicy | None = None
 ) -> str:
     """Format metadata as TOML front matter.
 
@@ -501,7 +502,7 @@ def format_toml_frontmatter(
 
 
 def format_json_frontmatter(
-    metadata: Union[DocumentMetadata, Dict[str, Any]], policy: MetadataRenderPolicy | None = None
+    metadata: DocumentMetadata | dict[str, Any], policy: MetadataRenderPolicy | None = None
 ) -> str:
     r"""Format metadata as JSON front matter.
 
@@ -547,7 +548,7 @@ def format_json_frontmatter(
     return f"```json\n{json_content}\n```\n\n"
 
 
-def safe_extract_property(obj: Any, primary_attr: str, fallback_attr: Optional[str] = None) -> Optional[str]:
+def safe_extract_property(obj: Any, primary_attr: str, fallback_attr: str | None = None) -> str | None:
     """Safely extract a string property from an object with optional fallback.
 
     Parameters
@@ -566,7 +567,7 @@ def safe_extract_property(obj: Any, primary_attr: str, fallback_attr: Optional[s
 
     """
 
-    def get_non_empty_value(attr_name: str) -> Optional[str]:
+    def get_non_empty_value(attr_name: str) -> str | None:
         if hasattr(obj, attr_name):
             value = getattr(obj, attr_name)
             if value and str(value).strip():
@@ -585,7 +586,7 @@ def safe_extract_property(obj: Any, primary_attr: str, fallback_attr: Optional[s
     return None
 
 
-def extract_keywords_from_string(keywords_str: str) -> List[str]:
+def extract_keywords_from_string(keywords_str: str) -> list[str]:
     """Extract and clean keywords from a delimited string.
 
     Parameters
@@ -607,7 +608,7 @@ def extract_keywords_from_string(keywords_str: str) -> List[str]:
 
 
 def map_properties_to_metadata(
-    props_obj: Any, field_mapping: Mapping[str, Union[str, List[str]]], custom_handlers: Optional[Dict[str, Any]] = None
+    props_obj: Any, field_mapping: Mapping[str, str | list[str]], custom_handlers: dict[str, Any] | None = None
 ) -> DocumentMetadata:
     """Map properties from a document object to DocumentMetadata using field mappings.
 
@@ -685,7 +686,7 @@ def map_properties_to_metadata(
 
 
 def extract_dict_metadata(
-    metadata_dict: Dict[str, Any], field_mapping: Mapping[str, Union[str, List[str]]]
+    metadata_dict: dict[str, Any], field_mapping: Mapping[str, str | list[str]]
 ) -> DocumentMetadata:
     """Extract metadata from a dictionary (useful for PDF and similar formats).
 
@@ -705,7 +706,7 @@ def extract_dict_metadata(
 
     # Create a simple object wrapper for the dictionary to work with existing functions
     class DictWrapper:
-        def __init__(self, data: Dict[str, Any]):
+        def __init__(self, data: dict[str, Any]):
             self._data = data
 
         def __getattr__(self, name: str) -> Any:
@@ -717,7 +718,7 @@ def extract_dict_metadata(
 
 def prepend_metadata_if_enabled(
     content: str,
-    metadata: Optional[DocumentMetadata],
+    metadata: DocumentMetadata | None,
     extract_metadata: bool,
     policy: MetadataRenderPolicy | None = None,
 ) -> str:

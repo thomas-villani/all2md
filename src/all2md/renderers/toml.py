@@ -41,7 +41,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import IO, Any, Union
+from typing import IO, Any
 
 from all2md.ast.nodes import Document, Heading, Node, Table, TableCell, Text
 from all2md.ast.nodes import List as AstList
@@ -108,7 +108,7 @@ class TomlRenderer(BaseRenderer):
         self.options: TomlRendererOptions = options
 
     @requires_dependencies("toml", DEPS_TOML)
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes], IO[str]]) -> None:
+    def render(self, doc: Document, output: str | Path | IO[bytes] | IO[str]) -> None:
         """Render AST document to TOML file.
 
         Parameters

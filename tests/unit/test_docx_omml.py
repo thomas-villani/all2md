@@ -70,7 +70,7 @@ def test_a_subscript_converts():
 
 # ------------------------------------------------- bare m:oMath placement (#481 proper)
 def paragraph_xml(body: str) -> bytes:
-    return (f'<w:p xmlns:w="{W_NS}" xmlns:m="{MATH_NS}">{body}</w:p>').encode("utf-8")
+    return (f'<w:p xmlns:w="{W_NS}" xmlns:m="{MATH_NS}">{body}</w:p>').encode()
 
 
 def w_run(text: str) -> str:
@@ -160,7 +160,7 @@ def test_inline_math_lands_between_the_words_it_sits_between():
     paragraph._p.append(
         etree.fromstring(
             f'<m:oMath xmlns:m="{MATH_NS}"><m:f><m:num>{run("a")}</m:num>'
-            f"<m:den>{run('b')}</m:den></m:f></m:oMath>".encode("utf-8")
+            f"<m:den>{run('b')}</m:den></m:f></m:oMath>".encode()
         )
     )
     paragraph.add_run(" here")

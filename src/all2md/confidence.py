@@ -129,7 +129,7 @@ class DegradedEvent:
         return data
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "DegradedEvent":
+    def from_dict(cls, data: dict[str, Any]) -> DegradedEvent:
         """Reconstruct a :class:`DegradedEvent` from its :meth:`to_dict` form."""
         return cls(
             parser=str(data.get("parser", "")),
@@ -179,7 +179,7 @@ class ConfidenceReport:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "ConfidenceReport":
+    def from_dict(cls, data: dict[str, Any]) -> ConfidenceReport:
         """Reconstruct a :class:`ConfidenceReport` from its :meth:`to_dict` form."""
         return cls(
             score=int(data.get("score", 0)),

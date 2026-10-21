@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import logging
 import sys
-from typing import Optional
 
 
 def configure_logging(
     log_level: int | str,
-    log_file: Optional[str] = None,
+    log_file: str | None = None,
     trace_mode: bool = False,
 ) -> logging.Logger:
     """Configure root logging handlers shared across CLI and services.

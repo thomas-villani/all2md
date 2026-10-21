@@ -383,8 +383,10 @@ select = [
     "C",  # complexity checks
     "B",  # flake8-bugbear
     "I",  # import-related rules
+    "UP",  # pyupgrade: syntax for the supported Pythons (3.11+)
 ]
 ignore = [
+    "UP042",  # (str, Enum) -> StrEnum changes what str() returns; not worth it
     "D203",  # one-blank-line-before-class (incompatible with D211)
     "D213",  # multi-line-summary-second-line (incompatible with D212)
 ]

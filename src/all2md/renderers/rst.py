@@ -17,7 +17,7 @@ from __future__ import annotations
 import re
 import textwrap
 from pathlib import Path
-from typing import IO, Union
+from typing import IO
 
 from all2md.ast.nodes import (
     BlockQuote,
@@ -1162,7 +1162,7 @@ class RestructuredTextRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         self._output.append(f"<!-- {comment_text} -->")
 
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
+    def render(self, doc: Document, output: str | Path | IO[bytes]) -> None:
         """Render AST to RST and write to output.
 
         Parameters

@@ -32,7 +32,9 @@ from __future__ import annotations
 import copy
 import dataclasses
 import re
-from typing import Any, Callable, Pattern, Type
+from collections.abc import Callable
+from re import Pattern
+from typing import Any
 
 from all2md.ast.nodes import (
     BlockQuote,
@@ -378,13 +380,13 @@ class NodeTransformer(NodeVisitor):
         """Transform a CommentInline node (inline)."""
         return CommentInline(content=node.content, metadata=node.metadata.copy(), source_location=node.source_location)
 
-    def visit_footnote_reference(self, node: "FootnoteReference") -> "FootnoteReference":
+    def visit_footnote_reference(self, node: FootnoteReference) -> FootnoteReference:
         """Transform a FootnoteReference node."""
         return FootnoteReference(
             identifier=node.identifier, metadata=node.metadata.copy(), source_location=node.source_location
         )
 
-    def visit_math_inline(self, node: "MathInline") -> "MathInline":
+    def visit_math_inline(self, node: MathInline) -> MathInline:
         """Transform a MathInline node."""
         return MathInline(
             content=node.content,
@@ -394,11 +396,11 @@ class NodeTransformer(NodeVisitor):
             source_location=node.source_location,
         )
 
-    def visit_footnote_definition(self, node: "FootnoteDefinition") -> "FootnoteDefinition":
+    def visit_footnote_definition(self, node: FootnoteDefinition) -> FootnoteDefinition:
         """Transform a FootnoteDefinition node."""
         return self._generic_transform(node)  # type: ignore[return-value]
 
-    def visit_definition_list(self, node: "DefinitionList") -> "DefinitionList":
+    def visit_definition_list(self, node: DefinitionList) -> DefinitionList:
         """Transform a DefinitionList node."""
         transformed_items: list[tuple[DefinitionTerm, list[DefinitionDescription]]] = []
         for term, descriptions in node.items:
@@ -419,15 +421,15 @@ class NodeTransformer(NodeVisitor):
             source_location=node.source_location,
         )
 
-    def visit_definition_term(self, node: "DefinitionTerm") -> "DefinitionTerm":
+    def visit_definition_term(self, node: DefinitionTerm) -> DefinitionTerm:
         """Transform a DefinitionTerm node."""
         return self._generic_transform(node)  # type: ignore[return-value]
 
-    def visit_definition_description(self, node: "DefinitionDescription") -> "DefinitionDescription":
+    def visit_definition_description(self, node: DefinitionDescription) -> DefinitionDescription:
         """Transform a DefinitionDescription node."""
         return self._generic_transform(node)  # type: ignore[return-value]
 
-    def visit_math_block(self, node: "MathBlock") -> "MathBlock":
+    def visit_math_block(self, node: MathBlock) -> MathBlock:
         """Transform a MathBlock node."""
         return MathBlock(
             content=node.content,
@@ -617,20 +619,20 @@ class NodeCollector(NodeVisitor):
         """Visit a CommentInline node (inline)."""
         self._collect_if_match(node)
 
-    def visit_footnote_reference(self, node: "FootnoteReference") -> None:
+    def visit_footnote_reference(self, node: FootnoteReference) -> None:
         """Visit a FootnoteReference node."""
         self._collect_if_match(node)
 
-    def visit_math_inline(self, node: "MathInline") -> None:
+    def visit_math_inline(self, node: MathInline) -> None:
         """Visit a MathInline node."""
         self._collect_if_match(node)
 
-    def visit_footnote_definition(self, node: "FootnoteDefinition") -> None:
+    def visit_footnote_definition(self, node: FootnoteDefinition) -> None:
         """Visit a FootnoteDefinition node."""
         self._collect_if_match(node)
         self._visit_children(node.content)
 
-    def visit_definition_list(self, node: "DefinitionList") -> None:
+    def visit_definition_list(self, node: DefinitionList) -> None:
         """Visit a DefinitionList node."""
         self._collect_if_match(node)
         for term, descriptions in node.items:
@@ -638,17 +640,17 @@ class NodeCollector(NodeVisitor):
             for desc in descriptions:
                 desc.accept(self)
 
-    def visit_definition_term(self, node: "DefinitionTerm") -> None:
+    def visit_definition_term(self, node: DefinitionTerm) -> None:
         """Visit a DefinitionTerm node."""
         self._collect_if_match(node)
         self._visit_children(node.content)
 
-    def visit_definition_description(self, node: "DefinitionDescription") -> None:
+    def visit_definition_description(self, node: DefinitionDescription) -> None:
         """Visit a DefinitionDescription node."""
         self._collect_if_match(node)
         self._visit_children(node.content)
 
-    def visit_math_block(self, node: "MathBlock") -> None:
+    def visit_math_block(self, node: MathBlock) -> None:
         """Visit a MathBlock node."""
         self._collect_if_match(node)
 
@@ -809,7 +811,7 @@ def _strip_matches(value: Any, pattern: Pattern[str], removed: list[int], seen: 
     return value
 
 
-def extract_nodes(doc: Document, node_type: Type[Node] | None = None) -> list[Node]:
+def extract_nodes(doc: Document, node_type: type[Node] | None = None) -> list[Node]:
     """Extract all nodes of a specific type from a document.
 
     Parameters

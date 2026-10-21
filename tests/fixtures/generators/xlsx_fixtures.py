@@ -96,7 +96,7 @@ def create_xlsx_with_multiple_sheets() -> bytes:
     return _save_workbook_to_bytes(wb)
 
 
-def _save_workbook_to_bytes(workbook: "openpyxl.Workbook") -> bytes:
+def _save_workbook_to_bytes(workbook: openpyxl.Workbook) -> bytes:
     """Serialize a workbook to bytes."""
     buffer = BytesIO()
     workbook.save(buffer)

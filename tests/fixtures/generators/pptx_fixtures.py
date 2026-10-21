@@ -7,7 +7,6 @@ for testing various aspects of PPTX-to-Markdown conversion.
 import tempfile
 from io import BytesIO
 from pathlib import Path
-from typing import Optional
 
 from pptx import Presentation
 from pptx.chart.data import ChartData
@@ -465,7 +464,7 @@ def save_pptx_to_bytes(prs: Presentation) -> bytes:
     return pptx_io.read()
 
 
-def create_pptx_file(prs: Presentation, file_path: Optional[Path] = None) -> Path:
+def create_pptx_file(prs: Presentation, file_path: Path | None = None) -> Path:
     """Save a PPTX presentation to a temporary file.
 
     Parameters

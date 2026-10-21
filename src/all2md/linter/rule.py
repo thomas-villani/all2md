@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from all2md.linter.violations import Severity, Violation
 
@@ -24,8 +24,8 @@ if TYPE_CHECKING:
 class LintContext:
     """Input passed to every ``LintRule.check()`` call."""
 
-    document: "Document"
-    file_path: Optional[str] = None
+    document: Document
+    file_path: str | None = None
     config: dict[str, Any] = field(default_factory=dict)
 
 
@@ -51,13 +51,13 @@ class LintRule(ABC):
         self,
         message: str,
         *,
-        severity: Optional[Severity] = None,
-        line: Optional[int] = None,
-        column: Optional[int] = None,
-        node_type: Optional[str] = None,
-        suggestion: Optional[str] = None,
-        context: Optional[str] = None,
-        fix: Optional["LintFix"] = None,
+        severity: Severity | None = None,
+        line: int | None = None,
+        column: int | None = None,
+        node_type: str | None = None,
+        suggestion: str | None = None,
+        context: str | None = None,
+        fix: LintFix | None = None,
     ) -> Violation:
         """Construct a ``Violation`` pre-populated with this rule's metadata."""
         return Violation(

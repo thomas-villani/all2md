@@ -62,7 +62,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import IO, Any, Optional, Union
+from typing import IO, Any
 
 from all2md.ast import (
     CodeBlock,
@@ -120,14 +120,14 @@ class JsonParser(BaseParser):
 
     """
 
-    def __init__(self, options: JsonParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: JsonParserOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the JSON parser with options and progress callback."""
         BaseParser._validate_options_type(options, JsonParserOptions, "json")
         options = options or JsonParserOptions()
         super().__init__(options, progress_callback)
         self.options: JsonParserOptions = options
 
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse JSON input into AST Document.
 
         Parameters

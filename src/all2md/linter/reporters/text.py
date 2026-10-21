@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Sequence
+from collections.abc import Sequence
 
 from all2md.linter.reporters import ReportableResult, Reporter
 from all2md.linter.runner import LintFixResult, LintResult

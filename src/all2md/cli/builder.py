@@ -13,7 +13,7 @@ import json
 import logging
 import types
 from dataclasses import MISSING, fields, is_dataclass
-from typing import Annotated, Any, Dict, Optional, Type, Union, get_args, get_origin, get_type_hints
+from typing import Annotated, Any, Union, get_args, get_origin, get_type_hints
 
 from all2md.cli.custom_actions import (
     DynamicVersionAction,
@@ -56,10 +56,10 @@ CLI_METADATA_FLATTEN = "cli_flatten"
 CLI_METADATA_NEGATED_NAME = "cli_negated_name"
 
 
-_TYPE_HINTS_CACHE: Dict[type, Dict[str, Any]] = {}
+_TYPE_HINTS_CACHE: dict[type, dict[str, Any]] = {}
 
 
-def _cached_type_hints(options_class: type) -> Dict[str, Any]:
+def _cached_type_hints(options_class: type) -> dict[str, Any]:
     """Resolve and cache ``get_type_hints`` for an options dataclass.
 
     ``get_type_hints`` walks the full MRO and re-resolves every annotation on each
@@ -85,9 +85,9 @@ class DynamicCLIBuilder:
 
     def __init__(self) -> None:
         """Initialize the CLI builder."""
-        self.parser: Optional[argparse.ArgumentParser] = None
-        self.dest_to_cli_flag: Dict[str, str] = {}  # Maps dest names to actual CLI flags
-        self._options_class_cache: Optional[Dict[str, Type[Any]]] = None
+        self.parser: argparse.ArgumentParser | None = None
+        self.dest_to_cli_flag: dict[str, str] = {}  # Maps dest names to actual CLI flags
+        self._options_class_cache: dict[str, type[Any]] | None = None
 
     def _has_default(self, field: Any) -> bool:
         """Check if a dataclass field has a default value.
@@ -128,7 +128,7 @@ class DynamicCLIBuilder:
             return field.default_factory
         return MISSING
 
-    def _resolve_field_type(self, field: Any, options_class: Type) -> Type:
+    def _resolve_field_type(self, field: Any, options_class: type) -> type:
         """Resolve field type using typing.get_type_hints for robust type handling.
 
         This method replaces brittle string matching with proper type resolution
@@ -169,7 +169,7 @@ class DynamicCLIBuilder:
 
         return field.type
 
-    def _handle_optional_type(self, field_type: Type) -> tuple[Type, bool]:
+    def _handle_optional_type(self, field_type: type) -> tuple[type, bool]:
         """Handle Optional/Union types to extract the underlying type.
 
         Supports both typing.Union and PEP 604 unions (X | Y), as well as
@@ -214,12 +214,12 @@ class DynamicCLIBuilder:
         # Regular type
         return field_type, False
 
-    def _get_options_classes(self) -> Dict[str, Type[Any]]:
+    def _get_options_classes(self) -> dict[str, type[Any]]:
         """Return mapping of option namespaces to their dataclass classes."""
         if self._options_class_cache is not None:
             return self._options_class_cache
 
-        options_classes: Dict[str, Type[Any]] = {}
+        options_classes: dict[str, type[Any]] = {}
 
         options_classes["base"] = BaseParserOptions
         options_classes["renderer_base"] = BaseRendererOptions
@@ -251,11 +251,11 @@ class DynamicCLIBuilder:
         self._options_class_cache = options_classes
         return self._options_class_cache
 
-    def get_options_class_map(self) -> Dict[str, Type[Any]]:
+    def get_options_class_map(self) -> dict[str, type[Any]]:
         """Expose cached options classes for external introspection."""
         return dict(self._get_options_classes())
 
-    def _handle_boolean_type(self, field: Any, metadata: Dict[str, Any]) -> Dict[str, Any]:
+    def _handle_boolean_type(self, field: Any, metadata: dict[str, Any]) -> dict[str, Any]:
         """Handle boolean field type inference.
 
         Parameters
@@ -271,7 +271,7 @@ class DynamicCLIBuilder:
             Argparse kwargs for boolean fields
 
         """
-        kwargs: Dict[str, Any] = {}
+        kwargs: dict[str, Any] = {}
         default_value: Any = MISSING
 
         if self._has_default(field):
@@ -308,7 +308,7 @@ class DynamicCLIBuilder:
         return kwargs
 
     @staticmethod
-    def _handle_union_type(resolved_type: Type) -> tuple[Dict[str, Any], str | None]:
+    def _handle_union_type(resolved_type: type) -> tuple[dict[str, Any], str | None]:
         """Handle Union type inference (e.g., int | list[int]).
 
         Parameters
@@ -322,7 +322,7 @@ class DynamicCLIBuilder:
             Argparse kwargs and help suffix
 
         """
-        kwargs: Dict[str, Any] = {}
+        kwargs: dict[str, Any] = {}
         help_suffix: str | None = None
 
         args = get_args(resolved_type)
@@ -366,7 +366,7 @@ class DynamicCLIBuilder:
         return kwargs, help_suffix
 
     @staticmethod
-    def _handle_list_type(resolved_type: Type) -> tuple[Dict[str, Any], str | None]:
+    def _handle_list_type(resolved_type: type) -> tuple[dict[str, Any], str | None]:
         """Handle list type inference.
 
         Parameters
@@ -380,7 +380,7 @@ class DynamicCLIBuilder:
             Argparse kwargs and help suffix
 
         """
-        kwargs: Dict[str, Any] = {}
+        kwargs: dict[str, Any] = {}
         args = get_args(resolved_type)
 
         if args:
@@ -421,7 +421,7 @@ class DynamicCLIBuilder:
             return kwargs, "(comma-separated values)"
 
     @staticmethod
-    def _handle_int_list() -> tuple[Dict[str, Any], str]:
+    def _handle_int_list() -> tuple[dict[str, Any], str]:
         def parse_int_list(value: str) -> list[int]:
             try:
                 return [int(x.strip()) for x in value.split(",")]
@@ -431,7 +431,7 @@ class DynamicCLIBuilder:
         return {"type": parse_int_list}, "(comma-separated integers)"
 
     @staticmethod
-    def _handle_dict_type() -> tuple[Dict[str, Any], str]:
+    def _handle_dict_type() -> tuple[dict[str, Any], str]:
         """Handle dict type inference.
 
         Returns
@@ -453,8 +453,8 @@ class DynamicCLIBuilder:
         return {"type": parse_json_dict}, "(JSON format)"
 
     def _infer_argument_type_and_action(
-        self, field: Any, resolved_type: Type, is_optional: bool, metadata: Dict[str, Any], cli_name: str
-    ) -> tuple[Dict[str, Any], str | None]:
+        self, field: Any, resolved_type: type, is_optional: bool, metadata: dict[str, Any], cli_name: str
+    ) -> tuple[dict[str, Any], str | None]:
         """Infer argparse type/action metadata from resolved field type.
 
         Parameters
@@ -530,7 +530,7 @@ class DynamicCLIBuilder:
         return name.replace("_", "-")
 
     def infer_cli_name(
-        self, field_name: str, format_prefix: Optional[str] = None, is_boolean_with_true_default: bool = False
+        self, field_name: str, format_prefix: str | None = None, is_boolean_with_true_default: bool = False
     ) -> str:
         """Infer CLI argument name from field name.
 
@@ -571,8 +571,8 @@ class DynamicCLIBuilder:
         return f"--{kebab_name}"
 
     def get_argument_kwargs(
-        self, field: Any, metadata: Dict[str, Any], cli_name: str, options_class: Type
-    ) -> Dict[str, Any]:
+        self, field: Any, metadata: dict[str, Any], cli_name: str, options_class: type
+    ) -> dict[str, Any]:
         """Build argparse kwargs from field metadata using robust type resolution.
 
         This method replaces brittle string matching with proper type introspection
@@ -629,7 +629,7 @@ class DynamicCLIBuilder:
 
     def _should_process_field(
         self, field: Any, base_field_names: set[str], exclude_base_fields: bool
-    ) -> tuple[bool, Dict[str, Any]]:
+    ) -> tuple[bool, dict[str, Any]]:
         """Determine if a field should be processed and return its metadata.
 
         Parameters
@@ -655,7 +655,7 @@ class DynamicCLIBuilder:
         if not field.init or field.name.startswith("_"):
             return False, {}
 
-        metadata: Dict[str, Any] = dict(field.metadata) if field.metadata else {}
+        metadata: dict[str, Any] = dict(field.metadata) if field.metadata else {}
 
         # Skip if explicitly excluded from CLI
         if bool(metadata.get("exclude_from_cli", False)):
@@ -669,11 +669,11 @@ class DynamicCLIBuilder:
 
     def _handle_flattened_field(
         self,
-        group: Union[argparse.ArgumentParser, argparse._ArgumentGroup],
+        group: argparse.ArgumentParser | argparse._ArgumentGroup,
         field: Any,
-        options_class: Type,
-        format_prefix: Optional[str],
-        dest_prefix: Optional[str],
+        options_class: type,
+        format_prefix: str | None,
+        dest_prefix: str | None,
         exclude_base_fields: bool,
     ) -> bool:
         """Handle flattened nested dataclass fields.
@@ -730,9 +730,9 @@ class DynamicCLIBuilder:
     def _determine_cli_name_and_negation(
         self,
         field: Any,
-        metadata: Dict[str, Any],
-        options_class: Type,
-        format_prefix: Optional[str],
+        metadata: dict[str, Any],
+        options_class: type,
+        format_prefix: str | None,
     ) -> tuple[str, bool]:
         """Determine CLI name and whether negation is needed for boolean fields.
 
@@ -785,11 +785,11 @@ class DynamicCLIBuilder:
 
     def _add_argument_with_tracking(
         self,
-        group: Union[argparse.ArgumentParser, argparse._ArgumentGroup],
+        group: argparse.ArgumentParser | argparse._ArgumentGroup,
         cli_name: str,
         field: Any,
-        kwargs: Dict[str, Any],
-        dest_prefix: Optional[str],
+        kwargs: dict[str, Any],
+        dest_prefix: str | None,
     ) -> None:
         """Add argument with appropriate tracking action and dest.
 
@@ -834,12 +834,12 @@ class DynamicCLIBuilder:
 
     def _add_options_arguments_internal(
         self,
-        parser: Union[argparse.ArgumentParser, argparse._ArgumentGroup],
-        options_class: Type,
-        format_prefix: Optional[str] = None,
-        group_name: Optional[str] = None,
+        parser: argparse.ArgumentParser | argparse._ArgumentGroup,
+        options_class: type,
+        format_prefix: str | None = None,
+        group_name: str | None = None,
         exclude_base_fields: bool = False,
-        dest_prefix: Optional[str] = None,
+        dest_prefix: str | None = None,
     ) -> None:
         """Add arguments for an options dataclass.
 
@@ -878,7 +878,7 @@ class DynamicCLIBuilder:
             base_field_names = {f.name for f in fields(BaseParserOptions)}
 
         # Create argument group if requested
-        group: Union[argparse.ArgumentParser, argparse._ArgumentGroup]
+        group: argparse.ArgumentParser | argparse._ArgumentGroup
         if group_name:
             group = parser.add_argument_group(group_name)
         else:
@@ -909,9 +909,9 @@ class DynamicCLIBuilder:
     def add_options_class_arguments(
         self,
         parser: argparse.ArgumentParser,
-        options_class: Type,
-        format_prefix: Optional[str] = None,
-        group_name: Optional[str] = None,
+        options_class: type,
+        format_prefix: str | None = None,
+        group_name: str | None = None,
     ) -> None:
         """Add arguments for an options dataclass.
 
@@ -934,9 +934,9 @@ class DynamicCLIBuilder:
     def add_format_specific_options(
         self,
         parser: argparse.ArgumentParser,
-        options_class: Type,
-        format_prefix: Optional[str] = None,
-        group_name: Optional[str] = None,
+        options_class: type,
+        format_prefix: str | None = None,
+        group_name: str | None = None,
     ) -> None:
         """Add arguments for format-specific options, excluding BaseOptions fields.
 
@@ -957,7 +957,7 @@ class DynamicCLIBuilder:
     def add_renderer_options(
         self,
         parser: argparse.ArgumentParser,
-        options_class: Type,
+        options_class: type,
         format_name: str,
     ) -> None:
         """Add renderer options for a given format with dedicated prefixes."""
@@ -1483,7 +1483,7 @@ Examples:
         self.parser = parser
         return parser
 
-    def _resolve_nested_field(self, options_class: Type, field_path: list[str]) -> tuple[Any, Type] | None:
+    def _resolve_nested_field(self, options_class: type, field_path: list[str]) -> tuple[Any, type] | None:
         """Resolve a nested field path in a dataclass hierarchy.
 
         Parameters
@@ -1544,7 +1544,7 @@ Examples:
 
         return None
 
-    def resolve_option_field(self, dest: str) -> tuple[Any, Dict[str, Any]] | None:
+    def resolve_option_field(self, dest: str) -> tuple[Any, dict[str, Any]] | None:
         """Return the dataclass field and metadata for a CLI destination."""
         options_classes = self._get_options_classes()
 
@@ -1616,9 +1616,9 @@ Examples:
 
         return None
 
-    def _flatten_config_options(self, data: Dict[str, Any], prefix: str = "") -> Dict[str, Any]:
+    def _flatten_config_options(self, data: dict[str, Any], prefix: str = "") -> dict[str, Any]:
         """Flatten nested configuration dictionaries into dot-key form."""
-        flattened: Dict[str, Any] = {}
+        flattened: dict[str, Any] = {}
 
         for key, value in data.items():
             full_key = f"{prefix}.{key}" if prefix else key
@@ -1634,7 +1634,7 @@ Examples:
         self,
         arg_name: str,
         arg_value: Any,
-        options_classes: dict[str, Type],
+        options_classes: dict[str, type],
         options: dict[str, Any],
         unknown_args: list[str],
     ) -> None:
@@ -1713,7 +1713,7 @@ Examples:
         self,
         arg_name: str,
         arg_value: Any,
-        options_classes: dict[str, Type],
+        options_classes: dict[str, type],
         options: dict[str, Any],
         unknown_args: list[str],
     ) -> None:
@@ -1761,7 +1761,7 @@ Examples:
         self,
         provided_args: set[str],
         args_dict: dict[str, Any],
-        options_classes: dict[str, Type],
+        options_classes: dict[str, type],
         options: dict[str, Any],
     ) -> None:
         """Propagate global attachment flags to all format-specific options.
@@ -1827,7 +1827,7 @@ Examples:
             Mapped options dictionary ready for to_markdown()
 
         """
-        options: Dict[str, Any] = {}
+        options: dict[str, Any] = {}
 
         # Get the set of explicitly provided arguments first
         provided_args: set[str] = getattr(parsed_args, "_provided_args", set())
@@ -1986,7 +1986,7 @@ Examples:
         return options
 
     def _process_argument_value(
-        self, field: Any, metadata: Dict[str, Any], arg_value: Any, arg_name: str, was_provided: bool = False
+        self, field: Any, metadata: dict[str, Any], arg_value: Any, arg_name: str, was_provided: bool = False
     ) -> Any:
         """Process and convert argument values based on field type.
 

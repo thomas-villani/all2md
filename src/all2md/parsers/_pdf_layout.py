@@ -23,8 +23,9 @@ from __future__ import annotations
 import contextlib
 import logging
 import sys
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Iterator
+from typing import TYPE_CHECKING, Any
 
 from all2md.constants import DEFAULT_LAYOUT_FEATURE_SET
 
@@ -203,7 +204,7 @@ def get_layout_model(feature_set: str = DEFAULT_LAYOUT_FEATURE_SET) -> Any:
     return _layout_models[feature_set]
 
 
-def predict_page_layout(page: "pymupdf.Page", feature_set: str = DEFAULT_LAYOUT_FEATURE_SET) -> list[LayoutPrediction]:
+def predict_page_layout(page: pymupdf.Page, feature_set: str = DEFAULT_LAYOUT_FEATURE_SET) -> list[LayoutPrediction]:
     """Run layout prediction on a single page.
 
     Parameters

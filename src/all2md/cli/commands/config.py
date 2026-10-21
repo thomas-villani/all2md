@@ -16,7 +16,7 @@ import os
 import sys
 from dataclasses import Field, fields, is_dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import yaml
 
@@ -44,7 +44,7 @@ def _settable_fields(instance: Any) -> list[Field[Any]]:
 def _serialize_config_value(value: Any) -> Any:
     """Convert dataclass default values into config-friendly primitives."""
     if is_dataclass(value):
-        result: Dict[str, Any] = {}
+        result: dict[str, Any] = {}
         for field in _settable_fields(value):
             serialized = _serialize_config_value(getattr(value, field.name))
             if serialized is None:
@@ -80,7 +80,7 @@ def _serialize_config_value(value: Any) -> Any:
     return str(value)
 
 
-def _collect_defaults_from_options_class(options_class: Optional[type]) -> Dict[str, Any]:
+def _collect_defaults_from_options_class(options_class: type | None) -> dict[str, Any]:
     """Instantiate an options dataclass and extract CLI-relevant defaults."""
     if options_class is None or not is_dataclass(options_class):
         return {}
@@ -91,10 +91,10 @@ def _collect_defaults_from_options_class(options_class: Optional[type]) -> Dict[
         logger.debug("Skipping %s: could not instantiate without arguments", options_class)
         return {}
 
-    defaults: Dict[str, Any] = {}
+    defaults: dict[str, Any] = {}
 
     for field in _settable_fields(instance):
-        metadata: Dict[str, Any] = dict(field.metadata) if field.metadata else {}
+        metadata: dict[str, Any] = dict(field.metadata) if field.metadata else {}
         if metadata.get("exclude_from_cli", False):
             continue
 
@@ -113,7 +113,7 @@ def _collect_defaults_from_options_class(options_class: Optional[type]) -> Dict[
     return defaults
 
 
-def _collect_defaults_from_parser(parser: argparse.ArgumentParser) -> Dict[str, Any]:
+def _collect_defaults_from_parser(parser: argparse.ArgumentParser) -> dict[str, Any]:
     """Extract config-relevant defaults from a subcommand's argparse parser.
 
     Skips positionals, ``-h/--help``, and the CLI-only ``--config``/``--no-config``
@@ -121,7 +121,7 @@ def _collect_defaults_from_parser(parser: argparse.ArgumentParser) -> Dict[str, 
     options that have a concrete value to show.
     """
     skip_dests = {"help", "config", "no_config"}
-    defaults: Dict[str, Any] = {}
+    defaults: dict[str, Any] = {}
     for action in parser._actions:
         if not action.option_strings:  # positional argument
             continue
@@ -134,7 +134,7 @@ def _collect_defaults_from_parser(parser: argparse.ArgumentParser) -> Dict[str, 
     return defaults
 
 
-def _subcommand_parser_factories() -> Dict[str, Any]:
+def _subcommand_parser_factories() -> dict[str, Any]:
     """Map each config-aware subcommand section to its parser factory.
 
     Imported lazily to avoid pulling the subcommand modules (and their heavier
@@ -167,11 +167,11 @@ def _subcommand_parser_factories() -> Dict[str, Any]:
     }
 
 
-def _build_default_config_data() -> Dict[str, Any]:
+def _build_default_config_data() -> dict[str, Any]:
     """Assemble default configuration from registered option classes."""
     builder = DynamicCLIBuilder()
     options_map = builder.get_options_class_map()
-    config: Dict[str, Any] = {}
+    config: dict[str, Any] = {}
 
     base_defaults = _collect_defaults_from_options_class(options_map.get("base"))
     config.update(base_defaults)
@@ -224,8 +224,8 @@ def _format_toml_value(value: Any) -> str:
     return f'"{value}"'
 
 
-def _emit_toml_section(name: str, data: Dict[str, Any]) -> List[str]:
-    lines: List[str] = [f"[{name}]"]
+def _emit_toml_section(name: str, data: dict[str, Any]) -> list[str]:
+    lines: list[str] = [f"[{name}]"]
 
     scalar_keys = [k for k, v in data.items() if not isinstance(v, dict)]
     for key in sorted(scalar_keys):
@@ -240,7 +240,7 @@ def _emit_toml_section(name: str, data: Dict[str, Any]) -> List[str]:
     return lines
 
 
-def _format_config_as_toml(config: Dict[str, Any]) -> str:
+def _format_config_as_toml(config: dict[str, Any]) -> str:
     lines = [
         "# all2md configuration file",
         "# Generated from current converter defaults",
@@ -261,7 +261,7 @@ def _format_config_as_toml(config: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _rich_theme_example_lines() -> List[str]:
+def _rich_theme_example_lines() -> list[str]:
     """Commented [rich] terminal-styling example for generated config files.
 
     The [rich] table styles Rich's Markdown rendering in the terminal (used with
@@ -283,7 +283,7 @@ def _rich_theme_example_lines() -> List[str]:
     ]
 
 
-def _format_config_as_yaml(config: Dict[str, Any]) -> str:
+def _format_config_as_yaml(config: dict[str, Any]) -> str:
     """Format configuration dictionary as YAML string.
 
     Parameters

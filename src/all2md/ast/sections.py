@@ -42,8 +42,9 @@ from __future__ import annotations
 
 import difflib
 import fnmatch
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Literal
+from typing import Literal
 
 from all2md.ast import Link, List, ListItem, Paragraph, Text
 from all2md.ast.nodes import Document, Heading, Node, ThematicBreak

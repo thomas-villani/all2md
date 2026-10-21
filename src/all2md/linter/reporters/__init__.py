@@ -12,11 +12,11 @@ currently dispatches on short format names only.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 from all2md.linter.runner import LintFixResult, LintResult
 
-ReportableResult = Union[LintResult, LintFixResult]
+ReportableResult = LintResult | LintFixResult
 
 
 class Reporter(ABC):

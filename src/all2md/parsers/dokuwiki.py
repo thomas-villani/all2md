@@ -15,7 +15,7 @@ import hashlib
 import logging
 import re
 from pathlib import Path
-from typing import IO, Optional, Union, cast
+from typing import IO, cast
 
 from all2md.ast import (
     BlockQuote,
@@ -159,7 +159,7 @@ class DokuWikiParser(BaseParser):
     def __init__(
         self,
         options: DokuWikiParserOptions | None = None,
-        progress_callback: Optional[ProgressCallback] = None,
+        progress_callback: ProgressCallback | None = None,
     ):
         """Initialize the DokuWiki parser with options and progress callback."""
         BaseParser._validate_options_type(options, DokuWikiParserOptions, "dokuwiki")
@@ -168,7 +168,7 @@ class DokuWikiParser(BaseParser):
         self.options: DokuWikiParserOptions = options
         self._footnote_definitions: dict[str, str] = {}  # identifier -> footnote content
 
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse DokuWiki input into AST Document.
 
         Parameters

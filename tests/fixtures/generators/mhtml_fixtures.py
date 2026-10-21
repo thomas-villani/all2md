@@ -7,7 +7,6 @@ for testing various aspects of MHTML-to-Markdown conversion.
 import base64
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 
 def create_simple_mhtml() -> bytes:
@@ -344,7 +343,7 @@ It lacks MIME headers and structure.
     return mhtml_content.encode("utf-8")
 
 
-def create_mhtml_file(content: bytes, temp_dir: Optional[Path] = None) -> Path:
+def create_mhtml_file(content: bytes, temp_dir: Path | None = None) -> Path:
     """Create a temporary MHTML file with the given content.
 
     Parameters

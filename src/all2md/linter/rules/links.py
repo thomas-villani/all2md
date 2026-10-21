@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from typing import Iterator
+from collections.abc import Iterator
 
 from all2md.ast import Document, Link, Node, NodeCollector, Text, extract_text
 from all2md.linter.registry import rule_registry

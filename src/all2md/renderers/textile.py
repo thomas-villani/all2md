@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import textwrap
 from pathlib import Path
-from typing import IO, Union
+from typing import IO
 
 from all2md.ast.nodes import (
     BlockQuote,
@@ -709,7 +709,7 @@ class TextileRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         pass
 
-    def visit_footnote_reference(self, node: "FootnoteReference") -> None:
+    def visit_footnote_reference(self, node: FootnoteReference) -> None:
         """Render a FootnoteReference node.
 
         Textile doesn't have native footnote syntax, so we render as superscript
@@ -723,7 +723,7 @@ class TextileRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         self._output.append(f"^[{node.identifier}]^")
 
-    def visit_footnote_definition(self, node: "FootnoteDefinition") -> None:
+    def visit_footnote_definition(self, node: FootnoteDefinition) -> None:
         """Render a FootnoteDefinition node.
 
         Textile doesn't have native footnote syntax, so we render as a paragraph
@@ -739,7 +739,7 @@ class TextileRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         for child in node.content:
             child.accept(self)
 
-    def visit_math_inline(self, node: "MathInline") -> None:
+    def visit_math_inline(self, node: MathInline) -> None:
         """Render a MathInline node.
 
         Textile doesn't have native math support, so we render as inline code.
@@ -753,7 +753,7 @@ class TextileRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         content, _ = node.get_preferred_representation("latex")
         self._output.append(f"@{content}@")
 
-    def visit_math_block(self, node: "MathBlock") -> None:
+    def visit_math_block(self, node: MathBlock) -> None:
         """Render a MathBlock node.
 
         Textile doesn't have native math support, so we render as a code block.
@@ -767,7 +767,7 @@ class TextileRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         content, _ = node.get_preferred_representation("latex")
         self._output.append(f"bc. {content}")
 
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
+    def render(self, doc: Document, output: str | Path | IO[bytes]) -> None:
         """Render AST to Textile and write to output.
 
         Parameters

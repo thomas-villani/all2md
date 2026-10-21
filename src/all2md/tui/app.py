@@ -16,8 +16,9 @@ by default); Wijjit keeps those OSC 8 links.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any
 
 from all2md.renderers.terminal import LinkPosition
 from all2md.tui.files import FileTree
@@ -89,13 +90,13 @@ class Viewer:
 
     def __init__(
         self,
-        layout: Optional[DocumentLayout],
+        layout: DocumentLayout | None,
         title: str,
         preset: str = "default",
         outline: bool = True,
         panel_width: int = 32,
-        files: Optional[FileTree] = None,
-        opener: Optional[Callable[[Path], DocumentLayout]] = None,
+        files: FileTree | None = None,
+        opener: Callable[[Path], DocumentLayout] | None = None,
     ) -> None:
         """Build the app; ``run()`` starts it."""
         from wijjit import Wijjit
@@ -104,7 +105,7 @@ class Viewer:
         self.files = files
         self.opener = opener
         # The file open from the tree, which the tree marks when it is shown again.
-        self.current: Optional[Path] = None
+        self.current: Path | None = None
         self.show_outline = outline
         self.layout = layout if layout is not None else _placeholder(files)
         self.title = title
@@ -112,12 +113,12 @@ class Viewer:
         self.preset = preset
         self.panel_width = panel_width
         # The body's width at the last layout, to move the view along on a resize.
-        self.width: Optional[int] = None
+        self.width: int | None = None
         # Where links were followed from, and where back went from: (line, width).
         self.history: list[tuple[int, int]] = []
         self.future: list[tuple[int, int]] = []
         # The external link last shown, for copying.
-        self.shown_target: Optional[str] = None
+        self.shown_target: str | None = None
         # The same callable on every render, so ContentView lays out only on a new width.
         self.content = self._new_content()
 
@@ -465,7 +466,7 @@ def _outline_nodes(entries: tuple[OutlineEntry, ...]) -> list[dict[str, Any]]:
     ]
 
 
-def _placeholder(files: Optional[FileTree]) -> DocumentLayout:
+def _placeholder(files: FileTree | None) -> DocumentLayout:
     """Lay out the note the body shows before a file is chosen."""
     from all2md.ast import Document, Paragraph, Text
     from all2md.options.terminal import TerminalRendererOptions

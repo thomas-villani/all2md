@@ -12,7 +12,7 @@ for controlling output format and can generate complete documents or fragments.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import IO, Any, Dict, Union
+from typing import IO, Any
 
 from all2md.ast.nodes import (
     BlockQuote,
@@ -151,7 +151,7 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         return "".join(self._output)
 
-    def _render_preamble(self, metadata: Dict[str, Any]) -> None:
+    def _render_preamble(self, metadata: dict[str, Any]) -> None:
         """Render LaTeX document preamble.
 
         Parameters
@@ -927,7 +927,7 @@ class LatexRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         pass
 
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
+    def render(self, doc: Document, output: str | Path | IO[bytes]) -> None:
         """Render AST to LaTeX and write to output.
 
         Parameters

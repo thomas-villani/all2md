@@ -12,7 +12,7 @@ for controlling output format suitable for DokuWiki-based wikis.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import IO, Union
+from typing import IO
 
 from all2md.ast.nodes import (
     BlockQuote,
@@ -848,7 +848,7 @@ class DokuWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         elif comment_mode == "visible":
             self._output.append(comment_text)
 
-    def render(self, document: Document, output: Union[str, Path, IO[bytes], IO[str]]) -> None:
+    def render(self, document: Document, output: str | Path | IO[bytes] | IO[str]) -> None:
         """Render a document to an output destination.
 
         Parameters

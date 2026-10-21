@@ -237,7 +237,7 @@ def convert_article(pdf_path: Path, expected_pages: int, *, options: PdfOptions 
         Whole and per-page ASTs with conversion evidence.
 
     """
-    from typing import Mapping
+    from collections.abc import Mapping
 
     from all2md import to_ast
 

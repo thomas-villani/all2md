@@ -45,9 +45,9 @@ class OcrParagraph:
 
 
 def ocr_pixmap_layout(
-    pix: "pymupdf.Pixmap",
-    page: "pymupdf.Page",
-    options: "PdfOptions",
+    pix: pymupdf.Pixmap,
+    page: pymupdf.Page,
+    options: PdfOptions,
 ) -> list[OcrParagraph] | None:
     """Run OCR and keep the engine's paragraph and line segmentation.
 
@@ -77,7 +77,7 @@ def ocr_pixmap_layout(
     return _run(pix, page, options)
 
 
-def ocr_pixmap(pix: "pymupdf.Pixmap", page: "pymupdf.Page", options: "PdfOptions") -> str:
+def ocr_pixmap(pix: pymupdf.Pixmap, page: pymupdf.Page, options: PdfOptions) -> str:
     """Run OCR on a rendered page pixmap using the configured engine.
 
     Parameters

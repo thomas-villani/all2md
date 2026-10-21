@@ -67,7 +67,7 @@ from __future__ import annotations
 import datetime
 import logging
 from pathlib import Path
-from typing import IO, Any, Optional, Union
+from typing import IO, Any
 
 from all2md.ast import (
     CodeBlock,
@@ -127,7 +127,7 @@ class TomlParser(BaseParser):
 
     """
 
-    def __init__(self, options: TomlParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: TomlParserOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the TOML parser with options and progress callback."""
         BaseParser._validate_options_type(options, TomlParserOptions, "toml")
         options = options or TomlParserOptions()
@@ -135,7 +135,7 @@ class TomlParser(BaseParser):
         self.options: TomlParserOptions = options
 
     @requires_dependencies("toml", DEPS_TOML)
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse TOML input into AST Document.
 
         Parameters

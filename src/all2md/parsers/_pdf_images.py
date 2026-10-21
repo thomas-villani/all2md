@@ -11,7 +11,8 @@ and detecting image captions.
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, Any, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 from all2md.constants import (
     PDF_CAPTION_BAND_HEIGHT,
@@ -66,7 +67,7 @@ def _matches_caption_cue(text: str) -> bool:
     return bool(keyword_match and _CAPTION_LOCATOR.match(text, keyword_match.end()))
 
 
-def _region_text(page: "pymupdf.Page", rect: Any) -> str:
+def _region_text(page: pymupdf.Page, rect: Any) -> str:
     """Return the text inside a rect as a single whitespace-collapsed line.
 
     Deliberately not clipped to ``PDF_CAPTION_MAX_LENGTH``: that cap belongs to the
@@ -79,8 +80,8 @@ def _region_text(page: "pymupdf.Page", rect: Any) -> str:
 
 
 def _caption_from_layout(
-    page: "pymupdf.Page",
-    image_bbox: "pymupdf.Rect",
+    page: pymupdf.Page,
+    image_bbox: pymupdf.Rect,
     caption_regions: list[Any],
 ) -> str | None:
     """Return the text of the layout ``caption`` region bound to this image, if any.
@@ -114,8 +115,8 @@ def _caption_from_layout(
 
 
 def detect_image_caption(
-    page: "pymupdf.Page",
-    image_bbox: "pymupdf.Rect",
+    page: pymupdf.Page,
+    image_bbox: pymupdf.Rect,
     caption_regions: list[Any] | None = None,
 ) -> str | None:
     """Detect the caption belonging to an image.
@@ -181,7 +182,7 @@ def detect_image_caption(
 
 
 def extract_page_images(
-    page: "pymupdf.Page",
+    page: pymupdf.Page,
     page_num: int,
     options: PdfOptions | None = None,
     base_filename: str = "document",

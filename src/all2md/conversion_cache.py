@@ -27,9 +27,10 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING
 
 from all2md.utils.fingerprint import corpus_fingerprint
 
@@ -112,7 +113,7 @@ class ConversionCache:
         # Shard by the first two hex chars to avoid one enormous flat directory.
         return self.directory / key[:2] / f"{key}.json"
 
-    def get(self, key: str) -> "Document | None":
+    def get(self, key: str) -> Document | None:
         """Return the cached ``Document`` for ``key``, or None on any miss/error."""
         path = self._entry_path(key)
         if not path.exists():
@@ -129,7 +130,7 @@ class ConversionCache:
             return None
         return node
 
-    def put(self, key: str, document: "Document") -> None:
+    def put(self, key: str, document: Document) -> None:
         """Store ``document`` under ``key`` (best-effort; never raises)."""
         from all2md.ast.serialization import ast_to_json
 
@@ -146,10 +147,10 @@ class ConversionCache:
 
 
 # Process-global active cache (see module docstring for why not a ContextVar).
-_active_cache: "ConversionCache | None" = None
+_active_cache: ConversionCache | None = None
 
 
-def get_active_cache() -> "ConversionCache | None":
+def get_active_cache() -> ConversionCache | None:
     """Return the currently active conversion cache, or None if disabled."""
     return _active_cache
 
@@ -157,7 +158,7 @@ def get_active_cache() -> "ConversionCache | None":
 @contextmanager
 def use_conversion_cache(
     *, enabled: bool | None = None, cache_dir: str | Path | None = None
-) -> Iterator["ConversionCache | None"]:
+) -> Iterator[ConversionCache | None]:
     """Activate the conversion cache for the duration of the ``with`` block.
 
     Parameters

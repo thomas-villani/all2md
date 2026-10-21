@@ -6,7 +6,6 @@ for testing various aspects of EPUB-to-Markdown conversion.
 
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 try:
     import ebooklib
@@ -324,7 +323,7 @@ def create_epub_with_nested_toc() -> bytes:
     return content
 
 
-def create_epub_file(content: bytes, temp_dir: Optional[Path] = None) -> Path:
+def create_epub_file(content: bytes, temp_dir: Path | None = None) -> Path:
     """Create a temporary EPUB file with the given content.
 
     Parameters

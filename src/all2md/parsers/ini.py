@@ -57,7 +57,7 @@ from __future__ import annotations
 import configparser
 import logging
 from pathlib import Path
-from typing import IO, Optional, Union
+from typing import IO
 
 from all2md.ast import (
     CodeBlock,
@@ -118,14 +118,14 @@ class IniParser(BaseParser):
 
     """
 
-    def __init__(self, options: IniParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: IniParserOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the INI parser with options and progress callback."""
         BaseParser._validate_options_type(options, IniParserOptions, "ini")
         options = options or IniParserOptions()
         super().__init__(options, progress_callback)
         self.options: IniParserOptions = options
 
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse INI input into AST Document.
 
         Parameters

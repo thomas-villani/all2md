@@ -2,7 +2,6 @@
 """Unit tests for nested renderer options handling in API."""
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 import pytest
 
@@ -204,7 +203,7 @@ class _Inner:
 @dataclass(frozen=True)
 class _Pep604Options(BaseRendererOptions):
     plain: _Inner = field(default_factory=_Inner)
-    optional: Optional[_Inner] = None
+    optional: _Inner | None = None
     pipe: _Inner | None = None
 
 

@@ -28,10 +28,11 @@ import statistics
 import sys
 import time
 from collections import Counter
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any
 
 from benchmarks.omnidocbench.dimensions import UNGATEABLE as SHARED_UNGATEABLE
 from benchmarks.omnidocbench.oracles import PageProjection, project_ast, score_page, text_block_kinds
@@ -554,7 +555,7 @@ def normalize_results(
             "oracle_schema_version": ORACLE_SCHEMA_VERSION,
             "all2md_commit": all2md_commit,
             "worktree_dirty": worktree_dirty,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "python": sys.version,
             "platform": sys.platform,
             "parser_runtime": dict(sorted(parser_runtime.items())),

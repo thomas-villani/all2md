@@ -284,7 +284,7 @@ class TestIniEdgeCases:
 
     def test_utf8_content(self) -> None:
         """Test parsing UTF-8 content."""
-        ini_content = "[section]\nname = Müller".encode("utf-8")
+        ini_content = "[section]\nname = Müller".encode()
         parser = IniParser(IniParserOptions(literal_block=False))
         doc = parser.parse(BytesIO(ini_content))
 

@@ -15,11 +15,10 @@ from __future__ import annotations
 
 import datetime
 import struct
-from typing import Union
 
 from all2md.utils.metadata import DocumentMetadata
 
-PropertyValue = Union[str, int, datetime.datetime]
+PropertyValue = str | int | datetime.datetime
 
 SUMMARY_INFORMATION_STREAM = "\x05SummaryInformation"
 

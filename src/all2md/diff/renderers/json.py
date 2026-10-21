@@ -10,7 +10,8 @@ JSON output for programmatic processing.
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, Iterator, Union
+from collections.abc import Iterator
+from typing import Any
 
 from all2md.diff.text_diff import DiffResult
 
@@ -48,7 +49,7 @@ class JsonDiffRenderer:
         self.pretty_print = pretty_print
         self.indent = indent
 
-    def render(self, diff: Union[DiffResult, Iterator[str]]) -> str:
+    def render(self, diff: DiffResult | Iterator[str]) -> str:
         """Render unified diff to JSON string.
 
         Parameters
@@ -75,7 +76,7 @@ class JsonDiffRenderer:
         else:
             return json.dumps(data, ensure_ascii=False)
 
-    def _parse_diff(self, diff_lines: Iterator[str]) -> Dict[str, Any]:
+    def _parse_diff(self, diff_lines: Iterator[str]) -> dict[str, Any]:
         """Parse unified diff lines into structured data.
 
         Returns
@@ -84,14 +85,14 @@ class JsonDiffRenderer:
             Structured diff data with headers, hunks, and changes
 
         """
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "type": "unified_diff",
             "old_file": "",
             "new_file": "",
             "hunks": [],
         }
 
-        current_hunk: Dict[str, Any] | None = None
+        current_hunk: dict[str, Any] | None = None
         lines_added = 0
         lines_deleted = 0
         lines_context = 0
@@ -154,7 +155,7 @@ class JsonDiffRenderer:
 
         return result
 
-    def _attach_statistics_from_result(self, diff: DiffResult, result: Dict[str, Any]) -> None:
+    def _attach_statistics_from_result(self, diff: DiffResult, result: dict[str, Any]) -> None:
         """Attach statistics computed from the structured diff result."""
         lines_added = 0
         lines_deleted = 0

@@ -50,7 +50,7 @@ Complex pipeline:
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional, Union
+from typing import Any
 
 from all2md.ast.nodes import Document, Node
 from all2md.ast.transforms import NodeTransformer
@@ -226,11 +226,11 @@ class Pipeline:
 
     def __init__(
         self,
-        transforms: Optional[list[Union[str, NodeTransformer]]] = None,
-        hooks: Optional[dict[HookTarget, list[HookCallable]]] = None,
-        renderer: Optional[Union[str, type, Any, bool]] = None,
-        options: Optional[Union[BaseRendererOptions, MarkdownRendererOptions]] = None,
-        progress_callback: Optional[ProgressCallback] = None,
+        transforms: list[str | NodeTransformer] | None = None,
+        hooks: dict[HookTarget, list[HookCallable]] | None = None,
+        renderer: str | type | Any | bool | None = None,
+        options: BaseRendererOptions | MarkdownRendererOptions | None = None,
+        progress_callback: ProgressCallback | None = None,
         strict_hooks: bool = False,
     ):
         """Initialize pipeline with transforms, hooks, renderer, and options.
@@ -286,8 +286,8 @@ class Pipeline:
 
     def _setup_renderer(
         self,
-        renderer: Optional[Union[str, type, Any]],
-        options: Optional[Union[BaseRendererOptions, MarkdownRendererOptions]],
+        renderer: str | type | Any | None,
+        options: BaseRendererOptions | MarkdownRendererOptions | None,
     ) -> Any:
         """Set up the renderer instance.
 
@@ -554,7 +554,7 @@ class Pipeline:
         return result  # type: ignore
 
     def _emit_progress(
-        self, event_type: str, message: str, current: int = 0, total: int = 0, metadata: Optional[dict[str, Any]] = None
+        self, event_type: str, message: str, current: int = 0, total: int = 0, metadata: dict[str, Any] | None = None
     ) -> None:
         """Emit a progress event if callback is configured.
 
@@ -600,7 +600,7 @@ class Pipeline:
             original_error=exc,
         )
 
-    def _render(self, document: Document) -> Union[str, bytes]:
+    def _render(self, document: Document) -> str | bytes:
         """Render document using configured renderer.
 
         Renderers reach third-party libraries (python-pptx, pyth, ...) that raise
@@ -743,7 +743,7 @@ class Pipeline:
 
         return diagnostics
 
-    def execute(self, document: Document) -> Union[str, bytes]:
+    def execute(self, document: Document) -> str | bytes:
         """Execute complete pipeline.
 
         This method runs the full transformation and rendering pipeline:
@@ -913,9 +913,9 @@ class Pipeline:
 
 def apply(
     document: Document,
-    transforms: Optional[list[Union[str, NodeTransformer]]] = None,
-    hooks: Optional[dict[HookTarget, list[HookCallable]]] = None,
-    progress_callback: Optional[ProgressCallback] = None,
+    transforms: list[str | NodeTransformer] | None = None,
+    hooks: dict[HookTarget, list[HookCallable]] | None = None,
+    progress_callback: ProgressCallback | None = None,
     strict_hooks: bool = False,
 ) -> Document:
     """Apply transforms and hooks to document without rendering.
@@ -1024,7 +1024,7 @@ def apply(
 
     # Helper function to emit progress events
     def emit_progress(
-        event_type: str, message: str, current: int = 0, total: int = 0, metadata: Optional[dict[str, Any]] = None
+        event_type: str, message: str, current: int = 0, total: int = 0, metadata: dict[str, Any] | None = None
     ) -> None:
         """Emit a progress event if callback is configured."""
         if progress_callback is None:
@@ -1156,14 +1156,14 @@ def apply(
 
 def render(
     document: Document,
-    transforms: Optional[list[Union[str, NodeTransformer]]] = None,
-    hooks: Optional[dict[HookTarget, list[HookCallable]]] = None,
-    renderer: Optional[Union[str, type, Any]] = None,
-    options: Optional[Union[BaseRendererOptions, MarkdownRendererOptions]] = None,
-    progress_callback: Optional[ProgressCallback] = None,
+    transforms: list[str | NodeTransformer] | None = None,
+    hooks: dict[HookTarget, list[HookCallable]] | None = None,
+    renderer: str | type | Any | None = None,
+    options: BaseRendererOptions | MarkdownRendererOptions | None = None,
+    progress_callback: ProgressCallback | None = None,
     strict_hooks: bool = False,
     **kwargs: Any,
-) -> Union[str, bytes]:
+) -> str | bytes:
     """Render document with transforms and hooks using specified renderer.
 
     This is the high-level entry point for the transformation pipeline.

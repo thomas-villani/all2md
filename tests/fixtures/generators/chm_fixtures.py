@@ -7,7 +7,7 @@ real CHM files programmatically is complex, we use mocks for unit tests.
 For integration tests, you may need to use real CHM files.
 """
 
-from typing import Any, Optional
+from typing import Any
 from unittest.mock import MagicMock
 
 
@@ -94,7 +94,7 @@ class MockCHMFile:
             return (0, content.encode("utf-8"))
         return (1, b"")
 
-    def GetTopicsTree(self) -> Optional[Any]:
+    def GetTopicsTree(self) -> Any | None:
         """Mock GetTopicsTree method.
 
         Returns

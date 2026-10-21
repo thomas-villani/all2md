@@ -76,8 +76,8 @@ class TestText:
     @pytest.mark.parametrize("clickable_links", ["none", "web"])
     def test_text_is_render_to_string(self, color_system, clickable_links):
         doc = to_ast(
-            "# Title\n\nSee [the docs](https://example.com) and a note[^1].\n\n"
-            "> ## Quoted\n> [inner](#title)\n\n[^1]: The note.\n".encode(),
+            b"# Title\n\nSee [the docs](https://example.com) and a note[^1].\n\n"
+            b"> ## Quoted\n> [inner](#title)\n\n[^1]: The note.\n",
             source_format="markdown",
         )
         r = renderer(color_system=color_system, clickable_links=clickable_links)
@@ -138,7 +138,7 @@ class TestHeadings:
         assert [shown(layout, p) for p in layout.links] == ["Home"]
 
     def test_heading_positions_matches_layout(self):
-        doc = to_ast("# A\n\ntext\n\n> ## B\n".encode(), source_format="markdown")
+        doc = to_ast(b"# A\n\ntext\n\n> ## B\n", source_format="markdown")
         r = renderer()
         assert r.heading_positions(doc) == list(r.layout(doc).headings)
 

@@ -19,8 +19,9 @@ turns them red until the entry is deleted.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from bs4 import BeautifulSoup
@@ -36,8 +37,8 @@ class ViaProfile:
     what the format cannot express.
     """
 
-    renderer_options: Optional[Any] = None
-    project: Optional[Callable[["BeautifulSoup"], None]] = None
+    renderer_options: Any | None = None
+    project: Callable[[BeautifulSoup], None] | None = None
 
 
 # A title that gained a manual section on the way through .TH: "Kitchen Sink(1)".
@@ -47,7 +48,7 @@ _UNTITLED = re.compile(r"^\s*(UNTITLED\s*)?(\([0-9][A-Za-z0-9]*\))?\s*$")
 _MATH_DELIMITERS = re.compile(r"^\s*(\$\$|\\\(|\\\[)|(\$\$|\\\)|\\\])\s*$")
 
 
-def _project_man(soup: "BeautifulSoup") -> None:
+def _project_man(soup: BeautifulSoup) -> None:
     """Remove from a reference-HTML tree what man(7) cannot express.
 
     Each rule is a documented limit of the man renderer (see the module
@@ -123,7 +124,7 @@ def _project_man(soup: "BeautifulSoup") -> None:
 _BLOCK_TAGS = frozenset({"p", "pre", "ul", "ol", "dl", "blockquote", "table", "div", "h1", "h2", "h3"})
 
 
-def _merge_definitions(soup: "BeautifulSoup", first: Any, following: list[Any]) -> None:
+def _merge_definitions(soup: BeautifulSoup, first: Any, following: list[Any]) -> None:
     """Fold a term's several definitions into one, a paragraph each, as ``.TP`` holds them."""
     for definition in [first, *following]:
         if not any(getattr(child, "name", None) in _BLOCK_TAGS for child in definition.children):

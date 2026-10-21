@@ -25,16 +25,16 @@ Functions
 import os
 from io import BytesIO, StringIO
 from pathlib import Path
-from typing import Any, BinaryIO, Union
+from typing import Any, BinaryIO
 
 from all2md.constants import MARKDOWN_SPECIAL_CHARS
 from all2md.exceptions import FileNotFoundError as All2MdFileNotFoundError
 from all2md.exceptions import PageRangeError, ValidationError
 
 # Type aliases for clarity
-PathLike = Union[str, Path]
-FileLike = Union[BinaryIO, BytesIO, StringIO]
-InputType = Union[PathLike, FileLike, bytes, Any]
+PathLike = str | Path
+FileLike = BinaryIO | BytesIO | StringIO
+InputType = PathLike | FileLike | bytes | Any
 
 
 def is_path_like(obj: Any) -> bool:

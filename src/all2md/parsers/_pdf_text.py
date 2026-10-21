@@ -11,7 +11,8 @@ including handling rotated text and resolving hyperlinks.
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, Any, Iterable
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Any
 
 from all2md.ast import Code, Emphasis, Link, Node, Strong, Text
 from all2md.constants import DEFAULT_OVERLAP_THRESHOLD_PERCENT

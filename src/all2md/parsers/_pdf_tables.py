@@ -368,7 +368,7 @@ ADJACENT_COLUMN_FAR_SEARCH_PT = 150.0
 # holding its center, and dissolving there would fuse two true columns.
 
 
-def split_word_ratio(page: "pymupdf.Page", table_data: list[list[str | None]]) -> float:
+def split_word_ratio(page: pymupdf.Page, table_data: list[list[str | None]]) -> float:
     """Share of a grid's word tokens that are not whole words of the page.
 
     A grid whose columns fall in the whitespace gutters between cells holds whole words. One
@@ -416,7 +416,7 @@ def split_word_ratio(page: "pymupdf.Page", table_data: list[list[str | None]]) -
 
 
 def extract_loss_share(
-    page: "pymupdf.Page", table_data: list[list[str | None]], bbox: tuple[float, float, float, float]
+    page: pymupdf.Page, table_data: list[list[str | None]], bbox: tuple[float, float, float, float]
 ) -> float:
     """Share of the page's words inside *bbox* that the extracted grid does not contain.
 
@@ -472,8 +472,8 @@ def extract_loss_share(
 
 
 def _dissolve_cell_edges(
-    cells: "list[tuple[float, float, float, float] | None]", boundaries: list[float]
-) -> "list[tuple[float, float, float, float] | None]":
+    cells: list[tuple[float, float, float, float] | None], boundaries: list[float]
+) -> list[tuple[float, float, float, float] | None]:
     """Union a row's adjacent cell rects wherever they abut at a dissolved boundary."""
     out: list[tuple[float, float, float, float] | None] = []
     for cell in cells:
@@ -495,7 +495,7 @@ def _dissolve_cell_edges(
 
 
 def contradicted_column_boundaries(
-    page: "pymupdf.Page", table: object, table_data: "list[list[str | None]] | None" = None
+    page: pymupdf.Page, table: object, table_data: list[list[str | None]] | None = None
 ) -> list[tuple[float, tuple[int, ...]]]:
     """Interior column boundaries the page's own words contradict.
 
@@ -596,7 +596,7 @@ def contradicted_column_boundaries(
     return contradicted
 
 
-def adjacent_clipped_column(page: "pymupdf.Page", table: object) -> "tuple[pymupdf.Rect, str] | None":
+def adjacent_clipped_column(page: pymupdf.Page, table: object) -> tuple[pymupdf.Rect, str] | None:
     """Find a whole column of the table printed just outside its bbox.
 
     Scans the bbox's vertical band on each side for words the bbox excluded, and
@@ -683,7 +683,7 @@ def adjacent_clipped_column(page: "pymupdf.Page", table: object) -> "tuple[pymup
     return None
 
 
-def bbox_clipped_rows(page: "pymupdf.Page", table: object) -> int:
+def bbox_clipped_rows(page: pymupdf.Page, table: object) -> int:
     """Count the rows whose words the table's own outer edge cuts through.
 
     ``find_tables()`` sometimes draws its bbox through the middle of the last
@@ -736,7 +736,7 @@ def bbox_clipped_rows(page: "pymupdf.Page", table: object) -> int:
 
 
 def boundaries_to_dissolve(
-    page: "pymupdf.Page", table: object, boundaries: list[tuple[float, tuple[int, ...]]]
+    page: pymupdf.Page, table: object, boundaries: list[tuple[float, tuple[int, ...]]]
 ) -> list[float]:
     """Select the contradicted boundaries that split one column rather than two.
 
@@ -818,7 +818,7 @@ def boundaries_to_dissolve(
 
 
 def rebuild_cells_from_words(
-    page: "pymupdf.Page", table: object, dissolve_boundaries: list[float] | None = None
+    page: pymupdf.Page, table: object, dissolve_boundaries: list[float] | None = None
 ) -> list[list[str]] | None:
     """Rebuild a ``find_tables()`` grid's cell text from the page's own word boxes.
 
@@ -984,7 +984,7 @@ def _extract_ruling_lines(
 
 
 def page_has_table_signals(
-    page: "pymupdf.Page",
+    page: pymupdf.Page,
     threshold: float = TABLE_SIGNAL_RULING_THRESHOLD,
 ) -> bool:
     """Return True if the page has drawings that could indicate a table.
@@ -1047,7 +1047,7 @@ def page_has_table_signals(
     return False
 
 
-def _check_table_overlap(table_rect: "pymupdf.Rect", existing_rects: list["pymupdf.Rect"]) -> bool:
+def _check_table_overlap(table_rect: pymupdf.Rect, existing_rects: list[pymupdf.Rect]) -> bool:
     """Check if a table rect overlaps significantly with existing tables.
 
     Returns
@@ -1065,7 +1065,7 @@ def _check_table_overlap(table_rect: "pymupdf.Rect", existing_rects: list["pymup
 def _find_table_regions(
     h_lines: list[tuple],
     v_lines: list[tuple],
-) -> list["pymupdf.Rect"]:
+) -> list[pymupdf.Rect]:
     """Find table regions from horizontal and vertical lines.
 
     Parameters
@@ -1083,7 +1083,7 @@ def _find_table_regions(
     """
     import pymupdf
 
-    table_rects: list["pymupdf.Rect"] = []
+    table_rects: list[pymupdf.Rect] = []
 
     if len(h_lines) < 2 or len(v_lines) < 2:
         return table_rects
@@ -1113,7 +1113,7 @@ def _find_table_regions(
 
 
 def _collect_lines_for_tables(
-    table_rects: list["pymupdf.Rect"],
+    table_rects: list[pymupdf.Rect],
     h_lines: list[tuple],
     v_lines: list[tuple],
 ) -> list[tuple[list[tuple], list[tuple]]]:
@@ -1134,8 +1134,8 @@ def _collect_lines_for_tables(
 
 
 def detect_tables_by_ruling_lines(
-    page: "pymupdf.Page", threshold: float = 0.5
-) -> tuple[list["pymupdf.Rect"], list[tuple[list[tuple], list[tuple]]]]:
+    page: pymupdf.Page, threshold: float = 0.5
+) -> tuple[list[pymupdf.Rect], list[tuple[list[tuple], list[tuple]]]]:
     """Fallback table detection using ruling lines and text alignment.
 
     Uses page drawing commands to detect horizontal and vertical lines
@@ -1176,7 +1176,7 @@ def detect_tables_by_ruling_lines(
 
     # Drop rects whose internal line count would produce an absurdly large
     # grid - those are essentially always bordered non-tabular content.
-    filtered_rects: list["pymupdf.Rect"] = []
+    filtered_rects: list[pymupdf.Rect] = []
     filtered_lines: list[tuple[list[tuple], list[tuple]]] = []
     for rect, (th, tv) in zip(table_rects, table_lines, strict=True):
         # cols = len(v_lines) - 1, rows = len(h_lines) - 1
@@ -1954,7 +1954,7 @@ MIN_PROSE_CELL_SHARE = 0.60
 MIN_PROSE_GRID_MEDIAN_WORDS = 5
 
 
-def looks_like_gridded_prose(grid: "Sequence[Sequence[str | None]]") -> bool:
+def looks_like_gridded_prose(grid: Sequence[Sequence[str | None]]) -> bool:
     """Decide whether this grid is a passage of prose the detector fenced.
 
     A journal first page prints its keywords beside its abstract, a peer-review page

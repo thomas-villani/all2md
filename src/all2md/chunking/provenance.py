@@ -30,8 +30,9 @@ not the original binary -- including when ``avoid_table_split`` /
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable, Optional, cast
+from typing import cast
 
 from all2md.ast.nodes import CodeBlock, Document, Node, Table, get_node_children
 from all2md.ast.sections import get_all_sections, get_preamble
@@ -104,16 +105,16 @@ def chunk_ast(
     max_tokens: int = 512,
     overlap: int = 0,
     document_id: str = "document",
-    document_path: Optional[str] = None,
+    document_path: str | None = None,
     include_preamble: bool = True,
     heading_merge: bool = True,
-    max_heading_level: Optional[int] = None,
+    max_heading_level: int | None = None,
     avoid_table_split: bool = False,
     avoid_code_split: bool = False,
     elide_data_uris: bool = True,
     min_tokens: int = 0,
     token_counter: str = "auto",
-    counter: Optional[TokenCounter] = None,
+    counter: TokenCounter | None = None,
 ) -> list[ProvenanceChunk]:
     """Chunk a document AST into provenance-carrying records.
 
@@ -225,9 +226,9 @@ def _chunk_fine(
     overlap: int,
     include_preamble: bool,
     heading_merge: bool,
-    max_heading_level: Optional[int],
+    max_heading_level: int | None,
     document_id: str,
-    document_path: Optional[str],
+    document_path: str | None,
     counter: TokenCounter,
     opts: _UnitOpts,
 ) -> list[ProvenanceChunk]:
@@ -312,7 +313,7 @@ def _chunk_coarse(
     max_tokens: int,
     heading_merge: bool,
     document_id: str,
-    document_path: Optional[str],
+    document_path: str | None,
     counter: TokenCounter,
     opts: _UnitOpts,
 ) -> list[ProvenanceChunk]:
@@ -366,9 +367,9 @@ def _emit_unit(
     strategy: str,
     running_index: int,
     document_id: str,
-    document_path: Optional[str],
-    section_heading: Optional[str],
-    section_level: Optional[int],
+    document_path: str | None,
+    section_heading: str | None,
+    section_level: int | None,
     section_index: int,
     opts: _UnitOpts,
 ) -> int:
@@ -481,7 +482,7 @@ def _build_pieces(
     return pieces
 
 
-def _locate_segment(section_text: str, segment_text: str, cursor: int) -> Optional[int]:
+def _locate_segment(section_text: str, segment_text: str, cursor: int) -> int | None:
     """Return where ``segment_text`` starts in ``section_text``, or None if it does not.
 
     Searching forward from ``cursor`` (the end of the previous segment) keeps the
@@ -552,7 +553,7 @@ def _iter_nodes(nodes: Iterable[Node]) -> Iterable[Node]:
 
 def _node_provenance(
     nodes: list[Node],
-) -> tuple[Optional[int], Optional[int], Optional[int], Optional[int]]:
+) -> tuple[int | None, int | None, int | None, int | None]:
     """Derive ``(page, page_end, line_start, line_end)`` from nodes' source locations.
 
     Spans are the min/max of the populated ``SourceLocation.page`` / ``.line`` over
@@ -585,7 +586,7 @@ def _drop_leading_heading(nodes: list[Node]) -> list[Node]:
     return list(nodes)
 
 
-def _first_heading_level(nodes: list[Node]) -> Optional[int]:
+def _first_heading_level(nodes: list[Node]) -> int | None:
     """Return the level of the first Heading among ``nodes``, if any."""
     from all2md.ast.nodes import Heading
 

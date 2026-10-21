@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import IO, Optional, Union
+from typing import IO
 
 from all2md.ast import Document, Node, Paragraph, Text
 from all2md.converter_metadata import ConverterMetadata
@@ -38,7 +38,7 @@ class PlainTextToAstConverter(BaseParser):
     """
 
     def __init__(
-        self, options: PlainTextParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
+        self, options: PlainTextParserOptions | None = None, progress_callback: ProgressCallback | None = None
     ):
         """Initialize the plain text parser with options and progress callback."""
         # Validate options type before processing
@@ -47,7 +47,7 @@ class PlainTextToAstConverter(BaseParser):
         super().__init__(options, progress_callback)
         self.options: PlainTextParserOptions = options
 
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse plain text input into an AST Document.
 
         Parameters
@@ -115,7 +115,7 @@ class PlainTextToAstConverter(BaseParser):
 
         return Document(children=children)
 
-    def extract_metadata(self, input_data: Union[str, Path, IO[bytes], bytes]) -> DocumentMetadata:
+    def extract_metadata(self, input_data: str | Path | IO[bytes] | bytes) -> DocumentMetadata:
         """Extract metadata from plain text file.
 
         Parameters

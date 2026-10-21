@@ -1129,7 +1129,7 @@ class TestNewEnhancedCLIFeatures:
             assert config_path.exists()
 
             # Load and verify content
-            with open(config_path, "r") as f:
+            with open(config_path) as f:
                 config = json.load(f)
 
             # Should include relevant options but exclude special ones

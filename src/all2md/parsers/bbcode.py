@@ -19,7 +19,7 @@ import logging
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import IO, Any, Optional, Union
+from typing import IO, Any
 
 from all2md.ast import (
     BlockQuote,
@@ -76,7 +76,7 @@ class BBCodeTag:
 
     name: str
     is_closing: bool
-    value: Optional[str]
+    value: str | None
     position: int
 
 
@@ -134,16 +134,14 @@ class BBCodeParser(BaseParser):
     # Self-closing tags
     SELF_CLOSING_TAGS = {"hr", "*", "br"}
 
-    def __init__(
-        self, options: BBCodeParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
-    ):
+    def __init__(self, options: BBCodeParserOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the BBCode parser with options and progress callback."""
         BaseParser._validate_options_type(options, BBCodeParserOptions, "bbcode")
         options = options or BBCodeParserOptions()
         super().__init__(options, progress_callback)
         self.options: BBCodeParserOptions = options
 
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse BBCode input into AST Document.
 
         Parameters
@@ -342,7 +340,7 @@ class BBCodeParser(BaseParser):
         return paragraphs
 
     def _parse_block_tag(
-        self, bbcode: str, match: re.Match[str], tag_name: str, tag_value: Optional[str]
+        self, bbcode: str, match: re.Match[str], tag_name: str, tag_value: str | None
     ) -> tuple[Node | None, int]:
         """Parse a block-level BBCode tag.
 
@@ -523,7 +521,7 @@ class BBCodeParser(BaseParser):
 
         return result if result else [Text(content="")]
 
-    def _find_closing_tag_position(self, content: str, start_pos: int, tag_name: str) -> Optional[int]:
+    def _find_closing_tag_position(self, content: str, start_pos: int, tag_name: str) -> int | None:
         """Find the position of a closing tag, accounting for nesting.
 
         Parameters
@@ -566,7 +564,7 @@ class BBCodeParser(BaseParser):
         return None
 
     def _create_inline_formatted_node(
-        self, tag_name: str, tag_value: Optional[str], inner_content: str
+        self, tag_name: str, tag_value: str | None, inner_content: str
     ) -> Node | list[Node] | None:
         """Create a formatted inline AST node.
 
@@ -638,7 +636,7 @@ class BBCodeParser(BaseParser):
             # Unknown inline tag
             return self._handle_unknown_inline(tag_name, tag_value, inner_content)
 
-    def _parse_img_tag(self, content: str, match: re.Match[str], tag_value: Optional[str]) -> Image | None:
+    def _parse_img_tag(self, content: str, match: re.Match[str], tag_value: str | None) -> Image | None:
         """Parse an image tag.
 
         Parameters
@@ -680,7 +678,7 @@ class BBCodeParser(BaseParser):
 
         return Image(url=url, alt_text="", metadata=metadata if metadata else {})
 
-    def _create_self_closing_node(self, tag_name: str, tag_value: Optional[str]) -> Node | None:
+    def _create_self_closing_node(self, tag_name: str, tag_value: str | None) -> Node | None:
         """Create a self-closing inline node.
 
         Parameters
@@ -704,7 +702,7 @@ class BBCodeParser(BaseParser):
         else:
             return None
 
-    def _create_quote(self, content: str, author: Optional[str]) -> BlockQuote:
+    def _create_quote(self, content: str, author: str | None) -> BlockQuote:
         """Create a quote block.
 
         Parameters
@@ -733,7 +731,7 @@ class BBCodeParser(BaseParser):
 
         return BlockQuote(children=children)
 
-    def _create_code_block(self, content: str, language: Optional[str]) -> CodeBlock:
+    def _create_code_block(self, content: str, language: str | None) -> CodeBlock:
         """Create a code block.
 
         Parameters
@@ -751,7 +749,7 @@ class BBCodeParser(BaseParser):
         """
         return CodeBlock(content=content, language=language)
 
-    def _create_list(self, content: str, list_type: Optional[str]) -> List:
+    def _create_list(self, content: str, list_type: str | None) -> List:
         """Create a list.
 
         Parameters
@@ -798,7 +796,7 @@ class BBCodeParser(BaseParser):
 
         """
         rows: list[TableRow] = []
-        header: Optional[TableRow] = None
+        header: TableRow | None = None
 
         # Find all [tr]...[/tr] pairs
         tr_pattern = re.compile(r"\[tr\](.*?)\[/tr\]", re.IGNORECASE | re.DOTALL)
@@ -900,7 +898,7 @@ class BBCodeParser(BaseParser):
         link = Link(url=url, content=[Text(content=f"[{media_type.upper()}]")])
         return Paragraph(content=[link])
 
-    def _handle_unknown_block(self, content: str, tag_name: str, tag_value: Optional[str]) -> Node:
+    def _handle_unknown_block(self, content: str, tag_name: str, tag_value: str | None) -> Node:
         """Handle unknown block-level tags.
 
         Parameters
@@ -938,7 +936,7 @@ class BBCodeParser(BaseParser):
             escaped = html.escape(f"{tag_open}{content}{tag_close}")
             return Paragraph(content=[Text(content=escaped)])
 
-    def _handle_unknown_inline(self, tag_name: str, tag_value: Optional[str], inner_content: str = "") -> Node:
+    def _handle_unknown_inline(self, tag_name: str, tag_value: str | None, inner_content: str = "") -> Node:
         """Handle unknown inline tags.
 
         Parameters

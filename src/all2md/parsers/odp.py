@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Optional, Union, cast
+from typing import IO, TYPE_CHECKING, Any, cast
 
 from all2md.ast import (
     Document,
@@ -67,7 +67,7 @@ class OdpToAstConverter(BaseParser):
     """
 
     @requires_dependencies("odp", DEPS_ODF)
-    def __init__(self, options: Optional[OdpOptions] = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: OdpOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the ODP parser with options and progress callback."""
         BaseParser._validate_options_type(options, OdpOptions, "odp")
         options = options or OdpOptions()
@@ -91,7 +91,7 @@ class OdpToAstConverter(BaseParser):
             namespaces, "PRESENTATIONNS", "urn:oasis:names:tc:opendocument:xmlns:presentation:1.0"
         )
 
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse ODP document into an AST.
 
         Parameters
@@ -124,7 +124,7 @@ class OdpToAstConverter(BaseParser):
 
             return self.convert_to_ast(doc)
 
-    def convert_to_ast(self, doc: "odf.opendocument.OpenDocument") -> Document:
+    def convert_to_ast(self, doc: odf.opendocument.OpenDocument) -> Document:
         """Convert ODP document to AST Document.
 
         Returns
@@ -258,7 +258,7 @@ class OdpToAstConverter(BaseParser):
 
         return expanded if expanded else None
 
-    def _process_slide(self, slide_element: Any, doc: "odf.opendocument.OpenDocument") -> list[Node] | None:
+    def _process_slide(self, slide_element: Any, doc: odf.opendocument.OpenDocument) -> list[Node] | None:
         """Process a slide element.
 
         Parameters
@@ -292,7 +292,7 @@ class OdpToAstConverter(BaseParser):
 
         return nodes if nodes else None
 
-    def _extract_slide_notes(self, slide_element: Any, doc: "odf.opendocument.OpenDocument") -> list[Node]:
+    def _extract_slide_notes(self, slide_element: Any, doc: odf.opendocument.OpenDocument) -> list[Node]:
         """Extract speaker notes from a slide.
 
         Parameters
@@ -343,7 +343,7 @@ class OdpToAstConverter(BaseParser):
 
         return notes_nodes
 
-    def _process_element(self, element: Any, doc: "odf.opendocument.OpenDocument") -> Node | list[Node] | None:
+    def _process_element(self, element: Any, doc: odf.opendocument.OpenDocument) -> Node | list[Node] | None:
         """Process an ODP element to AST node(s).
 
         Parameters
@@ -377,7 +377,7 @@ class OdpToAstConverter(BaseParser):
 
         return None
 
-    def _process_frame(self, frame: Any, doc: "odf.opendocument.OpenDocument") -> Node | list[Node] | None:
+    def _process_frame(self, frame: Any, doc: odf.opendocument.OpenDocument) -> Node | list[Node] | None:
         """Process a drawing frame (could be image, text box, etc.).
 
         Parameters
@@ -414,7 +414,7 @@ class OdpToAstConverter(BaseParser):
 
         return None
 
-    def _process_text_runs(self, element: Any, doc: "odf.opendocument.OpenDocument") -> list[Node]:
+    def _process_text_runs(self, element: Any, doc: odf.opendocument.OpenDocument) -> list[Node]:
         """Process text runs within an element, handling formatting.
 
         Parameters
@@ -501,7 +501,7 @@ class OdpToAstConverter(BaseParser):
                 parts.append(self._get_text_content(node))
         return "".join(parts)
 
-    def _process_paragraph(self, p: Any, doc: "odf.opendocument.OpenDocument") -> Node | list[Node] | None:
+    def _process_paragraph(self, p: Any, doc: odf.opendocument.OpenDocument) -> Node | list[Node] | None:
         """Convert paragraph element to AST Paragraph.
 
         Parameters
@@ -558,7 +558,7 @@ class OdpToAstConverter(BaseParser):
             blocks.append(MathBlock(content=mathml, notation="mathml"))
         return blocks
 
-    def _process_heading(self, h: Any, doc: "odf.opendocument.OpenDocument") -> Heading:
+    def _process_heading(self, h: Any, doc: odf.opendocument.OpenDocument) -> Heading:
         """Convert heading element to AST Heading.
 
         Parameters
@@ -578,7 +578,7 @@ class OdpToAstConverter(BaseParser):
         content = self._process_text_runs(h, doc)
         return Heading(level=level, content=content)
 
-    def _process_list(self, lst: Any, doc: "odf.opendocument.OpenDocument") -> List:
+    def _process_list(self, lst: Any, doc: odf.opendocument.OpenDocument) -> List:
         """Convert list element to AST List.
 
         Parameters
@@ -648,7 +648,7 @@ class OdpToAstConverter(BaseParser):
                 return True
         return False
 
-    def _process_table(self, tbl: Any, doc: "odf.opendocument.OpenDocument") -> Table | None:
+    def _process_table(self, tbl: Any, doc: odf.opendocument.OpenDocument) -> Table | None:
         """Convert table element to AST Table.
 
         Parameters
@@ -696,7 +696,7 @@ class OdpToAstConverter(BaseParser):
 
         return Table(header=header_row, rows=data_rows, alignments=["left"] * len(header_cells))
 
-    def _process_image(self, frame: Any, doc: "odf.opendocument.OpenDocument") -> Image | None:
+    def _process_image(self, frame: Any, doc: odf.opendocument.OpenDocument) -> Image | None:
         """Extract and process an image.
 
         Parameters

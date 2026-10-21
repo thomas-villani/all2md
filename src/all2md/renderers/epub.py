@@ -19,7 +19,7 @@ import os
 import uuid
 from io import BytesIO
 from pathlib import Path
-from typing import IO, Any, Union, cast
+from typing import IO, Any, cast
 from urllib.parse import urlparse
 
 from all2md.ast.nodes import Comment, CommentInline, Document, Heading, Image, Node, get_node_children
@@ -88,7 +88,7 @@ class EpubRenderer(BaseRenderer):
         self._network_rate_limiter: RateLimiter | None = None
 
     @requires_dependencies("epub_render", DEPS_EPUB_RENDER)
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
+    def render(self, doc: Document, output: str | Path | IO[bytes]) -> None:
         """Render the AST to an EPUB file.
 
         Parameters

@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import IO, Union
+from typing import IO
 
 from all2md.ast import ast_to_dict
 from all2md.constants import DEPS_HTML, DEPS_JINJA
@@ -165,7 +165,7 @@ class HtmlRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
         return content
 
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
+    def render(self, doc: Document, output: str | Path | IO[bytes]) -> None:
         """Render the AST to HTML and write to output.
 
         Parameters

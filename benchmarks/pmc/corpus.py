@@ -37,11 +37,12 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Callable, Iterator, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Iterator, Sequence
+from typing import Any
 from urllib.parse import quote
 from uuid import uuid4
 

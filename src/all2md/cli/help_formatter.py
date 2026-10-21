@@ -12,8 +12,9 @@ import argparse
 import sys
 import textwrap
 from argparse import Namespace
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Literal, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Literal
 
 from all2md.cli.output import check_rich_available, should_use_rich_output
 
@@ -27,7 +28,7 @@ from all2md.options.base import UNSET
 OptionImportance = Literal["core", "advanced", "security"]
 
 
-def _ensure_text(text: Optional[str]) -> str:
+def _ensure_text(text: str | None) -> str:
     """Return ``text`` or an empty string when ``None``.
 
     ``argparse`` frequently stores help/description values as ``None``. Using
@@ -84,8 +85,8 @@ class OptionEntry:
     dest: str
     help_text: str
     default: Any
-    metavar: Optional[str]
-    choices: Optional[Sequence[Any]]
+    metavar: str | None
+    choices: Sequence[Any] | None
     importance: OptionImportance
     is_flag: bool
     is_negated_flag: bool
@@ -106,7 +107,7 @@ class HelpSection:
     description: str
     options: list[OptionEntry]
     category: str
-    format_name: Optional[str]
+    format_name: str | None
 
     def iter_core_options(self) -> Iterable[OptionEntry]:
         """Yield options marked as ``core`` importance."""
@@ -121,12 +122,12 @@ class HelpCatalog:
     description: str
     epilog: str
     sections: list[HelpSection]
-    section_lookup: Dict[str, HelpSection]
-    format_sections: Dict[str, list[HelpSection]]
+    section_lookup: dict[str, HelpSection]
+    format_sections: dict[str, list[HelpSection]]
     subcommands: Sequence[tuple[str, str]]
-    aliases: Dict[str, str] = field(default_factory=dict)
+    aliases: dict[str, str] = field(default_factory=dict)
 
-    def get_section(self, selector: str) -> Optional[HelpSection]:
+    def get_section(self, selector: str) -> HelpSection | None:
         """Return the section that matches *selector* (case-insensitive)."""
         key = selector.lower()
         # Friendly aliases (e.g. "attachments" -> "global-attachment") resolve first.
@@ -247,7 +248,7 @@ def _transform_negated_help_text(help_text: str) -> str:
     return help_text
 
 
-def _format_default(value: Any, *, is_negated_flag: bool = False) -> Optional[str]:
+def _format_default(value: Any, *, is_negated_flag: bool = False) -> str | None:
     """Return human-readable default representation or ``None`` when omitted.
 
     Parameters
@@ -285,7 +286,7 @@ def _format_default(value: Any, *, is_negated_flag: bool = False) -> Optional[st
 
 # Friendly synonyms for help topics whose canonical key is non-obvious. Maps an
 # alias the user is likely to type to the canonical section key. Add entries here.
-_HELP_SECTION_ALIASES: Dict[str, str] = {
+_HELP_SECTION_ALIASES: dict[str, str] = {
     "attachments": "global-attachment",
     "attachment": "global-attachment",
     "images": "global-attachment",
@@ -299,8 +300,8 @@ _HELP_SECTION_ALIASES: Dict[str, str] = {
 def build_catalog(parser: argparse.ArgumentParser, builder: DynamicCLIBuilder) -> HelpCatalog:
     """Create a help catalog from the configured parser."""
     sections: list[HelpSection] = []
-    section_lookup: Dict[str, HelpSection] = {}
-    format_sections: Dict[str, list[HelpSection]] = {}
+    section_lookup: dict[str, HelpSection] = {}
+    format_sections: dict[str, list[HelpSection]] = {}
 
     for group in parser._action_groups:  # pragma: no cover - interacts with argparse internals
         title = group.title or "Options"
@@ -361,7 +362,7 @@ def build_catalog(parser: argparse.ArgumentParser, builder: DynamicCLIBuilder) -
         if not options:
             continue
 
-        format_name: Optional[str] = None
+        format_name: str | None = None
         if category in {"parser", "renderer"}:
             first_token = title.split()[0].lower()
             format_name = first_token
@@ -748,7 +749,7 @@ class HelpRenderer:
         wrapped = wrapper.wrap(help_text) if help_text else []
         return [description, *wrapped]
 
-    def print(self, selector: str = "quick", *, stream: Optional[Any] = None) -> None:
+    def print(self, selector: str = "quick", *, stream: Any | None = None) -> None:
         """Print formatted help output to the specified stream.
 
         Parameters
@@ -771,7 +772,7 @@ class HelpRenderer:
             target = stream or sys.stdout
             print(output, file=target)
 
-    def _style_line(self, line: str) -> "Text":
+    def _style_line(self, line: str) -> Text:
         from rich.text import Text
 
         if not line:
@@ -834,7 +835,7 @@ class HelpRenderer:
         text += content
         return text
 
-    def _highlight_metadata(self, text: "Text") -> None:
+    def _highlight_metadata(self, text: Text) -> None:
         text.highlight_regex(r"default: [^);]+", style="green")
         text.highlight_regex(r"choices?: [^);]+", style="magenta")
         text.highlight_regex(r"\[[^\]]+\]", style="dim")
@@ -854,8 +855,8 @@ def build_help_renderer(*, use_rich: bool = False) -> HelpRenderer:
 def display_help(
     selector: str = "quick",
     *,
-    use_rich: Optional[bool] = None,
-    stream: Optional[Any] = None,
+    use_rich: bool | None = None,
+    stream: Any | None = None,
 ) -> None:
     """Render help for ``selector`` to stdout (or ``stream``) with optional rich output.
 

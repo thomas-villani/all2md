@@ -32,7 +32,7 @@ import logging
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any
 
 from all2md.chunking.tokenization import TokenCounter
 
@@ -87,7 +87,7 @@ class PositionTrackingChunker(ABC):
         self.counter = counter
 
     @abstractmethod
-    def chunk(self, text: str) -> List[TextChunk]:
+    def chunk(self, text: str) -> list[TextChunk]:
         """Split ``text`` into position-tracked chunks."""
         raise NotImplementedError
 
@@ -95,7 +95,7 @@ class PositionTrackingChunker(ABC):
         """Count tokens in ``text`` using the injected counter."""
         return self.counter.count(text)
 
-    def _calculate_line_column(self, text: str, position: int) -> Tuple[int, int]:
+    def _calculate_line_column(self, text: str, position: int) -> tuple[int, int]:
         """Calculate 1-based line and column for a character position."""
         if position > len(text):
             position = len(text)
@@ -119,9 +119,9 @@ class PositionTrackingChunker(ABC):
         )
         return TextChunk(content=content, position=position, tokens=self.count_tokens(content), index=index)
 
-    def _ensure_chunks_within_limit(self, chunks: List[TextChunk], text: str) -> List[TextChunk]:
+    def _ensure_chunks_within_limit(self, chunks: list[TextChunk], text: str) -> list[TextChunk]:
         """Split any oversized chunk with :class:`CharChunker`, then renumber."""
-        result: List[TextChunk] = []
+        result: list[TextChunk] = []
         for chunk in chunks:
             if chunk.tokens <= self.max_tokens:
                 result.append(chunk)
@@ -159,7 +159,7 @@ class SentenceChunker(PositionTrackingChunker):
 
     sentence_pattern = re.compile(r'(?<=[.!?])\s+|(?<=[.!?]")(?=\s+[A-Z])|(?<=[.!?])\n+', re.MULTILINE)
 
-    def chunk(self, text: str) -> List[TextChunk]:
+    def chunk(self, text: str) -> list[TextChunk]:
         """Split ``text`` by sentences, packing up to the token budget."""
         if not text.strip():
             return []
@@ -176,7 +176,7 @@ class SentenceChunker(PositionTrackingChunker):
         # Pre-count once; the overlap rewind below can revisit sentences.
         sentence_token_counts = [self.count_tokens(s[2]) for s in sentences]
 
-        chunks: List[TextChunk] = []
+        chunks: list[TextChunk] = []
         chunk_index = 0
         i = 0
 
@@ -216,7 +216,7 @@ class SentenceChunker(PositionTrackingChunker):
 
         return self._ensure_chunks_within_limit(chunks, text)
 
-    def _split_into_sentences(self, text: str) -> List[Tuple[int, int, str]]:
+    def _split_into_sentences(self, text: str) -> list[tuple[int, int, str]]:
         """Split text into ``(start, end, text)`` sentence tuples."""
         sentences = []
         last_end = 0
@@ -234,7 +234,7 @@ class SentenceChunker(PositionTrackingChunker):
                 sentences.append((last_end, len(text), final_text))
         return sentences
 
-    def _split_sentence_by_words(self, text: str, start: int, end: int, base_index: int) -> List[TextChunk]:
+    def _split_sentence_by_words(self, text: str, start: int, end: int, base_index: int) -> list[TextChunk]:
         """Split a single over-long sentence by words."""
         sentence_text = text[start:end]
         word_pattern = re.compile(r"\S+")
@@ -242,7 +242,7 @@ class SentenceChunker(PositionTrackingChunker):
         if not words:
             return [self._create_chunk(text, start, end, base_index)]
 
-        chunks: List[TextChunk] = []
+        chunks: list[TextChunk] = []
         chunk_index = base_index
         i = 0
         while i < len(words):
@@ -282,7 +282,7 @@ class TokenChunker(PositionTrackingChunker):
             )
         self.encoding = encoding
 
-    def chunk(self, text: str) -> List[TextChunk]:
+    def chunk(self, text: str) -> list[TextChunk]:
         """Split ``text`` by token boundaries with sliding overlap."""
         if not text.strip():
             return []
@@ -291,7 +291,7 @@ class TokenChunker(PositionTrackingChunker):
         if len(tokens) <= self.max_tokens:
             return [self._create_chunk(text, 0, len(text), 0)]
 
-        chunks: List[TextChunk] = []
+        chunks: list[TextChunk] = []
         chunk_index = 0
         stride = max(1, self.max_tokens - self.overlap)
 
@@ -307,7 +307,7 @@ class TokenChunker(PositionTrackingChunker):
 
         return self._ensure_chunks_within_limit(chunks, text)
 
-    def _estimate_position(self, text: str, all_tokens: List[int], token_index: int) -> int:
+    def _estimate_position(self, text: str, all_tokens: list[int], token_index: int) -> int:
         """Estimate a character position from a token index via decode length."""
         if token_index == 0:
             return 0
@@ -318,7 +318,7 @@ class TokenChunker(PositionTrackingChunker):
 class WordChunker(PositionTrackingChunker):
     """Chunk by word boundaries while preserving whitespace."""
 
-    def chunk(self, text: str) -> List[TextChunk]:
+    def chunk(self, text: str) -> list[TextChunk]:
         """Split ``text`` by words, packing up to the token budget."""
         if not text.strip():
             return []
@@ -328,7 +328,7 @@ class WordChunker(PositionTrackingChunker):
         if not words:
             return [self._create_chunk(text, 0, len(text), 0)]
 
-        chunks: List[TextChunk] = []
+        chunks: list[TextChunk] = []
         chunk_index = 0
         i = 0
         while i < len(words):
@@ -358,7 +358,7 @@ class WordChunker(PositionTrackingChunker):
 class LineChunker(PositionTrackingChunker):
     """Chunk by line boundaries."""
 
-    def chunk(self, text: str) -> List[TextChunk]:
+    def chunk(self, text: str) -> list[TextChunk]:
         """Split ``text`` by lines, packing up to the token budget."""
         if not text.strip():
             return []
@@ -372,7 +372,7 @@ class LineChunker(PositionTrackingChunker):
         if not line_positions:
             return [self._create_chunk(text, 0, len(text), 0)]
 
-        chunks: List[TextChunk] = []
+        chunks: list[TextChunk] = []
         chunk_index = 0
         i = 0
         while i < len(line_positions):
@@ -405,7 +405,7 @@ class LineChunker(PositionTrackingChunker):
 
         return self._ensure_chunks_within_limit(chunks, text)
 
-    def _split_line_by_words(self, text: str, start: int, end: int, base_index: int) -> List[TextChunk]:
+    def _split_line_by_words(self, text: str, start: int, end: int, base_index: int) -> list[TextChunk]:
         """Split an over-long line by words, rebasing positions to ``text``."""
         line_text = text[start:end]
         word_chunker = WordChunker(self.max_tokens, self.overlap, counter=self.counter)
@@ -421,12 +421,12 @@ class LineChunker(PositionTrackingChunker):
 class CharChunker(PositionTrackingChunker):
     """Chunk by character boundaries with exact position tracking."""
 
-    def chunk(self, text: str) -> List[TextChunk]:
+    def chunk(self, text: str) -> list[TextChunk]:
         """Grow chunks character-by-character up to the token budget."""
         if not text.strip():
             return []
 
-        chunks: List[TextChunk] = []
+        chunks: list[TextChunk] = []
         chunk_index = 0
         start_pos = 0
         while start_pos < len(text):
@@ -455,7 +455,7 @@ class ParagraphChunker(PositionTrackingChunker):
 
     paragraph_pattern = re.compile(r"\n\s*\n", re.MULTILINE)
 
-    def chunk(self, text: str) -> List[TextChunk]:
+    def chunk(self, text: str) -> list[TextChunk]:
         """Split ``text`` by paragraphs, packing up to the token budget."""
         if not text.strip():
             return []
@@ -464,7 +464,7 @@ class ParagraphChunker(PositionTrackingChunker):
         if not paragraphs:
             return [self._create_chunk(text, 0, len(text), 0)]
 
-        chunks: List[TextChunk] = []
+        chunks: list[TextChunk] = []
         chunk_index = 0
         i = 0
         while i < len(paragraphs):
@@ -497,7 +497,7 @@ class ParagraphChunker(PositionTrackingChunker):
 
         return self._ensure_chunks_within_limit(chunks, text)
 
-    def _split_into_paragraphs(self, text: str) -> List[Tuple[int, int, str]]:
+    def _split_into_paragraphs(self, text: str) -> list[tuple[int, int, str]]:
         """Split text into ``(start, end, text)`` paragraph tuples."""
         paragraphs = []
         last_end = 0
@@ -515,7 +515,7 @@ class ParagraphChunker(PositionTrackingChunker):
                 paragraphs.append((last_end, len(text), final_text))
         return paragraphs
 
-    def _split_paragraph_by_sentences(self, text: str, start: int, end: int, base_index: int) -> List[TextChunk]:
+    def _split_paragraph_by_sentences(self, text: str, start: int, end: int, base_index: int) -> list[TextChunk]:
         """Split an over-long paragraph by sentences, rebasing positions."""
         para_text = text[start:end]
         sentence_chunker = SentenceChunker(self.max_tokens, self.overlap, counter=self.counter)
@@ -539,7 +539,7 @@ class SectionChunker(PositionTrackingChunker):
             raise ValueError("`overlap` must be 0 for SectionChunker")
         super().__init__(max_tokens, 0, counter=counter)
 
-    def chunk(self, text: str) -> List[TextChunk]:
+    def chunk(self, text: str) -> list[TextChunk]:
         """Split ``text`` at header boundaries, keeping whole sections when they fit."""
         if not text.strip():
             return []
@@ -552,7 +552,7 @@ class SectionChunker(PositionTrackingChunker):
                 return [self._create_chunk(text, 0, len(text), 0)]
             return ParagraphChunker(self.max_tokens, 0, counter=self.counter).chunk(text)
 
-        chunks: List[TextChunk] = []
+        chunks: list[TextChunk] = []
         chunk_index = 0
         current_pos = 0
 
@@ -635,13 +635,13 @@ class CodeBlockChunker(PositionTrackingChunker):
     """Chunk code while preserving logical (function/class/bracket) blocks."""
 
     def __init__(
-        self, max_tokens: int = 500, overlap: int = 0, *, counter: TokenCounter, language: Optional[str] = None
+        self, max_tokens: int = 500, overlap: int = 0, *, counter: TokenCounter, language: str | None = None
     ) -> None:
         """Construct a code chunker, optionally pinning the language (else auto-detected)."""
         super().__init__(max_tokens, overlap, counter=counter)
         self.language = language
 
-    def chunk(self, text: str) -> List[TextChunk]:
+    def chunk(self, text: str) -> list[TextChunk]:
         """Split code into chunks that respect detected block boundaries."""
         if not text.strip():
             return []
@@ -660,7 +660,7 @@ class CodeBlockChunker(PositionTrackingChunker):
     def _detect_language(self, text: str) -> str:
         """Heuristically detect the programming language from a sample."""
         sample = text[:1000]
-        signatures: Dict[str, Dict[str, List[str]]] = {
+        signatures: dict[str, dict[str, list[str]]] = {
             "python": {
                 "patterns": [
                     r"^\s*def\s+\w+\s*\(.*\):",
@@ -710,7 +710,7 @@ class CodeBlockChunker(PositionTrackingChunker):
         best_lang = max(scores.items(), key=lambda x: x[1])
         return "generic" if best_lang[1] < 3 else best_lang[0]
 
-    def _get_language_patterns(self, language: str) -> Tuple[List[str], List[str]]:
+    def _get_language_patterns(self, language: str) -> tuple[list[str], list[str]]:
         """Return ``(start_patterns, end_patterns)`` for ``language``."""
         patterns = {
             "python": {
@@ -763,10 +763,10 @@ class CodeBlockChunker(PositionTrackingChunker):
 
     @staticmethod
     def _identify_code_blocks(
-        lines: List[str], language: str, start_patterns: List[str], end_patterns: List[str]
-    ) -> List[Dict[str, Any]]:
+        lines: list[str], language: str, start_patterns: list[str], end_patterns: list[str]
+    ) -> list[dict[str, Any]]:
         """Identify code blocks via indentation (Python) or bracket depth."""
-        blocks: List[Dict[str, Any]] = []
+        blocks: list[dict[str, Any]] = []
         i = 0
 
         if language == "python":
@@ -844,14 +844,14 @@ class CodeBlockChunker(PositionTrackingChunker):
         blocks.sort(key=lambda x: x["start"])
         return blocks
 
-    def _create_chunks_from_blocks(self, text: str, lines: List[str], blocks: List[Dict[str, Any]]) -> List[TextChunk]:
+    def _create_chunks_from_blocks(self, text: str, lines: list[str], blocks: list[dict[str, Any]]) -> list[TextChunk]:
         """Pack identified blocks into chunks under the token budget."""
         if not blocks:
             return []
 
-        chunks: List[TextChunk] = []
+        chunks: list[TextChunk] = []
         chunk_index = 0
-        current_chunk_lines: list[Dict[str, Any]] = []
+        current_chunk_lines: list[dict[str, Any]] = []
         current_tokens = 0
 
         line_positions = []
@@ -860,7 +860,7 @@ class CodeBlockChunker(PositionTrackingChunker):
             line_positions.append(current_pos)
             current_pos += len(line) + 1
 
-        def _finalize(chunk_lines: list[Dict[str, Any]], index: int) -> TextChunk:
+        def _finalize(chunk_lines: list[dict[str, Any]], index: int) -> TextChunk:
             start_pos = line_positions[chunk_lines[0]["line_idx"]]
             end_pos = line_positions[chunk_lines[-1]["line_idx"]] + len(chunk_lines[-1]["line"])
             return self._create_chunk(text, start_pos, end_pos, index)
@@ -910,7 +910,7 @@ class CodeBlockChunker(PositionTrackingChunker):
 class ChunkerFactory:
     """Construct chunkers by name."""
 
-    CHUNKERS: dict[str, Type[PositionTrackingChunker]] = {
+    CHUNKERS: dict[str, type[PositionTrackingChunker]] = {
         "sentences": SentenceChunker,
         "tokens": TokenChunker,
         "words": WordChunker,
@@ -924,7 +924,7 @@ class ChunkerFactory:
     @classmethod
     def create_chunker(
         cls,
-        method: Union[str, Type[PositionTrackingChunker]],
+        method: str | type[PositionTrackingChunker],
         max_tokens: int = 500,
         overlap: int = 0,
         *,
@@ -947,12 +947,12 @@ class ChunkerFactory:
         return chunker_class(max_tokens, overlap=overlap, counter=counter, **kwargs)
 
     @classmethod
-    def list_methods(cls) -> List[str]:
+    def list_methods(cls) -> list[str]:
         """List available chunking method names."""
         return list(cls.CHUNKERS.keys())
 
 
-def reconstruct_document(chunks: List[TextChunk], original_length: int) -> str:
+def reconstruct_document(chunks: list[TextChunk], original_length: int) -> str:
     """Reassemble the original text from non-overlapping ``chunks``."""
     if not chunks:
         return ""

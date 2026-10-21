@@ -145,8 +145,8 @@ class TestOutlookMessageFiltering:
 
     def test_date_range_filtering(self):
         """Test date range filtering configuration."""
-        start = datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc)
-        end = datetime.datetime(2024, 12, 31, tzinfo=datetime.timezone.utc)
+        start = datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC)
+        end = datetime.datetime(2024, 12, 31, tzinfo=datetime.UTC)
 
         options = OutlookOptions(date_range_start=start, date_range_end=end)
 
@@ -275,8 +275,8 @@ class TestOutlookEdgeCases:
         """Test that invalid date range raises error."""
         with pytest.raises(ValueError, match="date_range_start"):
             OutlookOptions(
-                date_range_start=datetime.datetime(2024, 12, 31, tzinfo=datetime.timezone.utc),
-                date_range_end=datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc),
+                date_range_start=datetime.datetime(2024, 12, 31, tzinfo=datetime.UTC),
+                date_range_end=datetime.datetime(2024, 1, 1, tzinfo=datetime.UTC),
             )
 
     def test_options_validation_invalid_max_messages(self):

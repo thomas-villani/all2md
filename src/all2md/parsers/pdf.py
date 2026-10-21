@@ -14,9 +14,10 @@ from __future__ import annotations
 import logging
 import re
 import unicodedata
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Callable, Optional, Union
+from typing import IO, TYPE_CHECKING, Any
 
 from all2md.options.pdf import PdfOptions
 from all2md.utils.attachments import create_attachment_sequencer
@@ -490,7 +491,7 @@ def _normalize_heading_for_dedup(text: str) -> str:
     return " ".join(text.lower().split())
 
 
-def _demote_running_headings(doc: "Document", total_pages: int) -> int:
+def _demote_running_headings(doc: Document, total_pages: int) -> int:
     """Convert headings that recur on >50% of pages into paragraphs.
 
     A real document section usually appears once. Headings that recur on
@@ -821,13 +822,13 @@ class PdfToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: PdfOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: PdfOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the PDF parser with options and progress callback."""
         BaseParser._validate_options_type(options, PdfOptions, "pdf")
         options = options or PdfOptions()
         super().__init__(options, progress_callback)
         self.options: PdfOptions = options
-        self._hdr_identifier: Optional[IdentifyHeaders] = None
+        self._hdr_identifier: IdentifyHeaders | None = None
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
         self._ocr_pages_applied: int = 0  # pages OCR was applied to in the current parse
         self._use_layout: bool = False
@@ -838,7 +839,7 @@ class PdfToAstConverter(BaseParser):
         self._last_heading_level: int = 0
 
     @requires_dependencies("pdf", DEPS_PDF)
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse PDF document into AST.
 
         This method handles loading the PDF file and converting it to AST.
@@ -996,7 +997,7 @@ class PdfToAstConverter(BaseParser):
         return block_text if block_text else None
 
     def _collect_page_blocks(
-        self, doc: "pymupdf.Document", sample_pages: list[int]
+        self, doc: pymupdf.Document, sample_pages: list[int]
     ) -> dict[int, list[tuple[str, float, float]]]:
         """Collect text blocks with positions from sampled pages."""
         import pymupdf
@@ -1074,7 +1075,7 @@ class PdfToAstConverter(BaseParser):
 
         return max_header_y, max_footer_y
 
-    def _auto_detect_header_footer_zones(self, doc: "pymupdf.Document", pages_to_use: range | list[int]) -> None:
+    def _auto_detect_header_footer_zones(self, doc: pymupdf.Document, pages_to_use: range | list[int]) -> None:
         """Automatically detect and set header/footer zones by analyzing repeating text patterns.
 
         This method analyzes text blocks across multiple pages to identify repeating
@@ -1114,7 +1115,7 @@ class PdfToAstConverter(BaseParser):
             footer_height_value = int(page_height - max_footer_y + 5)
             self.options = self.options.create_updated(footer_height=footer_height_value, trim_headers_footers=True)
 
-    def extract_metadata(self, document: "pymupdf.Document") -> DocumentMetadata:
+    def extract_metadata(self, document: pymupdf.Document) -> DocumentMetadata:
         """Extract metadata from PDF document.
 
         Extracts standard metadata fields from a PDF document including title,
@@ -1254,7 +1255,7 @@ class PdfToAstConverter(BaseParser):
             logger.debug(f"Could not parse PDF date {date_str!r}, keeping it verbatim: {exc!r}")
         return date_str
 
-    def convert_to_ast(self, doc: "pymupdf.Document", pages_to_use: range | list[int], base_filename: str) -> Document:
+    def convert_to_ast(self, doc: pymupdf.Document, pages_to_use: range | list[int], base_filename: str) -> Document:
         """Convert PDF document to AST Document.
 
         Parameters
@@ -1381,7 +1382,7 @@ class PdfToAstConverter(BaseParser):
 
     def _render_pages(
         self,
-        doc: "pymupdf.Document",
+        doc: pymupdf.Document,
         pages_list: list[int],
         base_filename: str,
         attachment_sequencer: Any,
@@ -1459,7 +1460,7 @@ class PdfToAstConverter(BaseParser):
 
     def _maybe_retry_with_ocr(
         self,
-        doc: "pymupdf.Document",
+        doc: pymupdf.Document,
         pages_list: list[int],
         base_filename: str,
         total_pages: int,
@@ -1510,7 +1511,7 @@ class PdfToAstConverter(BaseParser):
         return children
 
     @staticmethod
-    def _ocr_page_to_text(page: "pymupdf.Page", options: PdfOptions) -> str:
+    def _ocr_page_to_text(page: pymupdf.Page, options: PdfOptions) -> str:
         """Extract text from a PDF page using OCR (Optical Character Recognition).
 
         Renders the page to an image at the configured DPI and hands it to the
@@ -1555,7 +1556,7 @@ class PdfToAstConverter(BaseParser):
         return ocr_pixmap(pix, page, options)
 
     @staticmethod
-    def _ocr_page_to_layout(page: "pymupdf.Page", options: PdfOptions) -> "list[OcrParagraph] | None":
+    def _ocr_page_to_layout(page: pymupdf.Page, options: PdfOptions) -> list[OcrParagraph] | None:
         """OCR a page and keep the engine's paragraph segmentation.
 
         Parameters
@@ -1587,7 +1588,7 @@ class PdfToAstConverter(BaseParser):
             return None
 
     @staticmethod
-    def _blocks_from_ocr_layout(paragraphs: "list[OcrParagraph]") -> list[dict]:
+    def _blocks_from_ocr_layout(paragraphs: list[OcrParagraph]) -> list[dict]:
         """Shape OCR paragraphs like PyMuPDF text blocks so downstream stages see geometry.
 
         Font size is estimated from line height in points. It is not the true point size,
@@ -1621,7 +1622,7 @@ class PdfToAstConverter(BaseParser):
         return blocks
 
     def _detect_page_tables(
-        self, page: "pymupdf.Page", page_num: int, total_pages: int
+        self, page: pymupdf.Page, page_num: int, total_pages: int
     ) -> tuple[list[dict], list[Any], list[Any]]:
         """Detect tables on a PDF page.
 
@@ -1720,7 +1721,7 @@ class PdfToAstConverter(BaseParser):
         return table_info, fallback_table_rects, fallback_table_lines
 
     def _apply_ocr_if_needed(
-        self, page: "pymupdf.Page", all_blocks: list[dict], extracted_text: str
+        self, page: pymupdf.Page, all_blocks: list[dict], extracted_text: str
     ) -> tuple[list[dict], bool]:
         """Apply OCR to page if needed based on options and content.
 
@@ -1998,7 +1999,7 @@ class PdfToAstConverter(BaseParser):
         bbox = data.get("bbox")
         return float(bbox[0]) if bbox else 0.0
 
-    def _process_table_item(self, item_data: dict, page: "pymupdf.Page", page_num: int) -> Node | None:
+    def _process_table_item(self, item_data: dict, page: pymupdf.Page, page_num: int) -> Node | None:
         """Process a single table item and return its AST node.
 
         Parameters
@@ -2028,7 +2029,7 @@ class PdfToAstConverter(BaseParser):
             return self._extract_table_from_layout_region(page, item_data["bbox"], page_num)
         return None
 
-    def _get_page_links(self, page: "pymupdf.Page") -> list:
+    def _get_page_links(self, page: pymupdf.Page) -> list:
         """Extract URI links from a page.
 
         Parameters
@@ -2051,7 +2052,7 @@ class PdfToAstConverter(BaseParser):
         self,
         columns: list[list[dict]],
         table_info: list[dict],
-        page: "pymupdf.Page",
+        page: pymupdf.Page,
         page_num: int,
         figure_plan: list[dict],
     ) -> list[Node]:
@@ -2184,7 +2185,7 @@ class PdfToAstConverter(BaseParser):
 
     def _plan_page_figures(
         self,
-        page: "pymupdf.Page",
+        page: pymupdf.Page,
         page_images: list[dict],
         layout: PageLayoutPredictions | None,
         table_info: list[dict],
@@ -2319,7 +2320,7 @@ class PdfToAstConverter(BaseParser):
 
     def _process_page_to_ast(
         self,
-        page: "pymupdf.Page",
+        page: pymupdf.Page,
         page_num: int,
         base_filename: str,
         attachment_sequencer: Callable[[str, str], tuple[str, int]],
@@ -3404,7 +3405,7 @@ class PdfToAstConverter(BaseParser):
         return str(cell_text).strip()
 
     @staticmethod
-    def _char_mass(table_data: "Sequence[Sequence[str | None]]") -> int:
+    def _char_mass(table_data: Sequence[Sequence[str | None]]) -> int:
         """Non-whitespace character count of a grid -- the mass a rebuild must preserve."""
         return sum(len("".join(str(cell).split())) for row in table_data for cell in row if cell is not None)
 
@@ -3452,9 +3453,9 @@ class PdfToAstConverter(BaseParser):
     def _process_table_to_ast(
         self,
         table: Any,
-        page: "pymupdf.Page",
+        page: pymupdf.Page,
         page_num: int,
-        clip_extension: "tuple[pymupdf.Rect, str] | None" = None,
+        clip_extension: tuple[pymupdf.Rect, str] | None = None,
     ) -> Node | None:
         """Process a PyMuPDF table to AST Table node.
 
@@ -3755,8 +3756,8 @@ class PdfToAstConverter(BaseParser):
 
     def _extract_table_from_ruling_rect(
         self,
-        page: "pymupdf.Page",
-        table_rect: "pymupdf.Rect",
+        page: pymupdf.Page,
+        table_rect: pymupdf.Rect,
         h_lines: list[tuple],
         v_lines: list[tuple],
         page_num: int,
@@ -3905,7 +3906,7 @@ class PdfToAstConverter(BaseParser):
         )
 
     def _extract_table_from_layout_region(
-        self, page: "pymupdf.Page", table_rect: "pymupdf.Rect", page_num: int
+        self, page: pymupdf.Page, table_rect: pymupdf.Rect, page_num: int
     ) -> Node | None:
         """Extract the content of a region the layout model predicted to be a table.
 
@@ -4012,7 +4013,7 @@ class PdfToAstConverter(BaseParser):
         return paragraph
 
     def _extract_table_from_word_gutters(
-        self, page: "pymupdf.Page", table_rect: "pymupdf.Rect", page_num: int
+        self, page: pymupdf.Page, table_rect: pymupdf.Rect, page_num: int
     ) -> tuple[bool, AstTable | None]:
         """Recover a borderless table from word-box gutters inside a layout region.
 
@@ -4124,7 +4125,7 @@ class PdfToAstConverter(BaseParser):
         )
 
     @staticmethod
-    def _region_drawing_count(page: "pymupdf.Page", region: "pymupdf.Rect") -> int:
+    def _region_drawing_count(page: pymupdf.Page, region: pymupdf.Rect) -> int:
         """Count the vector drawing paths intersecting *region*.
 
         Returns ``0`` on any error, so an unreadable page falls back to the other
@@ -4151,9 +4152,7 @@ class PdfToAstConverter(BaseParser):
         except Exception:
             return 0
 
-    def _region_text_as_paragraph(
-        self, page: "pymupdf.Page", region: "pymupdf.Rect", page_num: int
-    ) -> AstParagraph | None:
+    def _region_text_as_paragraph(self, page: pymupdf.Page, region: pymupdf.Rect, page_num: int) -> AstParagraph | None:
         """Return a region's text as a paragraph, for regions rejected as tables.
 
         Text inside a detected table's bbox is removed from the ordinary text blocks so
@@ -4218,7 +4217,7 @@ class PdfToAstConverter(BaseParser):
         cells = [cell.replace(escaped_pipe_placeholder, "|").strip() for cell in row_line_escaped.split("|")]
         return cells
 
-    def _collect_image_exclusion_regions(self, layout: "PageLayoutPredictions | None") -> list[Any]:
+    def _collect_image_exclusion_regions(self, layout: PageLayoutPredictions | None) -> list[Any]:
         """Return regions where images should be skipped during extraction.
 
         Currently only the layout model's ``page-header`` and ``page-footer``
@@ -4314,7 +4313,7 @@ class PdfToAstConverter(BaseParser):
             logger.debug(f"Failed to create image node: {e}")
             return None
 
-    def _filter_headers_footers(self, blocks: list[dict], page: "pymupdf.Page") -> list[dict]:
+    def _filter_headers_footers(self, blocks: list[dict], page: pymupdf.Page) -> list[dict]:
         """Filter out text blocks in header/footer zones.
 
         Parameters

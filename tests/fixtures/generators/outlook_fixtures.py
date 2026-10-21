@@ -10,9 +10,9 @@ Note: This requires extract-msg to be installed for MSG file creation.
 from __future__ import annotations
 
 import datetime
+from collections.abc import Iterable
 from email.message import EmailMessage
 from email.utils import format_datetime
-from typing import Iterable
 
 from utils import MINIMAL_PNG_BYTES
 
@@ -36,7 +36,7 @@ def create_simple_msg_data() -> dict:
         "subject": "Important Project Update",
         "from": "alice@company.com",
         "to": "bob@company.com",
-        "date": datetime.datetime(2024, 5, 15, 14, 30, tzinfo=datetime.timezone.utc),
+        "date": datetime.datetime(2024, 5, 15, 14, 30, tzinfo=datetime.UTC),
         "body": (
             "Hi Bob,\n\n"
             "Just wanted to update you on the project status.\n"
@@ -65,7 +65,7 @@ def create_msg_with_attachments_data() -> dict:
         "from": "finance@company.com",
         "to": "executives@company.com",
         "cc": "managers@company.com",
-        "date": datetime.datetime(2024, 6, 30, 16, 0, tzinfo=datetime.timezone.utc),
+        "date": datetime.datetime(2024, 6, 30, 16, 0, tzinfo=datetime.UTC),
         "body": (
             "Dear Executives,\n\n"
             "Please find attached the Q2 financial report.\n\n"
@@ -93,7 +93,7 @@ def create_msg_with_html_data() -> dict:
         "subject": "Newsletter - June 2024",
         "from": "marketing@company.com",
         "to": "subscribers@company.com",
-        "date": datetime.datetime(2024, 6, 1, 9, 0, tzinfo=datetime.timezone.utc),
+        "date": datetime.datetime(2024, 6, 1, 9, 0, tzinfo=datetime.UTC),
         "body_text": "View the newsletter in your email client.",
         "body_html": (
             "<html><body>"

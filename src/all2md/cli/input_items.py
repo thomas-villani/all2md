@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, Union
+from typing import Literal
 
-InputPayload = Union[str, Path, bytes]
+InputPayload = str | Path | bytes
 InputKind = Literal["local_file", "remote_uri", "stdin_bytes"]
 
 

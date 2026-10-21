@@ -20,8 +20,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Iterable, Mapping
 
 __all__ = ["file_signature", "bytes_signature", "corpus_fingerprint"]
 

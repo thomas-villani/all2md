@@ -12,7 +12,7 @@ import argparse
 import mimetypes
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from all2md.cli.builder import EXIT_DEPENDENCY_ERROR
 from all2md.cli.input_items import CLIInputItem
@@ -205,7 +205,7 @@ def _render_detection_results_plain(detection_results: list[dict[str, Any]]) -> 
         print()
 
 
-def process_detect_only(items: List[CLIInputItem], args: argparse.Namespace, format_arg: str) -> int:
+def process_detect_only(items: list[CLIInputItem], args: argparse.Namespace, format_arg: str) -> int:
     """Process inputs in detect-only mode - show format detection without conversion plan."""
     # Auto-discover parsers
     registry.auto_discover()
@@ -266,7 +266,7 @@ def process_detect_only(items: List[CLIInputItem], args: argparse.Namespace, for
         return 0
 
 
-def _collect_file_info_for_dry_run(items: List[CLIInputItem], format_arg: str) -> List[Dict[str, Any]]:
+def _collect_file_info_for_dry_run(items: list[CLIInputItem], format_arg: str) -> list[dict[str, Any]]:
     """Collect file information for dry run display.
 
     Parameters
@@ -282,7 +282,7 @@ def _collect_file_info_for_dry_run(items: List[CLIInputItem], format_arg: str) -
         List of file info dictionaries
 
     """
-    file_info_list: List[Dict[str, Any]] = []
+    file_info_list: list[dict[str, Any]] = []
 
     for index, item in enumerate(items, start=1):
         if format_arg != "auto":
@@ -291,7 +291,7 @@ def _collect_file_info_for_dry_run(items: List[CLIInputItem], format_arg: str) -
         else:
             detected_format = registry.detect_format(item.raw_input)
 
-            all_extensions: List[str] = []
+            all_extensions: list[str] = []
             for fmt_name in registry.list_formats():
                 fmt_info_list = registry.get_format_info(fmt_name)
                 if fmt_info_list:
@@ -305,7 +305,7 @@ def _collect_file_info_for_dry_run(items: List[CLIInputItem], format_arg: str) -
         converter_metadata = converter_metadata_list[0] if converter_metadata_list else None
 
         converter_available = True
-        dependency_issues: List[str] = []
+        dependency_issues: list[str] = []
 
         if converter_metadata:
             required_packages = converter_metadata.get_required_packages_for_content(
@@ -346,8 +346,8 @@ def _collect_file_info_for_dry_run(items: List[CLIInputItem], format_arg: str) -
 def _determine_output_destination(
     item: CLIInputItem,
     args: argparse.Namespace,
-    file_info_list: List[Dict[str, Any]],
-    base_input_dir: Optional[Path],
+    file_info_list: list[dict[str, Any]],
+    base_input_dir: Path | None,
     index: int,
     generate_output_path_fn: Any,
 ) -> str:
@@ -397,9 +397,9 @@ def _determine_output_destination(
 
 
 def _render_dry_run_rich(
-    file_info_list: List[Dict[str, Any]],
+    file_info_list: list[dict[str, Any]],
     args: argparse.Namespace,
-    base_input_dir: Optional[Path],
+    base_input_dir: Path | None,
     generate_output_path_fn: Any,
 ) -> bool:
     """Render dry run output using rich formatting.
@@ -463,9 +463,9 @@ def _render_dry_run_rich(
 
 
 def _render_dry_run_plain(
-    file_info_list: List[Dict[str, Any]],
+    file_info_list: list[dict[str, Any]],
     args: argparse.Namespace,
-    base_input_dir: Optional[Path],
+    base_input_dir: Path | None,
     generate_output_path_fn: Any,
 ) -> None:
     """Render dry run output using plain text.
@@ -501,7 +501,7 @@ def _render_dry_run_plain(
 
 
 def process_dry_run(
-    items: List[CLIInputItem],
+    items: list[CLIInputItem],
     args: argparse.Namespace,
     format_arg: str,
     compute_base_input_dir_fn: Any,

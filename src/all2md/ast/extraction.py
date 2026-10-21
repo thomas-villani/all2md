@@ -33,8 +33,9 @@ Examples
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Iterator, Literal, Optional
+from typing import Literal
 
 from all2md.ast.nodes import (
     Document,
@@ -79,7 +80,7 @@ class ExtractSelector:
 
     kind: SelectorKind
     spec: str
-    word_limit: Optional[int]
+    word_limit: int | None
     raw: str
 
 
@@ -105,7 +106,7 @@ def parse_extract_selector(raw: str) -> ExtractSelector:
     """
     text = raw.strip()
 
-    word_limit: Optional[int] = None
+    word_limit: int | None = None
     body = text
     if WORD_LIMIT_SEP in text:
         body, _, limit_str = text.rpartition(WORD_LIMIT_SEP)

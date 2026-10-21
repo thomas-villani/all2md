@@ -31,9 +31,10 @@ from __future__ import annotations
 
 import difflib
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Callable, Optional, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import all2md
 from all2md.constants import DocumentFormat
@@ -57,11 +58,11 @@ class CheckResult:
     oracle: str
     passed: bool
     detail: str = ""
-    diff: Optional[str] = None
+    diff: str | None = None
     skipped: bool = False
 
 
-def _roundtrip_once(md: str, renderer_options: Optional["MarkdownRendererOptions"], via: str = "markdown") -> str:
+def _roundtrip_once(md: str, renderer_options: MarkdownRendererOptions | None, via: str = "markdown") -> str:
     """Run one ``Markdown -> AST -> Markdown`` pass, through ``via`` if it is another format.
 
     With ``via="man"`` the pass is ``Markdown -> AST -> man -> AST -> Markdown``:
@@ -99,7 +100,7 @@ def _roundtrip_once(md: str, renderer_options: Optional["MarkdownRendererOptions
 def idempotency_check(
     md: str,
     *,
-    renderer_options: Optional["MarkdownRendererOptions"] = None,
+    renderer_options: MarkdownRendererOptions | None = None,
     via: str = "markdown",
 ) -> CheckResult:
     """Assert the roundtrip reaches a fixed point (``once == twice``).
@@ -131,7 +132,7 @@ def idempotency_check(
 def html_equivalence_check(
     md: str,
     *,
-    renderer_options: Optional["MarkdownRendererOptions"] = None,
+    renderer_options: MarkdownRendererOptions | None = None,
     via: str = "markdown",
 ) -> CheckResult:
     """Assert the roundtrip preserves meaning, measured as reference HTML.
@@ -208,7 +209,7 @@ _VOID_TAGS = frozenset(
 _WS = re.compile(r"\s+")
 
 
-def _normalize_html(html: str, project: Optional[Callable[[Any], None]] = None) -> str:
+def _normalize_html(html: str, project: Callable[[Any], None] | None = None) -> str:
     """Serialize HTML to a canonical, diff-friendly form.
 
     Insignificant inter-tag whitespace is dropped and text runs are collapsed to

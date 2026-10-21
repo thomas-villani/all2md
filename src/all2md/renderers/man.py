@@ -21,7 +21,7 @@ from __future__ import annotations
 import re
 from datetime import date, datetime
 from pathlib import Path
-from typing import IO, Any, Optional, Union
+from typing import IO, Any
 
 from all2md.ast.nodes import (
     BlockQuote,
@@ -218,7 +218,7 @@ class ManRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         document.accept(self)
         return "\n".join(self._lines) + "\n"
 
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
+    def render(self, doc: Document, output: str | Path | IO[bytes]) -> None:
         """Render AST to a man page and write it to output.
 
         Parameters
@@ -254,7 +254,7 @@ class ManRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         for child in children:
             child.accept(self)
 
-    def _title_line(self, document: Document, title_node: Optional[Heading]) -> str:
+    def _title_line(self, document: Document, title_node: Heading | None) -> str:
         """Build the ``.TH`` line from the title heading, the metadata and the options."""
         metadata = document.metadata
         meta: dict[str, Any] = metadata.to_dict() if hasattr(metadata, "to_dict") else dict(metadata or {})
@@ -490,7 +490,7 @@ class ManRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         keys = keys[: grid.num_cols]
 
         # cells[row][col] holds the data entry, or None where a column span covers it.
-        cells: list[list[Optional[str]]] = [[""] * grid.num_cols for _ in range(grid.num_rows)]
+        cells: list[list[str | None]] = [[""] * grid.num_cols for _ in range(grid.num_rows)]
         formats = [list(keys) for _ in range(grid.num_rows)]
         for placement in grid.placements:
             cells[placement.row][placement.col] = self._cell_text(placement.cell)
@@ -669,7 +669,7 @@ class ManRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         after it moves into the ``.UE`` argument.
         """
         lines: list[str] = []
-        last_raw: Optional[str] = None  # the raw text of lines[-1], when it is text
+        last_raw: str | None = None  # the raw text of lines[-1], when it is text
         for piece in text.split("\n"):
             if piece.startswith(_CONTROL):
                 request = piece[len(_CONTROL) :]

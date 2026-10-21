@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import IO, Any, Optional, Union
+from typing import IO, Any
 
 from all2md.ast import (
     CodeBlock,
@@ -188,9 +188,7 @@ class OpenApiParser(BaseParser):
 
     """
 
-    def __init__(
-        self, options: OpenApiParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
-    ):
+    def __init__(self, options: OpenApiParserOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the OpenAPI parser with options and progress callback."""
         BaseParser._validate_options_type(options, OpenApiParserOptions, "openapi")
         options = options or OpenApiParserOptions()
@@ -198,7 +196,7 @@ class OpenApiParser(BaseParser):
         self.options: OpenApiParserOptions = options or OpenApiParserOptions()
 
     @requires_dependencies("openapi", DEPS_OPENAPI)
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse OpenAPI/Swagger specification into an AST.
 
         Parameters
@@ -258,7 +256,7 @@ class OpenApiParser(BaseParser):
                 f"Failed to parse OpenAPI specification: {e}", parsing_stage="openapi_parsing", original_error=e
             ) from e
 
-    def _load_spec(self, input_data: Union[str, Path, IO[bytes], bytes]) -> dict[str, Any]:
+    def _load_spec(self, input_data: str | Path | IO[bytes] | bytes) -> dict[str, Any]:
         """Load OpenAPI spec from various input types.
 
         Parameters

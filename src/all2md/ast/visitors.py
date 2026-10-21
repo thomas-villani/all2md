@@ -564,7 +564,7 @@ class NodeVisitor(ABC):
         pass
 
     @abstractmethod
-    def visit_footnote_reference(self, node: "FootnoteReference") -> Any:
+    def visit_footnote_reference(self, node: FootnoteReference) -> Any:
         """Visit a FootnoteReference node.
 
         Parameters
@@ -581,7 +581,7 @@ class NodeVisitor(ABC):
         pass
 
     @abstractmethod
-    def visit_math_inline(self, node: "MathInline") -> Any:
+    def visit_math_inline(self, node: MathInline) -> Any:
         """Visit a MathInline node.
 
         Parameters
@@ -598,7 +598,7 @@ class NodeVisitor(ABC):
         pass
 
     @abstractmethod
-    def visit_footnote_definition(self, node: "FootnoteDefinition") -> Any:
+    def visit_footnote_definition(self, node: FootnoteDefinition) -> Any:
         """Visit a FootnoteDefinition node.
 
         Parameters
@@ -615,7 +615,7 @@ class NodeVisitor(ABC):
         pass
 
     @abstractmethod
-    def visit_definition_list(self, node: "DefinitionList") -> Any:
+    def visit_definition_list(self, node: DefinitionList) -> Any:
         """Visit a DefinitionList node.
 
         Parameters
@@ -632,7 +632,7 @@ class NodeVisitor(ABC):
         pass
 
     @abstractmethod
-    def visit_definition_term(self, node: "DefinitionTerm") -> Any:
+    def visit_definition_term(self, node: DefinitionTerm) -> Any:
         """Visit a DefinitionTerm node.
 
         Parameters
@@ -649,7 +649,7 @@ class NodeVisitor(ABC):
         pass
 
     @abstractmethod
-    def visit_definition_description(self, node: "DefinitionDescription") -> Any:
+    def visit_definition_description(self, node: DefinitionDescription) -> Any:
         """Visit a DefinitionDescription node.
 
         Parameters
@@ -666,7 +666,7 @@ class NodeVisitor(ABC):
         pass
 
     @abstractmethod
-    def visit_math_block(self, node: "MathBlock") -> Any:
+    def visit_math_block(self, node: MathBlock) -> Any:
         """Visit a MathBlock node.
 
         Parameters
@@ -682,7 +682,7 @@ class NodeVisitor(ABC):
         """
         pass
 
-    def visit_figure(self, node: "Figure") -> Any:
+    def visit_figure(self, node: Figure) -> Any:
         """Visit a Figure node.
 
         Like ``visit_mark``, this is concrete rather than abstract so that

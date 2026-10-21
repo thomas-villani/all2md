@@ -9,8 +9,9 @@ the document AST and can produce any text-based format.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Callable, Union, cast
+from typing import IO, TYPE_CHECKING, Any, cast
 
 from all2md.renderers.html import HtmlRenderer
 from all2md.renderers.markdown import MarkdownRenderer
@@ -679,7 +680,7 @@ class JinjaRenderer(BaseRenderer):
         rendered = self._template.render(**context)
         return rendered
 
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
+    def render(self, doc: Document, output: str | Path | IO[bytes]) -> None:
         """Render document to file or file-like object.
 
         Parameters

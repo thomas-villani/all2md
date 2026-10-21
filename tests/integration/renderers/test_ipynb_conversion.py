@@ -449,7 +449,7 @@ def test_ipynb_save_to_file(tmp_path):
     assert output_file.exists()
 
     # Verify it's valid JSON
-    with open(output_file, "r", encoding="utf-8") as f:
+    with open(output_file, encoding="utf-8") as f:
         notebook = json.load(f)
     assert "cells" in notebook
 

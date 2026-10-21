@@ -12,7 +12,8 @@ in place — see :mod:`all2md.linter.fixes`.
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, Callable, Iterator
+from collections.abc import Callable, Iterator
+from typing import TYPE_CHECKING
 
 from all2md.ast import Document, List, Node, NodeCollector, Text, get_node_children
 from all2md.linter.fixes import FixSafety, LintFix
@@ -79,10 +80,10 @@ def _strip_space_before_punct(s: str) -> str:
     return _SPACE_BEFORE_PUNCT_RE.sub(r"\1", s)
 
 
-def _safe_text_fix(node: Text, transform: Callable[[str], str]) -> Callable[["FixContext"], None]:
+def _safe_text_fix(node: Text, transform: Callable[[str], str]) -> Callable[[FixContext], None]:
     """Build a SAFE LintFix apply-callback that rewrites ``node.content`` via ``transform``."""
 
-    def _apply(_fctx: "FixContext", n: Text = node, t: Callable[[str], str] = transform) -> None:
+    def _apply(_fctx: FixContext, n: Text = node, t: Callable[[str], str] = transform) -> None:
         n.content = t(n.content)
 
     return _apply

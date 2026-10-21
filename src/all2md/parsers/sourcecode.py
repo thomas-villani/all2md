@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import IO, Any, Dict, Optional, Union
+from typing import IO, Any
 
 from all2md.ast import CodeBlock, Document
 from all2md.converter_metadata import ConverterMetadata
@@ -44,14 +44,14 @@ class SourceCodeToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: SourceCodeOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: SourceCodeOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the source code parser with options and progress callback."""
         BaseParser._validate_options_type(options, SourceCodeOptions, "sourcecode")
         options = options or SourceCodeOptions()
         super().__init__(options, progress_callback)
         self.options: SourceCodeOptions = options
 
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse source code input into an AST Document.
 
         Parameters
@@ -204,7 +204,7 @@ class SourceCodeToAstConverter(BaseParser):
 
 
 # Converter metadata for registration
-EXTENSION_TO_LANGUAGE: Dict[str, str] = {
+EXTENSION_TO_LANGUAGE: dict[str, str] = {
     # Python
     ".py": "python",
     ".pyx": "python",

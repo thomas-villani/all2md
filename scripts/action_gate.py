@@ -43,7 +43,6 @@ import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
 
 # ``v1.10.1`` -> ``1.10.1``. Anything else (a branch, a SHA, ``main``) is not a
 # release and must not be turned into a version pin.
@@ -74,10 +73,10 @@ class DocumentScores:
     """
 
     path: str
-    scores: dict[str, Optional[int]] = field(default_factory=dict)
+    scores: dict[str, int | None] = field(default_factory=dict)
     unassessed: set[str] = field(default_factory=set)
 
-    def scored(self, tool: str) -> Optional[int]:
+    def scored(self, tool: str) -> int | None:
         """Return the score for *tool*, or ``None`` if it was not measured."""
         return self.scores.get(tool)
 
@@ -135,9 +134,7 @@ def expand_paths(patterns: str, root: Path) -> list[Path]:
     return found
 
 
-def score_document(
-    tool: str, path: Path, via: str, executable: Optional[str] = None
-) -> tuple[Optional[int], str, bool]:
+def score_document(tool: str, path: Path, via: str, executable: str | None = None) -> tuple[int | None, str, bool]:
     """Score one document, returning ``(score, note, assessed)``.
 
     A ``None`` score means the document could not be scored at all, which the caller
@@ -326,7 +323,7 @@ def run(args: argparse.Namespace) -> int:
     return 0
 
 
-def main(argv: Optional[list[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     """Entry point for the action."""
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)

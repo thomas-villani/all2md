@@ -21,7 +21,7 @@ so a profile is a *base* a project file and ad-hoc flags can both refine.
 from __future__ import annotations
 
 import copy
-from typing import Any, Dict, List
+from typing import Any
 
 # Canonical config keys understood by ``LintConfig.from_dict``. ``enable`` and
 # ``disable`` also accept the ``enabled_rules`` / ``disabled_rules`` aliases; we
@@ -34,7 +34,7 @@ _ALIASES = {
 }
 
 
-LINT_PROFILES: Dict[str, Dict[str, Any]] = {
+LINT_PROFILES: dict[str, dict[str, Any]] = {
     "accessibility": {
         "description": (
             "Accessibility-first: enforce alt text, descriptive link text, "
@@ -127,7 +127,7 @@ LINT_PROFILES: Dict[str, Dict[str, Any]] = {
 }
 
 
-def available_profiles() -> List[str]:
+def available_profiles() -> list[str]:
     """Return the sorted names of every built-in lint profile."""
     return sorted(LINT_PROFILES.keys())
 
@@ -137,7 +137,7 @@ def profile_description(name: str) -> str:
     return str(LINT_PROFILES[name]["description"])
 
 
-def get_profile_config(name: str) -> Dict[str, Any]:
+def get_profile_config(name: str) -> dict[str, Any]:
     """Return a deep copy of the config dict for profile ``name``.
 
     Parameters
@@ -170,15 +170,15 @@ def describe_profiles() -> str:
     return "Available lint profiles:\n" + "\n".join(lines)
 
 
-def _normalize(config: Dict[str, Any]) -> Dict[str, Any]:
+def _normalize(config: dict[str, Any]) -> dict[str, Any]:
     """Return a deep copy of ``config`` with alias keys folded to canonical names."""
-    out: Dict[str, Any] = {}
+    out: dict[str, Any] = {}
     for key, value in copy.deepcopy(config).items():
         out[_ALIASES.get(key, key)] = value
     return out
 
 
-def merge_profile_dicts(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+def merge_profile_dicts(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     """Layer ``override`` on top of ``base`` and return a new merged config dict.
 
     The merge policy is chosen so layering reads intuitively:

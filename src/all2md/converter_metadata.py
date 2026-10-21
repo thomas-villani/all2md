@@ -8,9 +8,10 @@ from __future__ import annotations
 
 import importlib
 import os
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import IO, Callable, Optional, Union
+from typing import IO
 
 
 @dataclass
@@ -94,17 +95,17 @@ class ConverterMetadata:
     extensions: list[str] = field(default_factory=list)
     mime_types: list[str] = field(default_factory=list)
     magic_bytes: list[tuple[bytes, int]] = field(default_factory=list)
-    content_detector: Optional[Callable[[bytes], bool]] = None
-    content_detector_path: Optional[str] = None
-    parser_class: Optional[Union[str, type]] = None
-    renderer_class: Optional[Union[str, type]] = None
+    content_detector: Callable[[bytes], bool] | None = None
+    content_detector_path: str | None = None
+    parser_class: str | type | None = None
+    renderer_class: str | type | None = None
     parser_required_packages: list[tuple[str, str, str]] = field(default_factory=list)
     renderer_required_packages: list[tuple[str, str, str]] = field(default_factory=list)
     renders_as_string: bool = False
     optional_packages: list[tuple[str, str]] = field(default_factory=list)
     import_error_message: str = ""
-    parser_options_class: Optional[Union[str, type]] = None
-    renderer_options_class: Optional[Union[str, type]] = None
+    parser_options_class: str | type | None = None
+    renderer_options_class: str | type | None = None
     description: str = ""
     priority: int = 0
 
@@ -216,7 +217,7 @@ class ConverterMetadata:
 
         return False
 
-    def resolve_content_detector(self) -> Optional[Callable[[bytes], bool]]:
+    def resolve_content_detector(self) -> Callable[[bytes], bool] | None:
         """Return the content-detection callable, importing it lazily if needed.
 
         Prefers a live ``content_detector`` callable when present (e.g. set
@@ -251,8 +252,8 @@ class ConverterMetadata:
 
     def get_required_packages_for_content(
         self,
-        content: Optional[bytes] = None,
-        input_data: Optional[Union[str, Path, IO[bytes], bytes]] = None,
+        content: bytes | None = None,
+        input_data: str | Path | IO[bytes] | bytes | None = None,
         operation: str = "parse",
     ) -> list[tuple[str, str, str]]:
         """Get required packages for specific content, allowing context-aware dependency checking.
@@ -348,7 +349,7 @@ class ConverterMetadata:
         return str(self.renderer_class)  # type: ignore[unreachable]
 
     @staticmethod
-    def normalize_class_spec(class_spec: Union[str, type, None], default_module: str) -> Optional[str]:
+    def normalize_class_spec(class_spec: str | type | None, default_module: str) -> str | None:
         """Normalize a class specification to a fully-qualified dotted path.
 
         Mirrors the resolution rules used by ``converter_registry._load_class``,

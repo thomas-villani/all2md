@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import IO, Any, Literal, Optional, Union
+from typing import IO, Any, Literal
 
 from all2md.ast import (
     BlockQuote,
@@ -87,7 +87,7 @@ class RestructuredTextParser(BaseParser):
 
     """
 
-    def __init__(self, options: RstParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: RstParserOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the RST parser with options and progress callback."""
         BaseParser._validate_options_type(options, RstParserOptions, "rst")
         options = options or RstParserOptions()
@@ -95,7 +95,7 @@ class RestructuredTextParser(BaseParser):
         self.options: RstParserOptions = options
 
     @requires_dependencies("rst", DEPS_RST)
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse RST input into AST Document.
 
         Parameters

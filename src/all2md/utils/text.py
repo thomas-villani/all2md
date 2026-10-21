@@ -37,7 +37,6 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from typing import Set
 
 
 def make_unique_slug(slug: str, seen_slugs: dict[str, int], separator: str = "-") -> str:
@@ -102,7 +101,7 @@ def make_unique_slug(slug: str, seen_slugs: dict[str, int], separator: str = "-"
         return slug
 
 
-def slugify(text: str, *, seen_slugs: Set[str] | None = None, max_length: int = 100, separator: str = "-") -> str:
+def slugify(text: str, *, seen_slugs: set[str] | None = None, max_length: int = 100, separator: str = "-") -> str:
     """Create a URL-safe slug from text with collision avoidance.
 
     This function generates GitHub-flavored Markdown compatible slugs by:

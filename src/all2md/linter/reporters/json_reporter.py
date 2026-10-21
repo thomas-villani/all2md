@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from all2md.linter.reporters import ReportableResult, Reporter
 from all2md.linter.runner import LintFixResult, LintResult
