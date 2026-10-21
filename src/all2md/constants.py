@@ -254,8 +254,8 @@ DEPS_ENEX = [("lxml", "lxml", "")]
 
 # PDF-specific optional dependencies (beyond base pymupdf)
 DEPS_PDF_LANGDETECT = [("langdetect", "langdetect", ">=1.0.9")]
-DEPS_PDF_OCR = [("pytesseract", "pytesseract", ">=0.3.10"), ("Pillow", "PIL", ">=9.0.0")]
-DEPS_PDF_OCR_EASYOCR = [("easyocr", "easyocr", ">=1.7.0"), ("Pillow", "PIL", ">=9.0.0")]
+DEPS_PDF_OCR = [("pytesseract", "pytesseract", ">=0.3.10"), ("Pillow", "PIL", ">=13.0.0")]
+DEPS_PDF_OCR_EASYOCR = [("easyocr", "easyocr", ">=1.7.0"), ("Pillow", "PIL", ">=13.0.0")]
 DEPS_PDF_LAYOUT = [("pymupdf-layout", "pymupdf.layout", "")]
 
 # Document renderers (may have different version requirements than parsers)
