@@ -33,7 +33,7 @@ def run(text: str) -> str:
 def test_a_square_root_keeps_its_radicand():
     """The regression: the radicand is `m:e`, not `m:base`."""
     latex = _omml_to_latex(
-        omml(f"<m:rad><m:radPr><m:degHide m:val=\"1\"/></m:radPr><m:deg/><m:e>{run('x')}</m:e></m:rad>")
+        omml(f'<m:rad><m:radPr><m:degHide m:val="1"/></m:radPr><m:deg/><m:e>{run("x")}</m:e></m:rad>')
     )
     assert latex == "\\sqrt{x}"
 
@@ -46,7 +46,7 @@ def test_a_radical_with_a_degree_keeps_both_parts():
 def test_a_radical_inside_a_fraction_survives_whole():
     """The shape that was failing in the wild: `\\frac{-b±}{2a}` looked fine."""
     numerator = (
-        f"{run('-b±')}<m:rad><m:radPr><m:degHide m:val=\"1\"/></m:radPr><m:deg/><m:e>{run('b^2-4ac')}</m:e></m:rad>"
+        f'{run("-b±")}<m:rad><m:radPr><m:degHide m:val="1"/></m:radPr><m:deg/><m:e>{run("b^2-4ac")}</m:e></m:rad>'
     )
     latex = _omml_to_latex(omml(f"<m:f><m:num>{numerator}</m:num><m:den>{run('2a')}</m:den></m:f>"))
     assert "\\sqrt{b^2-4ac}" in latex
@@ -160,7 +160,7 @@ def test_inline_math_lands_between_the_words_it_sits_between():
     paragraph._p.append(
         etree.fromstring(
             f'<m:oMath xmlns:m="{MATH_NS}"><m:f><m:num>{run("a")}</m:num>'
-            f'<m:den>{run("b")}</m:den></m:f></m:oMath>'.encode("utf-8")
+            f"<m:den>{run('b')}</m:den></m:f></m:oMath>".encode("utf-8")
         )
     )
     paragraph.add_run(" here")

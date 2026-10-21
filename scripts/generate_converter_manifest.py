@@ -227,6 +227,7 @@ detectors are imported lazily on first use.
 Regenerate with:
     python scripts/generate_converter_manifest.py --update
 """
+
 # ruff: noqa: E501  (generated file: long literal extension/mime/message lines)
 
 from __future__ import annotations

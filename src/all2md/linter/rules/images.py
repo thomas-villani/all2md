@@ -185,7 +185,7 @@ class ImageSizeExcessiveRule(LintRule):
             if decoded_bytes > max_bytes:
                 violations.append(
                     self.build_violation(
-                        message=(f"Inline image is approximately {decoded_bytes:,} bytes " f"(max {max_bytes:,})"),
+                        message=(f"Inline image is approximately {decoded_bytes:,} bytes (max {max_bytes:,})"),
                         line=_line(image),
                         column=_column(image),
                         node_type="Image",

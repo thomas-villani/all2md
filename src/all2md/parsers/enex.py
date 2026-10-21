@@ -430,7 +430,7 @@ class EnexToAstConverter(BaseParser):
             resource = note_resources.get(media_hash)
             if not resource or "data" not in resource:
                 # Resource not found, create placeholder
-                return f'<div>[Attachment: {resource.get("filename", media_hash) if resource else media_hash}]</div>'
+                return f"<div>[Attachment: {resource.get('filename', media_hash) if resource else media_hash}]</div>"
 
             # Determine if it's an image
             mime_type = resource.get("mime_type", "")
@@ -461,7 +461,7 @@ class EnexToAstConverter(BaseParser):
                     return f'<a href="{result["url"]}">{filename}</a>'
             elif result.get("markdown"):
                 # For base64, return as HTML comment (will be handled by HTML parser)
-                return f'<!-- {result["markdown"]} -->'
+                return f"<!-- {result['markdown']} -->"
             else:
                 return f"<div>[Attachment: {filename}]</div>"
 

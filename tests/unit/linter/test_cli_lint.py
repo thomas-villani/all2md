@@ -108,7 +108,7 @@ class TestLintCliFix:
     def test_clean_file_not_rewritten(self, tmp_path, capsys):
         path = tmp_path / "clean.md"
         clean_source = (
-            "# Title\n\nA clean paragraph with more than ten words to satisfy " "the short-section rule comfortably.\n"
+            "# Title\n\nA clean paragraph with more than ten words to satisfy the short-section rule comfortably.\n"
         )
         path.write_text(clean_source, encoding="utf-8")
         before_mtime = path.stat().st_mtime_ns

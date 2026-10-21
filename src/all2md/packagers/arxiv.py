@@ -73,9 +73,7 @@ class ArxivPackager:
         effective_bib = bib_file or (Path(self.options.bib_file) if self.options.bib_file else None)
         if effective_bib is not None:
             bib_name = effective_bib.stem
-            bib_commands = (
-                f"\n\\bibliographystyle{{{self.options.bibliography_style}}}\n" f"\\bibliography{{{bib_name}}}\n"
-            )
+            bib_commands = f"\n\\bibliographystyle{{{self.options.bibliography_style}}}\n\\bibliography{{{bib_name}}}\n"
             end_doc = "\\end{document}"
             if end_doc in latex_content:
                 latex_content = latex_content.replace(end_doc, bib_commands + "\n" + end_doc)

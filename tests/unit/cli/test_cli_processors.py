@@ -1000,13 +1000,7 @@ def test_load_converter_config_options_flattens_and_strips(tmp_path, monkeypatch
     """Converter options come from the config; subcommand/[rich] tables are stripped."""
     cfg = tmp_path / ".all2md.toml"
     cfg.write_text(
-        "attachment_mode = 'save'\n\n"
-        "[pdf]\n"
-        "detect_columns = true\n\n"
-        "[view]\n"
-        "dark = true\n\n"
-        "[rich]\n"
-        "h1 = 'bold red'\n",
+        "attachment_mode = 'save'\n\n[pdf]\ndetect_columns = true\n\n[view]\ndark = true\n\n[rich]\nh1 = 'bold red'\n",
         encoding="utf-8",
     )
     monkeypatch.delenv("ALL2MD_CONFIG", raising=False)

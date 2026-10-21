@@ -700,7 +700,6 @@ def _handle_save_mode(
 
     # Validate output directory for security (prevent path traversal)
     try:
-
         # Validate that the output directory is safe
         validated_output_dir = validate_safe_output_directory(
             attachment_output_dir,
@@ -726,9 +725,7 @@ def _handle_save_mode(
 
     # Check if attachment data is available
     if not attachment_data:
-        logger.warning(
-            f"No attachment data available for save mode: {attachment_name}. " f"Falling back to alt_text mode."
-        )
+        logger.warning(f"No attachment data available for save mode: {attachment_name}. Falling back to alt_text mode.")
         return None
 
     # Sanitize the filename for security

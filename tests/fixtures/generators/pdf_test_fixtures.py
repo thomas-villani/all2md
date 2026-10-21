@@ -178,8 +178,7 @@ def create_pdf_with_complex_layout() -> pymupdf.Document:
 
     # Text that should appear after figure
     para2 = (
-        "This paragraph comes after the figure. It should be properly "
-        "detected and positioned in the markdown output."
+        "This paragraph comes after the figure. It should be properly detected and positioned in the markdown output."
     )
     page.insert_text((50, 150), para2, fontsize=12, color=(0, 0, 0))
 

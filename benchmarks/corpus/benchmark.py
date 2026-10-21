@@ -100,7 +100,7 @@ def run_benchmark(
         items = items[:max_docs]
 
     print(
-        f"Benchmarking {len(items)} document(s) " f"(layout model: {'on' if use_layout_model else 'off'})...",
+        f"Benchmarking {len(items)} document(s) (layout model: {'on' if use_layout_model else 'off'})...",
         flush=True,
     )
     results: list[DocResult] = []

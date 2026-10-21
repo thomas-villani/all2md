@@ -232,9 +232,7 @@ def format_report(runs: list[tuple[str, dict]], spreads: list[Spread]) -> str:
     noise = within_run_noise(runs)
     lines = [f"{len(runs)} run(s): {', '.join(label for label, _ in runs)}", ""]
 
-    header = (
-        f"{'scenario':<12} {'metric':<20} {'n':>2} {'median':>10} " f"{'lo':>10} {'hi':>10} {'max dev%':>9} {'cv%':>6}"
-    )
+    header = f"{'scenario':<12} {'metric':<20} {'n':>2} {'median':>10} {'lo':>10} {'hi':>10} {'max dev%':>9} {'cv%':>6}"
     lines += [header, "-" * len(header)]
     last_scenario = None
     for s in spreads:

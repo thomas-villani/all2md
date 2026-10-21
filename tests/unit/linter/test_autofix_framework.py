@@ -154,9 +154,7 @@ class TestLintAndFixDocument:
                 Paragraph(
                     content=[
                         Text(
-                            content=(
-                                "A clean paragraph with enough words to " "satisfy the short-section rule for sure."
-                            )
+                            content=("A clean paragraph with enough words to satisfy the short-section rule for sure.")
                         )
                     ]
                 ),

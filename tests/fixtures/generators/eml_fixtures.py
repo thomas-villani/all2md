@@ -37,9 +37,7 @@ def create_email_with_html_and_attachment() -> EmailMessage:
     msg["Message-ID"] = make_msgid(domain="example.com")
     msg["Date"] = format_datetime(datetime.datetime(2025, 3, 1, 9, 0))
 
-    text_body = (
-        "Team,\n\n" "Release 2.3.0 is live. See the HTML body for highlights.\n\n" "Thanks,\nRelease Engineering\n"
-    )
+    text_body = "Team,\n\nRelease 2.3.0 is live. See the HTML body for highlights.\n\nThanks,\nRelease Engineering\n"
     html_body = (
         "<html><body>"
         "<h1>Release 2.3.0</h1>"

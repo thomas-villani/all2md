@@ -139,7 +139,6 @@ class ConversionEventHandler(FileSystemEventHandler):
 
         # Check exclude patterns
         if self.exclude_patterns:
-
             for pattern in self.exclude_patterns:
                 if fnmatch.fnmatch(str(path), pattern) or fnmatch.fnmatch(path.name, pattern):
                     logger.debug(f"Skipping {file_path}: matches exclude pattern {pattern}")

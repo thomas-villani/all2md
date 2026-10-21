@@ -29,8 +29,7 @@ class TestMetadataDoS:
         large_content = "A" * (MAX_META_TAG_CONTENT_LENGTH + 1000)
 
         html = (
-            f'<html><head><meta name="description" content="{large_content}">'
-            "</head><body><p>Content</p></body></html>"
+            f'<html><head><meta name="description" content="{large_content}"></head><body><p>Content</p></body></html>'
         )
 
         # Should not raise an exception and should parse successfully

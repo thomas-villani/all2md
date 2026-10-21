@@ -171,8 +171,7 @@ class TestHtml:
 
     def test_figure_mode_reads_the_container_back(self) -> None:
         html = (
-            b"<figure><img src='x.png' alt='a'><table><tr><th>h</th></tr></table>"
-            b"<figcaption>Cap</figcaption></figure>"
+            b"<figure><img src='x.png' alt='a'><table><tr><th>h</th></tr></table><figcaption>Cap</figcaption></figure>"
         )
         parsed = to_ast(html, source_format="html", parser_options=HtmlOptions(figures_parsing="figure"))
 

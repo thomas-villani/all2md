@@ -201,7 +201,7 @@ def _extract_ods_charts(table: Any, base_filename: str, options: Any) -> list[No
                         chart_nodes.append(
                             Paragraph(
                                 content=[
-                                    Text(content=("[Chart detected - data extraction not yet " "implemented for ODS]"))
+                                    Text(content=("[Chart detected - data extraction not yet implemented for ODS]"))
                                 ]
                             )
                         )

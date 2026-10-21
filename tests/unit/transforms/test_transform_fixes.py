@@ -373,9 +373,9 @@ class TestFix4NodePathWithReplacedNodes:
 
         # Text hook should see the REPLACED link in its ancestry
         assert len(link_in_path) == 1
-        assert (
-            link_in_path[0] == "http://replaced.com"
-        ), "Descendant should see replaced parent node in path, not original"
+        assert link_in_path[0] == "http://replaced.com", (
+            "Descendant should see replaced parent node in path, not original"
+        )
 
     def test_multiple_replacements_in_chain(self):
         """Test that multiple node replacements in ancestry are all visible."""
@@ -493,9 +493,9 @@ class TestFix5TimezoneAwareTimestamps:
             transform = AddConversionTimestampTransform(timestamp_format=format_str)
             result = transform.transform(doc)
             timestamp = result.metadata["conversion_timestamp"]
-            assert (
-                len(timestamp) >= expected_min_length
-            ), f"Format {format_str} should produce valid timestamp, got: {timestamp}"
+            assert len(timestamp) >= expected_min_length, (
+                f"Format {format_str} should produce valid timestamp, got: {timestamp}"
+            )
 
 
 class TestFix6AddAttachmentFootnotesRegistration:
@@ -511,9 +511,9 @@ class TestFix6AddAttachmentFootnotesRegistration:
         transform_registry._ensure_initialized()
 
         registered_transforms = transform_registry.list_transforms()
-        assert (
-            "add-attachment-footnotes" in registered_transforms
-        ), "AddAttachmentFootnotesTransform should be registered as 'add-attachment-footnotes'"
+        assert "add-attachment-footnotes" in registered_transforms, (
+            "AddAttachmentFootnotesTransform should be registered as 'add-attachment-footnotes'"
+        )
 
     def test_metadata_is_exported(self):
         """Test that ADD_ATTACHMENT_FOOTNOTES_METADATA is exported."""
@@ -541,9 +541,9 @@ class TestFix7CentralizedBoilerplatePatterns:
         """Test that DEFAULT_BOILERPLATE_PATTERNS contains all 6 patterns."""
         from all2md.constants import DEFAULT_BOILERPLATE_PATTERNS
 
-        assert (
-            len(DEFAULT_BOILERPLATE_PATTERNS) == 6
-        ), f"DEFAULT_BOILERPLATE_PATTERNS should have 6 patterns, got {len(DEFAULT_BOILERPLATE_PATTERNS)}"
+        assert len(DEFAULT_BOILERPLATE_PATTERNS) == 6, (
+            f"DEFAULT_BOILERPLATE_PATTERNS should have 6 patterns, got {len(DEFAULT_BOILERPLATE_PATTERNS)}"
+        )
 
     def test_transform_uses_centralized_patterns(self):
         """Test that RemoveBoilerplateTextTransform uses centralized patterns."""
@@ -551,9 +551,9 @@ class TestFix7CentralizedBoilerplatePatterns:
         from all2md.transforms.builtin import RemoveBoilerplateTextTransform
 
         transform = RemoveBoilerplateTextTransform()
-        assert (
-            transform.patterns == DEFAULT_BOILERPLATE_PATTERNS
-        ), "Transform should use centralized DEFAULT_BOILERPLATE_PATTERNS"
+        assert transform.patterns == DEFAULT_BOILERPLATE_PATTERNS, (
+            "Transform should use centralized DEFAULT_BOILERPLATE_PATTERNS"
+        )
 
     def test_options_uses_centralized_patterns(self):
         """Test that RemoveBoilerplateOptions uses centralized patterns."""
@@ -561,9 +561,9 @@ class TestFix7CentralizedBoilerplatePatterns:
         from all2md.transforms.options import RemoveBoilerplateOptions
 
         options = RemoveBoilerplateOptions()
-        assert (
-            options.patterns == DEFAULT_BOILERPLATE_PATTERNS
-        ), "Options should use centralized DEFAULT_BOILERPLATE_PATTERNS"
+        assert options.patterns == DEFAULT_BOILERPLATE_PATTERNS, (
+            "Options should use centralized DEFAULT_BOILERPLATE_PATTERNS"
+        )
 
     def test_metadata_uses_centralized_patterns(self):
         """Test that REMOVE_BOILERPLATE_METADATA uses centralized patterns."""
@@ -574,9 +574,9 @@ class TestFix7CentralizedBoilerplatePatterns:
         patterns_param = metadata.parameters.get("patterns")
 
         assert patterns_param is not None, "Metadata should have 'patterns' parameter"
-        assert (
-            patterns_param.default == DEFAULT_BOILERPLATE_PATTERNS
-        ), "Metadata default should use centralized patterns"
+        assert patterns_param.default == DEFAULT_BOILERPLATE_PATTERNS, (
+            "Metadata default should use centralized patterns"
+        )
 
     def test_all_locations_use_identical_patterns(self):
         """Test that all three locations use the exact same pattern list."""

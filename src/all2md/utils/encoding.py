@@ -306,7 +306,7 @@ def normalize_stream_to_text(
         return content
     else:
         # Unexpected type
-        raise TypeError(f"Stream read() returned unexpected type {type(content).__name__}. " f"Expected bytes or str.")
+        raise TypeError(f"Stream read() returned unexpected type {type(content).__name__}. Expected bytes or str.")
 
 
 def normalize_stream_to_bytes(
@@ -369,4 +369,4 @@ def normalize_stream_to_bytes(
         return content.encode(encoding)
     else:
         # Unexpected type
-        raise TypeError(f"Stream read() returned unexpected type {type(content).__name__}. " f"Expected bytes or str.")
+        raise TypeError(f"Stream read() returned unexpected type {type(content).__name__}. Expected bytes or str.")
