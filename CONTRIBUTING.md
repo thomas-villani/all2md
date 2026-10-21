@@ -173,7 +173,7 @@ The project uses the following pre-commit hooks (see `.pre-commit-config.yaml`):
    - `format-sync-update`: Auto-updates DocumentFormat Literal in constants.py
    - `format-sync-validate`: Validates DocumentFormat synchronization
 
-2. **Ruff** (v0.15.20)
+2. **Ruff** (v0.17.1)
    - `ruff`: lints code and auto-fixes common issues (`--fix`)
    - `ruff-format`: then formats it (120 char line length, Python 3.11+)
 
