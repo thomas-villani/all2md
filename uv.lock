@@ -378,7 +378,7 @@ requires-dist = [
     { name = "rich", marker = "extra == 'all'", specifier = ">=14.2.0" },
     { name = "rich", marker = "extra == 'cli-extras'", specifier = ">=14.2.0" },
     { name = "rich", marker = "extra == 'tui'", specifier = ">=14.2.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.15.20" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = "==0.15.20" },
     { name = "sentence-transformers", marker = "extra == 'search'", specifier = ">=2.2.2" },
     { name = "six", marker = "extra == 'rtf'", specifier = ">=1.17.0" },
     { name = "sphinx", marker = "extra == 'dev'", specifier = ">=9.0.4" },
