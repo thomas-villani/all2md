@@ -66,7 +66,6 @@ from __future__ import annotations
 
 import datetime
 import logging
-import sys
 from pathlib import Path
 from typing import IO, Any, Optional, Union
 
@@ -165,11 +164,7 @@ class TomlParser(BaseParser):
             # Load content using BaseParser helper
             content = self._load_text_content(input_data)
 
-            # Import TOML library (prefer stdlib tomllib in Python 3.11+, fallback to tomli)
-            if sys.version_info >= (3, 11):
-                import tomllib
-            else:
-                import tomli as tomllib
+            import tomllib
 
             # Check if we should render as literal code block
             if self.options.literal_block:
@@ -568,13 +563,7 @@ def _detect_toml_content(content: bytes) -> bool:
             return False
 
         # Try to parse as TOML
-        if sys.version_info >= (3, 11):
-            import tomllib
-        else:
-            try:
-                import tomli as tomllib
-            except ImportError:
-                return False
+        import tomllib
 
         # Comments alone (a Markdown "# Heading", a shell comment) are a valid, empty
         # TOML document; it takes at least one key to be TOML.
@@ -595,7 +584,7 @@ CONVERTER_METADATA = ConverterMetadata(
     renders_as_string=True,
     parser_required_packages=[("tomli-w", "tomli_w", ">=1.0.0")],
     renderer_required_packages=[("tomli-w", "tomli_w", ">=1.0.0")],
-    import_error_message="TOML conversion requires tomli and tomli-w (pip install tomli tomli-w)",
+    import_error_message="TOML conversion requires tomli-w (pip install tomli-w)",
     parser_options_class=TomlParserOptions,
     renderer_options_class="all2md.options.toml.TomlRendererOptions",
     description="Convert TOML to/from a fenced code block (default) or a structured document",

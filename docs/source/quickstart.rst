@@ -63,7 +63,7 @@ Reading in the Terminal
 
 To read a document rather than convert it, draw it in the terminal with ``rcat``
 (``pip install all2md[cli_extras]``), or open it in the interactive viewer, with an
-outline and a tree of a folder's documents (``pip install all2md[tui]``, Python 3.11+):
+outline and a tree of a folder's documents (``pip install all2md[tui]``):
 
 .. code-block:: bash
 

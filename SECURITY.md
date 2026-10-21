@@ -77,9 +77,8 @@ all2md implements several security measures to protect against common vulnerabil
 
 ### 5. Dependency Security
 
-- **Minimal Core Dependencies**: Core library has three runtime dependencies
-  (tomli-w, pyyaml, platformdirs), plus tomli and typing_extensions as
-  backports on Python 3.10
+- **Minimal Core Dependencies**: Core library has four runtime dependencies
+  (tomli-w, pyyaml, platformdirs, mistune)
 - **Optional Dependencies**: Install only what you need, reducing attack surface
 - **Regular Updates**: Dependencies are regularly updated via Dependabot
 - **Security Scanning**: Automated dependency vulnerability scanning

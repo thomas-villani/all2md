@@ -64,16 +64,8 @@ MAX_EAGER_ALL2MD_MODULES = 40
 #
 # ``yaml`` and ``tomli_w`` at import time are themselves R2 leads - neither is
 # obviously needed to print a version string.
-#
-# Backports are a property of the interpreter, not of our import graph: on 3.10
-# ``options/base.py`` falls back to ``typing_extensions`` for ``Self``, which the
-# stdlib provides from 3.11. Gating on it unconditionally would fail 3.10 for
-# being 3.10, so it is added per-version. The guard mirrors the dependency marker
-# in pyproject.toml (``typing_extensions>=4.0.0;python_version<'3.11'``) - if
-# that marker moves, this must move with it.
-_BACKPORTS = frozenset({"typing_extensions"}) if sys.version_info < (3, 11) else frozenset()
 
-EAGER_THIRD_PARTY_PACKAGES = frozenset({"all2md", "tomli_w", "yaml"}) | _BACKPORTS
+EAGER_THIRD_PARTY_PACKAGES = frozenset({"all2md", "tomli_w", "yaml"})
 
 # Enough modules that a broken probe (empty output, import failure swallowed
 # somewhere) is obviously distinguishable from a genuinely lean import.
@@ -179,10 +171,7 @@ def test_eager_third_party_packages_match_the_allowlist() -> None:
             ]
         if removed:
             lines += ["No longer imported eagerly (record the win):", *(f"  - {m}" for m in sorted(removed)), ""]
-        # Backports are added per-version, so pasting them into the base set
-        # would break every other interpreter in the matrix.
-        base = sorted(actual - _BACKPORTS)
-        lines += ["Updated allowlist (version-specific backports excluded):", "", f"    frozenset({base!r})"]
+        lines += ["Updated allowlist:", "", f"    frozenset({sorted(actual)!r})"]
         pytest.fail("\n".join(lines))
 
 

@@ -18,7 +18,6 @@ import fnmatch
 import json
 import random
 import re
-import sys
 import tarfile
 import time
 import urllib.error
@@ -640,10 +639,8 @@ def _report_unfulfilled_formats(name: str, cfg: dict, items: list[CorpusItem]) -
 
 
 def load_manifest(toml_path: Path) -> dict:
-    if sys.version_info >= (3, 11):
-        import tomllib
-    else:
-        import tomli as tomllib
+    import tomllib
+
     with toml_path.open("rb") as f:
         return tomllib.load(f)
 

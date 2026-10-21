@@ -58,7 +58,7 @@ def test_text_report_lists_features(importable):
     report = dependencies.print_dependency_report()
     features = report.split("Features", 1)[1]
     assert "READ: [MISSING] all2md read and rcat -i" in features
-    assert 'Install with: pip install "all2md[tui]"' in features or "Needs Python 3.11" in features
+    assert 'Install with: pip install "all2md[tui]"' in features
 
 
 def test_json_report_has_features(importable):

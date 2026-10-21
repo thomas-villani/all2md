@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import sys
 from io import BytesIO
 
 import pytest
@@ -71,7 +70,6 @@ port = 8080
         assert len(doc.children) > 0
         assert isinstance(doc.children[0], CodeBlock)
 
-    @pytest.mark.skipif(sys.version_info < (3, 11), reason="tomli_w may not be available")
     def test_literal_block_formats_valid_toml(self):
         """Test literal block mode formats valid TOML."""
         toml_content = """

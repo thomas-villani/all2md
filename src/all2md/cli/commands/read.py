@@ -9,7 +9,7 @@ references move the viewer; other links are shown with their target, never
 opened, and are not clickable in the terminal unless ``--clickable-links``
 says so. Given a folder, a glob pattern or several files (or nothing, on a
 terminal), the viewer opens on a tree of the documents there instead. Needs the ``tui`` extra
-(Wijjit, Python 3.11+); ``rcat`` without ``-i`` works without it.
+(Wijjit); ``rcat`` without ``-i`` works without it.
 """
 
 from __future__ import annotations
@@ -132,10 +132,7 @@ def handle_read_command(args: list[str] | None = None) -> int:
     from all2md.tui.app import wijjit_available
 
     if not wijjit_available():
-        if sys.version_info < (3, 11):
-            print(f"{INSTALL_HINT}, which needs Python 3.11 or later; `rcat FILE` works here.", file=sys.stderr)
-        else:
-            print(INSTALL_HINT, file=sys.stderr)
+        print(INSTALL_HINT, file=sys.stderr)
         return EXIT_DEPENDENCY_ERROR
 
     from all2md.tui.app import Viewer

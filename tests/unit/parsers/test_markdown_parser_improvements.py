@@ -46,7 +46,6 @@ Content here."""
         parser = MarkdownToAstConverter()
         doc = parser.parse(markdown)
 
-        # TOML parsing requires tomllib or tomli
         # Check if metadata was extracted
         metadata_title = doc.metadata.get("title")
         if metadata_title:  # Only check if TOML was actually parsed

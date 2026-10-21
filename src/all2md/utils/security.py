@@ -163,7 +163,7 @@ def resolve_file_url_to_path(file_url: str) -> Path:
         # Check if it looks like a UNC path (has at least one slash/backslash after server name)
         elif "/" in path_part or "\\" in path_part:
             # Likely UNC path: file://server/share/file -> \\server\share\file
-            file_path = Path("\\\\" + path_part.replace("/", "\\"))  # No f-str for python3.10
+            file_path = Path("\\\\" + path_part.replace("/", "\\"))  # Backslashes in an f-string expression need 3.12
         else:
             # Likely relative path: file://filename
             file_path = Path.cwd() / path_part

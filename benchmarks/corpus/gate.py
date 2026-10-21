@@ -241,10 +241,7 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
 
-    if sys.version_info >= (3, 11):
-        import tomllib
-    else:
-        import tomli as tomllib
+    import tomllib
 
     results = json.loads(args.results.read_text(encoding="utf-8"))
     with args.manifest.open("rb") as f:

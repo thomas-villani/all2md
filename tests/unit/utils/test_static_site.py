@@ -3,15 +3,11 @@
 # tests/unit/utils/test_static_site.py
 """Tests for static site generator utilities."""
 
+import tomllib
 from datetime import datetime
 from pathlib import Path
 
 import yaml
-
-try:
-    import tomllib
-except ModuleNotFoundError:
-    import tomli as tomllib
 
 from all2md.ast.nodes import Document, Heading, Image, Paragraph, Text
 from all2md.utils.static_site import (

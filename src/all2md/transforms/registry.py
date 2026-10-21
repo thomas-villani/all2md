@@ -294,7 +294,6 @@ class TransformRegistry:
             # Get entry points for all2md.transforms group
             entry_points = importlib.metadata.entry_points()
 
-            # Python 3.10+ only
             transform_eps = entry_points.select(group="all2md.transforms")
 
             for ep in transform_eps:

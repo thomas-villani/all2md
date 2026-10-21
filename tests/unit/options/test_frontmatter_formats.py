@@ -1,11 +1,8 @@
 """Tests for frontmatter format selection (YAML, TOML, JSON)."""
 
-import yaml
+import tomllib
 
-try:
-    import tomllib
-except ModuleNotFoundError:
-    import tomli as tomllib
+import yaml
 
 from all2md.ast.nodes import Document, Paragraph, Text
 from all2md.options import MarkdownRendererOptions

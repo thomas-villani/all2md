@@ -86,7 +86,7 @@ all2md read docs/            # choose from the documents in a folder
 
 When you would rather have a browser, `all2md view report.docx` opens a styled HTML preview, `all2md serve ./docs -r` serves a whole folder with on-demand conversion, and `all2md edit notes.md` opens a browser editor that saves back to the file.
 
-Styling needs the `cli_extras` extra and the viewer needs `tui` (Python 3.11+); `all2md[all]` includes both. More in the [viewer documentation](https://all2md.readthedocs.io/en/latest/viewer.html).
+Styling needs the `cli_extras` extra and the viewer needs `tui`; `all2md[all]` includes both. More in the [viewer documentation](https://all2md.readthedocs.io/en/latest/viewer.html).
 
 ## Convert documents from the command line
 
@@ -325,7 +325,7 @@ To slim it down, download the script and pass the extras you want: `sh install.s
 
 ```bash
 uv add "all2md[cli_extras]"     # terminal styling for --rich / rcat, progress bars, watch mode
-uv add "all2md[tui]"            # the interactive viewer, all2md read (Python 3.11+)
+uv add "all2md[tui]"            # the interactive viewer, all2md read
 uv add "all2md[pdf,ocr]"        # OCR for scanned PDFs (Tesseract; needs the system binary)
 uv add "all2md[pdf,ocr-easyocr]" # ...or binary-free EasyOCR (downloads models on first use)
 uv add "all2md[pdf_layout]"     # ML layout analysis for difficult PDFs

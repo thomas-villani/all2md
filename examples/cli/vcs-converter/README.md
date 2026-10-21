@@ -47,7 +47,7 @@ git config diff.all2md.cachetextconv true
 pip install "all2md[all]"     # or narrow it: all2md[docx,pptx,pdf]
 ```
 
-Python 3.10+, and `python-docx` if you want to run `demo.py`.
+Python 3.11+, and `python-docx` if you want to run `demo.py`.
 
 Supported inputs are **`.docx`, `.pptx`, and `.pdf`** — the formats all2md can
 parse. Legacy OLE formats (`.doc`, `.ppt`) are not supported and are
