@@ -128,6 +128,10 @@ than committing a manifest that a bad link quietly thinned out.
 
 # Rebuild the manifest by walking the bucket. Run by hand; commit the result.
 .venv/Scripts/python.exe -m benchmarks.pmc build --per-seed 3
+
+# Score with layout analysis off, to measure what it is worth. The lane's policy and
+# reference.json are `enabled`; the workflow's `layout_mode` input does the same on CI.
+.venv/Scripts/python.exe -m benchmarks.pmc score --layout-mode disabled --out off.json
 ```
 
 ## The held-out corpus

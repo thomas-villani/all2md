@@ -762,6 +762,37 @@ def test_page_scores_and_the_error_budget_come_from_the_same_run(tmp_path: Path)
     assert payload["ocr_articles"] == []
 
 
+def test_run_converts_under_the_layout_mode_it_records(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A reading taken with layout off must say so, or it reads as the lane's own policy."""
+    seen: list[Any] = []
+
+    def fake_evaluate_corpus(articles: Any, *, options: Any = None) -> list[Any]:
+        seen.append(options)
+        return []
+
+    monkeypatch.setattr(benchmark, "evaluate_corpus", fake_evaluate_corpus)
+    snapshot = type(
+        "Snapshot",
+        (),
+        {
+            "articles": (),
+            "manifest_sha256": "a" * 64,
+            "bucket": "b",
+            "complete": True,
+            "expected_articles": 0,
+            "unavailable": {},
+            "tolerated_drift": {},
+        },
+    )()
+
+    default = benchmark.run(snapshot)
+    disabled = benchmark.run(snapshot, layout_mode="disabled")
+
+    assert [options.layout_analysis_mode for options in seen] == ["enabled", "disabled"]
+    assert default["provenance"]["parser_config"]["layout_analysis_mode"] == "enabled"
+    assert disabled["provenance"]["parser_config"]["layout_analysis_mode"] == "disabled"
+
+
 def test_recall_and_precision_are_reported_together() -> None:
     """Either number alone rewards a degenerate converter, so the payload carries both."""
     layer = f"{_LAYER} and afterwards {_FOREIGN}"

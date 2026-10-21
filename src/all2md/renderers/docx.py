@@ -62,6 +62,7 @@ from all2md.ast.nodes import (
     Text,
     ThematicBreak,
     Underline,
+    get_node_children,
 )
 from all2md.ast.nodes import (
     Document as ASTDocument,
@@ -188,6 +189,9 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
     # "List Number 2" and "List Number 3". Word numbering definitions stop at nine levels.
     _LIST_INDENT_TWIPS = 360
     _MAX_LIST_DEPTH = 9
+    # A task item's box, written as text before its content: the glyphs Word's own check
+    # box content control shows, which the parser reads back as the item's state.
+    _TASK_BOXES = {"unchecked": chr(0x2610) + " ", "checked": chr(0x2612) + " "}
 
     def __init__(self, options: DocxRendererOptions | None = None):
         """Initialize the DOCX renderer with options."""
@@ -207,6 +211,14 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         self._captioned_figure_depth: int = 0  # Inside a Figure that writes its own caption
         self._available_styles: set[str] = set()  # Populated after document creation
         self._caption_counts: dict[str, int] = {}  # SEQ identifier -> captions numbered so far
+        # Word footnotes (#621): each definition by label, the labels something refers to,
+        # and the footnotes part once a note needs one. A note cannot hold a note, so a
+        # reference met while writing one falls back to superscript text.
+        self._footnote_definitions: dict[str, FootnoteDefinition] = {}
+        self._referenced_footnotes: set[str] = set()
+        self._footnotes_part: Any = None
+        self._footnote_style_ids: tuple[str, str] | None = None
+        self._in_footnote: bool = False
 
     @requires_dependencies("docx_render", DEPS_DOCX_RENDER)
     def render(self, doc: ASTDocument, output: Union[str, Path, IO[bytes]]) -> None:
@@ -582,6 +594,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         # Define CodeBlock style if there are code blocks in the document
         if self._ast_contains_code_blocks(node):
             self._ensure_code_block_style()
+
+        self._collect_footnotes(node)
 
         # Render children
         for child in node.children:
@@ -1039,6 +1053,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             para._p.get_or_add_pPr().get_or_add_numPr().get_or_add_numId().val = int(num_id)
 
         self._current_paragraph = para
+        if node.task_status in self._TASK_BOXES:
+            para.add_run(self._TASK_BOXES[node.task_status])
 
         # Render children
         # Special handling: first Paragraph child should render inline with the list marker,
@@ -1132,7 +1148,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         """Whether the last block in the document body (before its sectPr) is a table."""
         if not self.document:
             return False
-        for child in reversed(self.document.element.body):
+        # The body being written, which is a note's while a footnote is rendered.
+        for child in reversed(self.document._body._element):
             if child.tag != self._qn("w:sectPr"):
                 return bool(child.tag == self._qn("w:tbl"))
         return False
@@ -1866,21 +1883,28 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
     def visit_footnote_reference(self, node: FootnoteReference) -> None:
         """Render a FootnoteReference node.
 
+        A reference whose definition exists becomes a Word footnote, which Word numbers and
+        sets at the foot of the page. One without a definition, or inside a note (Word has
+        no notes within notes), stays superscript ``[label]`` text, as before.
+
         Parameters
         ----------
         node : FootnoteReference
             Footnote reference to render
 
         """
-        # Footnote references could be rendered as endnotes in Word
-        # For now, render as superscript text
         if self._current_paragraph is None:
             if self.document:
                 self._current_paragraph = self.document.add_paragraph()
 
-        if self._current_paragraph:
+        if not self._current_paragraph:
+            return
+        definition = self._footnote_definitions.get(node.identifier)
+        if definition is None or self._in_footnote:
             run = self._current_paragraph.add_run(f"[{node.identifier}]")
             run.font.superscript = True
+            return
+        self._add_footnote(definition)
 
     def visit_math_inline(self, node: MathInline) -> None:
         """Render a MathInline node.
@@ -1908,14 +1932,17 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
     def visit_footnote_definition(self, node: FootnoteDefinition) -> None:
         """Render a FootnoteDefinition node.
 
+        A definition something refers to is written into the note at that reference, so
+        here it is skipped. One nothing refers to cannot be a Word note, which exists only
+        at its reference, so it stays a paragraph in the body rather than being lost.
+
         Parameters
         ----------
         node : FootnoteDefinition
             Footnote definition to render
 
         """
-        # Render as a separate paragraph
-        if not self.document:
+        if not self.document or node.identifier in self._referenced_footnotes:
             return
 
         para = self.document.add_paragraph()
@@ -1926,6 +1953,84 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         for child in node.content:
             child.accept(self)
         self._current_paragraph = None
+
+    def _collect_footnotes(self, root: Node) -> None:
+        """Index the document's footnote definitions and the labels referred to."""
+        self._footnote_definitions = {}
+        self._referenced_footnotes = set()
+        pending: list[Node] = [root]
+        while pending:
+            node = pending.pop()
+            if isinstance(node, FootnoteDefinition):
+                self._footnote_definitions.setdefault(node.identifier, node)
+            elif isinstance(node, FootnoteReference):
+                self._referenced_footnotes.add(node.identifier)
+            pending.extend(get_node_children(node))
+        # Only a label with a definition makes a note; a reference to an undefined label
+        # stays text and must not hide a definition of that name from the body.
+        self._referenced_footnotes &= set(self._footnote_definitions)
+
+    def _add_footnote(self, definition: FootnoteDefinition) -> None:
+        """Write ``definition`` as a Word footnote and its reference mark at the cursor.
+
+        The note's blocks go through the same visitors as the body, into a scratch body
+        whose paragraphs belong to the footnotes part, so formatting, links and lists come
+        out as they would in the body and their relationships land on the right part. A
+        label referred to twice gets a note at each reference, as Word cannot point two
+        marks at one note.
+        """
+        from docx.document import _Body
+        from docx.oxml.ns import nsdecls, qn
+        from docx.oxml.parser import parse_xml
+
+        from all2md.renderers import _docx_footnotes as notes
+
+        if self._footnotes_part is None:
+            self._footnotes_part = notes.get_or_add_footnotes_part(self.document)
+            self._footnote_style_ids = notes.ensure_footnote_styles(self.document)
+            self._available_styles = {s.name for s in self.document.styles}
+        part = self._footnotes_part
+        text_style, reference_style = cast(tuple[str, str], self._footnote_style_ids)
+        note_id = notes.next_footnote_id(part)
+        footnote = notes.add_footnote(part, note_id)
+
+        # Swap the document's body for a scratch one, so every add_paragraph/add_table a
+        # visitor calls writes into the note. python-docx keeps the body private.
+        scratch: Any = parse_xml(f"<w:body {nsdecls('w')}/>")
+        cursor = self._current_paragraph
+        saved_body = self.document._body
+        saved_state = (self._list_level, self._list_format_stack, self._in_table, self._blockquote_depth)
+        self.document._Document__body = _Body(scratch, notes.PartHolder(part))
+        self._list_level, self._list_format_stack, self._in_table, self._blockquote_depth = 0, [], False, 0
+        self._current_paragraph = None
+        self._in_footnote = True
+        try:
+            for child in definition.content:
+                child.accept(self)
+        finally:
+            self.document._Document__body = saved_body
+            self._list_level, self._list_format_stack, self._in_table, self._blockquote_depth = saved_state
+            self._current_paragraph = cursor
+            self._in_footnote = False
+
+        blocks: list[Any] = list(scratch)
+        if not blocks or blocks[0].tag != qn("w:p"):
+            blocks.insert(0, parse_xml(f"<w:p {nsdecls('w')}/>"))
+        for block in blocks:
+            footnote.append(block)
+        for paragraph in footnote.iter(qn("w:p")):
+            paragraph_pr = paragraph.get_or_add_pPr()
+            if paragraph_pr.pStyle is None:
+                paragraph_pr.style = text_style
+        # The note opens with Word's number mark and a space, as Insert Footnote writes it.
+        first = blocks[0]
+        mark = notes.styled_run(reference_style, "w:footnoteRef")
+        space = parse_xml(f'<w:r {nsdecls("w")}><w:t xml:space="preserve"> </w:t></w:r>')
+        first.pPr.addnext(space)
+        first.pPr.addnext(mark)
+
+        if cursor is not None:
+            cast(Any, cursor)._p.append(notes.styled_run(reference_style, "w:footnoteReference", note_id))
 
     def visit_definition_list(self, node: DefinitionList) -> None:
         """Render a DefinitionList node.
