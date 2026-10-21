@@ -13,9 +13,9 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Callable, cast
+from typing import IO, TYPE_CHECKING, Any, Callable, Literal, cast
 
 from all2md.constants import DEFAULT_INDENTATION_PT_PER_LEVEL, DEPS_DOCX
 from all2md.exceptions import MalformedFileError
@@ -111,6 +111,13 @@ W14_PARA_ID_ATTR = "{http://schemas.microsoft.com/office/word/2010/wordml}paraId
 W15_PREFIX = "{http://schemas.microsoft.com/office/word/2012/wordml}"
 MATH_NS = "http://schemas.openxmlformats.org/officeDocument/2006/math"
 MATH_TAG_PREFIX = f"{{{MATH_NS}}}"
+# A list item opening with a box is a task item (#621): the glyphs a Word check box content
+# control shows, which the DOCX renderer also writes. A checked box is drawn either way.
+TASK_BOXES: dict[str, Literal["checked", "unchecked"]] = {
+    chr(0x2610): "unchecked",
+    chr(0x2611): "checked",
+    chr(0x2612): "checked",
+}
 
 
 @dataclass
@@ -1255,7 +1262,8 @@ class DocxToAstConverter(BaseParser):
         content = self._process_paragraph_runs_to_inline(paragraph)
         if self._is_effectively_empty(content):
             return None
-        item_node = ListItem(children=[AstParagraph(content=content)])
+        task_status, content = _split_task_box(content)
+        item_node = ListItem(children=[AstParagraph(content=content)], task_status=task_status)
         identity = None
         if self._list_counters is not None:
             try:
@@ -2326,6 +2334,25 @@ class DocxToAstConverter(BaseParser):
             nodes.append(Comment(content=comment.text, metadata=comment.to_metadata()))
 
         return nodes
+
+
+def _split_task_box(content: list[Node]) -> tuple[Literal["checked", "unchecked"] | None, list[Node]]:
+    """Read a list item's leading check box as its task state, and drop the box.
+
+    Only a box that opens the item and stands apart from its text counts: a plain text
+    run starting with the glyph and then a space, or nothing else.
+    """
+    first = content[0] if content else None
+    if not isinstance(first, Text) or not first.content:
+        return None, content
+    status = TASK_BOXES.get(first.content[0])
+    rest = first.content[1:]
+    if status is None or (rest and not rest[0].isspace()):
+        return None, content
+    rest = rest.lstrip()
+    if rest:
+        return status, [replace(first, content=rest), *content[1:]]
+    return status, content[1:]
 
 
 def _comment_paragraph_text(paragraph: Any) -> str:
