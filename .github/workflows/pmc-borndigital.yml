@@ -47,7 +47,9 @@ on:
           - auto
 
 concurrency:
-  group: pmc-borndigital-${{ github.ref }}-${{ github.event_name }}
+  # The layout mode is part of the group so an enabled and a disabled reading of one ref
+  # can run side by side instead of the second cancelling the first.
+  group: pmc-borndigital-${{ github.ref }}-${{ github.event_name }}-${{ inputs.layout_mode || 'enabled' }}
   cancel-in-progress: true
 
 permissions:
