@@ -36,9 +36,20 @@ on:
         required: false
         default: ""
         type: string
+      layout_mode:
+        description: "layout_analysis_mode to convert under (enabled is the lane's policy and its reference)"
+        required: false
+        default: "enabled"
+        type: choice
+        options:
+          - enabled
+          - disabled
+          - auto
 
 concurrency:
-  group: pmc-borndigital-${{ github.ref }}-${{ github.event_name }}
+  # The layout mode is part of the group so an enabled and a disabled reading of one ref
+  # can run side by side instead of the second cancelling the first.
+  group: pmc-borndigital-${{ github.ref }}-${{ github.event_name }}-${{ inputs.layout_mode || 'enabled' }}
   cancel-in-progress: true
 
 permissions:
@@ -87,10 +98,13 @@ jobs:
           if [ -n "${LIMIT}" ]; then
             ARGS+=(--limit "${LIMIT}")
           fi
+          # A scheduled run has no inputs, so this falls back to the lane's policy.
+          ARGS+=(--layout-mode "${LAYOUT_MODE:-enabled}")
           uv run --frozen --extra pdf_layout --extra ocr --extra benchmarks python -m benchmarks.pmc score "${ARGS[@]}" \
             | tee "${RUNNER_TEMP}/pmc-summary.txt"
         env:
           LIMIT: ${{ inputs.limit }}
+          LAYOUT_MODE: ${{ inputs.layout_mode }}
 
       # The artifact alone is easy to ignore, and this lane's whole point is that somebody
       # reads the numbers beside their controls.

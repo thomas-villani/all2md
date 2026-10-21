@@ -187,8 +187,8 @@ By block kind:
      - Share of attainable
    * - Text blocks
      - 3,256 of 6,355
-     - 3,236
-     - **99.4%**
+     - 3,239
+     - **99.5%**
    * - Titles
      - 2,316 of 2,426
      - 2,291
@@ -199,7 +199,7 @@ By block kind:
      - **84.6%**
 
 The middle column counts only blocks inside the ceiling, so each row's share is its own
-two counts divided. A few more blocks are recovered than that: 3,264 text blocks, 2,313
+two counts divided. A few more blocks are recovered than that: 3,268 text blocks, 2,313
 titles and 104 tables come out matching the ground truth, including some the PDF's own text
 layer does not reproduce. Those count as recovered and on neither side of the share, which
 is why the larger count is not the one printed here.
@@ -245,7 +245,7 @@ Unsupported output is therefore split in two:
      - 0.7%
      - wants to be ~0%
 
-Over 445,426 emitted n-grams, 1,898 are novel. Reporting the raw unsupported figure instead
+Over 445,416 emitted n-grams, 1,796 are novel. Reporting the raw unsupported figure instead
 would have made the result roughly ten times worse than the parser deserves.
 
 Duplication is counted apart from both, because it is invisible to either. Text emitted
@@ -349,7 +349,7 @@ pages:
    * - ``reading_order_similarity``
      - 0.832
      - 0.293
-     - **0.538**
+     - **0.539**
    * - ``text_content_similarity``
      - 0.692
      - 0.234
@@ -363,9 +363,9 @@ pages:
      - 0.098
      - **0.555**
    * - ``block_structure_similarity``
-     - 0.552
-     - 0.447
-     - 0.105 — **not gated**
+     - 0.786
+     - 0.286
+     - 0.500 — **not gated**
 
 The two table dimensions score only the 123 pages that carry a table on either side; the
 other three score all 706.
@@ -375,8 +375,13 @@ the gap is what is left. A measure with no gap is not measuring the output. That
 against ``block_structure_similarity``, which is recorded here and excluded from the verdict
 in both lanes, for the reasons set out in the scanned-pages section below: on this corpus its
 original definition separated own-page from wrong-page output by 0.10, and it *rose* when
-half the emitted content was deleted. The row above is that original definition; the
-redefinition in #256 has not been re-recorded here yet.
+half the emitted content was deleted. The row above is the content-backed redefinition from
+#256, first recorded here on 2026-10-15. It took the value from 0.552 to 0.786 while every
+other dimension held to within a thousandth, it separates own-page from wrong-page output by
+0.50, and it falls by 0.22 when half the emitted content is deleted. Reversing a page's
+blocks costs it under 0.01, because it scores which kind of block holds each text, not
+where the block sits; order is ``reading_order_similarity``'s job. Whether that is enough
+to gate on has not been decided, so it stays out of the verdict.
 
 These are the numbers the figure-placement work moves. Figures and their captions used to be
 flushed at the end of whichever page they appeared on, no matter where on the page they were
@@ -431,10 +436,9 @@ each annotated block's text in the output (with the floor reading order uses) an
 whether the output put that text in a block of the same kind, and the reverse for each
 emitted block; the score is the F1 of the two. Splitting or merging blocks of one kind costs
 nothing, and a block whose text is missing counts as a miss. That change took the value from
-0.399 to 0.516 in a re-record where text and order held to three decimals. The new definition has not yet been measured
-against the wrong-page and deletion controls that disqualified the old one, so it stays
-ungated; the born-digital row above still reports the old definition until that lane is
-next re-recorded.
+0.399 to 0.516 in a re-record where text and order held to three decimals. The born-digital lane has since measured the
+new definition against the wrong-page and deletion controls that disqualified the old one
+(see its dimensions table above); it stays ungated until that reading is weighed.
 
 This baseline carries the resolution of issue #411. An earlier re-recording had exposed
 a drift across the v1.12/v1.13 parser arc (text 0.506 → 0.482, order 0.603 → 0.578) —

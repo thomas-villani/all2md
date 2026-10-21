@@ -6,69 +6,68 @@
 
 Legend: 🌱 natural next step · 🚀 ambitious · 🌙 moonshot · ⏸️ parked with a reason
 
-## Where we are (2026-10-10)
+## Where we are (2026-10-19)
 
-**v1.16.1 shipped on 2026-10-06**, a security patch on a `release/1.16` branch: a
-document's control characters (ESC and the C1 controls) reached the terminal through
-`--rich`, the pager and plain output to a TTY, so a hostile document could set the window
-title, reset the screen or forge a hyperlink. They are now removed from terminal output;
-output to files and pipes is unchanged. It was forward-ported to `main` (#589, #595).
+**v1.17.0 shipped on 2026-10-15**, the first release built and published by the gated
+pipeline: PyPI receives the wheel CI tested, and a release waits on CI, the scheduled lanes
+and a smoke test of the installed package (#616). It carries:
 
-**v1.16.0 shipped on 2026-10-05**, closing three streams:
-
-- **PDF → DOCX, renderer side.** Both instruments read: the re-parse ledger (#521) and Word
-  as the write-side oracle (#556). Every defect they found is fixed: characters XML cannot
-  carry, captions written as captions and numbered by Word's `SEQ` field, nested and
-  adjacent lists, adjacent tables, Compatibility Mode, alt text, links and math fonts
-  (#523–#527, #540–#544, #561–#564).
-- **DOCX reader, against other people's files.** The LibreOffice Writer corpus
-  (`benchmarks/libreoffice`, #539): text boxes, nested tables, run wrappers, missing parts
-  and Strict OOXML (#531–#538). Export words missed 3,908 → 657, 267 of them math written
-  as LaTeX, and no file Word opens fails.
-- **Inbound formats.** Man pages both ways (#550, #553), legacy `.doc` and `.ppt` read with
-  the standard library (#565, #566, #568), and OLE2 containers routed by their streams,
-  which made real `.msg` files read again (#548, #549).
-
-Since then `main` carries, for 1.17:
-
-- **Reading documents in the terminal.** The terminal renderer (#580, #581), the
-  interactive viewer `all2md read` with its directory browser (#596, #598, #603, #604,
-  #607), links that are clickable only on request and always show their target (#608,
-  a security default), and `--math unicode` for formulas as Unicode text (#609).
-- **The outward push.** `all2md mcp` with an MCP Registry entry published by the release
-  workflow (#584, #586, #588), and the quality-gate action's docs rewritten for
-  Marketplace readers (#587).
+- **Reading documents in the terminal.** The terminal renderer built from the AST (#580,
+  #581), the interactive viewer `all2md read` with its directory browser (#596, #598, #603,
+  #604, #607), links that are clickable only on request and always show their target
+  (#608), `--math unicode` (#609), and `--files-from` so a picker such as fzf can drive any
+  command (#618).
+- **The outward push.** `all2md mcp`, listed in the MCP Registry by the release workflow
+  (#584, #586, #588; live as `io.github.thomas-villani/all2md` 1.17.0), and the
+  quality-gate action's docs rewritten for Marketplace readers (#587, #620). The README is
+  now organized around who it is for (#622).
 - **What the docs audit of 2026-10-06 found in the code.** `ALL2MD_<OPTION>` environment
-  variables now set options (#601), `config generate` writes a config that works (#599),
-  HTML fragments and short Markdown on stdin are detected (#600), the MCP read tool
-  returns Markdown under fastmcp 3 (#602), and `check-deps` reports features such as
-  `all2md read` beside the formats (#610).
+  variables set options (#601), `config generate` writes a config that works (#599), stdin
+  detects HTML fragments and short Markdown (#600), a Word template keeps its own fonts and
+  `.dotx` loads (#615), the Org parser keeps nested lists (#614), and `mistune` is in the
+  core install, so a bare install reads Markdown (#617).
+- **Measurement.** `block_structure_similarity` is content-backed and blind to how blocks
+  are split (#256, #612), and CI gates per-format throughput relative to the rest of the
+  run (#183, #613).
 
-The PDF side's numbers stand as of v1.15.0 (sealed 103-article holdout, reading of
-2026-08-29): attainable recall **97.3%**, novel share **0.55%** against Docling's 2.05%
+The PMC lane's first scheduled run on that code (2026-10-15) is now its reference
+(`benchmarks/pmc/reference.json`, oracle v4): attainable recall **98.9%**, novel share
+**0.40%**, tables unchanged. It is also the first run that counts toward gating the lane,
+and it opened no defect. The scanned lane was re-recorded on #612, and the weekly corpus
+gate and DOCX ledger are green.
+
+The PDF side's comparison numbers stand as of v1.15.0 (sealed 103-article holdout, reading
+of 2026-08-29): attainable recall **97.3%**, novel share **0.55%** against Docling's 2.05%
 and pymupdf4llm's 6.26%, and a **6.2-point** table gap that is all row grouping, where
 table work stopped on evidence. What remains open on PDF (#442, #456 step 3, #440's
 remainder) is Theme 8 Stage 4 layout reconstruction and is carried there.
 
-**Open issues at this date:** #570 (the Org parser flattens nested lists), #186 (decided;
-it closes with the Marketplace listing on the 1.17 release), and two parked by design
-(#256, #183). Upstream, wijjit #94 (a tree shown again forgets its highlight) is open;
-the directory browser works around it.
+**Open issues at this date:** #621 (the DOCX renderer writes footnotes as superscript text
+and drops task-list checkboxes). Upstream, wijjit #94 (a tree shown again forgets its
+highlight) is open; the directory browser works around it.
 
 ## Next
 
-### Before the next release (1.17)
+### Next release (1.18): the everyday tools
 
-- **#570** — the Org parser flattens nested lists, and a nested list of the other kind
-  folds into its parent's text.
-- **Two publishing steps that go live with the 1.17 tag**, both the maintainer's: the
-  MCP Registry listing (the release workflow publishes it; the registry reads the README
-  from PyPI, so it cannot go earlier), and ticking "Publish to Marketplace" on the GitHub
-  release for the quality-gate action (#186, decided yes).
+The docs audit of 2026-10-06 found the tasks people come for working less well than the
+engines behind them. 1.18 fixes the behavior first, so the docs restructure below can be
+written against tools that do what it says:
+
+- **Markdown → Word, often from LLM-written Markdown.** Real Word footnotes and task-list
+  checkboxes (#621), then math, alert labels, and thematic breaks written as a rule rather
+  than 75 characters; reference templates beyond the fonts #615 fixed.
+- **`all2md view`** shows what it drops today: footnotes, math, relative images, and DOCX
+  images.
+- **`all2md grep`** becomes line-based: `-A`/`-B`/`-C` and `-n` work, `-M 0` does not
+  truncate, no match exits non-zero, and headings and code spans are searched.
 - **Gate the PMC lane on fidelity when its exit criterion is met.** The criterion, written
-  2026-08-13, is two consecutive *scheduled* runs that open no new defect issue. The count
-  restarted after #509; two articles' JATS changed upstream and were re-pinned (#522)
-  ahead of the 2026-10-15 run, which is the first that can count.
+  2026-08-13, is two consecutive *scheduled* runs that open no new defect issue. The
+  2026-10-15 run is the first; the 2026-11-15 run can be the second.
+- **Decide whether `block_structure_similarity` can be gated.** Its redefinition (#256) now
+  has its controls on the born-digital lane: wrong-page gap 0.50 (was 0.10) and a 0.22 drop
+  when half the content is deleted (it used to rise), but under 0.01 when a page's blocks
+  are reversed, since order is `reading_order_similarity`'s job.
 
 ### Now: reading and editing documents in the terminal (Theme 5)
 
@@ -108,7 +107,7 @@ order:
 
 - ✅ **MCP Registry listing**, prepared: `all2md mcp` (#584), a release-workflow job that
   publishes `server.json` (#586), and an `[mcp]` extra that is a working server (#588).
-  Goes live with the 1.17 release.
+  Live since the 1.17 release.
 - ✅ **GitHub Marketplace** for the quality-gate action: decided yes (#186), docs rewritten
   for a reader arriving cold (#587). The listing is a checkbox on the 1.17 release.
 - Upstream-sharing the OCR-gate calibration to pymupdf4llm, whose defaults auto-OCR
@@ -588,6 +587,8 @@ None blocking.
 
 One line each; `CHANGELOG.md` has the ledger.
 
+- **v1.17.0** (2026-10-15) — `all2md read` and the terminal renderer; the MCP server in the
+  MCP Registry; the docs-audit fixes; a release pipeline that ships the wheel CI tested.
 - **v1.16.1** (2026-10-06) — a document's control characters kept out of terminal output.
 - **v1.16.0** (2026-10-05) — PDF → DOCX renderer fidelity from two instruments; the
   LibreOffice DOCX corpus and its five reader gaps; man pages both ways; legacy `.doc` and
