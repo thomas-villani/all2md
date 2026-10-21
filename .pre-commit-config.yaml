@@ -26,7 +26,7 @@ repos:
   # Ruff - linter, then formatter (the order ruff recommends: lint fixes can need
   # reformatting)
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.20
+    rev: v0.17.1
     hooks:
       - id: ruff
         args: [ --fix ]

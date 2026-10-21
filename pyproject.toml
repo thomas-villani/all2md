@@ -163,9 +163,9 @@ dev = [
     "mypy>=2.1.0",
     "pytest>=9.1.1",
     # Exact pin: the formatter's output changes between releases (0.17 started formatting
-    # code blocks in Markdown), so CI, local runs and the pre-commit hook (rev v0.15.20 in
+    # code blocks in Markdown), so CI, local runs and the pre-commit hook (rev v0.17.1 in
     # .pre-commit-config.yaml) must agree. Bump both together.
-    "ruff==0.15.20",
+    "ruff==0.17.1",
     "sphinx>=9.0.4",
     "sphinx-rtd-theme>=3.1.0",
     "sphinx-copybutton>=0.5.2",
@@ -500,6 +500,10 @@ disable_error_code = ["attr-defined", "unreachable"]
 [tool.ruff.format]
 # ruff format replaced black (same style; line length and target come from [tool.ruff]).
 quote-style = "double"
+# From 0.17 ruff also formats Python code blocks in Markdown. The examples in the README,
+# SECURITY.md and the skill docs are laid out by hand for reading (aligned comments), so
+# Markdown is left alone.
+exclude = ["*.md"]
 
 [tool.bandit]
 # `benchmarks` and `scripts` stay excluded while `src` is scanned, and that is a
