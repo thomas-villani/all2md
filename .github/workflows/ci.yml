@@ -70,9 +70,9 @@ jobs:
       # decides whether a release is green should be held to the same standard as the
       # code it scores. It was already clean when it was added here, so nothing was
       # reformatted to make this pass.
-      - name: Run Black formatter check
+      - name: Run Ruff formatter check
         run: |
-          black --check src/ tests/ benchmarks/
+          ruff format --check src/ tests/ benchmarks/
 
       - name: Run Ruff linter
         # --no-fix is belt-and-braces: pyproject no longer sets `fix = true`, and

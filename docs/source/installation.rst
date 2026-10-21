@@ -653,7 +653,7 @@ The ``dev`` extra includes:
 
 * **pytest** (>=9.1.1), with **pytest-cov** and **pytest-xdist** - Testing framework
 * **mypy** (>=2.1.0) - Type checking
-* **ruff** (>=0.15.20) and **black** (~=26.1) - Linting and formatting
+* **ruff** (>=0.15.20) - Linting and formatting
 * **bandit** (>=1.9.4) - Security linting
 * **sphinx** (>=9.0.4) and **sphinx-rtd-theme** (>=3.1.0) - Documentation build
 

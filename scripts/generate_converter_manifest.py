@@ -189,17 +189,24 @@ def _render_record(kwargs: dict) -> str:
     return "\n".join(lines)
 
 
-def _format_with_black(source: str) -> str:
-    """Run the generated source through black so it matches the committed file.
+def _format_with_ruff(source: str) -> str:
+    """Run the generated source through ruff format so it matches the committed file.
 
-    The pre-commit black hook formats this generated module too, so the
-    generator must emit black-formatted output or ``--validate`` would always
-    report drift. black is a pinned dev dependency, so it is available wherever
-    the generator/validator runs (locally and in CI).
+    The pre-commit ruff-format hook formats this generated module too, so the
+    generator must emit formatted output or ``--validate`` would always report
+    drift. ruff is a dev dependency, so it is available wherever the
+    generator/validator runs (locally and in CI). ``--stdin-filename`` makes it
+    read the project's ``pyproject.toml`` settings for that path.
     """
-    import black
-
-    return black.format_str(source, mode=black.Mode(line_length=120))
+    result = subprocess.run(
+        [sys.executable, "-m", "ruff", "format", "--stdin-filename", str(MANIFEST_PATH), "-"],
+        input=source,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    return result.stdout
 
 
 def generate_source() -> str:
@@ -240,7 +247,7 @@ def get_manifest_records() -> list[ConverterMetadata]:
     """
     return list(_MANIFEST_RECORDS)
 '''
-    return _format_with_black(header + body + footer)
+    return _format_with_ruff(header + body + footer)
 
 
 def main() -> int:

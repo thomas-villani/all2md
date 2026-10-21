@@ -163,7 +163,6 @@ dev = [
     "mypy>=2.1.0",
     "pytest>=9.1.1",
     "ruff>=0.15.20",
-    "black~=26.1",
     "sphinx>=9.0.4",
     "sphinx-rtd-theme>=3.1.0",
     "sphinx-copybutton>=0.5.2",
@@ -352,7 +351,7 @@ build-backend = "hatchling.build"
 [tool.ruff]
 # Target Python version
 target-version = "py311"
-# Maximum line length (compatible with black)
+# Maximum line length, for both the linter and the formatter
 line-length = 120
 
 # Exclude some common directories
@@ -405,7 +404,7 @@ max-complexity = 28
     "E402",  # Module level import not at top (common with pytest.skip)
     "E501",  # Line too long (tests often have long assertion lines)
 ]
-# Enforced: the CI lint job runs ruff, black and mypy over benchmarks/ as well as
+# Enforced: the CI lint job runs ruff (lint and format) and mypy over benchmarks/ as well as
 # src/ and tests/, so these ignores are load-bearing rather than aspirational.
 "benchmarks/**/*.py" = [
     "D100",  # Missing docstring in public module
@@ -493,12 +492,9 @@ follow_imports_for_stubs = true
 module = "all2md.cli.commands.context_menu"
 disable_error_code = ["attr-defined", "unreachable"]
 
-[tool.black]
-line-length = 120
-target-version = ['py311', 'py312', 'py313']
-include = '\.pyi?$'
-exclude = '\.git|\.mypy_cache|\.pytest_cache|build|dist'
-skip-string-normalization = false
+[tool.ruff.format]
+# ruff format replaced black (same style; line length and target come from [tool.ruff]).
+quote-style = "double"
 
 [tool.bandit]
 # `benchmarks` and `scripts` stay excluded while `src` is scanned, and that is a

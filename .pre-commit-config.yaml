@@ -23,19 +23,14 @@ repos:
         pass_filenames: false
         description: Ensures DocumentFormat Literal matches registry
 
-  # Black - Python code formatter
-  - repo: https://github.com/psf/black
-    rev: 26.5.1
-    hooks:
-      - id: black
-        language_version: python3.12
-
-  # Ruff - Python linter
+  # Ruff - linter, then formatter (the order ruff recommends: lint fixes can need
+  # reformatting)
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.15.20
     hooks:
       - id: ruff
         args: [ --fix ]
+      - id: ruff-format
 
   # Basic file checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
