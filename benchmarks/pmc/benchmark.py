@@ -494,6 +494,7 @@ def normalize_results(
     all2md_commit: str,
     worktree_dirty: bool = False,
     parser_runtime: Mapping[str, str],
+    layout_mode: str = "enabled",
 ) -> dict[str, Any]:
     """Build the deterministic evidence payload for this lane.
 
@@ -515,6 +516,8 @@ def normalize_results(
         Whether the worktree had uncommitted changes.
     parser_runtime : Mapping[str, str]
         Versions of the libraries the parser used.
+    layout_mode : str
+        The ``layout_analysis_mode`` the corpus was converted under.
 
     Returns
     -------
@@ -556,7 +559,7 @@ def normalize_results(
             "platform": sys.platform,
             "parser_runtime": dict(sorted(parser_runtime.items())),
             "parser_config": {
-                "layout_analysis_mode": "enabled",
+                "layout_analysis_mode": layout_mode,
                 "include_page_numbers": True,
                 "ocr": {"enabled": True, "mode": "auto", "engine": "tesseract", "dpi": 200},
                 # Part of the measurement, not an incidental: under the default `alt_text`
@@ -718,7 +721,13 @@ def normalize_results(
     }
 
 
-def run(snapshot: Any, *, all2md_commit: str = "unknown", worktree_dirty: bool = False) -> dict[str, Any]:
+def run(
+    snapshot: Any,
+    *,
+    all2md_commit: str = "unknown",
+    worktree_dirty: bool = False,
+    layout_mode: str = "enabled",
+) -> dict[str, Any]:
     """Score a corpus snapshot end to end.
 
     Parameters
@@ -729,6 +738,10 @@ def run(snapshot: Any, *, all2md_commit: str = "unknown", worktree_dirty: bool =
         Commit the parser is being scored at.
     worktree_dirty : bool
         Whether the worktree had uncommitted changes.
+    layout_mode : str
+        ``layout_analysis_mode`` to convert under. ``"enabled"`` is the lane's policy and
+        what `reference.json` records; the others exist to measure what layout analysis
+        is worth, which is a different question from how well the lane's policy does.
 
     Returns
     -------
@@ -738,7 +751,7 @@ def run(snapshot: Any, *, all2md_commit: str = "unknown", worktree_dirty: bool =
     """
     import fitz
 
-    evaluations = evaluate_corpus(snapshot.articles)
+    evaluations = evaluate_corpus(snapshot.articles, options=pdf_options(layout_analysis_mode=layout_mode))
     # One sequence drives both instruments, so they cannot end up describing different runs.
     scored = [
         (result.article_id, result.truth_blocks, result.emitted_text, result.pdf_text)
@@ -766,6 +779,7 @@ def run(snapshot: Any, *, all2md_commit: str = "unknown", worktree_dirty: bool =
             "pymupdf": str(getattr(fitz, "__version__", "unknown")),
             "python": sys.version.split()[0],
         },
+        layout_mode=layout_mode,
     )
 
 
