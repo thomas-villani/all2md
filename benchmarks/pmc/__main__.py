@@ -151,13 +151,14 @@ def _score(args: argparse.Namespace) -> int:
         limit=args.limit,
         workers=args.workers,
     )
-    payload = run(snapshot, all2md_commit=args.commit)
+    payload = run(snapshot, all2md_commit=args.commit, layout_mode=args.layout_mode)
     if args.out:
         print(f"written    : {write_result(payload, Path(args.out))}")
 
     corpus_facts = payload["corpus"]
     projection = payload["projection"]
     print(f"pin        : {payload['provenance']['corpus_pin']}")
+    print(f"layout     : {payload['provenance']['parser_config']['layout_analysis_mode']}")
     print(f"articles   : {corpus_facts['articles_converted']} of {corpus_facts['articles_scored']} converted")
     if corpus_facts["articles_unavailable"]:
         # Beside the article count, not in a footer: every number below it is computed over
@@ -415,6 +416,12 @@ def main(argv: list[str] | None = None) -> int:
     score.add_argument("--workers", type=int, default=8, help="concurrent download workers")
     score.add_argument("--out", default=None, help="write the evidence payload here")
     score.add_argument("--commit", default="unknown", help="all2md commit being scored")
+    score.add_argument(
+        "--layout-mode",
+        choices=("enabled", "disabled", "auto"),
+        default="enabled",
+        help="layout_analysis_mode to convert under (default: enabled, the lane's policy and its reference)",
+    )
     score.set_defaults(handler=_score)
 
     docx = subparsers.add_parser(
