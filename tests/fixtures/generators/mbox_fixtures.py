@@ -9,9 +9,9 @@ from __future__ import annotations
 import datetime
 import mailbox
 import tempfile
+from collections.abc import Iterable
 from email.utils import format_datetime
 from pathlib import Path
-from typing import Iterable
 
 
 def create_simple_mbox() -> mailbox.mbox:
@@ -34,7 +34,7 @@ def create_simple_mbox() -> mailbox.mbox:
     msg1["Subject"] = "Welcome to the Team"
     msg1["From"] = "hr@company.com"
     msg1["To"] = "newemployee@company.com"
-    msg1["Date"] = format_datetime(datetime.datetime(2024, 1, 15, 9, 0, tzinfo=datetime.timezone.utc))
+    msg1["Date"] = format_datetime(datetime.datetime(2024, 1, 15, 9, 0, tzinfo=datetime.UTC))
     msg1.set_payload(
         "Welcome to the team!\n\nWe're excited to have you join us. Your first day is Monday.\n\nBest regards,\nHR Team"
     )
@@ -46,7 +46,7 @@ def create_simple_mbox() -> mailbox.mbox:
     msg2["From"] = "manager@company.com"
     msg2["To"] = "team@company.com"
     msg2["Cc"] = "stakeholders@company.com"
-    msg2["Date"] = format_datetime(datetime.datetime(2024, 2, 10, 14, 30, tzinfo=datetime.timezone.utc))
+    msg2["Date"] = format_datetime(datetime.datetime(2024, 2, 10, 14, 30, tzinfo=datetime.UTC))
     msg2.set_payload(
         "Team,\n\n"
         "Let's meet on Friday at 2 PM to kick off the new project.\n"
@@ -60,7 +60,7 @@ def create_simple_mbox() -> mailbox.mbox:
     msg3["Subject"] = "Quarterly Review Results"
     msg3["From"] = "ceo@company.com"
     msg3["To"] = "all@company.com"
-    msg3["Date"] = format_datetime(datetime.datetime(2024, 3, 31, 17, 0, tzinfo=datetime.timezone.utc))
+    msg3["Date"] = format_datetime(datetime.datetime(2024, 3, 31, 17, 0, tzinfo=datetime.UTC))
     msg3.set_payload(
         "Team,\n\n"
         "Great work this quarter! Revenue is up 25%.\n"
@@ -93,7 +93,7 @@ def create_mbox_with_thread() -> mailbox.mbox:
     msg1["From"] = "qa@company.com"
     msg1["To"] = "dev@company.com"
     msg1["Message-ID"] = "<bug-report-001@company.com>"
-    msg1["Date"] = format_datetime(datetime.datetime(2024, 6, 1, 10, 0, tzinfo=datetime.timezone.utc))
+    msg1["Date"] = format_datetime(datetime.datetime(2024, 6, 1, 10, 0, tzinfo=datetime.UTC))
     msg1.set_payload(
         "Team,\n\nWe found a critical bug in the payment flow.\nUsers cannot complete checkout.\n\nQA Team"
     )
@@ -108,7 +108,7 @@ def create_mbox_with_thread() -> mailbox.mbox:
     msg2["Message-ID"] = "<reply-001@company.com>"
     msg2["In-Reply-To"] = "<bug-report-001@company.com>"
     msg2["References"] = "<bug-report-001@company.com>"
-    msg2["Date"] = format_datetime(datetime.datetime(2024, 6, 1, 10, 30, tzinfo=datetime.timezone.utc))
+    msg2["Date"] = format_datetime(datetime.datetime(2024, 6, 1, 10, 30, tzinfo=datetime.UTC))
     msg2.set_payload(
         "Looking into it now. Will have a fix in 30 minutes.\n\n"
         "On Sat, Jun 1, 2024 at 10:00 AM qa@company.com wrote:\n"
@@ -127,7 +127,7 @@ def create_mbox_with_thread() -> mailbox.mbox:
     msg3["Message-ID"] = "<reply-002@company.com>"
     msg3["In-Reply-To"] = "<reply-001@company.com>"
     msg3["References"] = "<bug-report-001@company.com> <reply-001@company.com>"
-    msg3["Date"] = format_datetime(datetime.datetime(2024, 6, 1, 11, 0, tzinfo=datetime.timezone.utc))
+    msg3["Date"] = format_datetime(datetime.datetime(2024, 6, 1, 11, 0, tzinfo=datetime.UTC))
     msg3.set_payload("Fix deployed. Please verify.\n\nThanks!")
     mbox.add(msg3)
 
@@ -154,7 +154,7 @@ def create_maildir() -> mailbox.Maildir:
     msg1["Subject"] = "Inbox Message"
     msg1["From"] = "sender@example.com"
     msg1["To"] = "recipient@example.com"
-    msg1["Date"] = format_datetime(datetime.datetime(2024, 4, 1, 12, 0, tzinfo=datetime.timezone.utc))
+    msg1["Date"] = format_datetime(datetime.datetime(2024, 4, 1, 12, 0, tzinfo=datetime.UTC))
     msg1.set_payload("This is a message in the inbox folder.")
     md.add(msg1)
 
@@ -166,7 +166,7 @@ def create_maildir() -> mailbox.Maildir:
         msg2["Subject"] = "Sent Message"
         msg2["From"] = "recipient@example.com"
         msg2["To"] = "sender@example.com"
-        msg2["Date"] = format_datetime(datetime.datetime(2024, 4, 2, 12, 0, tzinfo=datetime.timezone.utc))
+        msg2["Date"] = format_datetime(datetime.datetime(2024, 4, 2, 12, 0, tzinfo=datetime.UTC))
         msg2.set_payload("This is a message in the sent folder.")
         sent_folder.add(msg2)
     except Exception:

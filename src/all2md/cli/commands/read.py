@@ -18,7 +18,7 @@ import argparse
 import os
 import sys
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 from all2md.cli.builder import EXIT_DEPENDENCY_ERROR, EXIT_ERROR, EXIT_FILE_ERROR, EXIT_SUCCESS
 from all2md.cli.commands.shared import add_cache_arguments, conversion_cache_from_args
@@ -203,7 +203,7 @@ def handle_read_command(args: list[str] | None = None) -> int:
     return EXIT_SUCCESS
 
 
-def _lay_out(source: Union[bytes, str], parsed: argparse.Namespace) -> Any:
+def _lay_out(source: bytes | str, parsed: argparse.Namespace) -> Any:
     """Parse ``source`` (a path or stdin's bytes) and return its ``DocumentLayout``.
 
     Raises whatever the parser raises.

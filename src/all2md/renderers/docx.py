@@ -20,7 +20,7 @@ import tempfile
 import zipfile
 from io import BytesIO
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Union, cast
+from typing import IO, TYPE_CHECKING, Any, cast
 from urllib.parse import urlparse
 
 if TYPE_CHECKING:
@@ -221,7 +221,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         self._in_footnote: bool = False
 
     @requires_dependencies("docx_render", DEPS_DOCX_RENDER)
-    def render(self, doc: ASTDocument, output: Union[str, Path, IO[bytes]]) -> None:
+    def render(self, doc: ASTDocument, output: str | Path | IO[bytes]) -> None:
         """Render the AST to a DOCX file.
 
         Parameters
@@ -1483,7 +1483,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                         character_style=node_style,
                     )
 
-    def _apply_character_style(self, run: "Run", style_name: str | None) -> None:
+    def _apply_character_style(self, run: Run, style_name: str | None) -> None:
         """Apply a named character style to a run when the template defines it.
 
         Mirrors the paragraph-level ``source_style`` handling: only acts when

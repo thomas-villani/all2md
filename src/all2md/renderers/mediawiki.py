@@ -12,7 +12,7 @@ for controlling output format suitable for Wikipedia and other MediaWiki-based w
 from __future__ import annotations
 
 from pathlib import Path
-from typing import IO, Literal, Union
+from typing import IO, Literal
 
 from all2md.ast.nodes import (
     BlockQuote,
@@ -798,7 +798,7 @@ class MediaWikiRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             self._output.append("\n")
         self._output.append("</math>")
 
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
+    def render(self, doc: Document, output: str | Path | IO[bytes]) -> None:
         """Render AST to MediaWiki markup and write to output.
 
         Parameters

@@ -13,7 +13,7 @@ import os
 import tempfile
 from dataclasses import replace
 from pathlib import Path
-from typing import IO, Any, Optional, Union
+from typing import IO, Any
 
 from all2md.ast import Document, Heading, Node, Text, ThematicBreak
 from all2md.constants import DEPS_EPUB
@@ -41,7 +41,7 @@ class EpubToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: EpubOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: EpubOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the EPUB parser with options and progress callback."""
         BaseParser._validate_options_type(options, EpubOptions, "epub")
         options = options or EpubOptions()
@@ -61,7 +61,7 @@ class EpubToAstConverter(BaseParser):
         self.html_parser = HtmlToAstConverter(html_opts)
 
     @requires_dependencies("epub", DEPS_EPUB)
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse EPUB file into an AST Document.
 
         Parameters

@@ -9,7 +9,7 @@ import zipfile
 from collections.abc import Callable
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, cast
 
 from all2md.api import convert, library_injected_options
 from all2md.cli.input_items import CLIInputItem
@@ -19,14 +19,14 @@ logger = logging.getLogger(__name__)
 
 
 def create_package_from_conversions(
-    input_items: List[CLIInputItem],
+    input_items: list[CLIInputItem],
     zip_path: Path,
     target_format: str = "markdown",
-    options: Optional[Dict[str, Any]] = None,
-    transforms: Optional[list] = None,
+    options: dict[str, Any] | None = None,
+    transforms: list | None = None,
     source_format: str = "auto",
-    progress_callback: Optional[Any] = None,
-    option_resolver: Optional[Callable[[CLIInputItem], Dict[str, Any]]] = None,
+    progress_callback: Any | None = None,
+    option_resolver: Callable[[CLIInputItem], dict[str, Any]] | None = None,
 ) -> Path:
     """Create zip package by converting files directly to memory without disk I/O.
 

@@ -68,7 +68,7 @@ def main() -> int:
             "decimalEnclosedFullstop, and chineseCounting comes from 37."
         ),
         "word_build": str(word.Build),
-        "measured_utc": dt.datetime.now(dt.timezone.utc).date().isoformat(),
+        "measured_utc": dt.datetime.now(dt.UTC).date().isoformat(),
         "map": {str(key): found[key] for key in sorted(found)},
     }
     target = HERE / "numfmt-map.json"

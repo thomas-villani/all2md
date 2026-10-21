@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from pathlib import Path
-from typing import IO, Any, Iterable, Union, cast
+from typing import IO, Any, cast
 
 from all2md.ast.nodes import (
     BlockQuote,
@@ -192,7 +193,7 @@ class RtfRenderer(NodeVisitor, BaseRenderer):
         return line
 
     @requires_dependencies("rtf_render", DEPS_RTF_RENDER)
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
+    def render(self, doc: Document, output: str | Path | IO[bytes]) -> None:
         """Render a document to an RTF stream or file."""
         self.write_text_output(self.render_to_string(doc), output)
 

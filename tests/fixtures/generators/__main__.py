@@ -23,9 +23,9 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable
 
 # Ensure the project sources (./src) are importable when running this module directly.
 REPO_ROOT = Path(__file__).resolve().parents[3]

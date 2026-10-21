@@ -22,7 +22,7 @@ Use :func:`get_counter` to resolve a counter by name with graceful fallback.
 from __future__ import annotations
 
 import re
-from typing import Optional, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 from all2md.constants import DEPS_CHUNK
 from all2md.exceptions import DependencyError
@@ -94,7 +94,7 @@ def tiktoken_available() -> bool:
     return True
 
 
-def get_counter(name: str = "auto", *, strategy: Optional[str] = None) -> TokenCounter:
+def get_counter(name: str = "auto", *, strategy: str | None = None) -> TokenCounter:
     """Resolve a token counter by name.
 
     Parameters

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import IO, Union
+from typing import IO
 
 from all2md.ast.nodes import (
     BlockQuote,
@@ -1154,7 +1154,7 @@ class OrgRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # Use HTML comment as fallback since Org doesn't support inline comments
         self._output.append(f"<!-- {comment_text} -->")
 
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
+    def render(self, doc: Document, output: str | Path | IO[bytes]) -> None:
         """Render AST to Org-Mode and write to output.
 
         Parameters

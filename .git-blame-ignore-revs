@@ -1,0 +1,7 @@
+# Commits `git blame` should look through: whole-repo mechanical rewrites with no
+# behavior change. GitHub's blame view reads this file; locally, run once:
+#
+#     git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# chore: format with ruff instead of black (#633)
+9634f48a9c3c4e49f93e1bd50fba3e4869c5a1d2

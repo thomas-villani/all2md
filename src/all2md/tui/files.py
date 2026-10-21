@@ -16,10 +16,11 @@ from __future__ import annotations
 
 import glob
 import os
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Iterator, Optional, Sequence
+from typing import Any
 
 #: Folders never walked into (hidden ones are skipped as well).
 SKIP_DIRS = frozenset({"node_modules", "__pycache__", "site-packages", "venv"})
@@ -57,14 +58,14 @@ class FileTree:
         """Return whether ``path`` is one of the files (a set lookup)."""
         return path in self._file_set
 
-    def path_of(self, node_id: str) -> Optional[Path]:
+    def path_of(self, node_id: str) -> Path | None:
         """Return the file a node id names, or None for a folder or an unknown id."""
         if not node_id.startswith("f:"):
             return None
         path = self.root / node_id[2:]
         return path if path in self._file_set else None
 
-    def folder_ids(self, path: Optional[Path] = None) -> list[str]:
+    def folder_ids(self, path: Path | None = None) -> list[str]:
         """Return the node ids of the folders above ``path``, or of every folder."""
         if path is None:
             folders = {parent for file in self.files for parent in self._parents(file)}

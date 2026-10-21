@@ -106,7 +106,7 @@ class TestMboxMessageFiltering:
         """Test filtering messages by date range."""
         # Filter to only messages from February onwards
         options = MboxOptions(
-            date_range_start=datetime.datetime(2024, 2, 1, tzinfo=datetime.timezone.utc),
+            date_range_start=datetime.datetime(2024, 2, 1, tzinfo=datetime.UTC),
         )
         markdown = to_markdown(simple_mbox_file, parser_options=options)
 
@@ -121,7 +121,7 @@ class TestMboxMessageFiltering:
         """Test filtering messages by end date."""
         # Filter to only messages before March
         options = MboxOptions(
-            date_range_end=datetime.datetime(2024, 2, 28, tzinfo=datetime.timezone.utc),
+            date_range_end=datetime.datetime(2024, 2, 28, tzinfo=datetime.UTC),
         )
         markdown = to_markdown(simple_mbox_file, parser_options=options)
 

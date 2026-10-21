@@ -159,7 +159,7 @@ class TestDateFormatting:
 
     def test_date_format_iso8601(self) -> None:
         """Test date formatting in ISO8601 mode."""
-        test_date = datetime.datetime(2025, 3, 15, 10, 30, 0, tzinfo=datetime.timezone.utc)
+        test_date = datetime.datetime(2025, 3, 15, 10, 30, 0, tzinfo=datetime.UTC)
         email = _create_test_email(date=test_date)
         options = EmlOptions(include_headers=True, date_format_mode="iso8601")
         converter = EmlToAstConverter(options)
@@ -183,7 +183,7 @@ class TestDateFormatting:
 
     def test_date_format_strftime(self) -> None:
         """Test date formatting in strftime mode with custom pattern."""
-        test_date = datetime.datetime(2025, 3, 15, 10, 30, 0, tzinfo=datetime.timezone.utc)
+        test_date = datetime.datetime(2025, 3, 15, 10, 30, 0, tzinfo=datetime.UTC)
         email = _create_test_email(date=test_date)
         options = EmlOptions(include_headers=True, date_format_mode="strftime", date_strftime_pattern="%Y-%m-%d")
         converter = EmlToAstConverter(options)
@@ -428,9 +428,7 @@ class TestOptionsConfiguration:
 
     def test_all_options_enabled(self) -> None:
         """Test with all options enabled."""
-        email = _create_test_email(
-            subject="Test", date=datetime.datetime.now(datetime.timezone.utc), cc="cc@example.com"
-        )
+        email = _create_test_email(subject="Test", date=datetime.datetime.now(datetime.UTC), cc="cc@example.com")
         options = EmlOptions(subject_as_h1=True, include_headers=True, date_format_mode="iso8601")
         converter = EmlToAstConverter(options)
         doc = converter.format_email_chain_as_ast([email])

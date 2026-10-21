@@ -24,9 +24,10 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
+from collections.abc import Callable, Iterable
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterable
+from typing import Any
 
 import defusedxml.ElementTree as ET
 
@@ -145,7 +146,7 @@ def _try_download(
     *,
     label: str,
     timeout: int = DEFAULT_TIMEOUT,
-    validator: "Callable[[Path], bool] | None" = None,
+    validator: Callable[[Path], bool] | None = None,
     retries: int = 0,
 ) -> int | None:
     """Download *url* to *dest*, returning its size or ``None`` on failure.

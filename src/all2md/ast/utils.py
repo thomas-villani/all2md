@@ -33,7 +33,7 @@ Extract text without spaces (for ID generation):
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 from all2md.ast.nodes import Text, get_node_children
 
@@ -41,7 +41,7 @@ if TYPE_CHECKING:
     from all2md.ast.nodes import Node
 
 
-def extract_text(node_or_nodes: Union[Node, list[Node]], joiner: str = " ") -> str:
+def extract_text(node_or_nodes: Node | list[Node], joiner: str = " ") -> str:
     r"""Extract plain text from a node or list of nodes.
 
     This function recursively traverses the AST and concatenates all Text node

@@ -21,9 +21,10 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import IO, Any, Callable, Literal, Optional, Union
+from typing import IO, Any, Literal
 
 from all2md.ast import (
     BlockQuote,
@@ -458,12 +459,12 @@ class _Frame:
     """One indentation level (the document, or the inside of ``.RS``)."""
 
     blocks: list[Node] = field(default_factory=list)
-    list_kind: Optional[str] = None  # "dl", "ul" or "ol"
+    list_kind: str | None = None  # "dl", "ul" or "ol"
     list_start: int = 1
     dl_items: list[tuple[DefinitionTerm, list[DefinitionDescription]]] = field(default_factory=list)
     list_items: list[ListItem] = field(default_factory=list)
-    item_term: Optional[list[Node]] = None
-    item_blocks: Optional[list[Node]] = None
+    item_term: list[Node] | None = None
+    item_blocks: list[Node] | None = None
 
 
 class ManParser(BaseParser):
@@ -483,7 +484,7 @@ class ManParser(BaseParser):
 
     """
 
-    def __init__(self, options: ManParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: ManParserOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the man page parser with options and progress callback."""
         BaseParser._validate_options_type(options, ManParserOptions, "man")
         options = options or ManParserOptions()
@@ -493,30 +494,30 @@ class ManParser(BaseParser):
 
     def _reset(self) -> None:
         self._frames: list[_Frame] = [_Frame()]
-        self._runs: list[tuple[str, _Font, Optional[str]]] = []
+        self._runs: list[tuple[str, _Font, str | None]] = []
         self._font: _Font = "R"
         self._prev_font: _Font = "R"
         self._no_space = False  # previous line ended with \c
-        self._pending_font: Optional[_Font] = None  # .B with no arguments
-        self._capture: Optional[str] = None  # "tp", "tq", "sh" or "ss"
-        self._capture_runs: list[tuple[str, _Font, Optional[str]]] = []
+        self._pending_font: _Font | None = None  # .B with no arguments
+        self._capture: str | None = None  # "tp", "tq", "sh" or "ss"
+        self._capture_runs: list[tuple[str, _Font, str | None]] = []
         self._nofill = False
         self._code_lines: list[str] = []
-        self._link: Optional[str] = None
+        self._link: str | None = None
         self._link_start = 0
         self._strings: dict[str, str] = dict(_PREDEFINED_STRINGS)
         self._string_depth = 0
-        self._skip_until: Optional[str] = None  # end marker of a .de/.ig block
+        self._skip_until: str | None = None  # end marker of a .de/.ig block
         self._skip_depth = 0  # brace depth of a false conditional block
         self._last_condition = True
-        self._table_lines: Optional[list[str]] = None
+        self._table_lines: list[str] | None = None
         self._metadata = DocumentMetadata()
         self._in_name_section = False
         self._warned: set[str] = set()
 
     # ------------------------------------------------------------------ parse
 
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse a man page into an AST Document.
 
         Parameters
@@ -623,7 +624,7 @@ class ManParser(BaseParser):
 
     # -------------------------------------------------------------- escapes
 
-    def _expand(self, text: str, font: Optional[_Font] = None) -> tuple[list[tuple[str, _Font, Optional[str]]], bool]:
+    def _expand(self, text: str, font: _Font | None = None) -> tuple[list[tuple[str, _Font, str | None]], bool]:
         r"""Expand escapes in ``text`` into runs of (text, font, link).
 
         Font escapes (``\fB``) change the running font unless ``font`` forces one.
@@ -634,7 +635,7 @@ class ManParser(BaseParser):
             The runs and whether the text ended with ``\c`` (join the next line).
 
         """
-        runs: list[tuple[str, _Font, Optional[str]]] = []
+        runs: list[tuple[str, _Font, str | None]] = []
         buf: list[str] = []
         continued = False
 
@@ -793,7 +794,7 @@ class ManParser(BaseParser):
 
     # ------------------------------------------------------------- inlines
 
-    def _add_runs(self, runs: list[tuple[str, _Font, Optional[str]]], continued: bool) -> None:
+    def _add_runs(self, runs: list[tuple[str, _Font, str | None]], continued: bool) -> None:
         """Append one input line's runs to the paragraph or the pending capture."""
         target = self._capture_runs if self._capture is not None else self._runs
         if runs and target and not self._no_space and target[-1][0] != _LINE_BREAK:
@@ -815,7 +816,7 @@ class ManParser(BaseParser):
             joined = "".join(args) if len(fonts) > 1 else " ".join(args)
             self._code_lines.append(self._plain(joined))
             return
-        runs: list[tuple[str, _Font, Optional[str]]] = []
+        runs: list[tuple[str, _Font, str | None]] = []
         continued = False
         if len(fonts) == 1:
             runs, continued = self._expand(" ".join(args), font=fonts[0])
@@ -825,7 +826,7 @@ class ManParser(BaseParser):
                 runs.extend(arg_runs)
         self._add_runs(runs, continued)
 
-    def _inline_nodes(self, runs: list[tuple[str, _Font, Optional[str]]]) -> list[Node]:
+    def _inline_nodes(self, runs: list[tuple[str, _Font, str | None]]) -> list[Node]:
         """Group runs into inline nodes, keeping edge whitespace outside formatting."""
         merged: list[list[Any]] = []
         for text, font, link in runs:
@@ -841,7 +842,7 @@ class ManParser(BaseParser):
 
         nodes: list[Node] = []
         link_nodes: list[Node] = []
-        current_link: Optional[str] = None
+        current_link: str | None = None
         # Runs of the current stretch (same link, no line break), nested on flush.
         pending: list[tuple[str, frozenset[str]]] = []
 
@@ -920,7 +921,7 @@ class ManParser(BaseParser):
         frame.item_term = None
         frame.item_blocks = None
 
-    def _close_list(self, frame: Optional[_Frame] = None) -> None:
+    def _close_list(self, frame: _Frame | None = None) -> None:
         frame = frame or self._frame
         if frame is self._frame:
             self._flush_paragraph()
@@ -939,7 +940,7 @@ class ManParser(BaseParser):
         frame.dl_items = []
         frame.list_items = []
 
-    def _open_item(self, kind: str, term: Optional[list[Node]] = None, start: int = 1) -> None:
+    def _open_item(self, kind: str, term: list[Node] | None = None, start: int = 1) -> None:
         self._flush_paragraph()
         frame = self._frame
         if frame.list_kind != kind:
@@ -1173,7 +1174,7 @@ class ManParser(BaseParser):
         args = _split_args(rest)
         if not args:
             return
-        runs: list[tuple[str, _Font, Optional[str]]] = [("[", "R", self._link)]
+        runs: list[tuple[str, _Font, str | None]] = [("[", "R", self._link)]
         flag_runs, _ = self._expand(args[0], font="B")
         runs.extend(flag_runs)
         if len(args) > 1:
@@ -1262,7 +1263,7 @@ class ManParser(BaseParser):
         if table is not None:
             self._target().append(table)
 
-    def _table_cell(self, cell: Union[str, list[str]]) -> list[Node]:
+    def _table_cell(self, cell: str | list[str]) -> list[Node]:
         """Read one tbl cell: a data field, or a text block of roff input lines."""
         if isinstance(cell, str):
             if cell.strip() in ("_", "=", "\\^"):
@@ -1281,7 +1282,7 @@ class ManParser(BaseParser):
         nested._finish()
         return _flatten_inline(nested._frames[0].blocks)
 
-    def _build_table(self, lines: list[str]) -> Optional[Node]:
+    def _build_table(self, lines: list[str]) -> Node | None:
         """Turn a tbl(1) table into a Table, reading T{ ... T} text blocks as cells."""
         if not lines:
             return None
@@ -1321,7 +1322,7 @@ class ManParser(BaseParser):
         return Table(header=header, rows=table_rows[1:], alignments=alignments)
 
 
-def _table_rows(data: list[str], tab: str) -> list[list[Union[str, list[str]]]]:
+def _table_rows(data: list[str], tab: str) -> list[list[str | list[str]]]:
     """Split tbl data lines into rows of cells.
 
     A cell is either one field of a data line (a string) or the lines of a
@@ -1329,7 +1330,7 @@ def _table_rows(data: list[str], tab: str) -> list[list[Union[str, list[str]]]]:
     carries on with the row's remaining fields. Rules (``_``, ``=``), requests
     between rows and ``.T&`` format changes are skipped.
     """
-    rows: list[list[Union[str, list[str]]]] = []
+    rows: list[list[str | list[str]]] = []
     index = 0
     while index < len(data):
         line = data[index]
@@ -1343,7 +1344,7 @@ def _table_rows(data: list[str], tab: str) -> list[list[Union[str, list[str]]]]:
             continue
         if stripped in ("_", "=", "") or line[:1] in (".", "'"):
             continue
-        row: list[Union[str, list[str]]] = []
+        row: list[str | list[str]] = []
         fields = line.split(tab)
         while fields:
             field = fields.pop(0)

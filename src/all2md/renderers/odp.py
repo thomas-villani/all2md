@@ -20,7 +20,7 @@ import os
 import tempfile
 from io import BytesIO
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Union
+from typing import IO, TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 if TYPE_CHECKING:
@@ -128,7 +128,7 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
         self._in_link: bool = False  # ODF forbids <text:a> inside <text:a>
 
     @requires_dependencies("odp_render", DEPS_ODF_RENDER)
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
+    def render(self, doc: Document, output: str | Path | IO[bytes]) -> None:
         """Render the AST to an ODP file.
 
         Parameters

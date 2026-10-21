@@ -12,7 +12,8 @@ to focus on content extraction.
 
 from __future__ import annotations
 
-from typing import Literal, Sequence
+from collections.abc import Sequence
+from typing import Literal
 
 from all2md.ast.nodes import (
     Alignment,

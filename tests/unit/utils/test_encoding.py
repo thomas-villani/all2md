@@ -23,7 +23,7 @@ class TestDetectEncoding:
 
     def test_detect_utf8(self):
         """Test detection of UTF-8 encoded text."""
-        data = "Hello, world! 你好世界".encode("utf-8")
+        data = "Hello, world! 你好世界".encode()
         encoding = detect_encoding(data)
         # chardet should detect UTF-8
         assert encoding is not None

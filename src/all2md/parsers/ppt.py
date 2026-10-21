@@ -31,9 +31,10 @@ from __future__ import annotations
 import bisect
 import logging
 import struct
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import IO, Any, Iterator, Optional, Union
+from typing import IO, Any
 
 from all2md.ast import (
     Comment,
@@ -131,10 +132,10 @@ class _TextBlock:
 
     text_type: int
     text: str = ""
-    paragraphs: list[tuple[int, int, Optional[bool]]] = field(default_factory=list)
+    paragraphs: list[tuple[int, int, bool | None]] = field(default_factory=list)
     meta_chars: dict[int, int] = field(default_factory=dict)
     links: list[tuple[int, int, int]] = field(default_factory=list)
-    outline_ref: Optional[int] = None
+    outline_ref: int | None = None
 
 
 def _records(data: bytes, start: int, end: int) -> Iterator[_Record]:
@@ -153,7 +154,7 @@ def _records(data: bytes, start: int, end: int) -> Iterator[_Record]:
         position = record.end
 
 
-def _record_at(data: bytes, position: int, end: int) -> Optional[_Record]:
+def _record_at(data: bytes, position: int, end: int) -> _Record | None:
     """Return the record at ``position``, or None when it does not fit before ``end``."""
     if position < 0 or position + 8 > end:
         return None
@@ -301,7 +302,7 @@ class _PresentationBinary:
     def text_blocks(self, records: list[_Record]) -> list[_TextBlock]:
         """Read the text blocks in a run of sibling records, each opened by a TextHeaderAtom."""
         blocks: list[_TextBlock] = []
-        pending_link: Optional[int] = None
+        pending_link: int | None = None
         for record in records:
             body = self.data[record.start : record.end]
             if record.type == _RT_TEXT_HEADER_ATOM and len(body) >= 4:
@@ -331,7 +332,7 @@ class _PresentationBinary:
                 pending_link = None
         return blocks
 
-    def _interactive_link(self, record: _Record) -> Optional[int]:
+    def _interactive_link(self, record: _Record) -> int | None:
         for part in _records(self.data, record.start, record.end):
             if part.type == _RT_INTERACTIVE_INFO_ATOM and part.end - part.start >= 8:
                 return int(struct.unpack_from("<I", self.data, part.start + 4)[0])
@@ -381,7 +382,7 @@ class _PresentationBinary:
         return 0
 
 
-def _paragraph_runs(body: bytes, length: int) -> list[tuple[int, int, Optional[bool]]]:
+def _paragraph_runs(body: bytes, length: int) -> list[tuple[int, int, bool | None]]:
     """Return (end offset, indent level, bulleted or None when inherited) per paragraph run.
 
     The paragraph runs of a StyleTextPropAtom ([MS-PPT] 2.9.44) each cover a
@@ -390,12 +391,12 @@ def _paragraph_runs(body: bytes, length: int) -> list[tuple[int, int, Optional[b
     flag and the indent level are kept; a malformed run ends the list, leaving
     the rest of the paragraphs at their defaults.
     """
-    runs: list[tuple[int, int, Optional[bool]]] = []
+    runs: list[tuple[int, int, bool | None]] = []
     position = covered = 0
     while covered < length and position + 10 <= len(body):
         count, level, masks = struct.unpack_from("<IHI", body, position)
         position += 10
-        bulleted: Optional[bool] = None
+        bulleted: bool | None = None
         if masks & 0x000F:
             if position + 2 > len(body):
                 break
@@ -412,7 +413,7 @@ def _paragraph_runs(body: bytes, length: int) -> list[tuple[int, int, Optional[b
     return runs
 
 
-def _paragraph_format(block: _TextBlock, offset: int) -> tuple[int, Optional[bool]]:
+def _paragraph_format(block: _TextBlock, offset: int) -> tuple[int, bool | None]:
     """Return the indent level and bullet flag of the paragraph starting at ``offset``."""
     index = bisect.bisect_right([end for end, _, _ in block.paragraphs], offset)
     if index < len(block.paragraphs):
@@ -420,7 +421,7 @@ def _paragraph_format(block: _TextBlock, offset: int) -> tuple[int, Optional[boo
     return 0, None
 
 
-def _pf_exception_size(body: bytes, position: int, masks: int) -> Optional[int]:
+def _pf_exception_size(body: bytes, position: int, masks: int) -> int | None:
     """Return the size of a TextPFException's fields after its bullet flags, or None if cut off."""
     size = 0
     for bit, width in (
@@ -468,7 +469,7 @@ class PptParser(BaseParser):
 
     """
 
-    def __init__(self, options: PptOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: PptOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the .ppt parser with options and progress callback."""
         BaseParser._validate_options_type(options, PptOptions, "ppt")
         options = options or PptOptions()
@@ -476,7 +477,7 @@ class PptParser(BaseParser):
         self.options: PptOptions = options
         self._metadata = DocumentMetadata()
 
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse a PowerPoint 97-2003 presentation into an AST Document.
 
         Parameters
@@ -657,7 +658,7 @@ class _SlideBuilder:
 
     def _inlines(self, block: _TextBlock, text: str, start: int, number: int) -> list[Node]:
         """Return a paragraph's text as inline nodes: fields filled, line breaks and links made."""
-        pieces: list[tuple[str, Optional[str]]] = []
+        pieces: list[tuple[str, str | None]] = []
         for position, char in enumerate(text, start):
             meta = block.meta_chars.get(position)
             if meta is not None:

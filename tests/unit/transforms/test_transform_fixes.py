@@ -8,6 +8,8 @@ This module tests the specific fixes for issues found in code review:
 4. HookAwareVisitor ancestry path updates
 """
 
+from datetime import UTC
+
 import pytest
 
 from all2md.ast import Document, Heading, Image, Paragraph, Text
@@ -459,16 +461,16 @@ class TestFix5TimezoneAwareTimestamps:
 
     def test_unix_timestamp_is_utc_based(self):
         """Test that Unix timestamps are UTC-based."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         from all2md.transforms.builtin import AddConversionTimestampTransform
 
         doc = Document(children=[])
         transform = AddConversionTimestampTransform(timestamp_format="unix")
 
-        before = int(datetime.now(timezone.utc).timestamp())
+        before = int(datetime.now(UTC).timestamp())
         result = transform.transform(doc)
-        after = int(datetime.now(timezone.utc).timestamp())
+        after = int(datetime.now(UTC).timestamp())
 
         unix_ts = int(result.metadata["conversion_timestamp"])
 

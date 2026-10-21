@@ -48,7 +48,7 @@ import sys
 import tempfile
 import time
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -91,7 +91,7 @@ def _machine_info() -> dict:
         "python": platform.python_version(),
         "processor": platform.processor() or platform.machine(),
         "git_commit": _git_commit(),
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
 

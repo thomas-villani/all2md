@@ -28,9 +28,10 @@ import importlib.util
 import io
 import logging
 import shutil
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, fields, is_dataclass, replace
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Iterator, Mapping, Optional, Union, cast
+from typing import IO, TYPE_CHECKING, Any, cast
 
 from all2md.ast.nodes import (
     BlockQuote,
@@ -161,7 +162,7 @@ class HeadingPosition:
     level: int
     text: str
     line: int
-    anchor: Optional[str] = None
+    anchor: str | None = None
 
 
 @dataclass(frozen=True)
@@ -316,7 +317,7 @@ def _iter_nodes(node: Any) -> Iterator[Node]:
             yield from _iter_nodes(value)
 
 
-def build_theme(styles: Optional[Mapping[str, Any]] = None) -> "Theme":
+def build_theme(styles: Mapping[str, Any] | None = None) -> Theme:
     """Build the rich theme: our defaults, then the user's overrides.
 
     An element name such as ``h1``, ``math`` or ``item.bullet`` means
@@ -339,7 +340,7 @@ def build_theme(styles: Optional[Mapping[str, Any]] = None) -> "Theme":
     from rich.theme import Theme
 
     known = {name for name in RICH_DEFAULTS if name.startswith("markdown.")} | set(DEFAULT_STYLES)
-    resolved: dict[str, Union[str, Style]] = dict(DEFAULT_STYLES)
+    resolved: dict[str, str | Style] = dict(DEFAULT_STYLES)
     for raw_key, raw_value in (styles or {}).items():
         key = str(raw_key).strip()
         # Any admonition kind can be styled, not only the ones with a default.
@@ -365,12 +366,12 @@ class _Prefixed:
 
     def __init__(
         self,
-        renderable: "RenderableType",
+        renderable: RenderableType,
         first: str,
         rest: str,
         prefix_style: str = "none",
         style: str = "none",
-        first_meta: Optional[dict[str, Any]] = None,
+        first_meta: dict[str, Any] | None = None,
     ) -> None:
         self.renderable = renderable
         self.first = first
@@ -379,7 +380,7 @@ class _Prefixed:
         self.style = style
         self.first_meta = first_meta
 
-    def __rich_console__(self, console: "Console", options: "ConsoleOptions") -> "RenderResult":
+    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
         from rich.cells import cell_len
         from rich.segment import Segment
         from rich.style import Style
@@ -408,10 +409,10 @@ class _RenderedLines:
     are joined again, so tagging leaves the output byte for byte unchanged.
     """
 
-    def __init__(self, lines: list[list["Segment"]]) -> None:
+    def __init__(self, lines: list[list[Segment]]) -> None:
         self.lines = lines
 
-    def __rich_console__(self, console: "Console", options: "ConsoleOptions") -> "RenderResult":
+    def __rich_console__(self, console: Console, options: ConsoleOptions) -> RenderResult:
         from rich.segment import Segment
         from rich.style import Style
 
@@ -426,7 +427,7 @@ class _RenderedLines:
 
         new_line = Segment.line()
         for line in self.lines:
-            pending: Optional[Segment] = None
+            pending: Segment | None = None
             # Whether ``pending`` holds a tagged piece; only those were split by a tag.
             pending_tagged = False
             for segment in line:
@@ -491,7 +492,7 @@ class TerminalRenderer(BaseRenderer):
     # Public API
     # ------------------------------------------------------------------
 
-    def make_console(self, file: Optional[IO[str]] = None) -> "Console":
+    def make_console(self, file: IO[str] | None = None) -> Console:
         """Build the console this renderer lays documents out on.
 
         Parameters
@@ -520,7 +521,7 @@ class TerminalRenderer(BaseRenderer):
             markup=False,
         )
 
-    def render_renderables(self, doc: Document) -> list["RenderableType"]:
+    def render_renderables(self, doc: Document) -> list[RenderableType]:
         """Build the document's top-level rich renderables.
 
         Blank lines between blocks are included, and footnote definitions are
@@ -623,7 +624,7 @@ class TerminalRenderer(BaseRenderer):
         return list(self.layout(doc).headings)
 
     def _positions(
-        self, lines: list[list["Segment"]]
+        self, lines: list[list[Segment]]
     ) -> tuple[tuple[HeadingPosition, ...], tuple[LinkPosition, ...], dict[str, int]]:
         """Read the meta tags back out of laid-out lines."""
         from rich.cells import cell_len
@@ -668,14 +669,14 @@ class TerminalRenderer(BaseRenderer):
                 column += width
         return tuple(headings), tuple(links), footnotes
 
-    def _tag(self, text: "RichText", start: int, key: str, value: Any) -> None:
+    def _tag(self, text: RichText, start: int, key: str, value: Any) -> None:
         """Tag ``text[start:]`` so the layout pass can find where it lands."""
         from rich.style import Style
 
         if len(text) > start:
             text.stylize(Style(meta={key: value}), start, len(text))
 
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
+    def render(self, doc: Document, output: str | Path | IO[bytes]) -> None:
         """Render a document to a file or file-like object.
 
         Parameters
@@ -693,27 +694,27 @@ class TerminalRenderer(BaseRenderer):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _spaced(blocks: list["RenderableType"]) -> list["RenderableType"]:
+    def _spaced(blocks: list[RenderableType]) -> list[RenderableType]:
         """Put a blank line between blocks."""
         from rich.text import Text as RichText
 
-        spaced: list["RenderableType"] = []
+        spaced: list[RenderableType] = []
         for index, block in enumerate(blocks):
             if index:
                 spaced.append(RichText(""))
             spaced.append(block)
         return spaced
 
-    def _stack(self, nodes: list[Node], spaced: bool = True) -> "RenderableType":
+    def _stack(self, nodes: list[Node], spaced: bool = True) -> RenderableType:
         """Render a container's children as one renderable."""
         from rich.console import Group
 
         blocks = self._blocks(nodes)
         return Group(*(self._spaced(blocks) if spaced else blocks))
 
-    def _blocks(self, nodes: list[Node]) -> list["RenderableType"]:
+    def _blocks(self, nodes: list[Node]) -> list[RenderableType]:
         """Render nodes as blocks; runs of inline nodes become one paragraph."""
-        blocks: list["RenderableType"] = []
+        blocks: list[RenderableType] = []
         run: list[Node] = []
         for node in nodes:
             if isinstance(node, _INLINE_TYPES):
@@ -729,7 +730,7 @@ class TerminalRenderer(BaseRenderer):
             blocks.append(self._paragraph_text(run))
         return blocks
 
-    def _block(self, node: Node) -> Optional["RenderableType"]:  # noqa: C901
+    def _block(self, node: Node) -> RenderableType | None:  # noqa: C901
         """Render one block node, or None for a node that renders elsewhere or not at all."""
         from rich.rule import Rule
         from rich.text import Text as RichText
@@ -766,14 +767,14 @@ class TerminalRenderer(BaseRenderer):
         text = extract_text(node, joiner=" ")
         return RichText(text) if text else None
 
-    def _paragraph_text(self, nodes: list[Node]) -> "RichText":
+    def _paragraph_text(self, nodes: list[Node]) -> RichText:
         from rich.text import Text as RichText
 
         text = RichText(style="markdown.paragraph", justify=self.options.justify or "default")
         self._inlines(nodes, text)
         return text
 
-    def _heading(self, node: Heading) -> "RichText":
+    def _heading(self, node: Heading) -> RichText:
         from rich.text import Text as RichText
 
         level = min(max(node.level, 1), 6)
@@ -783,7 +784,7 @@ class TerminalRenderer(BaseRenderer):
         self._headings.append(node)
         return text
 
-    def _code_block(self, node: CodeBlock) -> "RenderableType":
+    def _code_block(self, node: CodeBlock) -> RenderableType:
         from rich.syntax import Syntax
 
         return Syntax(
@@ -794,7 +795,7 @@ class TerminalRenderer(BaseRenderer):
             padding=1,
         )
 
-    def _block_quote(self, node: BlockQuote) -> "RenderableType":
+    def _block_quote(self, node: BlockQuote) -> RenderableType:
         from rich.panel import Panel
         from rich.text import Text as RichText
 
@@ -820,11 +821,11 @@ class TerminalRenderer(BaseRenderer):
         styles = self.options.styles or {}
         return name in styles or name.removeprefix("markdown.") in styles
 
-    def _list(self, node: List) -> "RenderableType":
+    def _list(self, node: List) -> RenderableType:
         from rich.console import Group
         from rich.text import Text as RichText
 
-        rows: list["RenderableType"] = []
+        rows: list[RenderableType] = []
         last_number = node.start + len(node.items) - 1
         number_width = len(str(last_number)) + 2
         for index, item in enumerate(node.items):
@@ -848,7 +849,7 @@ class TerminalRenderer(BaseRenderer):
             rows.append(_Prefixed(body, first, " " * len(first), prefix_style=prefix_style, style="markdown.item"))
         return Group(*rows)
 
-    def _table(self, node: Table) -> "RenderableType":
+    def _table(self, node: Table) -> RenderableType:
         """Render a table; a merged cell's content sits in its first cell and the rest are blank."""
         from rich import box
         from rich.table import Table as RichTable
@@ -867,7 +868,7 @@ class TerminalRenderer(BaseRenderer):
             title_style="markdown.caption",
         )
 
-        def cell_renderable(row: int, col: int) -> "RenderableType":
+        def cell_renderable(row: int, col: int) -> RenderableType:
             placement = anchors.get((row, col))
             if placement is None:
                 return ""
@@ -890,24 +891,24 @@ class TerminalRenderer(BaseRenderer):
         return table
 
     @staticmethod
-    def _alignment(table: Table, cell: Optional[TableCell], col: int) -> Optional[str]:
+    def _alignment(table: Table, cell: TableCell | None, col: int) -> str | None:
         alignment = cell.alignment if cell is not None else None
         if alignment is None and col < len(table.alignments):
             alignment = table.alignments[col]
         return alignment if alignment in ("left", "center", "right") else None
 
-    def _cell(self, cell: TableCell, alignment: Optional[str]) -> "RenderableType":
+    def _cell(self, cell: TableCell, alignment: str | None) -> RenderableType:
         if all(isinstance(child, _INLINE_TYPES) for child in cell.content):
             text = self._paragraph_text(cell.content)
             text.justify = alignment or "default"  # type: ignore[assignment]
             return text
         return self._stack(cell.content, spaced=False)
 
-    def _definition_list(self, node: DefinitionList) -> "RenderableType":
+    def _definition_list(self, node: DefinitionList) -> RenderableType:
         from rich.console import Group
         from rich.text import Text as RichText
 
-        rows: list["RenderableType"] = []
+        rows: list[RenderableType] = []
         for term, descriptions in node.items:
             term_text = RichText(style="markdown.dt")
             self._inlines(term.content, term_text)
@@ -916,7 +917,7 @@ class TerminalRenderer(BaseRenderer):
                 rows.append(_Prefixed(self._stack(description.content, spaced=False), "    ", "    "))
         return Group(*rows)
 
-    def _math_block(self, node: MathBlock) -> "RenderableType":
+    def _math_block(self, node: MathBlock) -> RenderableType:
         from rich.panel import Panel
         from rich.text import Text as RichText
 
@@ -927,7 +928,7 @@ class TerminalRenderer(BaseRenderer):
             expand=False,
         )
 
-    def _math_text(self, node: Union[MathBlock, MathInline], inline: bool) -> str:
+    def _math_text(self, node: MathBlock | MathInline, inline: bool) -> str:
         """Return a formula as LaTeX, or as Unicode text with ``math_mode="unicode"`` when it converts."""
         content, notation = node.get_preferred_representation("latex")
         if self.options.math_mode == "unicode" and notation == "latex":
@@ -938,7 +939,7 @@ class TerminalRenderer(BaseRenderer):
                 return converted
         return content
 
-    def _figure(self, node: Figure) -> "RenderableType":
+    def _figure(self, node: Figure) -> RenderableType:
         from rich.console import Group
         from rich.text import Text as RichText
 
@@ -963,14 +964,14 @@ class TerminalRenderer(BaseRenderer):
         for identifier in self._footnote_definitions:
             self._footnote_numbers.setdefault(identifier, len(self._footnote_numbers) + 1)
 
-    def _footnotes_section(self) -> list["RenderableType"]:
+    def _footnotes_section(self) -> list[RenderableType]:
         from rich.console import Group
         from rich.rule import Rule
 
         if not self._footnote_definitions:
             return []
         ordered = sorted(self._footnote_definitions.items(), key=lambda pair: self._footnote_numbers[pair[0]])
-        rows: list["RenderableType"] = []
+        rows: list[RenderableType] = []
         for identifier, definition in ordered:
             marker = f"[{self._footnote_numbers[identifier]}] "
             body = self._stack(definition.content, spaced=False)
@@ -989,16 +990,16 @@ class TerminalRenderer(BaseRenderer):
     # Inlines
     # ------------------------------------------------------------------
 
-    def _inlines(self, nodes: list[Node], text: "RichText") -> None:
+    def _inlines(self, nodes: list[Node], text: RichText) -> None:
         for node in nodes:
             self._inline(node, text)
 
-    def _styled(self, nodes: list[Node], text: "RichText", style: Any) -> None:
+    def _styled(self, nodes: list[Node], text: RichText, style: Any) -> None:
         start = len(text)
         self._inlines(nodes, text)
         text.stylize(style, start, len(text))
 
-    def _inline(self, node: Node, text: "RichText") -> None:  # noqa: C901
+    def _inline(self, node: Node, text: RichText) -> None:  # noqa: C901
         from rich.style import Style
 
         if isinstance(node, Text):
@@ -1043,7 +1044,7 @@ class TerminalRenderer(BaseRenderer):
         else:
             text.append(extract_text(node, joiner=" "))
 
-    def _inline_code(self, code: str, text: "RichText") -> None:
+    def _inline_code(self, code: str, text: RichText) -> None:
         if self.options.inline_code_theme:
             from rich.syntax import Syntax
 
@@ -1053,7 +1054,7 @@ class TerminalRenderer(BaseRenderer):
         else:
             text.append(code, "markdown.code")
 
-    def _link(self, node: Link, text: "RichText") -> None:
+    def _link(self, node: Link, text: RichText) -> None:
         from rich.style import Style
 
         start = len(text)
@@ -1071,7 +1072,7 @@ class TerminalRenderer(BaseRenderer):
             text.append(shorten_url(node.url), "markdown.link_url")
             text.append(")")
 
-    def _script(self, node: Union[Superscript, Subscript], text: "RichText") -> None:
+    def _script(self, node: Superscript | Subscript, text: RichText) -> None:
         from rich.text import Text as RichText
 
         inner = RichText()
@@ -1091,7 +1092,7 @@ class TerminalRenderer(BaseRenderer):
             text.append(")")
 
     @staticmethod
-    def _comment_label(node: Union[Comment, CommentInline]) -> str:
+    def _comment_label(node: Comment | CommentInline) -> str:
         author = node.metadata.get("author")
         return f"{author}: " if author else ""
 

@@ -13,7 +13,7 @@ the source page and line span.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass
@@ -76,19 +76,19 @@ class ProvenanceChunk:
     token_counter: str
     strategy: str
     document_id: str
-    document_path: Optional[str] = None
-    section_heading: Optional[str] = None
-    section_level: Optional[int] = None
+    document_path: str | None = None
+    section_heading: str | None = None
+    section_level: int | None = None
     section_index: int = -1
-    page: Optional[int] = None
-    page_end: Optional[int] = None
-    source_line_start: Optional[int] = None
-    source_line_end: Optional[int] = None
+    page: int | None = None
+    page_end: int | None = None
+    source_line_start: int | None = None
+    source_line_end: int | None = None
     char_start: int = 0
     char_end: int = 0
     char_basis: str = "section_text"
-    prev_chunk_id: Optional[str] = None
-    next_chunk_id: Optional[str] = None
+    prev_chunk_id: str | None = None
+    next_chunk_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Return a flat JSON-serializable dict (one object per JSONL line)."""

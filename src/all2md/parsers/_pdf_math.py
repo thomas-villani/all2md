@@ -67,7 +67,7 @@ def _private_use(text: str) -> bool:
     return any(0xE000 <= ord(char) <= 0xF8FF for char in text)
 
 
-def is_equation_line(spans: "Sequence[dict]") -> bool:
+def is_equation_line(spans: Sequence[dict]) -> bool:
     """Decide whether these spans are a fragment of a display equation.
 
     Two things must hold together, because either alone claims real prose. The
@@ -90,7 +90,7 @@ def is_equation_line(spans: "Sequence[dict]") -> bool:
     return _has_math_evidence(spans)
 
 
-def _has_math_evidence(spans: "Sequence[dict]") -> bool:
+def _has_math_evidence(spans: Sequence[dict]) -> bool:
     """Report whether these spans are set as mathematics, ignoring how long they are."""
     if not spans:
         return False
@@ -176,7 +176,7 @@ def _vertical_gap(one: tuple[float, ...], other: tuple[float, ...]) -> float:
     return max(one[1], other[1]) - min(one[3], other[3])
 
 
-def mark_equation_blocks(blocks: "Sequence[dict]") -> list[bool]:
+def mark_equation_blocks(blocks: Sequence[dict]) -> list[bool]:
     """Decide, for a column's blocks in reading order, which belong to a display equation.
 
     :func:`is_equation_block` seeds the answer, and the seeds then spread: a neighbouring
@@ -246,7 +246,7 @@ _WHITESPACE_CODES = (0x09, 0x0A, 0x0D)
 _STRAY_CODE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 
 
-def decode_tex_symbol_fonts(blocks: "Sequence[dict]") -> dict[int, str] | None:
+def decode_tex_symbol_fonts(blocks: Sequence[dict]) -> dict[int, str] | None:
     """Map TeX math-font codes 0x00-0x1F to the characters they print, in place.
 
     Parameters

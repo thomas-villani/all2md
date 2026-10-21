@@ -7,8 +7,9 @@ metrics in trace mode.
 import functools
 import logging
 import time
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from typing import Any, Callable, Generator, Optional, Self, TypeVar
+from typing import Any, Self, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -37,14 +38,14 @@ class TimingContext:
     """
 
     def __init__(
-        self, operation_name: str, logger_instance: Optional[logging.Logger] = None, log_level: int = logging.DEBUG
+        self, operation_name: str, logger_instance: logging.Logger | None = None, log_level: int = logging.DEBUG
     ) -> None:
         """Initialize the timing context for an operation."""
         self.operation_name = operation_name
         self.logger = logger_instance or logger
         self.log_level = log_level
-        self.start_time: Optional[float] = None
-        self.end_time: Optional[float] = None
+        self.start_time: float | None = None
+        self.end_time: float | None = None
 
     def __enter__(self) -> Self:
         """Enter the timing context and start the timer."""
@@ -79,8 +80,8 @@ class TimingContext:
 
 
 def instrument_timing(
-    operation_name: Optional[str] = None,
-    logger_instance: Optional[logging.Logger] = None,
+    operation_name: str | None = None,
+    logger_instance: logging.Logger | None = None,
     log_level: int = logging.DEBUG,
 ) -> Callable[[F], F]:
     """Automatically time and log function execution.
@@ -121,9 +122,7 @@ def instrument_timing(
 
 
 @contextmanager
-def timing(
-    operation_name: str, logger_instance: Optional[logging.Logger] = None
-) -> Generator[TimingContext, None, None]:
+def timing(operation_name: str, logger_instance: logging.Logger | None = None) -> Generator[TimingContext, None, None]:
     """Context manager for timing operations.
 
     Parameters
@@ -278,7 +277,7 @@ class OperationTimer:
             "max": max(durations),
         }
 
-    def report(self, logger_instance: Optional[logging.Logger] = None) -> str:
+    def report(self, logger_instance: logging.Logger | None = None) -> str:
         """Generate timing report.
 
         Parameters

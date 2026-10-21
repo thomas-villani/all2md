@@ -49,8 +49,8 @@ from __future__ import annotations
 
 import statistics
 from collections import Counter
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Iterable, Mapping, Sequence
 
 from benchmarks.pmc.alignment import MIN_NGRAMS, ngram_counts, ngrams, normalize
 
@@ -92,7 +92,7 @@ class RecallReport:
     recovered_attainable: int
     scored: int
     too_short: int
-    by_kind: Mapping[str, "KindRecall"]
+    by_kind: Mapping[str, KindRecall]
     control_recovered: int
     control_scored: int
 

@@ -11,7 +11,8 @@ from __future__ import annotations
 import argparse
 import logging
 import os
-from typing import Any, Callable, Optional, Sequence, Union
+from collections.abc import Callable, Sequence
+from typing import Any
 
 _ENV_TRUE = frozenset({"true", "1", "yes", "on"})
 _ENV_FALSE = frozenset({"false", "0", "no", "off"})
@@ -32,7 +33,7 @@ def env_sourced_dests(parser: argparse.ArgumentParser) -> frozenset[str]:
     return frozenset(action.dest for action in parser._actions if getattr(action, "env_key", None))
 
 
-def _env_bool(env_key: str, env_value: str) -> Optional[bool]:
+def _env_bool(env_key: str, env_value: str) -> bool | None:
     """Read a boolean environment value, warning about (and ignoring) anything else."""
     lowered = env_value.strip().lower()
     if lowered in _ENV_TRUE:
@@ -60,14 +61,14 @@ class TrackingStoreAction(argparse.Action):
         self,
         option_strings: Sequence[str],
         dest: str,
-        nargs: Optional[Union[int, str]] = None,
-        const: Optional[Any] = None,
-        default: Optional[Any] = None,
-        type: Optional[Callable[[str], Any]] = None,
-        choices: Optional[Sequence[Any]] = None,
+        nargs: int | str | None = None,
+        const: Any | None = None,
+        default: Any | None = None,
+        type: Callable[[str], Any] | None = None,
+        choices: Sequence[Any] | None = None,
         required: bool = False,
-        help: Optional[str] = None,
-        metavar: Optional[Union[str, tuple[str, ...]]] = None,
+        help: str | None = None,
+        metavar: str | tuple[str, ...] | None = None,
     ) -> None:
         """Initialize the tracking store action.
 
@@ -98,7 +99,7 @@ class TrackingStoreAction(argparse.Action):
         # Check environment variable and set as default if present
         env_key = env_key_for(dest)
         env_value = os.environ.get(env_key)
-        self.env_key: Optional[str] = None
+        self.env_key: str | None = None
         if env_value is not None:
             # Apply type conversion if specified
             try:
@@ -132,8 +133,8 @@ class TrackingStoreAction(argparse.Action):
         self,
         parser: argparse.ArgumentParser,
         namespace: argparse.Namespace,
-        values: Union[str, Sequence[Any], None],
-        option_string: Optional[str] = None,
+        values: str | Sequence[Any] | None,
+        option_string: str | None = None,
     ) -> None:
         """Store the value and mark it as explicitly provided.
 
@@ -170,7 +171,7 @@ class TrackingStoreTrueAction(argparse.Action):
         dest: str,
         default: bool = False,
         required: bool = False,
-        help: Optional[str] = None,
+        help: str | None = None,
     ) -> None:
         """Initialize the tracking store_true action.
 
@@ -191,7 +192,7 @@ class TrackingStoreTrueAction(argparse.Action):
         # Check environment variable and set as default if present
         env_key = env_key_for(dest)
         env_value = os.environ.get(env_key)
-        self.env_key: Optional[str] = None
+        self.env_key: str | None = None
         if env_value is not None:
             flag = _env_bool(env_key, env_value)
             if flag is not None:
@@ -206,8 +207,8 @@ class TrackingStoreTrueAction(argparse.Action):
         self,
         parser: argparse.ArgumentParser,
         namespace: argparse.Namespace,
-        values: Union[str, Sequence[Any], None],
-        option_string: Optional[str] = None,
+        values: str | Sequence[Any] | None,
+        option_string: str | None = None,
     ) -> None:
         """Store True and mark as explicitly provided.
 
@@ -243,7 +244,7 @@ class TrackingStoreFalseAction(argparse.Action):
         dest: str,
         default: bool = True,
         required: bool = False,
-        help: Optional[str] = None,
+        help: str | None = None,
     ) -> None:
         """Initialize the tracking store_false action.
 
@@ -264,7 +265,7 @@ class TrackingStoreFalseAction(argparse.Action):
         # Check environment variable and set as default if present
         env_key = env_key_for(dest)
         env_value = os.environ.get(env_key)
-        self.env_key: Optional[str] = None
+        self.env_key: str | None = None
         if env_value is not None:
             # The variable names the option's value, not the flag:
             # ALL2MD_PDF_DETECT_COLUMNS=false does what --pdf-no-detect-columns does.
@@ -287,8 +288,8 @@ class TrackingStoreFalseAction(argparse.Action):
         self,
         parser: argparse.ArgumentParser,
         namespace: argparse.Namespace,
-        values: Union[str, Sequence[Any], None],
-        option_string: Optional[str] = None,
+        values: str | Sequence[Any] | None,
+        option_string: str | None = None,
     ) -> None:
         """Store False and mark as explicitly provided.
 
@@ -323,14 +324,14 @@ class TrackingAppendAction(argparse.Action):
         self,
         option_strings: Sequence[str],
         dest: str,
-        nargs: Optional[Union[int, str]] = None,
-        const: Optional[Any] = None,
-        default: Optional[list] = None,
-        type: Optional[Callable[[str], Any]] = None,
-        choices: Optional[Sequence[Any]] = None,
+        nargs: int | str | None = None,
+        const: Any | None = None,
+        default: list | None = None,
+        type: Callable[[str], Any] | None = None,
+        choices: Sequence[Any] | None = None,
         required: bool = False,
-        help: Optional[str] = None,
-        metavar: Optional[Union[str, tuple[str, ...]]] = None,
+        help: str | None = None,
+        metavar: str | tuple[str, ...] | None = None,
     ) -> None:
         """Initialize the tracking append action.
 
@@ -361,7 +362,7 @@ class TrackingAppendAction(argparse.Action):
         # Check environment variable and set as default if present
         env_key = env_key_for(dest)
         env_value = os.environ.get(env_key)
-        self.env_key: Optional[str] = None
+        self.env_key: str | None = None
         if env_value is not None:
             # Split on commas for append actions
             items: list[Any] = [item.strip() for item in env_value.split(",")]
@@ -392,8 +393,8 @@ class TrackingAppendAction(argparse.Action):
         self,
         parser: argparse.ArgumentParser,
         namespace: argparse.Namespace,
-        values: Union[str, Sequence[Any], None],
-        option_string: Optional[str] = None,
+        values: str | Sequence[Any] | None,
+        option_string: str | None = None,
     ) -> None:
         """Append the value and mark as explicitly provided.
 
@@ -434,7 +435,7 @@ class TrackingAppendAction(argparse.Action):
         else:
             # Single value - append normally
             # Apply type converter if provided
-            converted_value: Union[str, Sequence[Any], None] = values
+            converted_value: str | Sequence[Any] | None = values
             if self.type is not None and values is not None:
                 try:
                     converted_value = self.type(values)  # type: ignore[arg-type, assignment, operator]
@@ -457,12 +458,12 @@ class TrackingPositiveIntAction(argparse.Action):
         self,
         option_strings: Sequence[str],
         dest: str,
-        nargs: Optional[Union[int, str]] = None,
-        const: Optional[Any] = None,
-        default: Optional[int] = None,
+        nargs: int | str | None = None,
+        const: Any | None = None,
+        default: int | None = None,
         required: bool = False,
-        help: Optional[str] = None,
-        metavar: Optional[Union[str, tuple[str, ...]]] = None,
+        help: str | None = None,
+        metavar: str | tuple[str, ...] | None = None,
     ) -> None:
         """Initialize the tracking positive int action.
 
@@ -489,7 +490,7 @@ class TrackingPositiveIntAction(argparse.Action):
         # Check environment variable and set as default if present
         env_key = env_key_for(dest)
         env_value = os.environ.get(env_key)
-        self.env_key: Optional[str] = None
+        self.env_key: str | None = None
         if env_value is not None:
             try:
                 ivalue = int(env_value)
@@ -516,8 +517,8 @@ class TrackingPositiveIntAction(argparse.Action):
         self,
         parser: argparse.ArgumentParser,
         namespace: argparse.Namespace,
-        values: Union[str, Sequence[Any], None],
-        option_string: Optional[str] = None,
+        values: str | Sequence[Any] | None,
+        option_string: str | None = None,
     ) -> None:
         """Validate and convert to positive integer.
 
@@ -563,7 +564,7 @@ class DynamicVersionAction(argparse._VersionAction):
     """
 
     def __init__(
-        self, option_strings: Sequence[str], version_callback: Optional[Callable[[], str]] = None, **kwargs: Any
+        self, option_strings: Sequence[str], version_callback: Callable[[], str] | None = None, **kwargs: Any
     ) -> None:
         """Initialize with a callback to get version dynamically.
 
@@ -595,8 +596,8 @@ class DynamicVersionAction(argparse._VersionAction):
         self,
         parser: argparse.ArgumentParser,
         namespace: argparse.Namespace,
-        values: Union[str, Sequence[Any], None],
-        option_string: Optional[str] = None,
+        values: str | Sequence[Any] | None,
+        option_string: str | None = None,
     ) -> None:
         """Display version and exit."""
         version = self.version
@@ -701,7 +702,7 @@ class TieredHelpAction(argparse.Action):
         parser: argparse.ArgumentParser,
         namespace: argparse.Namespace,
         values: Any,
-        option_string: Optional[str] = None,
+        option_string: str | None = None,
     ) -> None:
         """Execute the help action.
 

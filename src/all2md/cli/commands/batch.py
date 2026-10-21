@@ -15,7 +15,7 @@ import dataclasses
 import logging
 import shlex
 from collections import Counter
-from typing import Optional, Sequence
+from collections.abc import Sequence
 
 from all2md.cli.builder import EXIT_ERROR, EXIT_SUCCESS
 from all2md.cli.commands.shared import collect_input_files
@@ -64,7 +64,7 @@ class _Prompter:
         else:
             print(f"\n== {title} ==")
 
-    def ask(self, prompt: str, default: Optional[str] = None) -> str:
+    def ask(self, prompt: str, default: str | None = None) -> str:
         if self._rich is not None:
             Prompt = self._rich[0]
             if default is None:
@@ -82,7 +82,7 @@ class _Prompter:
                 return value
             print(f"  Please choose one of: {', '.join(choices)}")
 
-    def ask_int(self, prompt: str, default: Optional[int]) -> Optional[int]:
+    def ask_int(self, prompt: str, default: int | None) -> int | None:
         if self._rich is not None:
             IntPrompt = self._rich[1]
             return IntPrompt.ask(prompt, default=default, console=self.console)
@@ -105,7 +105,7 @@ class _Prompter:
         return raw.strip().lower() in {"y", "yes"}
 
 
-def _plain_ask(prompt: str, default: Optional[str]) -> str:
+def _plain_ask(prompt: str, default: str | None) -> str:
     suffix = f" [{default}]" if default else ""
     try:
         raw = input(f"{_strip_markup(prompt)}{suffix}: ").strip()
@@ -135,7 +135,7 @@ def _strip_markup(text: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _step_inputs(p: _Prompter) -> Optional[tuple[list[str], list[CLIInputItem], dict]]:
+def _step_inputs(p: _Prompter) -> tuple[list[str], list[CLIInputItem], dict] | None:
     """Collect input pattern + filters and preview detected file types.
 
     Returns ``(input_args, items, flags)`` where ``flags`` records recursive/exclude/
@@ -166,7 +166,7 @@ def _step_inputs(p: _Prompter) -> Optional[tuple[list[str], list[CLIInputItem], 
     _print_type_table(p, counts, len(items))
 
     # Optional narrowing by extension.
-    chosen_exts: Optional[list[str]] = None
+    chosen_exts: list[str] | None = None
     if len(counts) > 1 and p.confirm("Restrict to specific file types?", default=False):
         available = sorted(counts)
         wanted = p.ask(
@@ -262,7 +262,7 @@ def _step_advanced(p: _Prompter) -> dict:
     """Collect worker count and error-handling preference."""
     p.rule("5. Advanced parameters")
     use_parallel = p.confirm("Convert files in parallel?", default=True)
-    workers: Optional[int] = None
+    workers: int | None = None
     if use_parallel:
         workers = p.ask_int("Worker count (blank/0 = auto-detect)", default=0)
         if workers is not None and workers <= 0:

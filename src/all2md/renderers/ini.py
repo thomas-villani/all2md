@@ -36,7 +36,7 @@ import configparser
 import io
 import logging
 from pathlib import Path
-from typing import IO, Any, Union
+from typing import IO, Any
 
 from all2md.ast.nodes import Document, Heading, ListItem, Node, Paragraph, Strong, Text
 from all2md.ast.nodes import List as AstList
@@ -94,7 +94,7 @@ class IniRenderer(BaseRenderer):
         BaseRenderer.__init__(self, options)
         self.options: IniRendererOptions = options
 
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes], IO[str]]) -> None:
+    def render(self, doc: Document, output: str | Path | IO[bytes] | IO[str]) -> None:
         """Render AST document to INI file.
 
         Parameters

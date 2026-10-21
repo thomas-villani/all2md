@@ -20,7 +20,7 @@ import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import IO, Any, Union
+from typing import IO, Any
 
 from all2md.ast.nodes import (
     BlockQuote,
@@ -2378,7 +2378,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
 
             self._output.append(f"<!-- {comment_text} -->")
 
-    def visit_footnote_reference(self, node: "FootnoteReference") -> None:
+    def visit_footnote_reference(self, node: FootnoteReference) -> None:
         """Render a FootnoteReference node.
 
         Parameters
@@ -2401,7 +2401,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         else:  # "force" (also the resolved default): emit real Markdown syntax
             self._output.append(f"[^{node.identifier}]")
 
-    def visit_math_inline(self, node: "MathInline") -> None:
+    def visit_math_inline(self, node: MathInline) -> None:
         """Render a MathInline node.
 
         Parameters
@@ -2434,7 +2434,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         else:
             self._output.append(render_math_html(content, notation, inline=True))
 
-    def visit_footnote_definition(self, node: "FootnoteDefinition") -> None:
+    def visit_footnote_definition(self, node: FootnoteDefinition) -> None:
         """Render a FootnoteDefinition node.
 
         Parameters
@@ -2464,7 +2464,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             # collapsing into one paragraph on reparse.
             self._render_footnote_definition_markdown(node)
 
-    def _render_footnote_definition_markdown(self, node: "FootnoteDefinition") -> None:
+    def _render_footnote_definition_markdown(self, node: FootnoteDefinition) -> None:
         """Render a footnote definition as ``[^id]: ...`` Markdown.
 
         Continuation lines and later block paragraphs are indented four spaces so
@@ -2494,7 +2494,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                 for line in lines:
                     self._output.append("\n" + ("    " + line if line else ""))
 
-    def visit_definition_list(self, node: "DefinitionList") -> None:
+    def visit_definition_list(self, node: DefinitionList) -> None:
         """Render a DefinitionList node.
 
         Parameters
@@ -2568,7 +2568,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
                         for line in lines:
                             self._output.append("\n" + ("    " + line if line else ""))
 
-    def visit_definition_term(self, node: "DefinitionTerm") -> None:
+    def visit_definition_term(self, node: DefinitionTerm) -> None:
         """Render a DefinitionTerm node.
 
         Parameters
@@ -2579,7 +2579,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         pass
 
-    def visit_definition_description(self, node: "DefinitionDescription") -> None:
+    def visit_definition_description(self, node: DefinitionDescription) -> None:
         """Render a DefinitionDescription node.
 
         Parameters
@@ -2590,7 +2590,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         """
         pass
 
-    def visit_math_block(self, node: "MathBlock") -> None:
+    def visit_math_block(self, node: MathBlock) -> None:
         """Render a MathBlock node.
 
         Parameters
@@ -2630,7 +2630,7 @@ class MarkdownRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             self._output.append("\n")
         self._output.append("$$")
 
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
+    def render(self, doc: Document, output: str | Path | IO[bytes]) -> None:
         """Render AST to markdown and write to output.
 
         Parameters

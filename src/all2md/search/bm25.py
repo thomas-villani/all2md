@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Callable, Mapping, Sequence
 
 from all2md.constants import DEPS_SEARCH_BM25
 from all2md.utils.decorators import requires_dependencies
@@ -110,7 +110,7 @@ class BM25Index(BaseIndex):
                 handle.write(json.dumps(record, ensure_ascii=False) + "\n")
 
     @classmethod
-    def load(cls, directory: Path) -> "BM25Index":
+    def load(cls, directory: Path) -> BM25Index:
         """Restore a BM25 index that was previously saved to ``directory``."""
         manifest = cls._read_manifest(directory)
         backend = manifest.backend or {}

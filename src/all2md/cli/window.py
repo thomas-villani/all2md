@@ -16,7 +16,7 @@ Install with::
 
 from __future__ import annotations
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
 INSTALL_HINT = "Standalone-window mode requires 'pywebview'. Install it with: pip install all2md[window]"
 
@@ -30,7 +30,7 @@ def is_available() -> bool:
     return True
 
 
-def open_window(url: str, title: str, *, on_start: Optional[Callable[[], None]] = None) -> None:
+def open_window(url: str, title: str, *, on_start: Callable[[], None] | None = None) -> None:
     """Open ``url`` in a native window and block until the user closes it.
 
     Parameters

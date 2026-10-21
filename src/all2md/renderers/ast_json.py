@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import IO, Union
+from typing import IO
 
 from all2md.ast import Document
 from all2md.ast.serialization import ast_to_dict
@@ -98,7 +98,7 @@ class AstJsonRenderer(BaseRenderer):
             sort_keys=self.options.sort_keys,
         )
 
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes], IO[str]]) -> None:
+    def render(self, doc: Document, output: str | Path | IO[bytes] | IO[str]) -> None:
         """Render AST to JSON and write to output.
 
         Parameters

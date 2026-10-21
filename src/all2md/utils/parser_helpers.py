@@ -22,15 +22,16 @@ from __future__ import annotations
 import os
 import re
 import tempfile
+from collections.abc import Callable, Generator, Iterable
 from contextlib import contextmanager
 from pathlib import Path
-from typing import IO, Any, Callable, Generator, Iterable, Union
+from typing import IO, Any
 
 from all2md.ast import Emphasis, FootnoteDefinition, Heading, Image, Node, Paragraph, Strong, Text, Underline
 from all2md.utils.security import validate_zip_archive
 
 
-def validate_zip_input(input_data: Union[str, Path, IO[bytes], bytes], suffix: str = ".zip") -> None:
+def validate_zip_input(input_data: str | Path | IO[bytes] | bytes, suffix: str = ".zip") -> None:
     """Validate a zip archive across different input types.
 
     This function handles zip validation for Path, bytes, and IO[bytes] inputs
@@ -111,8 +112,8 @@ def validate_zip_input(input_data: Union[str, Path, IO[bytes], bytes], suffix: s
 
 @contextmanager
 def validated_zip_input(
-    input_data: Union[str, Path, IO[bytes], bytes], suffix: str = ".zip"
-) -> Generator[Union[str, Path, IO[bytes], bytes], None, None]:
+    input_data: str | Path | IO[bytes] | bytes, suffix: str = ".zip"
+) -> Generator[str | Path | IO[bytes] | bytes, None, None]:
     """Context manager for validated zip input with automatic cleanup.
 
     This context manager validates zip archives and yields the input for parsing,
@@ -256,7 +257,7 @@ def append_attachment_footnotes(
 
 def attachment_result_to_image_node(
     attachment_result: dict[str, Any], fallback_alt_text: str = "image"
-) -> "Image | None":
+) -> Image | None:
     """Convert process_attachment result dict to Image AST node.
 
     This helper eliminates the need for parsers to manually parse markdown
@@ -330,8 +331,8 @@ def group_and_format_runs(
     runs: Iterable[Any],
     text_extractor: Callable[[Any], str],
     format_extractor: Callable[[Any], tuple[bool, ...]],
-    format_builders: tuple[Callable[[list["Node"]], "Node"], ...] | None = None,
-) -> list["Node"]:
+    format_builders: tuple[Callable[[list[Node]], Node], ...] | None = None,
+) -> list[Node]:
     """Group text runs by formatting and build formatted AST nodes.
 
     This helper consolidates the common pattern across DOCX, PPTX, ODT, and ODP
@@ -415,7 +416,7 @@ def group_and_format_runs(
             lambda nodes: Underline(content=nodes),
         )
 
-    builders: tuple[Callable[[list["Node"]], "Node"], ...] = format_builders
+    builders: tuple[Callable[[list[Node]], Node], ...] = format_builders
 
     # Pass 1: collect consecutive same-format runs into groups, keeping each
     # group's raw text (edges included) so pass 2 can see boundary whitespace.
@@ -450,7 +451,7 @@ def group_and_format_runs(
     # Flush final group
     flush_group()
 
-    def build_node(format_key: tuple[bool, ...], text_value: str) -> "Node":
+    def build_node(format_key: tuple[bool, ...], text_value: str) -> Node:
         """Wrap ``text_value`` in the formatting layers named by ``format_key``."""
         inline_node: Node = Text(content=text_value)
         # Apply formatting layers in reverse order (innermost first)

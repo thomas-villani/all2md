@@ -7,17 +7,13 @@ import argparse
 import inspect
 import sys
 import types
+from collections.abc import Iterable
 from dataclasses import MISSING, Field, fields, is_dataclass
 from pathlib import Path
 from typing import (
     Annotated,
     Any,
-    Dict,
-    Iterable,
     Literal,
-    Optional,
-    Tuple,
-    Type,
     Union,
     get_args,
     get_origin,
@@ -37,7 +33,7 @@ from all2md.options.markdown import MarkdownRendererOptions  # noqa: E402
 from all2md.utils.input_sources import RemoteInputOptions  # noqa: E402
 
 # Type alias for clarity
-DataclassType = Type[Any]
+DataclassType = type[Any]
 
 
 def snake_to_kebab(name: str) -> str:
@@ -45,7 +41,7 @@ def snake_to_kebab(name: str) -> str:
     return name.replace("_", "-")
 
 
-def unwrap_optional(annotation: Any) -> Tuple[Any, bool]:
+def unwrap_optional(annotation: Any) -> tuple[Any, bool]:
     """Return underlying type if annotation is Optional[...].
 
     Handles both ``typing.Union`` and PEP 604 unions (``X | None``).
@@ -138,7 +134,7 @@ def format_type(annotation: Any) -> str:
     return f"{name}[{args_repr}]" if args_repr else name
 
 
-def get_type_hints_safe(cls: DataclassType) -> Dict[str, Any]:
+def get_type_hints_safe(cls: DataclassType) -> dict[str, Any]:
     """Safely resolve type hints for a dataclass, handling forward references.
 
     Let get_type_hints() use its default namespace resolution: passing an
@@ -158,7 +154,7 @@ def get_type_hints_safe(cls: DataclassType) -> Dict[str, Any]:
         return {field.name: field.type for field in fields(cls)}
 
 
-def get_field_default(field: Field[Any]) -> Tuple[Optional[Any], Optional[str]]:
+def get_field_default(field: Field[Any]) -> tuple[Any | None, str | None]:
     """Return default value or factory information for a dataclass field."""
     if field.default is not MISSING:
         return field.default, None
@@ -172,10 +168,10 @@ def get_field_default(field: Field[Any]) -> Tuple[Optional[Any], Optional[str]]:
 
 def compute_cli_flag(
     field: Field[Any],
-    metadata: Dict[str, Any],
-    format_prefix: Optional[str],
+    metadata: dict[str, Any],
+    format_prefix: str | None,
     resolved_type: Any,
-) -> Optional[str]:
+) -> str | None:
     """Compute the CLI flag associated with a dataclass field."""
     if metadata.get("exclude_from_cli"):
         return None
@@ -292,18 +288,18 @@ class OptionsRenderer:
 
     def __init__(self) -> None:
         """Initialize the options renderer with empty visited set."""
-        self.visited: set[tuple[DataclassType, Optional[str]]] = set()
+        self.visited: set[tuple[DataclassType, str | None]] = set()
 
     def render_dataclass(
         self,
         cls: DataclassType,
         title: str,
         level: int,
-        format_prefix: Optional[str],
+        format_prefix: str | None,
         include_docstring: bool = True,
         emit_cli_flags: bool = True,
-        note_lines: Optional[list[str]] = None,
-        exclude_field_names: Optional[set[str]] = None,
+        note_lines: list[str] | None = None,
+        exclude_field_names: set[str] | None = None,
     ) -> list[str]:
         """Render a dataclass and its fields into RST lines.
 
@@ -332,7 +328,7 @@ class OptionsRenderer:
         type_hints = get_type_hints_safe(cls)
 
         for field in fields(cls):
-            metadata: Dict[str, Any] = dict(field.metadata) if field.metadata else {}
+            metadata: dict[str, Any] = dict(field.metadata) if field.metadata else {}
 
             if metadata.get("exclude_from_cli"):
                 continue
@@ -388,9 +384,9 @@ class OptionsRenderer:
     def render_field(
         self,
         field: Field[Any],
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
         resolved_type: Any,
-        format_prefix: Optional[str],
+        format_prefix: str | None,
         emit_cli_flag: bool = True,
     ) -> list[str]:
         """Render an individual field as a definition block."""
@@ -597,7 +593,7 @@ def build_document(narrative_path: Path, reference_lines: Iterable[str]) -> str:
     return "\n".join(parts).rstrip() + "\n"
 
 
-def generate_options_document(output_path: Path, narrative_path: Optional[Path] = None) -> str:
+def generate_options_document(output_path: Path, narrative_path: Path | None = None) -> str:
     """Generate options documentation and write to disk."""
     if narrative_path is None:
         narrative_path = output_path.with_name("options-narrative.rst")
@@ -613,7 +609,7 @@ def generate_options_document(output_path: Path, narrative_path: Optional[Path] 
     return document
 
 
-def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse command line arguments."""
     # The Sphinx build passes both paths explicitly; these defaults only serve a
     # standalone run, and they resolved against ``scripts/`` rather than the docs
@@ -637,7 +633,7 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def main(argv: Optional[list[str]] = None) -> None:
+def main(argv: list[str] | None = None) -> None:
     """Generate options documentation and print status.
 
     Parameters

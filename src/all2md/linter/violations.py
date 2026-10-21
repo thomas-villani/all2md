@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from all2md.linter.fixes import LintFix
@@ -23,7 +23,7 @@ class Severity(IntEnum):
     ERROR = 3
 
     @classmethod
-    def from_name(cls, name: str) -> "Severity":
+    def from_name(cls, name: str) -> Severity:
         """Parse a severity from a case-insensitive name (info/warning/error)."""
         key = name.strip().lower()
         for member in cls:
@@ -45,12 +45,12 @@ class Violation:
     rule_name: str
     message: str
     severity: Severity
-    line: Optional[int] = None
-    column: Optional[int] = None
-    node_type: Optional[str] = None
-    suggestion: Optional[str] = None
-    context: Optional[str] = None
-    fix: Optional["LintFix"] = None
+    line: int | None = None
+    column: int | None = None
+    node_type: str | None = None
+    suggestion: str | None = None
+    context: str | None = None
+    fix: LintFix | None = None
 
     @property
     def fixable(self) -> bool:

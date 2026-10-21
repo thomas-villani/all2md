@@ -9,7 +9,7 @@ terminal display, compatible with standard diff tools.
 
 from __future__ import annotations
 
-from typing import Iterator
+from collections.abc import Iterator
 
 
 class UnifiedDiffRenderer:

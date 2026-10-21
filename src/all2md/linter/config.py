@@ -10,7 +10,7 @@ built programmatically.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from all2md.linter.rule import LintRule
 from all2md.linter.violations import Severity
@@ -40,7 +40,7 @@ class LintConfig(CloneFrozenMixin):
 
     """
 
-    enabled_rules: Optional[frozenset[str]] = None
+    enabled_rules: frozenset[str] | None = None
     disabled_rules: frozenset[str] = field(default_factory=frozenset)
     severity_overrides: dict[str, Severity] = field(default_factory=dict)
     rule_options: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -66,7 +66,7 @@ class LintConfig(CloneFrozenMixin):
         return self.rule_options.get(code, {})
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any] | None) -> "LintConfig":
+    def from_dict(cls, data: dict[str, Any] | None) -> LintConfig:
         """Build a ``LintConfig`` from a plain dict (as produced by the TOML loader).
 
         Recognised keys:
@@ -85,7 +85,7 @@ class LintConfig(CloneFrozenMixin):
 
         enabled_raw = data.get("enable", data.get("enabled_rules"))
         if enabled_raw is None:
-            enabled: Optional[frozenset[str]] = None
+            enabled: frozenset[str] | None = None
         else:
             enabled = frozenset(str(code) for code in enabled_raw)
 

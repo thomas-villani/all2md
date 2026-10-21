@@ -53,7 +53,7 @@ class _FakePage:
         """
         return None
 
-    def get_textbox(self, rect: "pymupdf.Rect", textpage=None) -> str:
+    def get_textbox(self, rect: pymupdf.Rect, textpage=None) -> str:
         return self._texts.get((rect.x0, rect.y0, rect.x1, rect.y1), "")
 
 

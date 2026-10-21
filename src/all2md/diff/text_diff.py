@@ -12,9 +12,10 @@ from __future__ import annotations
 
 import difflib
 import re
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Iterator, Literal, Sequence, Union
+from typing import Literal
 
 from all2md import to_ast
 from all2md.ast.nodes import (
@@ -503,8 +504,8 @@ def compare_documents(
 
 
 def compare_files(
-    old_path: Union[str, Path],
-    new_path: Union[str, Path],
+    old_path: str | Path,
+    new_path: str | Path,
     old_label: str | None = None,
     new_label: str | None = None,
     context_lines: int = 3,

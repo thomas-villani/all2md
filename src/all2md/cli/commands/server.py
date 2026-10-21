@@ -22,7 +22,7 @@ import threading
 import webbrowser
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from urllib.parse import quote, unquote
 
 from all2md.api import from_ast, to_ast
@@ -36,7 +36,7 @@ from all2md.utils.html_utils import escape_html
 
 # Filenames that can stand in for an auto-generated directory listing,
 # in descending priority order.
-INDEX_FILE_NAMES: Tuple[str, ...] = (
+INDEX_FILE_NAMES: tuple[str, ...] = (
     "index.html",
     "index.htm",
     "index.md",
@@ -163,9 +163,9 @@ def _generate_upload_form(theme_path: Path) -> str:
 def _scan_directory_for_documents(
     directory: Path,
     recursive: bool,
-    pattern: Optional[str] = None,
+    pattern: str | None = None,
     include_hidden: bool = False,
-) -> List[Path]:
+) -> list[Path]:
     """Scan directory for supported document files.
 
     Parameters
@@ -211,7 +211,7 @@ def _scan_directory_for_documents(
     return supported_files
 
 
-def _find_index_file(directory: Path) -> Optional[Path]:
+def _find_index_file(directory: Path) -> Path | None:
     """Return an index file inside ``directory``, if one exists.
 
     Looks for ``index.html``, ``index.htm``, ``index.md``, ``README.md`` (case-
@@ -234,9 +234,9 @@ def _find_index_file(directory: Path) -> Optional[Path]:
 def _compute_directory_state(
     base_dir: Path,
     recursive: bool,
-    pattern: Optional[str] = None,
+    pattern: str | None = None,
     include_hidden: bool = False,
-) -> Tuple[List[Path], set, Dict[str, Path], set]:
+) -> tuple[list[Path], set, dict[str, Path], set]:
     """Scan ``base_dir`` and derive everything the serve loop tracks.
 
     Returns a tuple of ``(files, known_subdirs, file_mapping, signature)``,
@@ -245,7 +245,7 @@ def _compute_directory_state(
     """
     files = _scan_directory_for_documents(base_dir, recursive, pattern, include_hidden)
     subdirs: set = set()
-    mapping: Dict[str, Path] = {}
+    mapping: dict[str, Path] = {}
     signature: set = set()
     for file in files:
         rel_path = file.relative_to(base_dir)
@@ -315,7 +315,7 @@ _INDEX_SCRIPT = """<script>
 
 
 def _generate_directory_index(
-    all_files: List[Path],
+    all_files: list[Path],
     theme_path: Path,
     base_dir: Path,
     current_subdir: str = "",
@@ -349,7 +349,7 @@ def _generate_directory_index(
     theme_content = theme_path.read_text(encoding="utf-8")
 
     # Filter files to current directory level and find child subdirectories
-    current_files: List[Path] = []
+    current_files: list[Path] = []
     child_dir_names: set[str] = set()
 
     for file in all_files:
@@ -477,7 +477,7 @@ def _format_timestamp(timestamp: float) -> str:
     return datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M")
 
 
-def _file_created_timestamp(stat_result: os.stat_result) -> Optional[float]:
+def _file_created_timestamp(stat_result: os.stat_result) -> float | None:
     """Best-effort file creation time, or ``None`` when it isn't reliably available.
 
     Uses ``st_birthtime`` when the platform provides it (macOS, *BSD, and Windows
@@ -497,7 +497,7 @@ def _file_created_timestamp(stat_result: os.stat_result) -> Optional[float]:
 
 def _bind_http_server(
     host: str, port: int, handler: type[http.server.BaseHTTPRequestHandler]
-) -> Tuple["_ThreadingHTTPServer", bool]:
+) -> tuple["_ThreadingHTTPServer", bool]:
     """Bind the serve HTTP server, falling back to a random free port if taken.
 
     Returns ``(httpd, fell_back)`` where ``fell_back`` is ``True`` when the
@@ -575,7 +575,7 @@ def _generate_breadcrumbs(url_path: str) -> str:
     return f'<nav style="{breadcrumb_style}">{separator.join(crumbs)}</nav>'
 
 
-def _parse_multipart_form_data(body: bytes, content_type: str) -> Dict[str, Any]:
+def _parse_multipart_form_data(body: bytes, content_type: str) -> dict[str, Any]:
     """Parse multipart/form-data without using deprecated cgi module.
 
     Parameters
@@ -614,7 +614,7 @@ def _parse_multipart_form_data(body: bytes, content_type: str) -> Dict[str, Any]
     boundary_bytes = ("--" + boundary).encode("utf-8")
     parts = body.split(boundary_bytes)
 
-    result: Dict[str, Any] = {}
+    result: dict[str, Any] = {}
 
     for part_bytes in parts:
         # Skip empty parts and end marker
@@ -670,7 +670,7 @@ class _ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     allow_reuse_address = True
 
 
-def _parse_address(address: str) -> Tuple[Optional[str], Optional[int]]:
+def _parse_address(address: str) -> tuple[str | None, int | None]:
     """Split an ``--address`` value into an optional host and port.
 
     Accepts ``host:port``, ``host:`` (port omitted), ``:port`` (host omitted),
@@ -846,7 +846,7 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
     # Resolve the input: a glob pattern, a directory, or a single file.
     # A glob is served as a directory listing restricted to matching files, so
     # live rescans continue to pick up newly added matches.
-    serve_pattern: Optional[str] = None
+    serve_pattern: str | None = None
     if any(char in parsed.input for char in "*?["):
         input_path, serve_pattern, glob_recursive = split_glob_pattern(parsed.input)
         if not input_path.is_dir():
@@ -882,14 +882,14 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
     # Shared state guarded by state_lock so the polling thread and request
     # handler threads can coexist safely.
     state_lock = threading.Lock()
-    file_cache: Dict[str, str] = {}
-    index_cache: Dict[str, str] = {}
-    file_mapping: Dict[str, Path] = {}
-    supported_files: List[Path] = []
+    file_cache: dict[str, str] = {}
+    index_cache: dict[str, str] = {}
+    file_mapping: dict[str, Path] = {}
+    supported_files: list[Path] = []
     known_subdirs: set = set()
     scan_signature: set = set()
 
-    def _convert_to_html(file_path: Path, breadcrumb_path: Optional[str] = None) -> str:
+    def _convert_to_html(file_path: Path, breadcrumb_path: str | None = None) -> str:
         """Convert a single document to themed HTML, optionally injecting breadcrumbs."""
         # Apply config-supplied converter options for the detected format, but
         # force base64 attachments: images must be inlined to render in-browser.
@@ -983,7 +983,7 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
         with state_lock:
             return subdir in known_subdirs
 
-    def _render_directory_index(path: str) -> Optional[str]:
+    def _render_directory_index(path: str) -> str | None:
         """Render the index for ``path``, preferring a hand-authored index file.
 
         Returns ``None`` if rendering fails outright.
@@ -1001,7 +1001,7 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
         if not parsed.force_auto_index:
             index_file = _find_index_file(target_dir)
             if index_file is not None:
-                breadcrumb_path: Optional[str] = ("/" + subdir + "/") if subdir else None
+                breadcrumb_path: str | None = ("/" + subdir + "/") if subdir else None
                 try:
                     return _convert_to_html(index_file, breadcrumb_path=breadcrumb_path)
                 except Exception as e:
@@ -1032,7 +1032,7 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
 
             # Directory index requests (root or known subdirectory)
             if _is_directory_index_path(path):
-                cached: Optional[str] = None
+                cached: str | None = None
                 if not parsed.no_cache:
                     with state_lock:
                         cached = index_cache.get(path)
@@ -1056,7 +1056,7 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
             # File request
             with state_lock:
                 file_path = file_mapping.get(path)
-                cached_file: Optional[str] = file_cache.get(path) if file_path else None
+                cached_file: str | None = file_cache.get(path) if file_path else None
 
             if file_path is None:
                 self._send_404()
@@ -1361,7 +1361,7 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
     # Background polling for live directory updates. Skipped in single-file
     # mode, when polling is disabled, or when caching is off (rescan happens
     # inline on each request anyway).
-    poll_thread: Optional[threading.Thread] = None
+    poll_thread: threading.Thread | None = None
     if is_directory and parsed.poll_interval > 0 and not parsed.no_cache:
 
         def _poll_loop() -> None:

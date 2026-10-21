@@ -18,7 +18,7 @@ import os
 import re
 import stat
 from pathlib import Path
-from typing import IO, Any, Optional, Union
+from typing import IO, Any
 from urllib.parse import urljoin, urlparse
 
 from all2md.ast import (
@@ -185,7 +185,7 @@ class HtmlToAstConverter(BaseParser):
         }
     )
 
-    def __init__(self, options: HtmlOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: HtmlOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the HTML parser with options and progress callback."""
         BaseParser._validate_options_type(options, HtmlOptions, "html")
         options = options or HtmlOptions()
@@ -198,7 +198,7 @@ class HtmlToAstConverter(BaseParser):
         self._network_rate_limiter: RateLimiter | None = None
 
     @requires_dependencies("html", DEPS_HTML)
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse HTML document into an AST.
 
         Parameters
@@ -782,7 +782,7 @@ class HtmlToAstConverter(BaseParser):
             if not (hasattr(element, "attrs") and hasattr(element, "name")):
                 continue
 
-            allowed_attrs: Union[tuple[str, ...], dict[str, tuple[str, ...]]]
+            allowed_attrs: tuple[str, ...] | dict[str, tuple[str, ...]]
             if is_per_element:
                 assert isinstance(self.options.allowed_attributes, dict)
                 allowed_attrs = self.options.allowed_attributes.get(element.name, ())

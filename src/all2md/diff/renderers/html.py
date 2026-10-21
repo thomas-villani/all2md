@@ -12,9 +12,10 @@ inline-view when called with raw unified diff lines.
 
 from __future__ import annotations
 
+from collections.abc import Iterator, Sequence
 from html import escape
 from io import StringIO
-from typing import Any, Iterator, List, Sequence, Tuple
+from typing import Any
 
 from all2md.diff.text_diff import DiffOp, DiffResult
 
@@ -222,7 +223,7 @@ class HtmlDiffRenderer:
         }
         """
 
-    def _parse_diff_lines(self, diff_lines: Iterator[str]) -> List[Tuple[str, str]]:
+    def _parse_diff_lines(self, diff_lines: Iterator[str]) -> list[tuple[str, str]]:
         """Parse diff lines into (type, content) tuples.
 
         Returns
@@ -232,7 +233,7 @@ class HtmlDiffRenderer:
             'header', 'hunk', 'added', 'deleted', 'context'
 
         """
-        parsed_lines: List[Tuple[str, str]] = []
+        parsed_lines: list[tuple[str, str]] = []
 
         for line in diff_lines:
             if line.startswith("---") or line.startswith("+++"):

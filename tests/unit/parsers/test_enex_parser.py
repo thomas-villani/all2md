@@ -33,7 +33,7 @@ class TestEnexDateParsing:
         assert result.hour == 14
         assert result.minute == 30
         assert result.second == 0
-        assert result.tzinfo == datetime.timezone.utc
+        assert result.tzinfo == datetime.UTC
 
     def test_parse_enex_date_none(self) -> None:
         """Test parsing None date."""
@@ -52,7 +52,7 @@ class TestEnexDateParsing:
 
     def test_format_enex_date_iso8601(self) -> None:
         """Test formatting date as ISO 8601."""
-        dt = datetime.datetime(2025, 1, 15, 14, 30, 0, tzinfo=datetime.timezone.utc)
+        dt = datetime.datetime(2025, 1, 15, 14, 30, 0, tzinfo=datetime.UTC)
         options = EnexOptions(date_format_mode="iso8601")
         result = _format_enex_date(dt, options)
 
@@ -61,7 +61,7 @@ class TestEnexDateParsing:
 
     def test_format_enex_date_strftime(self) -> None:
         """Test formatting date with strftime pattern."""
-        dt = datetime.datetime(2025, 1, 15, 14, 30, 0, tzinfo=datetime.timezone.utc)
+        dt = datetime.datetime(2025, 1, 15, 14, 30, 0, tzinfo=datetime.UTC)
         options = EnexOptions(date_format_mode="strftime", date_strftime_pattern="%Y-%m-%d")
         result = _format_enex_date(dt, options)
 

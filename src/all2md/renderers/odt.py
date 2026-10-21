@@ -19,7 +19,7 @@ import os
 import tempfile
 from io import BytesIO
 from pathlib import Path
-from typing import IO, Any, Union
+from typing import IO, Any
 from urllib.parse import urlparse
 
 from all2md.ast.nodes import (
@@ -120,7 +120,7 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
         self._in_table_header: bool = False  # Track if rendering table header cell
 
     @requires_dependencies("odt_render", DEPS_ODF_RENDER)
-    def render(self, doc: ASTDocument, output: Union[str, Path, IO[bytes]]) -> None:
+    def render(self, doc: ASTDocument, output: str | Path | IO[bytes]) -> None:
         """Render the AST to an ODT file.
 
         Parameters

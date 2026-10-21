@@ -46,7 +46,7 @@ import heapq
 import importlib
 import importlib.metadata
 import logging
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from all2md.ast.transforms import NodeTransformer
 
@@ -91,7 +91,7 @@ class TransformRegistry:
 
     """
 
-    _instance: Optional[TransformRegistry] = None
+    _instance: TransformRegistry | None = None
     _transforms: dict[str, TransformMetadata]
     _initialized: bool
 
@@ -233,7 +233,7 @@ class TransformRegistry:
         self._ensure_initialized()
         return name in self._transforms
 
-    def list_transforms(self, tags: Optional[list[str]] = None) -> list[str]:
+    def list_transforms(self, tags: list[str] | None = None) -> list[str]:
         """List all registered transform names.
 
         Parameters

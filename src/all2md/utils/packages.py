@@ -6,10 +6,9 @@
 from __future__ import annotations
 
 from functools import cache
-from typing import Optional, Tuple
 
 
-def get_package_version(package_name: str) -> Optional[str]:
+def get_package_version(package_name: str) -> str | None:
     """Get the installed version of a package.
 
     Parameters
@@ -36,7 +35,7 @@ def get_package_version(package_name: str) -> Optional[str]:
 
 
 @cache
-def check_version_requirement(package_name: str, version_spec: str) -> Tuple[bool, Optional[str]]:
+def check_version_requirement(package_name: str, version_spec: str) -> tuple[bool, str | None]:
     """Check if installed package meets version requirement.
 
     Parameters

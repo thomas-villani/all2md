@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Optional, Union
+from typing import IO, TYPE_CHECKING, Any
 
 from all2md.ast import (
     Document,
@@ -63,7 +63,7 @@ class RtfToAstConverter(BaseParser):
     """
 
     @requires_dependencies("rtf", DEPS_RTF)
-    def __init__(self, options: RtfOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: RtfOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the RTF parser with options and progress callback."""
         BaseParser._validate_options_type(options, RtfOptions, "rtf")
         options = options or RtfOptions()
@@ -90,7 +90,7 @@ class RtfToAstConverter(BaseParser):
         self._attachment_sequencer = create_attachment_sequencer()
         self._list_stack: list[tuple[str, int, int]] = []  # (type, level, number)
 
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse RTF input into an AST Document.
 
         Parameters
@@ -366,7 +366,7 @@ class RtfToAstConverter(BaseParser):
 
         return text_node
 
-    def _process_image(self, image: "pyth.document.Image") -> Image | None:
+    def _process_image(self, image: pyth.document.Image) -> Image | None:
         """Process pyth Image object to AST Image node.
 
         Parameters
@@ -415,7 +415,7 @@ class RtfToAstConverter(BaseParser):
 
         return None
 
-    def extract_metadata(self, document: "pyth.document.Document") -> DocumentMetadata:
+    def extract_metadata(self, document: pyth.document.Document) -> DocumentMetadata:
         """Extract metadata from RTF document.
 
         Parameters

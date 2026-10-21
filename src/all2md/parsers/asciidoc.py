@@ -16,7 +16,7 @@ import re
 from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
-from typing import IO, Any, Literal, Optional, Union, cast
+from typing import IO, Any, Literal, cast
 
 from all2md.ast import (
     BlockQuote,
@@ -431,7 +431,7 @@ class AsciiDocParser(BaseParser):
 
     """
 
-    def __init__(self, options: AsciiDocOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: AsciiDocOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the AsciiDoc parser."""
         BaseParser._validate_options_type(options, AsciiDocOptions, "asciidoc")
         options = options or AsciiDocOptions()
@@ -462,8 +462,8 @@ class AsciiDocParser(BaseParser):
         unconstrained (double delimiter, anywhere) formatting.
         """
         # Unconstrained formatting (double delimiters, higher priority)
-        self.bold_unconstrained_pattern: Optional[re.Pattern[str]]
-        self.italic_unconstrained_pattern: Optional[re.Pattern[str]]
+        self.bold_unconstrained_pattern: re.Pattern[str] | None
+        self.italic_unconstrained_pattern: re.Pattern[str] | None
 
         if self.options.support_unconstrained_formatting:
             self.bold_unconstrained_pattern = re.compile(r"\*\*([^\*]+?)\*\*")
@@ -562,7 +562,7 @@ class AsciiDocParser(BaseParser):
         combined = "|".join(f"({p})" for p in patterns)
         self.combined_inline_pattern = re.compile(combined)
 
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse AsciiDoc input into AST Document.
 
         Parameters
@@ -1860,7 +1860,7 @@ class AsciiDocParser(BaseParser):
         is_math_block = block_type in ("latexmath", "stem")
 
         # Extract language from block attributes if present
-        language: Optional[str] = attrs.get("language")
+        language: str | None = attrs.get("language")
 
         # Collect content until closing delimiter
         lines, _closed = parse_delimited_block(
@@ -2080,7 +2080,7 @@ class AsciiDocParser(BaseParser):
         self._advance()
 
         rows: list[TableRow] = []
-        header: Optional[TableRow] = None
+        header: TableRow | None = None
 
         # Determine header detection mode
         header_mode = self.options.table_header_detection

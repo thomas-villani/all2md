@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import IO, Any, Optional, Union
+from typing import IO, Any
 
 from all2md.ast import Document
 from all2md.ast.serialization import json_to_ast
@@ -111,16 +111,14 @@ class AstJsonParser(BaseParser):
 
     """
 
-    def __init__(
-        self, options: AstJsonParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
-    ):
+    def __init__(self, options: AstJsonParserOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the AST JSON parser."""
         BaseParser._validate_options_type(options, AstJsonParserOptions, "ast")
         options = options or AstJsonParserOptions()
         super().__init__(options, progress_callback)
         self.options: AstJsonParserOptions = options
 
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse JSON AST input into a Document.
 
         Parameters
@@ -145,7 +143,7 @@ class AstJsonParser(BaseParser):
             # Read JSON content based on input type
             if isinstance(input_data, (str, Path)):
                 # Read from file path
-                with open(input_data, "r", encoding="utf-8") as f:
+                with open(input_data, encoding="utf-8") as f:
                     json_str = f.read()
             elif isinstance(input_data, bytes):
                 # Decode bytes directly

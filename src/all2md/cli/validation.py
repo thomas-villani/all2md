@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import argparse
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Iterable, List, Optional
 
 from all2md.cli.input_items import CLIInputItem
 
@@ -36,7 +36,7 @@ class ValidationProblem:
 
 def collect_argument_problems(
     parsed_args: argparse.Namespace,
-    files: Optional[List[CLIInputItem]] = None,
+    files: list[CLIInputItem] | None = None,
 ) -> list[ValidationProblem]:
     """Collect validation problems for parsed CLI arguments."""
     problems: list[ValidationProblem] = []
@@ -230,7 +230,7 @@ def collect_argument_problems(
 def report_validation_problems(
     problems: Iterable[ValidationProblem],
     *,
-    logger: Optional[logging.Logger] = None,
+    logger: logging.Logger | None = None,
 ) -> bool:
     """Report validation problems via logging.
 
@@ -249,9 +249,9 @@ def report_validation_problems(
 
 def validate_arguments(
     parsed_args: argparse.Namespace,
-    files: Optional[List[CLIInputItem]] = None,
+    files: list[CLIInputItem] | None = None,
     *,
-    logger: Optional[logging.Logger] = None,
+    logger: logging.Logger | None = None,
 ) -> bool:
     """Validate parsed arguments, logging any issues. Maintains legacy API."""
     problems = collect_argument_problems(parsed_args, files)

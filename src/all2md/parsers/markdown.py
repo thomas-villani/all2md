@@ -18,7 +18,7 @@ import re
 import tomllib
 from collections.abc import Callable
 from pathlib import Path
-from typing import IO, Any, Literal, Optional, Union
+from typing import IO, Any, Literal
 
 from all2md.ast import (
     BlockQuote,
@@ -256,7 +256,7 @@ def _is_delimiter_row(text: str) -> bool:
     return bool(cells) and all(_DELIMITER_CELL.match(cell) for cell in cells)
 
 
-def _process_row_lenient(text: str, aligns: list[Optional[str]]) -> dict[str, Any]:
+def _process_row_lenient(text: str, aligns: list[str | None]) -> dict[str, Any]:
     """Build a table row token, reconciling the cell count with the header.
 
     mistune's own ``_process_row`` rejects any body row whose cell count differs
@@ -299,7 +299,7 @@ def _process_row_lenient(text: str, aligns: list[Optional[str]]) -> dict[str, An
     return {"type": "table_row", "children": children}
 
 
-def _parse_table_lenient(block: Any, m: re.Match[str], state: Any) -> Optional[int]:
+def _parse_table_lenient(block: Any, m: re.Match[str], state: Any) -> int | None:
     """Parse a pipe table, tolerating body rows whose cell count differs from the header."""
     from mistune.plugins.table import (
         _parse_invalid_pipe_table,
@@ -340,7 +340,7 @@ def _parse_table_lenient(block: Any, m: re.Match[str], state: Any) -> Optional[i
     return pos
 
 
-def _parse_nptable_lenient(block: Any, m: re.Match[str], state: Any) -> Optional[int]:
+def _parse_nptable_lenient(block: Any, m: re.Match[str], state: Any) -> int | None:
     """Parse a pipe-less table, tolerating body rows whose cell count differs from the header."""
     from mistune.plugins.table import _process_thead, _strip_table_line
 
@@ -475,9 +475,7 @@ class MarkdownToAstConverter(BaseParser):
         re.IGNORECASE,
     )
 
-    def __init__(
-        self, options: MarkdownParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
-    ):
+    def __init__(self, options: MarkdownParserOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the Markdown parser with options and progress callback."""
         BaseParser._validate_options_type(options, MarkdownParserOptions, "markdown")
         options = options or MarkdownParserOptions()
@@ -486,7 +484,7 @@ class MarkdownToAstConverter(BaseParser):
         self._footnote_definitions: dict[str, list[Node]] = {}
 
     @requires_dependencies("markdown", DEPS_MARKDOWN)
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse Markdown input into AST Document.
 
         Parameters

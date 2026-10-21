@@ -34,8 +34,9 @@ Register a pipeline hook:
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Literal, Optional, Union, cast
+from typing import Any, Literal, cast
 
 from all2md.ast.nodes import (
     BlockQuote,
@@ -158,7 +159,7 @@ NodeType = Literal[
     "definition_description",
 ]
 
-HookTarget = Union[HookPoint, NodeType]
+HookTarget = HookPoint | NodeType
 
 # Callable type for hooks
 # Pipeline hooks: (Document, HookContext) -> Document
@@ -207,7 +208,7 @@ class HookContext:
     document: Document
     metadata: dict[str, Any] = field(default_factory=dict)
     shared: dict[str, Any] = field(default_factory=dict)
-    transform_name: Optional[str] = None
+    transform_name: str | None = None
     node_path: list[Node] = field(default_factory=list)
 
     def get_shared(self, key: str, default: Any = None) -> Any:
@@ -463,7 +464,7 @@ class HookManager:
         return target in self._hooks and len(self._hooks[target]) > 0
 
     @staticmethod
-    def get_node_type(node: Node) -> Optional[NodeType]:
+    def get_node_type(node: Node) -> NodeType | None:
         """Get the node type string for a node instance.
 
         This static method supports subclasses by using isinstance checks rather than

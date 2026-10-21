@@ -18,7 +18,7 @@ import tempfile
 import zipfile
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
-from typing import IO, Any, Optional, Union, cast
+from typing import IO, Any, cast
 
 from all2md.api import to_ast
 from all2md.ast import Alignment, Document, Heading, Node, Paragraph, Table, TableCell, TableRow, Text
@@ -97,7 +97,7 @@ def _process_zip_file_worker(
         file_obj.seek(0)
 
         # Create parser options with attachment settings from the options dict
-        parser_options: Optional[BaseParserOptions] = None
+        parser_options: BaseParserOptions | None = None
         try:
             options_class = registry.get_parser_options_class(detected_format)
             if options_class is not None:
@@ -159,7 +159,7 @@ class ZipToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: ZipOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: ZipOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the ZIP parser with options and progress callback."""
         BaseParser._validate_options_type(options, ZipOptions, "zip")
         options = options or ZipOptions()
@@ -170,7 +170,7 @@ class ZipToAstConverter(BaseParser):
         # Track failed files for error reporting
         self._failed_files: list[dict[str, Any]] = []
 
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse ZIP archive into an AST Document.
 
         Parameters

@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import IO, Any, Optional, Union, cast
+from typing import IO, Any, cast
 
 from all2md.ast import (
     BlockQuote,
@@ -82,7 +82,7 @@ class MediaWikiParser(BaseParser):
     """
 
     def __init__(
-        self, options: MediaWikiParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None
+        self, options: MediaWikiParserOptions | None = None, progress_callback: ProgressCallback | None = None
     ):
         """Initialize the MediaWiki parser with options and progress callback."""
         BaseParser._validate_options_type(options, MediaWikiParserOptions, "mediawiki")
@@ -91,7 +91,7 @@ class MediaWikiParser(BaseParser):
         self.options: MediaWikiParserOptions = options
 
     @requires_dependencies("mediawiki", DEPS_MEDIAWIKI)
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse MediaWiki input into AST Document.
 
         Parameters
@@ -934,8 +934,8 @@ class MediaWikiParser(BaseParser):
         lines = contents.split("\n")
 
         rows: list[TableRow] = []
-        header: Optional[TableRow] = None
-        caption: Optional[str] = None
+        header: TableRow | None = None
+        caption: str | None = None
         current_row_cells: list[TableCell] = []
         in_header = False
 

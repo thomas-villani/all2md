@@ -127,7 +127,7 @@ class TestConfigCLIEndToEnd:
         assert output_file.exists()
 
         # Verify it's valid YAML
-        with open(output_file, "r", encoding="utf-8") as f:
+        with open(output_file, encoding="utf-8") as f:
             config_data = yaml.safe_load(f)
         assert isinstance(config_data, dict)
 
@@ -141,7 +141,7 @@ class TestConfigCLIEndToEnd:
         assert output_file.exists()
 
         # Verify it's valid JSON
-        with open(output_file, "r", encoding="utf-8") as f:
+        with open(output_file, encoding="utf-8") as f:
             config_data = json.load(f)
         assert isinstance(config_data, dict)
 

@@ -13,9 +13,9 @@ nothing from the default stops working.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from enum import Enum
 from types import MappingProxyType
-from typing import Mapping
 
 
 class Action(str, Enum):

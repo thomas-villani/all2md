@@ -18,8 +18,9 @@ from __future__ import annotations
 import atexit
 import os
 import tempfile
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 # Directory holding the packaged built-in theme templates.
 _THEMES_DIR = Path(__file__).parent / "themes"

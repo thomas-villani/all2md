@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import datetime
+from collections.abc import Iterable
 from email.message import EmailMessage
 from email.utils import format_datetime, make_msgid
 from io import BytesIO
-from typing import Iterable
 
 from utils import MINIMAL_PNG_BYTES
 

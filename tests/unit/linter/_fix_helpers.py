@@ -6,7 +6,7 @@ Not part of the public surface. Provides ergonomic ``lint_then_fix`` and
 
 from __future__ import annotations
 
-from typing import Iterable, Optional
+from collections.abc import Iterable
 
 from all2md.ast import Document
 from all2md.linter import FixSafety, LintConfig, LintFixResult, LintRunner
@@ -14,7 +14,7 @@ from all2md.linter import FixSafety, LintConfig, LintFixResult, LintRunner
 
 def lint_then_fix(
     doc: Document,
-    rule_codes: Optional[Iterable[str]] = None,
+    rule_codes: Iterable[str] | None = None,
     *,
     max_safety: FixSafety = FixSafety.SAFE,
 ) -> LintFixResult:

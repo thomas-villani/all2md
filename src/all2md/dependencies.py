@@ -11,14 +11,14 @@ import importlib.util
 import json
 import sys
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from all2md.cli.output import should_use_rich_output
 from all2md.converter_registry import check_package_installed, registry
 from all2md.utils.packages import check_version_requirement, get_package_version
 
 
-def get_all_dependencies() -> Dict[str, Dict[str, Any]]:
+def get_all_dependencies() -> dict[str, dict[str, Any]]:
     """Get all dependencies for all parsers and renderers from the registry.
 
     Returns
@@ -60,7 +60,7 @@ def get_all_dependencies() -> Dict[str, Dict[str, Any]]:
     return dependencies
 
 
-def check_all_dependencies() -> Dict[str, Dict[str, Any]]:
+def check_all_dependencies() -> dict[str, dict[str, Any]]:
     """Check installation status of all dependencies for parsers and renderers.
 
     Returns
@@ -159,12 +159,12 @@ class Feature:
     name: str
     description: str
     extra: str
-    packages: Tuple[Tuple[str, str], ...]
-    min_python: Optional[Tuple[int, int]] = None
+    packages: tuple[tuple[str, str], ...]
+    min_python: tuple[int, int] | None = None
 
 
 #: Capabilities ``check-deps`` reports beside the formats.
-FEATURES: Tuple[Feature, ...] = (
+FEATURES: tuple[Feature, ...] = (
     Feature("read", "all2md read and rcat -i, the interactive terminal viewer", "tui", (("wijjit", "wijjit"),)),
     Feature("mcp", "all2md mcp, the MCP server", "mcp", (("fastmcp", "fastmcp"), ("rank-bm25", "rank_bm25"))),
     Feature("watch", "--watch, converting again when a file changes", "cli_extras", (("watchdog", "watchdog"),)),
@@ -180,12 +180,12 @@ FEATURES: Tuple[Feature, ...] = (
 )
 
 
-def get_feature(name: str) -> Optional[Feature]:
+def get_feature(name: str) -> Feature | None:
     """Return the feature called ``name``, or None."""
     return next((feature for feature in FEATURES if feature.name == name), None)
 
 
-def check_feature(feature: Feature) -> Dict[str, Any]:
+def check_feature(feature: Feature) -> dict[str, Any]:
     """Check whether a feature can run here.
 
     Packages are found without importing them: the search feature's packages
@@ -215,7 +215,7 @@ def _importable(module: str) -> bool:
         return False
 
 
-def _feature_lines(feature: Feature) -> List[str]:
+def _feature_lines(feature: Feature) -> list[str]:
     """Report lines for one feature: its packages, and how to get it when it is missing."""
     status = check_feature(feature)
     lines = [f"  {'[OK]' if ok else '[MISSING]'} {package}" for package, ok in status["packages"].items()]
@@ -227,7 +227,7 @@ def _feature_lines(feature: Feature) -> List[str]:
     return lines
 
 
-def get_missing_dependencies(format_name: str) -> List[Tuple[str, str]]:
+def get_missing_dependencies(format_name: str) -> list[tuple[str, str]]:
     """Get list of missing dependencies for a specific format.
 
     Parameters
@@ -263,7 +263,7 @@ def get_missing_dependencies(format_name: str) -> List[Tuple[str, str]]:
     return missing
 
 
-def get_missing_dependencies_for_file(format_name: str, input_file: Optional[str] = None) -> List[Tuple[str, str]]:
+def get_missing_dependencies_for_file(format_name: str, input_file: str | None = None) -> list[tuple[str, str]]:
     """Get list of missing dependencies for a specific format and file.
 
     This function uses context-aware dependency checking to accurately determine
@@ -313,7 +313,7 @@ def get_missing_dependencies_for_file(format_name: str, input_file: Optional[str
     return missing
 
 
-def generate_install_command(packages: List[Tuple[str, str]]) -> str:
+def generate_install_command(packages: list[tuple[str, str]]) -> str:
     """Generate pip install command for packages.
 
     Parameters
@@ -445,7 +445,7 @@ def suggest_full_install() -> str:
     return generate_install_command(sorted(all_packages))
 
 
-def format_json_all_formats() -> Dict[str, Any]:
+def format_json_all_formats() -> dict[str, Any]:
     """Generate JSON output for all format dependencies with parser/renderer info.
 
     Returns
@@ -538,7 +538,7 @@ def format_json_all_formats() -> Dict[str, Any]:
     }
 
 
-def format_json_feature(feature: Feature) -> Dict[str, Any]:
+def format_json_feature(feature: Feature) -> dict[str, Any]:
     """Generate JSON output for one feature.
 
     Returns
@@ -561,7 +561,7 @@ def format_json_feature(feature: Feature) -> Dict[str, Any]:
     }
 
 
-def format_json_specific_format(format_name: str) -> Dict[str, Any]:
+def format_json_specific_format(format_name: str) -> dict[str, Any]:
     """Generate JSON output for a specific format's dependencies.
 
     Parameters
@@ -761,7 +761,7 @@ def print_dependency_report_rich_specific(format_name: str) -> None:
         console.print(f"\n[yellow]Install with:[/yellow] {cmd}")
 
 
-def main(argv: Optional[List[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     """Execute dependency management CLI.
 
     Parameters

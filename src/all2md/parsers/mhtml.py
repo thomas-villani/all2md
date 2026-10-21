@@ -12,7 +12,7 @@ from __future__ import annotations
 from email import message_from_binary_file, policy
 from email.message import EmailMessage
 from pathlib import Path
-from typing import IO, Any, Optional, Union
+from typing import IO, Any
 
 from all2md.ast import Document
 from all2md.constants import DEPS_MHTML
@@ -41,7 +41,7 @@ class MhtmlToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: MhtmlOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: MhtmlOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the MHTML parser with options and progress callback."""
         BaseParser._validate_options_type(options, MhtmlOptions, "mhtml")
         options = options or MhtmlOptions()
@@ -50,7 +50,7 @@ class MhtmlToAstConverter(BaseParser):
         self._html_parser = HtmlToAstConverter(self.options)
 
     @requires_dependencies("mhtml", DEPS_MHTML)
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse MHTML file into an AST Document.
 
         Parameters

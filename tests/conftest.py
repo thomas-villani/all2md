@@ -4,8 +4,8 @@ This module provides shared fixtures, test configuration, and utilities
 that are used across the entire test suite.
 """
 
+from collections.abc import Generator
 from pathlib import Path
-from typing import Generator
 
 import pytest
 from utils import cleanup_test_dir, create_test_temp_dir

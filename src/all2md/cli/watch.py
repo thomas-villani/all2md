@@ -11,7 +11,7 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 from all2md.api import convert
 from all2md.cli.builder import EXIT_DEPENDENCY_ERROR
@@ -65,17 +65,17 @@ class ConversionEventHandler(FileSystemEventHandler):
 
     def __init__(
         self,
-        paths_to_watch: List[Path],
+        paths_to_watch: list[Path],
         output_dir: Path,
-        options: Dict[str, Any],
+        options: dict[str, Any],
         format_arg: DocumentFormat,
         target_format: DocumentFormat = "markdown",
-        output_extension: Optional[str] = None,
-        transforms: Optional[list] = None,
+        output_extension: str | None = None,
+        transforms: list | None = None,
         debounce_seconds: float = 1.0,
         preserve_structure: bool = False,
         recursive: bool = False,
-        exclude_patterns: Optional[List[str]] = None,
+        exclude_patterns: list[str] | None = None,
     ) -> None:
         """Initialize the conversion event handler with watch settings."""
         self.paths_to_watch = paths_to_watch
@@ -91,11 +91,11 @@ class ConversionEventHandler(FileSystemEventHandler):
         self.exclude_patterns = exclude_patterns or []
 
         # Debouncing state
-        self._last_processed: Dict[str, float] = {}
-        self._processing: Set[str] = set()
+        self._last_processed: dict[str, float] = {}
+        self._processing: set[str] = set()
 
         # Determine base directory for structure preservation
-        self.base_dir: Optional[Path] = None
+        self.base_dir: Path | None = None
         if preserve_structure and paths_to_watch:
             # Use the first directory as base
             for path in paths_to_watch:
@@ -258,17 +258,17 @@ class ConversionEventHandler(FileSystemEventHandler):
 
 
 def run_watch_mode(
-    paths: List[Path],
+    paths: list[Path],
     output_dir: Path,
-    options: Dict[str, Any],
+    options: dict[str, Any],
     format_arg: DocumentFormat,
     target_format: DocumentFormat = "markdown",
-    output_extension: Optional[str] = None,
-    transforms: Optional[list] = None,
+    output_extension: str | None = None,
+    transforms: list | None = None,
     debounce: float = 1.0,
     preserve_structure: bool = False,
     recursive: bool = False,
-    exclude_patterns: Optional[List[str]] = None,
+    exclude_patterns: list[str] | None = None,
 ) -> int:
     """Run watch mode to monitor and convert files on change.
 

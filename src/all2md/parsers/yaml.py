@@ -61,7 +61,7 @@ from __future__ import annotations
 import datetime
 import logging
 from pathlib import Path
-from typing import IO, Any, Optional, Union
+from typing import IO, Any
 
 from all2md.ast import (
     CodeBlock,
@@ -121,7 +121,7 @@ class YamlParser(BaseParser):
 
     """
 
-    def __init__(self, options: YamlParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: YamlParserOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the YAML parser with options and progress callback."""
         BaseParser._validate_options_type(options, YamlParserOptions, "yaml")
         options = options or YamlParserOptions()
@@ -129,7 +129,7 @@ class YamlParser(BaseParser):
         self.options: YamlParserOptions = options
 
     @requires_dependencies("yaml", DEPS_YAML)
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse YAML input into AST Document.
 
         Parameters

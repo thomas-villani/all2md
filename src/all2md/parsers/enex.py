@@ -16,7 +16,7 @@ import hashlib
 import logging
 import re
 from pathlib import Path
-from typing import IO, Any, Optional, Union
+from typing import IO, Any
 
 import defusedxml.ElementTree as ET
 
@@ -103,7 +103,7 @@ class EnexToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: EnexOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: EnexOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the ENEX parser with options and progress callback."""
         BaseParser._validate_options_type(options, EnexOptions, "enex")
         options = options or EnexOptions()
@@ -113,7 +113,7 @@ class EnexToAstConverter(BaseParser):
         self._attachment_footnotes: dict[str, str] = {}
         self._html_converter: HtmlToAstConverter | None = None
 
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse ENEX file into an AST Document.
 
         Parameters

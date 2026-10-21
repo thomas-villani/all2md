@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import textwrap
 from pathlib import Path
-from typing import IO, Any, Union
+from typing import IO, Any
 
 from all2md.ast.nodes import (
     BlockQuote,
@@ -1207,7 +1207,7 @@ class AsciiDocRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
             self._output.append("\n")
         self._output.append("++++")
 
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes]]) -> None:
+    def render(self, doc: Document, output: str | Path | IO[bytes]) -> None:
         """Render AST to AsciiDoc and write to output.
 
         Parameters

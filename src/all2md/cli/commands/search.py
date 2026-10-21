@@ -14,9 +14,10 @@ import json
 import os
 import sys
 import textwrap
+from collections.abc import Mapping
 from dataclasses import fields
 from pathlib import Path
-from typing import Any, Dict, List, Mapping
+from typing import Any
 
 from all2md.cli.builder import EXIT_DEPENDENCY_ERROR, EXIT_ERROR, EXIT_FILE_ERROR, EXIT_SUCCESS, EXIT_VALIDATION_ERROR
 from all2md.cli.commands.shared import add_cache_arguments, collect_input_files, conversion_cache_from_args
@@ -115,7 +116,7 @@ def _format_plain_snippet(snippet: str, width: int = 100, indent: str = "      "
     return formatted
 
 
-def _group_results_by_doc_and_section(results: List[SearchResult]) -> dict[str, dict[str, list[SearchResult]]]:
+def _group_results_by_doc_and_section(results: list[SearchResult]) -> dict[str, dict[str, list[SearchResult]]]:
     """Group search results by document path and section.
 
     Parameters
@@ -320,7 +321,7 @@ def _render_grouped_plain(grouped: dict[str, dict[str, list[SearchResult]]]) -> 
 
 
 def _render_grep_results(
-    results: List[SearchResult],
+    results: list[SearchResult],
     *,
     use_rich: bool,
     context_before: int = 0,
@@ -487,7 +488,7 @@ def _render_single_result_plain(rank: int, result: SearchResult) -> None:
 
 
 def _render_search_results(
-    results: List[SearchResult],
+    results: list[SearchResult],
     *,
     use_rich: bool,
     grep_context_before: int = 0,
@@ -743,7 +744,7 @@ def _build_or_load_index(
     parsed: argparse.Namespace,
     options: SearchOptions,
     resolved_mode: SearchMode,
-    items: List[CLIInputItem],
+    items: list[CLIInputItem],
     progress_callback: ProgressCallback | None,
 ) -> tuple[SearchService | None, int | None]:
     """Build new index or load existing one.
@@ -842,7 +843,7 @@ def handle_search_command(args: list[str] | None = None) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return EXIT_VALIDATION_ERROR
 
-    items: List[CLIInputItem] = []
+    items: list[CLIInputItem] = []
     if parsed.inputs:
         items = collect_input_files(parsed.inputs, recursive=parsed.recursive, exclude_patterns=parsed.exclude)
         if not items:
@@ -1059,8 +1060,8 @@ def _apply_search_config(options: SearchOptions, config_section: Mapping[str, ob
     return options.create_updated(**filtered)
 
 
-def _collect_search_overrides(parsed: argparse.Namespace) -> Dict[str, object]:
-    overrides: Dict[str, object] = {}
+def _collect_search_overrides(parsed: argparse.Namespace) -> dict[str, object]:
+    overrides: dict[str, object] = {}
     for field_name in (
         "chunk_size_tokens",
         "chunk_overlap_tokens",
@@ -1102,7 +1103,7 @@ def _parse_search_mode(mode_value: str | None, options: SearchOptions) -> Search
     return mapping[normalized]
 
 
-def _create_search_documents(items: List[CLIInputItem]) -> list[SearchDocumentInput]:
+def _create_search_documents(items: list[CLIInputItem]) -> list[SearchDocumentInput]:
     documents: list[SearchDocumentInput] = []
     for index, item in enumerate(items, start=1):
         metadata = {
@@ -1132,7 +1133,7 @@ def _create_search_documents(items: List[CLIInputItem]) -> list[SearchDocumentIn
     return documents
 
 
-def _result_to_dict(result: SearchResult) -> Dict[str, object]:
+def _result_to_dict(result: SearchResult) -> dict[str, object]:
     return {
         "score": result.score,
         "chunk_id": result.chunk.chunk_id,

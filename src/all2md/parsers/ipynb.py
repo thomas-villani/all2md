@@ -15,7 +15,7 @@ import json
 import logging
 from copy import deepcopy
 from pathlib import Path
-from typing import IO, Any, Optional, Union
+from typing import IO, Any
 
 from all2md.ast import CodeBlock, Document, Node, Paragraph, Text
 from all2md.constants import DEFAULT_TRUNCATE_OUTPUT_MESSAGE, IPYNB_SUPPORTED_IMAGE_MIMETYPES
@@ -76,7 +76,7 @@ class IpynbToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: IpynbOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: IpynbOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the IPYNB parser with options and progress callback."""
         BaseParser._validate_options_type(options, IpynbOptions, "ipynb")
         options = options or IpynbOptions()
@@ -84,7 +84,7 @@ class IpynbToAstConverter(BaseParser):
         self.options: IpynbOptions = options
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
 
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse Jupyter Notebook input into an AST.
 
         Parameters
@@ -110,7 +110,7 @@ class IpynbToAstConverter(BaseParser):
         try:
             # Load the notebook JSON
             if isinstance(input_data, (str, Path)):
-                with open(input_data, "r", encoding="utf-8") as f:
+                with open(input_data, encoding="utf-8") as f:
                     notebook = json.load(f)
             elif isinstance(input_data, bytes):
                 notebook = json.loads(input_data.decode("utf-8"))

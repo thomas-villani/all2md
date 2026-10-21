@@ -5,10 +5,11 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections import Counter
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from difflib import Match, SequenceMatcher
 from html.parser import HTMLParser
-from typing import Any, Callable, Iterable, Literal, Mapping, TypeVar
+from typing import Any, Literal, TypeVar
 
 from all2md.ast.nodes import (
     Code,

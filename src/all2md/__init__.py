@@ -80,7 +80,7 @@ all2md.ast : AST node definitions and utilities
 # Check Python version before any imports
 import sys
 
-if sys.version_info < (3, 11):
+if sys.version_info < (3, 11):  # noqa: UP036  (deliberate: a clear message on an unsupported interpreter)
     raise ImportError(
         f"all2md requires Python 3.11 or later. You are using Python {sys.version_info.major}.{sys.version_info.minor}."
     )

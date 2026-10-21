@@ -188,7 +188,7 @@ class StructuralDelta:
         return data
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "StructuralDelta":
+    def from_dict(cls, data: dict[str, Any]) -> StructuralDelta:
         """Reconstruct a :class:`StructuralDelta` from its :meth:`to_dict` form."""
         return cls(
             kind=str(data.get("kind", "")),
@@ -240,7 +240,7 @@ class RoundTripReport:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "RoundTripReport":
+    def from_dict(cls, data: dict[str, Any]) -> RoundTripReport:
         """Reconstruct a :class:`RoundTripReport` from its :meth:`to_dict` form."""
         return cls(
             score=int(data.get("score", 0)),

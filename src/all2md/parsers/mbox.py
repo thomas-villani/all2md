@@ -16,7 +16,7 @@ import logging
 import mailbox
 from email.message import Message
 from pathlib import Path
-from typing import IO, Any, Optional, Union
+from typing import IO, Any
 
 from all2md.ast import Document, Heading, Node, Paragraph, Text, ThematicBreak
 from all2md.converter_metadata import ConverterMetadata
@@ -152,7 +152,7 @@ class MboxToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: MboxOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: MboxOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the MBOX parser with options and progress callback."""
         BaseParser._validate_options_type(options, MboxOptions, "mbox")
         options = options or MboxOptions()
@@ -160,7 +160,7 @@ class MboxToAstConverter(BaseParser):
         self.options: MboxOptions = options
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
 
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse MBOX mailbox into an AST Document.
 
         Parameters

@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 _HYPHEN_LINEBREAK_RE = re.compile(r"([^\W\d_])[-­‐][ \t]*\r?\n[ \t]*([^\W\d_])", re.UNICODE)
 
 
-def _merge_hyphenation(match: "re.Match[str]") -> str:
+def _merge_hyphenation(match: re.Match[str]) -> str:
     r"""Join the two halves of a line-break-hyphenated word.
 
     When the continuation letter is uppercase the hyphen is *kept* (only the line
@@ -162,7 +162,7 @@ def dehyphenate_blocks(blocks: list[dict[str, Any]]) -> None:
             index += 1
 
 
-def calculate_image_coverage(page: "pymupdf.Page") -> float:
+def calculate_image_coverage(page: pymupdf.Page) -> float:
     """Calculate the ratio of image area to total page area.
 
     This function analyzes a PDF page to determine what fraction of the page
@@ -215,7 +215,7 @@ def calculate_image_coverage(page: "pymupdf.Page") -> float:
     return coverage_ratio
 
 
-def largest_image_coverage(page: "pymupdf.Page") -> float:
+def largest_image_coverage(page: pymupdf.Page) -> float:
     """Calculate the share of the page covered by its single largest image.
 
     This is the scan test. A scanned page is one raster the size of the page, so the
@@ -253,7 +253,7 @@ def largest_image_coverage(page: "pymupdf.Page") -> float:
     return min(1.0, largest)
 
 
-def should_use_ocr(page: "pymupdf.Page", extracted_text: str, options: PdfOptions) -> bool:
+def should_use_ocr(page: pymupdf.Page, extracted_text: str, options: PdfOptions) -> bool:
     """Determine whether OCR should be applied to a PDF page.
 
     Analyzes the page content based on the OCR mode and detection thresholds
@@ -413,7 +413,7 @@ def get_tesseract_lang(detected_lang_code: str) -> str:
 
 
 @requires_dependencies("pdf", DEPS_PDF_LANGDETECT)
-def detect_page_language(page: "pymupdf.Page", options: PdfOptions) -> str:
+def detect_page_language(page: pymupdf.Page, options: PdfOptions) -> str:
     """Attempt to auto-detect the language of a PDF page for OCR.
 
     This is an experimental feature that tries to determine the language

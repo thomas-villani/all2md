@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 import plistlib
 from pathlib import Path
-from typing import IO, Any, Optional, Union
+from typing import IO, Any
 from urllib.parse import urlparse
 
 from all2md.ast import Document, Heading, Paragraph, Text
@@ -60,7 +60,7 @@ class WebArchiveToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: WebArchiveOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: WebArchiveOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the WebArchive parser with options and progress callback."""
         BaseParser._validate_options_type(options, WebArchiveOptions, "webarchive")
         options = options or WebArchiveOptions()
@@ -69,7 +69,7 @@ class WebArchiveToAstConverter(BaseParser):
         self._html_parser = HtmlToAstConverter(self.options)
 
     @requires_dependencies("webarchive", DEPS_WEBARCHIVE)
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse WebArchive file into an AST Document.
 
         Parameters

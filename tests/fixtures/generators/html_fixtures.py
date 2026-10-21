@@ -6,7 +6,6 @@ for testing various aspects of HTML-to-Markdown conversion.
 
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 
 def create_html_with_formatting() -> str:
@@ -480,7 +479,7 @@ def create_minimal_html(title: str = "Test Document", content: str = "Test conte
     return html
 
 
-def create_html_file(html_content: str, file_path: Optional[Path] = None) -> Path:
+def create_html_file(html_content: str, file_path: Path | None = None) -> Path:
     """Save HTML content to a file.
 
     Parameters

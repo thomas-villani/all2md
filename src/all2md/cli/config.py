@@ -14,7 +14,7 @@ import os
 import sys
 import tomllib
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import yaml
 
@@ -41,7 +41,7 @@ SUBCOMMAND_CONFIG_SECTIONS: tuple[str, ...] = (
 )
 
 
-def _load_pyproject_all2md_section(pyproject_path: Path) -> Dict[str, Any]:
+def _load_pyproject_all2md_section(pyproject_path: Path) -> dict[str, Any]:
     """Load [tool.all2md] section from pyproject.toml file.
 
     Parameters
@@ -82,7 +82,7 @@ def _load_pyproject_all2md_section(pyproject_path: Path) -> Dict[str, Any]:
         raise argparse.ArgumentTypeError(f"Error reading pyproject.toml {pyproject_path}: {e}") from e
 
 
-def find_config_in_parents(start_dir: Optional[Path] = None, stop_dir: Optional[Path] = None) -> Optional[Path]:
+def find_config_in_parents(start_dir: Path | None = None, stop_dir: Path | None = None) -> Path | None:
     """Find configuration file by searching parent directories.
 
     Walks up the directory tree from start_dir, checking each directory for
@@ -156,7 +156,7 @@ def find_config_in_parents(start_dir: Optional[Path] = None, stop_dir: Optional[
     return None
 
 
-def discover_config_file() -> Optional[Path]:
+def discover_config_file() -> Path | None:
     """Discover configuration file in standard locations.
 
     Searches for configuration files in the following order:
@@ -207,7 +207,7 @@ def discover_config_file() -> Optional[Path]:
     return None
 
 
-def load_config_file(config_path: Path | str) -> Dict[str, Any]:
+def load_config_file(config_path: Path | str) -> dict[str, Any]:
     """Load configuration from JSON, TOML, YAML, or pyproject.toml file.
 
     Auto-detects format based on file extension and name:
@@ -272,7 +272,7 @@ def load_config_file(config_path: Path | str) -> Dict[str, Any]:
         raise argparse.ArgumentTypeError(f"Error reading config file {config_path}: {e}") from e
 
 
-def _load_toml_config(config_path: Path) -> Dict[str, Any]:
+def _load_toml_config(config_path: Path) -> dict[str, Any]:
     """Load configuration from TOML file.
 
     Parameters
@@ -308,7 +308,7 @@ def _load_toml_config(config_path: Path) -> Dict[str, Any]:
         raise argparse.ArgumentTypeError(f"Error reading TOML config {config_path}: {e}") from e
 
 
-def _load_json_config(config_path: Path) -> Dict[str, Any]:
+def _load_json_config(config_path: Path) -> dict[str, Any]:
     """Load configuration from JSON file.
 
     Parameters
@@ -328,7 +328,7 @@ def _load_json_config(config_path: Path) -> Dict[str, Any]:
 
     """
     try:
-        with open(config_path, "r", encoding="utf-8") as f:
+        with open(config_path, encoding="utf-8") as f:
             config = json.load(f)
 
         if not isinstance(config, dict):
@@ -342,7 +342,7 @@ def _load_json_config(config_path: Path) -> Dict[str, Any]:
         raise argparse.ArgumentTypeError(f"Error reading JSON config {config_path}: {e}") from e
 
 
-def _load_yaml_config(config_path: Path) -> Dict[str, Any]:
+def _load_yaml_config(config_path: Path) -> dict[str, Any]:
     """Load configuration from YAML file.
 
     Parameters
@@ -362,7 +362,7 @@ def _load_yaml_config(config_path: Path) -> Dict[str, Any]:
 
     """
     try:
-        with open(config_path, "r", encoding="utf-8") as f:
+        with open(config_path, encoding="utf-8") as f:
             config = yaml.safe_load(f)
 
         if not isinstance(config, dict):
@@ -376,7 +376,7 @@ def _load_yaml_config(config_path: Path) -> Dict[str, Any]:
         raise argparse.ArgumentTypeError(f"Error reading YAML config {config_path}: {e}") from e
 
 
-def merge_configs(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+def merge_configs(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     """Merge two configuration dictionaries with deep merging.
 
     The override dictionary takes precedence over base for conflicting keys.
@@ -416,9 +416,7 @@ def merge_configs(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, A
     return result
 
 
-def load_config_with_priority(
-    explicit_path: Optional[str] = None, env_var_path: Optional[str] = None
-) -> Dict[str, Any]:
+def load_config_with_priority(explicit_path: str | None = None, env_var_path: str | None = None) -> dict[str, Any]:
     """Load configuration with proper priority handling.
 
     Priority order (highest to lowest):
@@ -518,9 +516,9 @@ def apply_config_to_parser(
     parser: argparse.ArgumentParser,
     section: str,
     *,
-    explicit_path: Optional[str] = None,
+    explicit_path: str | None = None,
     no_config: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Apply a config-file section as argparse defaults for a subcommand.
 
     Loads configuration with the standard priority chain (explicit ``--config``
@@ -592,7 +590,7 @@ def apply_config_to_parser(
         action.dest: action for action in parser._actions if action.option_strings and action.dest != argparse.SUPPRESS
     }
 
-    applied: Dict[str, Any] = {}
+    applied: dict[str, Any] = {}
     for key, value in raw_section.items():
         dest = str(key).replace("-", "_")
         if dest in dest_to_action:

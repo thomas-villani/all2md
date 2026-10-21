@@ -18,7 +18,7 @@ import sys
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import fields, is_dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, TypedDict, cast
+from typing import Any, TypedDict, cast
 
 from all2md.api import convert, from_ast, to_ast, to_markdown
 from all2md.ast.nodes import Comment, Document, Heading, Node, Text, ThematicBreak
@@ -99,7 +99,7 @@ def generate_outline_from_document(
     max_level: int = 6,
     *,
     line_numbers: bool = False,
-    rendered_markdown: Optional[str] = None,
+    rendered_markdown: str | None = None,
 ) -> str:
     """Generate a markdown-formatted outline from document headings.
 
@@ -193,12 +193,12 @@ def generate_outline_from_document(
 LINE_EXTRACT_PREFIX = "line:"
 
 
-def is_line_extract_spec(extract_spec: Optional[str]) -> bool:
+def is_line_extract_spec(extract_spec: str | None) -> bool:
     """Return True when an --extract spec selects by output line range."""
     return isinstance(extract_spec, str) and extract_spec.strip().lower().startswith(LINE_EXTRACT_PREFIX)
 
 
-def _render_reference_markdown(doc: Document, effective_options: Dict[str, Any]) -> str:
+def _render_reference_markdown(doc: Document, effective_options: dict[str, Any]) -> str:
     """Render ``doc`` to Markdown to serve as the line-number reference frame."""
     rendered = from_ast(doc, cast(DocumentFormat, "markdown"), **renderer_kwargs_for(effective_options, "markdown"))
     assert isinstance(rendered, str), "Markdown renderer should return str"
@@ -208,7 +208,7 @@ def _render_reference_markdown(doc: Document, effective_options: Dict[str, Any])
 def _render_doc(
     doc: Document,
     render_target: str,
-    effective_options: Dict[str, Any],
+    effective_options: dict[str, Any],
     terminal_options: Any = None,
 ) -> Any:
     """Render ``doc`` to ``render_target``, or to the terminal when ``terminal_options`` is given.
@@ -237,7 +237,7 @@ def _outline_document(doc: Document, max_level: int) -> Document:
 
     root = ASTList(ordered=False, items=[])
     # (level of the items in this list, the list); the root takes the first level it sees.
-    stack: List[Tuple[Optional[int], ASTList]] = [(None, root)]
+    stack: list[tuple[int | None, ASTList]] = [(None, root)]
     for section in sections:
         while len(stack) > 1 and (stack[-1][0] or 0) > section.level:
             stack.pop()
@@ -261,7 +261,7 @@ def _outline_output(
     doc: Document,
     max_level: int,
     line_numbers: bool,
-    effective_options: Dict[str, Any],
+    effective_options: dict[str, Any],
 ) -> str:
     """Produce outline text, optionally annotated with output line numbers."""
     rendered_markdown = _render_reference_markdown(doc, effective_options) if line_numbers else None
@@ -272,11 +272,11 @@ def _outline_output(
 
 def _extraction_output(
     doc: Document,
-    extract_specs: List[str],
+    extract_specs: list[str],
     render_target: str,
     line_numbers: bool,
-    effective_options: Dict[str, Any],
-    transforms: Optional[list],
+    effective_options: dict[str, Any],
+    transforms: list | None,
     terminal_options: Any = None,
 ) -> Any:
     """Produce extraction output for one or more ``--extract`` selectors.
@@ -317,7 +317,7 @@ def _extraction_output(
     return _render_doc(extracted, render_target, effective_options, terminal_options)
 
 
-def _parse_line_indices(spec_body: str, total_lines: int, original_spec: str) -> List[int]:
+def _parse_line_indices(spec_body: str, total_lines: int, original_spec: str) -> list[int]:
     """Parse the body of a ``line:`` spec into sorted 0-based line indices."""
     from all2md.ast.sections import parse_section_ranges
 
@@ -331,11 +331,11 @@ def _parse_line_indices(spec_body: str, total_lines: int, original_spec: str) ->
     return indices
 
 
-def _gather_selected_lines(md_lines: List[str], indices: List[int]) -> Tuple[List[str], List[Optional[int]]]:
+def _gather_selected_lines(md_lines: list[str], indices: list[int]) -> tuple[list[str], list[int | None]]:
     """Collect selected lines and their 1-based numbers, blank-separating gaps."""
-    out_lines: List[str] = []
-    out_numbers: List[Optional[int]] = []
-    prev: Optional[int] = None
+    out_lines: list[str] = []
+    out_numbers: list[int | None] = []
+    prev: int | None = None
     for i in indices:
         if prev is not None and i != prev + 1:
             # Non-adjacent selection: insert an unnumbered blank so re-parsing
@@ -349,12 +349,12 @@ def _gather_selected_lines(md_lines: List[str], indices: List[int]) -> Tuple[Lis
 
 
 def _emit_line_selection(
-    md_lines: List[str],
-    indices: List[int],
+    md_lines: list[str],
+    indices: list[int],
     render_target: str,
     line_numbers: bool,
-    effective_options: Dict[str, Any],
-    transforms: Optional[list],
+    effective_options: dict[str, Any],
+    transforms: list | None,
     terminal_options: Any = None,
 ) -> Any:
     """Render a set of 0-based output-line indices to the requested target.
@@ -386,8 +386,8 @@ def _extract_by_lines(
     extract_spec: str,
     render_target: str,
     line_numbers: bool,
-    effective_options: Dict[str, Any],
-    transforms: Optional[list],
+    effective_options: dict[str, Any],
+    transforms: list | None,
     terminal_options: Any = None,
 ) -> Any:
     """Extract content by output line range (``line:X-Y``)."""
@@ -402,7 +402,7 @@ def _extract_by_lines(
     )
 
 
-def _line_indices_for_selection(line_select: str, total_lines: int) -> List[int]:
+def _line_indices_for_selection(line_select: str, total_lines: int) -> list[int]:
     """Resolve a normalized ``--head``/``--tail``/``--lines`` spec to 0-based indices.
 
     ``line_select`` is one of ``head:N``, ``tail:N``, or ``lines:<range>`` where
@@ -432,8 +432,8 @@ def _line_range_output(
     line_select: str,
     render_target: str,
     line_numbers: bool,
-    effective_options: Dict[str, Any],
-    transforms: Optional[list],
+    effective_options: dict[str, Any],
+    transforms: list | None,
     terminal_options: Any = None,
 ) -> Any:
     """Produce output for the ``--head``/``--tail``/``--lines`` flags."""
@@ -463,8 +463,8 @@ def _slice_output(
     doc: Document,
     slice_spec: str,
     render_target: str,
-    effective_options: Dict[str, Any],
-    transforms: Optional[list],
+    effective_options: dict[str, Any],
+    transforms: list | None,
     terminal_options: Any = None,
 ) -> Any:
     """Return the Xth of Y semantic slices, with a 'next slice' footer hint.
@@ -509,7 +509,7 @@ def _slice_output(
     return result
 
 
-def parse_slice_spec(spec: str) -> Tuple[int, int]:
+def parse_slice_spec(spec: str) -> tuple[int, int]:
     """Parse a ``--slice X/Y`` spec into 1-based ``(x, y)``.
 
     Raises
@@ -536,7 +536,7 @@ def parse_slice_spec(spec: str) -> Tuple[int, int]:
     return x, y
 
 
-def line_selection_from_args(args: argparse.Namespace) -> Optional[str]:
+def line_selection_from_args(args: argparse.Namespace) -> str | None:
     """Derive a normalized line-selection string from ``--head``/``--tail``/``--lines``.
 
     Returns ``None`` when none of the flags are set. Only one is expected to be
@@ -565,7 +565,7 @@ def line_selection_from_args(args: argparse.Namespace) -> Optional[str]:
 def _extract_sections_with_line_numbers(
     doc: Document,
     extract_spec: str,
-    effective_options: Dict[str, Any],
+    effective_options: dict[str, Any],
 ) -> str:
     """Render a name/index extraction as numbered original Markdown lines."""
     from all2md.ast.line_map import map_sections_to_lines, number_text_lines
@@ -583,7 +583,7 @@ def _extract_sections_with_line_numbers(
 
     # Each selected section spans from its heading line up to the next heading
     # at its level or above, so its subsections come with it.
-    spans: List[Tuple[int, int]] = []
+    spans: list[tuple[int, int]] = []
     for i, after in sorted(subsection_ranges(all_sections, selected)):
         start = line_map[i]
         if start is None:
@@ -593,9 +593,9 @@ def _extract_sections_with_line_numbers(
             end = len(md_lines) + 1
         spans.append((start, end))
 
-    out_lines: List[str] = []
-    out_numbers: List[Optional[int]] = []
-    prev_end: Optional[int] = None
+    out_lines: list[str] = []
+    out_numbers: list[int | None] = []
+    prev_end: int | None = None
     for start, end in spans:
         if prev_end is not None and start != prev_end:
             out_lines.append("")
@@ -608,12 +608,12 @@ def _extract_sections_with_line_numbers(
     return number_text_lines("\n".join(out_lines), out_numbers)
 
 
-def _compute_base_input_dir(items: List[CLIInputItem], preserve_structure: bool) -> Optional[Path]:
+def _compute_base_input_dir(items: list[CLIInputItem], preserve_structure: bool) -> Path | None:
     """Return the shared base directory for local inputs when preserving structure."""
     if not preserve_structure:
         return None
 
-    local_dirs: List[str] = []
+    local_dirs: list[str] = []
     for item in items:
         if not item.is_local_file():
             continue
@@ -634,7 +634,7 @@ def _compute_base_input_dir(items: List[CLIInputItem], preserve_structure: bool)
         return None
 
 
-def _relative_parent(item: CLIInputItem, base_input_dir: Optional[Path]) -> Path:
+def _relative_parent(item: CLIInputItem, base_input_dir: Path | None) -> Path:
     """Return the relative parent path for output generation."""
     if not base_input_dir or not item.is_local_file():
         return Path()
@@ -651,14 +651,14 @@ def _relative_parent(item: CLIInputItem, base_input_dir: Optional[Path]) -> Path
 
 def _generate_output_path_for_item(
     item: CLIInputItem,
-    output_dir: Optional[Path],
+    output_dir: Path | None,
     preserve_structure: bool,
-    base_input_dir: Optional[Path],
+    base_input_dir: Path | None,
     target_format: str,
     index: int,
     *,
     dry_run: bool = False,
-) -> Optional[Path]:
+) -> Path | None:
     """Generate an output path for a CLI input item, handling remote sources."""
     if output_dir is None:
         return None
@@ -673,16 +673,16 @@ def _generate_output_path_for_item(
     return output_path
 
 
-def _options_request_save_mode(options: Dict[str, Any]) -> bool:
+def _options_request_save_mode(options: dict[str, Any]) -> bool:
     """Return True if any (namespaced) attachment_mode option requests ``save``."""
     return any(key.split(".")[-1] == "attachment_mode" and value == "save" for key, value in options.items())
 
 
 def _near_source_attachment_options(
-    options: Dict[str, Any],
-    output_path: Optional[Path],
+    options: dict[str, Any],
+    output_path: Path | None,
     args: argparse.Namespace,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Co-locate saved attachments next to each output file under ``--preserve-structure``.
 
     When ``--preserve-structure`` is active with ``--attachment-mode save`` and the user
@@ -727,7 +727,7 @@ class TransformSpec(TypedDict):
     """Serializable specification for reconstructing a transform instance."""
 
     name: str
-    params: Dict[str, Any]
+    params: dict[str, Any]
 
 
 def _final_option_segment(remainder: str) -> str:
@@ -736,10 +736,10 @@ def _final_option_segment(remainder: str) -> str:
 
 
 def _filter_options_for_formats(
-    options: Dict[str, Any],
+    options: dict[str, Any],
     parser_format: str | None,
     renderer_format: str | None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Project a namespaced options dict onto parser/renderer kwargs.
 
     Parameters
@@ -763,9 +763,9 @@ def _filter_options_for_formats(
     occurs with stdin input, collation rendering, or when format detection fails.
 
     """
-    filtered: Dict[str, Any] = {}
-    parser_fallback: Dict[str, Any] = {}
-    renderer_fallback: Dict[str, Any] = {}
+    filtered: dict[str, Any] = {}
+    parser_fallback: dict[str, Any] = {}
+    renderer_fallback: dict[str, Any] = {}
 
     # Prefixes that name a real parser/renderer. Used to gate the unknown-format
     # fallback below so that non-format config sections (e.g. [view], [serve],
@@ -828,11 +828,11 @@ def _filter_options_for_formats(
     return filtered
 
 
-def _extract_remote_input_options(options: Dict[str, Any]) -> tuple[RemoteInputOptions | None, Dict[str, Any]]:
+def _extract_remote_input_options(options: dict[str, Any]) -> tuple[RemoteInputOptions | None, dict[str, Any]]:
     """Split remote input configuration from the general options dict."""
     remote_prefix = "remote_input."
-    remote_kwargs: Dict[str, Any] = {}
-    remaining: Dict[str, Any] = {}
+    remote_kwargs: dict[str, Any] = {}
+    remaining: dict[str, Any] = {}
 
     for key, value in options.items():
         if key.startswith(remote_prefix):
@@ -859,15 +859,15 @@ def _detect_format_for_path(input_path: Path | None) -> str | None:
         logger.debug("Failed to detect format for %s: %s", input_path, exc)
         return None
 
-    return cast(Optional[str], detected)
+    return cast(str | None, detected)
 
 
 def prepare_options_for_execution(
-    options: Dict[str, Any],
+    options: dict[str, Any],
     input_path: Path | None,
     parser_hint: str,
     renderer_hint: str | None = None,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Prepare CLI options for API consumption based on detected formats."""
     parser_format: str | None
     if parser_hint != "auto":
@@ -887,7 +887,7 @@ def prepare_options_for_execution(
     return filtered
 
 
-def _option_names(options_class: Optional[type]) -> frozenset[str]:
+def _option_names(options_class: type | None) -> frozenset[str]:
     """Return the keyword names an options class accepts, its nested options' names included."""
     if options_class is None or not is_dataclass(options_class):
         return frozenset()
@@ -904,7 +904,7 @@ def _option_names(options_class: Optional[type]) -> frozenset[str]:
 
 
 @functools.lru_cache(maxsize=64)
-def _format_option_names(getter: Any, formats: Tuple[str, ...]) -> frozenset[str]:
+def _format_option_names(getter: Any, formats: tuple[str, ...]) -> frozenset[str]:
     """Return the names the options classes of ``formats`` accept, read through ``getter``."""
     names: set[str] = set()
     for format_name in formats:
@@ -915,7 +915,7 @@ def _format_option_names(getter: Any, formats: Tuple[str, ...]) -> frozenset[str
     return frozenset(names)
 
 
-def renderer_kwargs_for(options: Dict[str, Any], render_target: str) -> Dict[str, Any]:
+def renderer_kwargs_for(options: dict[str, Any], render_target: str) -> dict[str, Any]:
     """Keep the options the ``render_target`` renderer accepts.
 
     The CLI's options are one flat mapping for the parser and the renderer. The
@@ -927,7 +927,7 @@ def renderer_kwargs_for(options: Dict[str, Any], render_target: str) -> Dict[str
     return {key: value for key, value in options.items() if key in names}
 
 
-def parser_kwargs_for(options: Dict[str, Any], format_arg: str, source: Any = None) -> Dict[str, Any]:
+def parser_kwargs_for(options: dict[str, Any], format_arg: str, source: Any = None) -> dict[str, Any]:
     """Drop the options that only renderers accept; the parser counterpart of :func:`renderer_kwargs_for`.
 
     A name the parser accepts stays even when a renderer accepts it too (Markdown's
@@ -935,7 +935,7 @@ def parser_kwargs_for(options: Dict[str, Any], format_arg: str, source: Any = No
     the typo. ``source`` detects the parser format when ``format_arg`` is ``auto``;
     when it cannot, any parser's names count.
     """
-    parser_format: Optional[str] = format_arg if format_arg != "auto" else None
+    parser_format: str | None = format_arg if format_arg != "auto" else None
     if parser_format is None and isinstance(source, (str, Path)) and "://" not in str(source):
         path = Path(source)
         parser_format = _detect_format_for_path(path) if path.is_file() else None
@@ -947,7 +947,7 @@ def parser_kwargs_for(options: Dict[str, Any], format_arg: str, source: Any = No
     return {key: value for key, value in options.items() if key in parser_names or key not in renderer_names}
 
 
-def load_converter_config_options(*, explicit_path: str | None, no_config: bool) -> Dict[str, Any]:
+def load_converter_config_options(*, explicit_path: str | None, no_config: bool) -> dict[str, Any]:
     """Return converter options from the config file for ``view``/``serve``.
 
     Standalone subcommands like ``view`` and ``serve`` only convert documents;
@@ -1035,7 +1035,7 @@ _RICH_MARKDOWN_STYLE_KEYS = frozenset(
 )
 
 
-def _build_rich_theme(styles: Optional[Dict[str, Any]]) -> Any:
+def _build_rich_theme(styles: dict[str, Any] | None) -> Any:
     """Build a ``rich.theme.Theme`` from a ``[rich]`` config table.
 
     Maps user-supplied style entries (``key = "style string"``) onto Rich's
@@ -1066,7 +1066,7 @@ def _build_rich_theme(styles: Optional[Dict[str, Any]]) -> Any:
     except ImportError:
         return None
 
-    resolved: Dict[str, Style] = {}
+    resolved: dict[str, Style] = {}
     for raw_key, raw_value in styles.items():
         key = str(raw_key).strip()
         # Auto-prefix markdown element names (``h1``, ``item.bullet``); leave other keys verbatim.
@@ -1271,7 +1271,7 @@ def _running_under_wsl() -> bool:
     if platform.system() != "Linux":
         return False
     try:
-        with open("/proc/version", "r") as f:
+        with open("/proc/version") as f:
             return "microsoft" in f.read().lower()
     except Exception:
         return False
@@ -1331,7 +1331,7 @@ def _page_content(content: str, is_rich: bool = False) -> bool:
         return False
 
 
-def build_transform_instances(parsed_args: argparse.Namespace) -> Optional[list]:
+def build_transform_instances(parsed_args: argparse.Namespace) -> list | None:
     """Build transform instances from CLI arguments.
 
     Parameters
@@ -1437,7 +1437,7 @@ def _instantiate_transforms_from_specs(transform_specs: list[TransformSpec]) -> 
     return instances
 
 
-def apply_security_preset(parsed_args: argparse.Namespace, options: Dict[str, Any]) -> Dict[str, Any]:
+def apply_security_preset(parsed_args: argparse.Namespace, options: dict[str, Any]) -> dict[str, Any]:
     """Apply security preset configurations to options.
 
     Parameters
@@ -1528,7 +1528,7 @@ def apply_security_preset(parsed_args: argparse.Namespace, options: Dict[str, An
 
 def setup_and_validate_options(
     parsed_args: argparse.Namespace,
-) -> Tuple[Dict[str, Any], DocumentFormat, Optional[list]]:
+) -> tuple[dict[str, Any], DocumentFormat, list | None]:
     """Set up conversion options and build transforms.
 
     Parameters
@@ -1582,7 +1582,7 @@ def setup_and_validate_options(
     # mapper. It is consumed only by the CLI's Rich rendering layer (see
     # ``_build_rich_theme``); leaving it in would flatten into bogus
     # ``rich.*`` conversion option keys.
-    rich_theme_styles: Dict[str, Any] = {}
+    rich_theme_styles: dict[str, Any] = {}
     if isinstance(config_from_file, dict):
         raw_rich = config_from_file.pop("rich", None)
         if isinstance(raw_rich, dict):
@@ -1606,11 +1606,11 @@ def setup_and_validate_options(
 
 
 def process_multi_file(
-    items: List[CLIInputItem],
+    items: list[CLIInputItem],
     parsed_args: argparse.Namespace,
-    options: Dict[str, Any],
+    options: dict[str, Any],
     format_arg: str,
-    transforms: Optional[list] = None,
+    transforms: list | None = None,
 ) -> int:
     """Process multiple files with appropriate output handling.
 
@@ -1671,10 +1671,10 @@ def process_multi_file(
 
 def _create_output_package(
     parsed_args: argparse.Namespace,
-    input_items: List[CLIInputItem],
-    options: Dict[str, Any],
+    input_items: list[CLIInputItem],
+    options: dict[str, Any],
     format_arg: str,
-    transforms: Optional[list] = None,
+    transforms: list | None = None,
 ) -> int:
     """Create output package (zip) after successful conversion.
 
@@ -1769,7 +1769,7 @@ def load_options_from_json(json_file_path: str) -> dict:
         if not json_path.exists():
             raise argparse.ArgumentTypeError(f"Options JSON file does not exist: {json_file_path}")
 
-        with open(json_path, "r", encoding="utf-8") as f:
+        with open(json_path, encoding="utf-8") as f:
             options = json.load(f)
 
         if not isinstance(options, dict):
@@ -1785,7 +1785,7 @@ def load_options_from_json(json_file_path: str) -> dict:
         raise argparse.ArgumentTypeError(f"Error reading options file {json_file_path}: {e}") from e
 
 
-def merge_exclusion_patterns_from_json(parsed_args: argparse.Namespace, json_options: dict) -> Optional[List[str]]:
+def merge_exclusion_patterns_from_json(parsed_args: argparse.Namespace, json_options: dict) -> list[str] | None:
     """Merge exclusion patterns from JSON options if not specified via CLI.
 
     Parameters
@@ -1811,7 +1811,7 @@ def _is_stdin_path(list_path: Path | str) -> bool:
     return list_path == "-" or str(list_path) == "-"
 
 
-def _read_merge_list_content(list_path: Path | str) -> Tuple[List[str], Path]:
+def _read_merge_list_content(list_path: Path | str) -> tuple[list[str], Path]:
     """Read merge list content from file or stdin.
 
     Returns tuple of (lines, base_directory).
@@ -1823,13 +1823,11 @@ def _read_merge_list_content(list_path: Path | str) -> Tuple[List[str], Path]:
     if not list_path.exists():
         raise argparse.ArgumentTypeError(f"Merge list file does not exist: {list_path}")
 
-    with open(list_path, "r", encoding="utf-8") as f:
+    with open(list_path, encoding="utf-8") as f:
         return f.readlines(), list_path.parent
 
 
-def _parse_merge_entry(
-    line: str, line_num: int, separator: str, list_dir: Path
-) -> Optional[Tuple[Path, Optional[str]]]:
+def _parse_merge_entry(line: str, line_num: int, separator: str, list_dir: Path) -> tuple[Path, str | None] | None:
     """Parse a single merge list entry. Returns None for skipped lines."""
     line = line.strip()
 
@@ -1862,7 +1860,7 @@ def _parse_merge_entry(
     return (file_path, section_title)
 
 
-def parse_merge_list(list_path: Path | str, separator: str = "\t") -> List[Tuple[Path, Optional[str]]]:
+def parse_merge_list(list_path: Path | str, separator: str = "\t") -> list[tuple[Path, str | None]]:
     r"""Parse merge list file and return file paths with optional section titles.
 
     Parameters
@@ -1918,7 +1916,7 @@ def parse_merge_list(list_path: Path | str, separator: str = "\t") -> List[Tuple
     try:
         lines, list_dir = _read_merge_list_content(list_path)
 
-        entries: List[Tuple[Path, Optional[str]]] = []
+        entries: list[tuple[Path, str | None]] = []
         for line_num, line in enumerate(lines, 1):
             entry = _parse_merge_entry(line, line_num, separator, list_dir)
             if entry:
@@ -1939,12 +1937,12 @@ def parse_merge_list(list_path: Path | str, separator: str = "\t") -> List[Tuple
 
 def _merge_single_entry(
     file_path: Path,
-    section_title: Optional[str],
-    options: Dict[str, Any],
+    section_title: str | None,
+    options: dict[str, Any],
     format_arg: str,
     no_section_titles: bool,
-    progress_cb: Optional[Any] = None,
-) -> tuple[list, int, Optional[str]]:
+    progress_cb: Any | None = None,
+) -> tuple[list, int, str | None]:
     """Process a single file for merging.
 
     Parameters
@@ -2005,7 +2003,7 @@ def _merge_single_entry(
         return [], exit_code, error_msg
 
 
-def _apply_document_transforms(merged_doc: Document, args: argparse.Namespace, transforms: Optional[list]) -> Document:
+def _apply_document_transforms(merged_doc: Document, args: argparse.Namespace, transforms: list | None) -> Document:
     """Apply TOC generation and additional transforms to merged document.
 
     Parameters
@@ -2051,7 +2049,7 @@ def _apply_document_transforms(merged_doc: Document, args: argparse.Namespace, t
     return merged_doc
 
 
-def _determine_output_format(args: argparse.Namespace, output_path: Optional[Path]) -> str:
+def _determine_output_format(args: argparse.Namespace, output_path: Path | None) -> str:
     """Determine target output format from args and output path.
 
     Parameters
@@ -2090,10 +2088,10 @@ def _determine_output_format(args: argparse.Namespace, output_path: Optional[Pat
 def _write_merged_output(
     merged_doc: Document,
     target_format: str,
-    output_path: Optional[Path],
-    options: Dict[str, Any],
+    output_path: Path | None,
+    options: dict[str, Any],
     format_arg: str,
-) -> Optional[Any]:
+) -> Any | None:
     """Render and write merged document to output.
 
     Parameters
@@ -2143,7 +2141,7 @@ def _write_merged_output(
 
 
 def process_merge_from_list(
-    args: argparse.Namespace, options: Dict[str, Any], format_arg: str, transforms: Optional[list] = None
+    args: argparse.Namespace, options: dict[str, Any], format_arg: str, transforms: list | None = None
 ) -> int:
     """Process files from a list file and merge them into a single document.
 
@@ -2213,7 +2211,7 @@ def process_merge_from_list(
     merged_doc = _apply_document_transforms(merged_doc, args, transforms)
 
     # Determine output path and format
-    output_path: Optional[Path] = None
+    output_path: Path | None = None
     if args.out:
         output_path = Path(args.out)
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -2246,7 +2244,7 @@ def process_merge_from_list(
 # Keep public wrappers here for backward compatibility
 
 
-def process_dry_run(items: List[CLIInputItem], args: argparse.Namespace, format_arg: str) -> int:
+def process_dry_run(items: list[CLIInputItem], args: argparse.Namespace, format_arg: str) -> int:
     """Show what would be processed without performing any conversions.
 
     This is a backward-compatible wrapper that delegates to the implementation
@@ -2263,10 +2261,10 @@ def process_dry_run(items: List[CLIInputItem], args: argparse.Namespace, format_
 
 def _convert_item_to_ast_for_collation(
     item: CLIInputItem,
-    options: Dict[str, Any],
+    options: dict[str, Any],
     format_arg: str,
-    progress_callback: Optional[Any] = None,
-) -> Tuple[int, Optional[ASTDocument], Optional[str]]:
+    progress_callback: Any | None = None,
+) -> tuple[int, ASTDocument | None, str | None]:
     """Load an input item into an AST for collation.
 
     Parameters
@@ -2315,11 +2313,11 @@ def _convert_item_to_ast_for_collation(
 
 
 def _collect_documents_for_collation(
-    items: List[CLIInputItem],
+    items: list[CLIInputItem],
     args: argparse.Namespace,
-    options: Dict[str, Any],
+    options: dict[str, Any],
     format_arg: str,
-) -> Tuple[List[ASTDocument], List[Tuple[CLIInputItem, str, int]]]:
+) -> tuple[list[ASTDocument], list[tuple[CLIInputItem, str, int]]]:
     """Collect and convert documents for collation.
 
     Returns
@@ -2329,8 +2327,8 @@ def _collect_documents_for_collation(
         - List of failures (item, error, exit_code)
 
     """
-    collected_documents: List[ASTDocument] = []
-    failures: List[Tuple[CLIInputItem, str, int]] = []
+    collected_documents: list[ASTDocument] = []
+    failures: list[tuple[CLIInputItem, str, int]] = []
 
     use_rich = args.rich
     show_progress = args.progress or args.rich or len(items) > 1
@@ -2369,8 +2367,8 @@ def _collect_documents_for_collation(
 
 
 def _merge_collected_documents(
-    collected_documents: List[ASTDocument],
-    transforms: Optional[list],
+    collected_documents: list[ASTDocument],
+    transforms: list | None,
 ) -> ASTDocument:
     """Merge collected documents into a single document with thematic breaks.
 
@@ -2387,7 +2385,7 @@ def _merge_collected_documents(
         Merged document
 
     """
-    merged_children: List[Any] = []
+    merged_children: list[Any] = []
     for index, document in enumerate(collected_documents):
         merged_children.extend(document.children)
         if index != len(collected_documents) - 1:
@@ -2404,7 +2402,7 @@ def _merge_collected_documents(
     return merged_document
 
 
-def _determine_collation_target_format(args: argparse.Namespace, output_path: Optional[Path]) -> str:
+def _determine_collation_target_format(args: argparse.Namespace, output_path: Path | None) -> str:
     """Determine target format for collation output.
 
     Returns
@@ -2418,12 +2416,12 @@ def _determine_collation_target_format(args: argparse.Namespace, output_path: Op
 
 def _render_collated_document(
     merged_document: ASTDocument,
-    output_path: Optional[Path],
+    output_path: Path | None,
     target_format: str,
-    options: Dict[str, Any],
+    options: dict[str, Any],
     format_arg: str,
     num_documents: int,
-) -> Optional[int]:
+) -> int | None:
     """Render the merged document to output.
 
     Returns
@@ -2465,11 +2463,11 @@ def _render_collated_document(
 
 
 def process_files_collated(
-    items: List[CLIInputItem],
+    items: list[CLIInputItem],
     args: argparse.Namespace,
-    options: Dict[str, Any],
+    options: dict[str, Any],
     format_arg: str,
-    transforms: Optional[list] = None,
+    transforms: list | None = None,
 ) -> int:
     """Collate multiple inputs into a single output using an AST pipeline."""
     collected_documents, failures = _collect_documents_for_collation(items, args, options, format_arg)
@@ -2480,7 +2478,7 @@ def process_files_collated(
 
     merged_document = _merge_collected_documents(collected_documents, transforms)
 
-    output_path: Optional[Path] = None
+    output_path: Path | None = None
     if args.out:
         output_path = Path(args.out)
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -2600,11 +2598,11 @@ def _generate_split_filename(
 
 
 def process_files_with_splitting(
-    items: List[CLIInputItem],
+    items: list[CLIInputItem],
     args: argparse.Namespace,
-    options: Dict[str, Any],
+    options: dict[str, Any],
     format_arg: str,
-    transforms: Optional[list] = None,
+    transforms: list | None = None,
 ) -> int:
     """Process files with document splitting into multiple output files.
 
@@ -2742,9 +2740,9 @@ def process_files_with_splitting(
 
 def generate_output_path(
     input_file: Path,
-    output_dir: Optional[Path] = None,
+    output_dir: Path | None = None,
     preserve_structure: bool = False,
-    base_input_dir: Optional[Path] = None,
+    base_input_dir: Path | None = None,
     dry_run: bool = False,
     target_format: str = "markdown",
 ) -> Path:
@@ -2816,7 +2814,7 @@ def _normalize_url_input(source_value: Any) -> Any:
     return source_value
 
 
-def _detect_renderer_hint(target_format: str, output_path: Optional[Path]) -> str:
+def _detect_renderer_hint(target_format: str, output_path: Path | None) -> str:
     """Detect renderer hint from target format and output path.
 
     Returns
@@ -2886,13 +2884,13 @@ def _line_numbers_for_target(line_numbers: bool, render_target: str) -> bool:
 def _handle_outline_conversion(
     source_value: Any,
     format_arg: str,
-    effective_options: Dict[str, Any],
-    progress_callback: Optional[Any],
-    output_path: Optional[Path],
+    effective_options: dict[str, Any],
+    progress_callback: Any | None,
+    output_path: Path | None,
     outline_max_level: int,
     display_name: str,
     line_numbers: bool = False,
-) -> Tuple[int, str, Optional[str]]:
+) -> tuple[int, str, str | None]:
     """Handle outline mode conversion.
 
     Returns
@@ -2921,15 +2919,15 @@ def _handle_outline_conversion(
 def _handle_extraction_conversion(
     source_value: Any,
     format_arg: str,
-    effective_options: Dict[str, Any],
-    progress_callback: Optional[Any],
-    output_path: Optional[Path],
+    effective_options: dict[str, Any],
+    progress_callback: Any | None,
+    output_path: Path | None,
     target_format: str,
-    extract_specs: List[str],
-    local_transforms: Optional[list],
+    extract_specs: list[str],
+    local_transforms: list | None,
     display_name: str,
     line_numbers: bool = False,
-) -> Tuple[int, str, Optional[str]]:
+) -> tuple[int, str, str | None]:
     """Handle extraction mode conversion.
 
     Returns
@@ -2960,14 +2958,14 @@ def _handle_extraction_conversion(
 def _handle_slice_conversion(
     source_value: Any,
     format_arg: str,
-    effective_options: Dict[str, Any],
-    progress_callback: Optional[Any],
-    output_path: Optional[Path],
+    effective_options: dict[str, Any],
+    progress_callback: Any | None,
+    output_path: Path | None,
     target_format: str,
     slice_spec: str,
-    local_transforms: Optional[list],
+    local_transforms: list | None,
     display_name: str,
-) -> Tuple[int, str, Optional[str]]:
+) -> tuple[int, str, str | None]:
     """Handle ``--slice X/Y`` mode conversion."""
     doc = to_ast(
         source_value,
@@ -2990,15 +2988,15 @@ def _handle_slice_conversion(
 def _handle_line_range_conversion(
     source_value: Any,
     format_arg: str,
-    effective_options: Dict[str, Any],
-    progress_callback: Optional[Any],
-    output_path: Optional[Path],
+    effective_options: dict[str, Any],
+    progress_callback: Any | None,
+    output_path: Path | None,
     target_format: str,
     line_select: str,
-    local_transforms: Optional[list],
+    local_transforms: list | None,
     display_name: str,
     line_numbers: bool = False,
-) -> Tuple[int, str, Optional[str]]:
+) -> tuple[int, str, str | None]:
     """Handle ``--head``/``--tail``/``--lines`` mode conversion."""
     doc = to_ast(
         source_value,
@@ -3022,14 +3020,14 @@ def _handle_line_range_conversion(
 def _handle_normal_conversion(
     source_value: Any,
     format_arg: str,
-    effective_options: Dict[str, Any],
-    progress_callback: Optional[Any],
-    output_path: Optional[Path],
+    effective_options: dict[str, Any],
+    progress_callback: Any | None,
+    output_path: Path | None,
     target_format: str,
-    local_transforms: Optional[list],
+    local_transforms: list | None,
     display_name: str,
     line_numbers: bool = False,
-) -> Tuple[int, str, Optional[str]]:
+) -> tuple[int, str, str | None]:
     """Handle normal conversion path.
 
     Returns
@@ -3077,21 +3075,21 @@ def _handle_normal_conversion(
 
 def convert_single_file(
     input_item: CLIInputItem,
-    output_path: Optional[Path],
-    options: Dict[str, Any],
+    output_path: Path | None,
+    options: dict[str, Any],
     format_arg: str,
-    transforms: Optional[list] = None,
+    transforms: list | None = None,
     show_progress: bool = False,
     target_format: str = "markdown",
-    transform_specs: Optional[list[TransformSpec]] = None,
-    progress_callback: Optional[Any] = None,
-    extract_specs: Optional[List[str]] = None,
+    transform_specs: list[TransformSpec] | None = None,
+    progress_callback: Any | None = None,
+    extract_specs: list[str] | None = None,
     outline: bool = False,
     outline_max_level: int = 6,
     line_numbers: bool = False,
-    slice_spec: Optional[str] = None,
-    line_select: Optional[str] = None,
-) -> Tuple[int, str, Optional[str]]:
+    slice_spec: str | None = None,
+    line_select: str | None = None,
+) -> tuple[int, str, str | None]:
     """Convert a single file to the specified target format.
 
     Parameters
@@ -3226,10 +3224,10 @@ def convert_single_file(
 
 
 # Type alias for planned conversion tasks
-PlannedTask = Tuple[CLIInputItem, Optional[Path], str, int]
+PlannedTask = tuple[CLIInputItem, Path | None, str, int]
 
 
-def _setup_rich_output(args: argparse.Namespace) -> Tuple[bool, Optional[str]]:
+def _setup_rich_output(args: argparse.Namespace) -> tuple[bool, str | None]:
     """Set up rich output detection.
 
     Returns
@@ -3260,11 +3258,11 @@ def _determine_target_format(args: argparse.Namespace) -> str:
 
 
 def _plan_conversion_tasks(
-    items: List[CLIInputItem],
+    items: list[CLIInputItem],
     args: argparse.Namespace,
     target_format_default: str,
-    base_input_dir: Optional[Path],
-) -> List[PlannedTask]:
+    base_input_dir: Path | None,
+) -> list[PlannedTask]:
     """Plan conversion tasks with output paths.
 
     Parameters
@@ -3284,11 +3282,11 @@ def _plan_conversion_tasks(
         List of (item, output_path, target_format, index) tuples
 
     """
-    planned_tasks: List[PlannedTask] = []
+    planned_tasks: list[PlannedTask] = []
     output_dir = Path(args.output_dir) if args.output_dir else None
 
     for index, item in enumerate(items, start=1):
-        output_path: Optional[Path] = None
+        output_path: Path | None = None
 
         if args.out and len(items) == 1:
             output_path = Path(args.out)
@@ -3326,9 +3324,9 @@ def _should_use_parallel(args: argparse.Namespace) -> bool:
 def _log_task_result(
     progress: ProgressContext,
     item: CLIInputItem,
-    output_path: Optional[Path],
+    output_path: Path | None,
     exit_code: int,
-    error: Optional[str],
+    error: str | None,
 ) -> None:
     """Log the result of a task to the progress context.
 
@@ -3356,14 +3354,14 @@ def _log_task_result(
 
 
 def _execute_tasks_parallel(
-    planned_tasks: List[PlannedTask],
+    planned_tasks: list[PlannedTask],
     args: argparse.Namespace,
-    options: Dict[str, Any],
+    options: dict[str, Any],
     format_arg: str,
-    transform_specs: Optional[List[TransformSpec]],
+    transform_specs: list[TransformSpec] | None,
     use_rich: bool,
     show_progress: bool,
-) -> Tuple[List[Tuple[CLIInputItem, Optional[Path]]], List[Tuple[CLIInputItem, Optional[str], int]], int]:
+) -> tuple[list[tuple[CLIInputItem, Path | None]], list[tuple[CLIInputItem, str | None, int]], int]:
     """Execute conversion tasks in parallel.
 
     Returns
@@ -3374,8 +3372,8 @@ def _execute_tasks_parallel(
         - Maximum exit code encountered
 
     """
-    results: List[Tuple[CLIInputItem, Optional[Path]]] = []
-    failures: List[Tuple[CLIInputItem, Optional[str], int]] = []
+    results: list[tuple[CLIInputItem, Path | None]] = []
+    failures: list[tuple[CLIInputItem, str | None, int]] = []
     max_exit_code = EXIT_SUCCESS
 
     extract_specs = getattr(args, "extract", None)
@@ -3431,15 +3429,15 @@ def _execute_tasks_parallel(
 
 
 def _execute_tasks_sequential(
-    planned_tasks: List[PlannedTask],
+    planned_tasks: list[PlannedTask],
     args: argparse.Namespace,
-    options: Dict[str, Any],
+    options: dict[str, Any],
     format_arg: str,
-    transforms: Optional[list],
-    transform_specs: Optional[List[TransformSpec]],
+    transforms: list | None,
+    transform_specs: list[TransformSpec] | None,
     use_rich: bool,
     show_progress: bool,
-) -> Tuple[List[Tuple[CLIInputItem, Optional[Path]]], List[Tuple[CLIInputItem, Optional[str], int]], int]:
+) -> tuple[list[tuple[CLIInputItem, Path | None]], list[tuple[CLIInputItem, str | None, int]], int]:
     """Execute conversion tasks sequentially.
 
     Returns
@@ -3450,8 +3448,8 @@ def _execute_tasks_sequential(
         - Maximum exit code encountered
 
     """
-    results: List[Tuple[CLIInputItem, Optional[Path]]] = []
-    failures: List[Tuple[CLIInputItem, Optional[str], int]] = []
+    results: list[tuple[CLIInputItem, Path | None]] = []
+    failures: list[tuple[CLIInputItem, str | None, int]] = []
     max_exit_code = EXIT_SUCCESS
 
     extract_specs = getattr(args, "extract", None)
@@ -3503,9 +3501,9 @@ def _execute_tasks_sequential(
 
 def _render_summary_if_needed(
     args: argparse.Namespace,
-    items: List[CLIInputItem],
-    results: List[Tuple[CLIInputItem, Optional[Path]]],
-    failures: List[Tuple[CLIInputItem, Optional[str], int]],
+    items: list[CLIInputItem],
+    results: list[tuple[CLIInputItem, Path | None]],
+    failures: list[tuple[CLIInputItem, str | None, int]],
     use_rich: bool,
 ) -> None:
     """Render conversion summary if appropriate."""
@@ -3519,11 +3517,11 @@ def _render_summary_if_needed(
 
 
 def process_files_unified(
-    items: List[CLIInputItem],
+    items: list[CLIInputItem],
     args: argparse.Namespace,
-    options: Dict[str, Any],
+    options: dict[str, Any],
     format_arg: str,
-    transforms: Optional[list] = None,
+    transforms: list | None = None,
 ) -> int:
     """Process CLI inputs with unified progress handling."""
     base_input_dir = _compute_base_input_dir(items, args.preserve_structure)
@@ -3546,7 +3544,7 @@ def process_files_unified(
             target_format_default,
         )
 
-    transform_specs = cast(Optional[List[TransformSpec]], getattr(args, "transform_specs", None))
+    transform_specs = cast(list[TransformSpec] | None, getattr(args, "transform_specs", None))
     planned_tasks = _plan_conversion_tasks(items, args, target_format_default, base_input_dir)
     show_progress = args.progress or (should_use_rich and args.rich) or len(items) > 1
 
@@ -3622,7 +3620,7 @@ def _output_terminal_text(rendered: Any, args: argparse.Namespace) -> int:
 def _render_outline_mode(
     item: CLIInputItem,
     args: argparse.Namespace,
-    effective_options: Dict[str, Any],
+    effective_options: dict[str, Any],
     format_arg: str,
     should_use_rich: bool,
     terminal_options: Any = None,
@@ -3645,10 +3643,10 @@ def _render_outline_mode(
 
 def _convert_with_extraction(
     item: CLIInputItem,
-    effective_options: Dict[str, Any],
+    effective_options: dict[str, Any],
     format_arg: str,
-    extract_specs: List[str],
-    transforms: Optional[list],
+    extract_specs: list[str],
+    transforms: list | None,
     render_target: str,
     line_numbers: bool = False,
     terminal_options: Any = None,
@@ -3697,9 +3695,9 @@ def _emit_result_to_stdout(
 def _render_slice_mode(
     item: CLIInputItem,
     args: argparse.Namespace,
-    effective_options: Dict[str, Any],
+    effective_options: dict[str, Any],
     format_arg: str,
-    transforms: Optional[list],
+    transforms: list | None,
     should_use_rich: bool,
     render_target: str,
     slice_spec: str,
@@ -3718,9 +3716,9 @@ def _render_slice_mode(
 def _render_line_range_mode(
     item: CLIInputItem,
     args: argparse.Namespace,
-    effective_options: Dict[str, Any],
+    effective_options: dict[str, Any],
     format_arg: str,
-    transforms: Optional[list],
+    transforms: list | None,
     should_use_rich: bool,
     render_target: str,
     line_select: str,
@@ -3742,11 +3740,11 @@ def _render_line_range_mode(
 def _render_markdown_mode(
     item: CLIInputItem,
     args: argparse.Namespace,
-    effective_options: Dict[str, Any],
+    effective_options: dict[str, Any],
     format_arg: str,
-    transforms: Optional[list],
+    transforms: list | None,
     should_use_rich: bool,
-    extract_specs: Optional[List[str]],
+    extract_specs: list[str] | None,
     terminal_options: Any = None,
 ) -> int:
     """Handle markdown format rendering."""
@@ -3789,12 +3787,12 @@ def _render_markdown_mode(
 def _render_other_format_mode(
     item: CLIInputItem,
     args: argparse.Namespace,
-    effective_options: Dict[str, Any],
+    effective_options: dict[str, Any],
     format_arg: str,
-    transforms: Optional[list],
+    transforms: list | None,
     should_use_rich: bool,
     render_target: str,
-    extract_specs: Optional[List[str]],
+    extract_specs: list[str] | None,
 ) -> int:
     """Handle non-markdown format rendering."""
     # Line numbers reference the Markdown rendering, so they do not apply to
@@ -3837,9 +3835,9 @@ def _render_other_format_mode(
 def _render_single_item_to_stdout(
     item: CLIInputItem,
     args: argparse.Namespace,
-    options: Dict[str, Any],
+    options: dict[str, Any],
     format_arg: str,
-    transforms: Optional[list],
+    transforms: list | None,
     should_use_rich: bool,
     target_format: str,
 ) -> int:

@@ -15,8 +15,8 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, Optional
 
 # Ensure project src directory is importable when run standalone
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -116,7 +116,7 @@ def generate_formats_document(output_path: Path) -> str:
     return document
 
 
-def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Generate the supported-format matrix fragment.")
     parser.add_argument(
@@ -129,7 +129,7 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def main(argv: Optional[Iterable[str]] = None) -> None:
+def main(argv: Iterable[str] | None = None) -> None:
     """Generate the format matrix and print status."""
     args = parse_args(list(argv) if argv is not None else None)
     document = generate_formats_document(args.output)

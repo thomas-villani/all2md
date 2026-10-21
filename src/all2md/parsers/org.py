@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import IO, Any, Optional, Union, cast
+from typing import IO, Any, cast
 
 from all2md.ast import (
     BlockQuote,
@@ -168,7 +168,7 @@ class OrgParser(BaseParser):
 
     """
 
-    def __init__(self, options: OrgParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: OrgParserOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the Org parser with options and progress callback."""
         BaseParser._validate_options_type(options, OrgParserOptions, "org")
         options = options or OrgParserOptions()
@@ -176,7 +176,7 @@ class OrgParser(BaseParser):
         self.options: OrgParserOptions = options
 
     @requires_dependencies("org", DEPS_ORG)
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse Org-Mode input into AST Document.
 
         Parameters
@@ -1132,7 +1132,7 @@ class OrgParser(BaseParser):
         """
         lines = block.split("\n")
         rows: list[TableRow] = []
-        header: Optional[TableRow] = None
+        header: TableRow | None = None
 
         for line in lines:
             line = line.strip()

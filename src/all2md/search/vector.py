@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from all2md.constants import DEPS_SEARCH_VECTOR
 from all2md.utils.decorators import requires_dependencies
@@ -188,7 +189,7 @@ class VectorIndex(BaseIndex):
 
     @classmethod
     @requires_dependencies("search_vector", DEPS_SEARCH_VECTOR)
-    def load(cls, directory: Path) -> "VectorIndex":
+    def load(cls, directory: Path) -> VectorIndex:
         """Restore a vector index that was previously saved to ``directory``."""
         manifest = cls._read_manifest(directory)
         backend = manifest.backend or {}

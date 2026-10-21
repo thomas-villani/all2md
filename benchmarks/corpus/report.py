@@ -5,10 +5,10 @@ from __future__ import annotations
 import json
 import statistics
 from collections import defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Sequence
 
 
 @dataclass

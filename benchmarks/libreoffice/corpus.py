@@ -19,8 +19,9 @@ import hashlib
 import json
 import os
 import subprocess
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 LANE = Path(__file__).resolve().parent
 

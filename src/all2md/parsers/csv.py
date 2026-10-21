@@ -13,8 +13,9 @@ from __future__ import annotations
 import csv
 import io
 import logging
+from collections.abc import Iterator
 from pathlib import Path
-from typing import IO, Any, Iterator, Optional, Union, cast
+from typing import IO, Any, cast
 
 from all2md.ast import Alignment, Document, HTMLInline, Node, Paragraph
 from all2md.converter_metadata import ConverterMetadata
@@ -134,14 +135,14 @@ class CsvToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: Any = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: Any = None, progress_callback: ProgressCallback | None = None):
         """Initialize the CSV parser with options and progress callback."""
         BaseParser._validate_options_type(options, CsvOptions, "csv")
         options = options or CsvOptions()
         super().__init__(options, progress_callback)
         self.options: CsvOptions = options
 
-    def parse(self, input_data: Union[str, Path, IO[bytes], IO[str], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | IO[str] | bytes) -> Document:
         """Parse CSV/TSV file into an AST.
 
         Parameters
@@ -165,7 +166,7 @@ class CsvToAstConverter(BaseParser):
 
         return self.csv_to_ast(input_data, delimiter)
 
-    def _determine_delimiter(self, input_data: Union[str, Path, IO[bytes], IO[str], bytes]) -> str:
+    def _determine_delimiter(self, input_data: str | Path | IO[bytes] | IO[str] | bytes) -> str:
         """Determine the delimiter for the CSV/TSV file.
 
         Parameters
@@ -355,7 +356,7 @@ class CsvToAstConverter(BaseParser):
 
     def csv_to_ast(
         self,
-        input_data: Union[str, Path, IO[bytes], IO[str], bytes],
+        input_data: str | Path | IO[bytes] | IO[str] | bytes,
         delimiter: str | None = None,
     ) -> Document:
         r"""Convert CSV/TSV to AST Document.

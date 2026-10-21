@@ -16,10 +16,11 @@ import platform
 import subprocess
 import time
 import traceback
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING
 
 from .download import CorpusItem
 
@@ -175,7 +176,7 @@ def write_results(results: Iterable[DocResult], out_path: Path, use_layout_model
     out_path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "run": {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "machine": _machine_info(use_layout_model),
         },
         "results": [asdict(r) for r in results],

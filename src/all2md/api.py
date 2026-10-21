@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import fields, is_dataclass, replace
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Optional, TypeVar, Union, cast, get_args, get_type_hints
+from typing import IO, TYPE_CHECKING, Any, TypeVar, cast, get_args, get_type_hints
 
 from all2md.ast.nodes import Document
 from all2md.constants import DocumentFormat
@@ -55,13 +55,13 @@ OptionsT = TypeVar("OptionsT", BaseParserOptions, BaseRendererOptions)
 
 # TypeVar for updating an existing options instance. Bound rather than value-restricted
 # so the caller's concrete class (e.g. MarkdownRendererOptions) survives the round trip.
-OptionsInstanceT = TypeVar("OptionsInstanceT", bound=Union[BaseParserOptions, BaseRendererOptions])
+OptionsInstanceT = TypeVar("OptionsInstanceT", bound=BaseParserOptions | BaseRendererOptions)
 
 
 def _resolve_document_source(
-    source: Union[str, Path, IO[bytes], IO[str], bytes],
+    source: str | Path | IO[bytes] | IO[str] | bytes,
     remote_input_options: RemoteInputOptions | None,
-    progress_callback: Optional[ProgressCallback] = None,
+    progress_callback: ProgressCallback | None = None,
 ) -> DocumentSource:
     """Resolve raw input into a DocumentSource using the configured loader.
 
@@ -605,17 +605,17 @@ def _split_kwargs_for_parser_and_renderer(
 
 
 def to_markdown(
-    source: Union[str, Path, IO[bytes], bytes, Document],
+    source: str | Path | IO[bytes] | bytes | Document,
     *,
-    parser_options: Optional[BaseParserOptions] = None,
-    renderer_options: Optional[MarkdownRendererOptions] = None,
-    options: Optional[BaseParserOptions] = None,
+    parser_options: BaseParserOptions | None = None,
+    renderer_options: MarkdownRendererOptions | None = None,
+    options: BaseParserOptions | None = None,
     source_format: DocumentFormat = "auto",
-    flavor: Optional[str] = None,
-    transforms: Optional[list] = None,
-    hooks: Optional[dict] = None,
-    progress_callback: Optional[ProgressCallback] = None,
-    remote_input_options: Optional[RemoteInputOptions] = None,
+    flavor: str | None = None,
+    transforms: list | None = None,
+    hooks: dict | None = None,
+    progress_callback: ProgressCallback | None = None,
+    remote_input_options: RemoteInputOptions | None = None,
     **kwargs: Any,
 ) -> str:
     """Convert document to Markdown format with enhanced format detection.
@@ -817,12 +817,12 @@ def to_markdown(
     try:
         # Log timing for parsing stage in trace mode
         # Type narrow for to_ast (exclude IO[str])
-        ast_input: Union[str, Path, IO[bytes], bytes]
+        ast_input: str | Path | IO[bytes] | bytes
         if isinstance(detection_input, (str, Path, bytes)):
             ast_input = detection_input
         elif hasattr(detection_input, "read"):
             # Cast IO types - we already validated it's not IO[str] above
-            ast_input = cast(Union[IO[bytes]], detection_input)
+            ast_input = cast(IO[bytes], detection_input)
         else:
             raise ValueError("Invalid input type after format detection")
 
@@ -856,12 +856,12 @@ def to_markdown(
 
 
 def to_ast(
-    source: Union[str, Path, IO[bytes], bytes],
+    source: str | Path | IO[bytes] | bytes,
     *,
-    parser_options: Optional[BaseParserOptions] = None,
+    parser_options: BaseParserOptions | None = None,
     source_format: DocumentFormat = "auto",
-    progress_callback: Optional[ProgressCallback] = None,
-    remote_input_options: Optional[RemoteInputOptions] = None,
+    progress_callback: ProgressCallback | None = None,
+    remote_input_options: RemoteInputOptions | None = None,
     **kwargs: Any,
 ) -> "Document":
     """Convert document to AST (Abstract Syntax Tree) format.
@@ -1014,7 +1014,7 @@ def to_ast(
         raise ParsingError(f"AST conversion failed: {e!r}", parsing_stage="ast_conversion", original_error=e) from e
 
 
-def _derive_chunk_identity(source: Any, ast_doc: "Document", document_id: Optional[str]) -> tuple[str, Optional[str]]:
+def _derive_chunk_identity(source: Any, ast_doc: "Document", document_id: str | None) -> tuple[str, str | None]:
     """Derive ``(document_id, document_path)`` for chunking from the source.
 
     Reuses the ``source_path`` ``to_ast`` stashes for file inputs; falls back to a
@@ -1028,7 +1028,7 @@ def _derive_chunk_identity(source: Any, ast_doc: "Document", document_id: Option
 
 
 def chunk(
-    source: Union[str, Path, IO[bytes], bytes],
+    source: str | Path | IO[bytes] | bytes,
     *,
     strategy: str = "semantic",
     max_tokens: int = 512,
@@ -1036,13 +1036,13 @@ def chunk(
     min_tokens: int = 0,
     include_preamble: bool = True,
     heading_merge: bool = True,
-    max_heading_level: Optional[int] = None,
+    max_heading_level: int | None = None,
     avoid_table_split: bool = False,
     avoid_code_split: bool = False,
     elide_data_uris: bool = True,
-    drop_elements: Optional[list[str]] = None,
+    drop_elements: list[str] | None = None,
     token_counter: str = "auto",
-    document_id: Optional[str] = None,
+    document_id: str | None = None,
     source_format: DocumentFormat = "auto",
     **converter_options: Any,
 ) -> "list[ProvenanceChunk]":
@@ -1144,12 +1144,12 @@ def _attach_confidence_report(ast_doc: "Document", parser: Any) -> None:
 
 
 def confidence_report(
-    source: Union[str, Path, IO[bytes], bytes, Document],
+    source: str | Path | IO[bytes] | bytes | Document,
     *,
-    parser_options: Optional[BaseParserOptions] = None,
+    parser_options: BaseParserOptions | None = None,
     source_format: DocumentFormat = "auto",
-    progress_callback: Optional[ProgressCallback] = None,
-    remote_input_options: Optional[RemoteInputOptions] = None,
+    progress_callback: ProgressCallback | None = None,
+    remote_input_options: RemoteInputOptions | None = None,
     **kwargs: Any,
 ) -> "ConfidenceReport":
     """Convert a document and return its conversion confidence report ("quality card").
@@ -1230,14 +1230,14 @@ def roundtrippable_formats() -> list[str]:
 
 
 def roundtrip_report(
-    source: Union[str, Path, IO[bytes], bytes, Document],
+    source: str | Path | IO[bytes] | bytes | Document,
     *,
     via: DocumentFormat = "markdown",
     source_format: DocumentFormat = "auto",
-    parser_options: Optional[BaseParserOptions] = None,
-    renderer_options: Optional[BaseRendererOptions] = None,
-    progress_callback: Optional[ProgressCallback] = None,
-    remote_input_options: Optional[RemoteInputOptions] = None,
+    parser_options: BaseParserOptions | None = None,
+    renderer_options: BaseRendererOptions | None = None,
+    progress_callback: ProgressCallback | None = None,
+    remote_input_options: RemoteInputOptions | None = None,
     **kwargs: Any,
 ) -> "RoundTripReport":
     """Round-trip a document through ``via`` and score what survived.
@@ -1318,7 +1318,7 @@ def roundtrip_report(
             cast(DocumentFormat, actual_source_format), via, dict(kwargs), parser_options=parser_options
         )
         original = to_ast(
-            cast(Union[str, Path, IO[bytes], bytes], resolved_payload),
+            cast(str | Path | IO[bytes] | bytes, resolved_payload),
             parser_options=parser_options,
             source_format=cast(DocumentFormat, actual_source_format),
             progress_callback=progress_callback,
@@ -1328,7 +1328,7 @@ def roundtrip_report(
     _, renderer_kwargs = _split_kwargs_for_parser_and_renderer(
         cast(DocumentFormat, actual_source_format), via, dict(kwargs), renderer_options=renderer_options
     )
-    final_renderer_options: Optional[BaseRendererOptions]
+    final_renderer_options: BaseRendererOptions | None
     if renderer_kwargs and renderer_options:
         final_renderer_options = _merge_kwargs_into_options(renderer_options, renderer_kwargs, stacklevel=3)
     elif renderer_kwargs:
@@ -1355,14 +1355,14 @@ def optimizable_formats() -> list[str]:
 
 
 def optimize_options(
-    source: Union[str, Path, IO[bytes], bytes],
+    source: str | Path | IO[bytes] | bytes,
     *,
     source_format: DocumentFormat = "auto",
-    parser_options: Optional[BaseParserOptions] = None,
+    parser_options: BaseParserOptions | None = None,
     rounds: int = 1,
     include_presets: bool = True,
-    sample_pages: Optional[int] = None,
-    remote_input_options: Optional[RemoteInputOptions] = None,
+    sample_pages: int | None = None,
+    remote_input_options: RemoteInputOptions | None = None,
 ) -> "OptimizationReport":
     """Search converter options for the settings that convert ``source`` best.
 
@@ -1467,7 +1467,7 @@ def optimize_options(
     def evaluate(overrides: dict[str, Any]) -> DocumentMetrics:
         candidate_options = base.create_updated(**overrides) if overrides else base
         document = to_ast(
-            cast(Union[str, Path, IO[bytes], bytes], resolved),
+            cast(str | Path | IO[bytes] | bytes, resolved),
             parser_options=candidate_options,
             source_format=cast(DocumentFormat, actual_format),
         )
@@ -1520,7 +1520,7 @@ def _maybe_apply_preserve_formatting(
     preserve_formatting: bool,
     ast_doc: "Document",
     target_format: str,
-    renderer_options: Optional[BaseRendererOptions],
+    renderer_options: BaseRendererOptions | None,
     kwargs: dict,
 ) -> None:
     """When enabled, route a template-based round-trip through render kwargs.
@@ -1548,15 +1548,15 @@ def _maybe_apply_preserve_formatting(
 def from_ast(
     ast_doc: Document,
     target_format: DocumentFormat,
-    output: Union[str, Path, IO[bytes], IO[str], None] = None,
+    output: str | Path | IO[bytes] | IO[str] | None = None,
     *,
-    renderer_options: Optional[BaseRendererOptions] = None,
-    transforms: Optional[list] = None,
-    hooks: Optional[dict] = None,
-    progress_callback: Optional[ProgressCallback] = None,
+    renderer_options: BaseRendererOptions | None = None,
+    transforms: list | None = None,
+    hooks: dict | None = None,
+    progress_callback: ProgressCallback | None = None,
     preserve_formatting: bool = False,
     **kwargs: Any,
-) -> Union[None, str, bytes]:
+) -> None | str | bytes:
     """Render AST document to a target format.
 
     Parameters
@@ -1634,7 +1634,7 @@ def from_ast(
     _maybe_apply_preserve_formatting(preserve_formatting, ast_doc, target_format, renderer_options, kwargs)
 
     # Prepare renderer options
-    final_renderer_options: Optional[BaseRendererOptions]
+    final_renderer_options: BaseRendererOptions | None
     if kwargs and renderer_options:
         final_renderer_options = _merge_kwargs_into_options(renderer_options, kwargs, stacklevel=3)
     elif kwargs:
@@ -1661,18 +1661,18 @@ def from_ast(
 
 
 def from_markdown(
-    source: Union[str, Path, IO[bytes], IO[str]],
+    source: str | Path | IO[bytes] | IO[str],
     target_format: DocumentFormat,
-    output: Union[str, Path, IO[bytes], IO[str], None] = None,
+    output: str | Path | IO[bytes] | IO[str] | None = None,
     *,
-    parser_options: Optional[MarkdownParserOptions] = None,
-    renderer_options: Optional[BaseRendererOptions] = None,
-    transforms: Optional[list] = None,
-    hooks: Optional[dict] = None,
-    progress_callback: Optional[ProgressCallback] = None,
+    parser_options: MarkdownParserOptions | None = None,
+    renderer_options: BaseRendererOptions | None = None,
+    transforms: list | None = None,
+    hooks: dict | None = None,
+    progress_callback: ProgressCallback | None = None,
     preserve_formatting: bool = False,
     **kwargs: Any,
-) -> Union[None, str, bytes]:
+) -> None | str | bytes:
     r"""Convert Markdown content to another format.
 
     Parameters
@@ -1763,22 +1763,22 @@ def from_markdown(
 
 
 def convert(
-    source: Union[str, Path, IO[bytes], IO[str], bytes],
-    output: Union[str, Path, IO[bytes], IO[str], None] = None,
+    source: str | Path | IO[bytes] | IO[str] | bytes,
+    output: str | Path | IO[bytes] | IO[str] | None = None,
     *,
-    parser_options: Optional[BaseParserOptions] = None,
-    renderer_options: Optional[BaseRendererOptions] = None,
+    parser_options: BaseParserOptions | None = None,
+    renderer_options: BaseRendererOptions | None = None,
     source_format: DocumentFormat = "auto",
     target_format: DocumentFormat = "auto",
-    transforms: Optional[list] = None,
-    hooks: Optional[dict] = None,
-    renderer: Optional[Union[str, type, object]] = None,
-    flavor: Optional[str] = None,
-    progress_callback: Optional[ProgressCallback] = None,
-    remote_input_options: Optional[RemoteInputOptions] = None,
+    transforms: list | None = None,
+    hooks: dict | None = None,
+    renderer: str | type | object | None = None,
+    flavor: str | None = None,
+    progress_callback: ProgressCallback | None = None,
+    remote_input_options: RemoteInputOptions | None = None,
     preserve_formatting: bool = False,
     **kwargs: Any,
-) -> Union[None, str, bytes]:
+) -> None | str | bytes:
     """Convert between document formats.
 
     Parameters
@@ -1918,7 +1918,7 @@ def convert(
     )
 
     # Parse to AST
-    final_parser_options: Optional[BaseParserOptions]
+    final_parser_options: BaseParserOptions | None
     if parser_kwargs and parser_options:
         final_parser_options = _merge_kwargs_into_options(parser_options, parser_kwargs, stacklevel=3)
     elif parser_kwargs:
@@ -1929,7 +1929,7 @@ def convert(
         final_parser_options = parser_options
 
     ast_document = to_ast(
-        cast(Union[str, Path, IO[bytes], bytes], resolved_payload),
+        cast(str | Path | IO[bytes] | bytes, resolved_payload),
         parser_options=final_parser_options,
         source_format=cast(DocumentFormat, actual_source_format),
         progress_callback=progress_callback,
@@ -1953,7 +1953,7 @@ def convert(
         renderer_kwargs,
     )
 
-    final_renderer_options: Optional[BaseRendererOptions]
+    final_renderer_options: BaseRendererOptions | None
     with library_injected_options(*injected_by_shorthand):
         if renderer_kwargs and renderer_options:
             final_renderer_options = _merge_kwargs_into_options(renderer_options, renderer_kwargs, stacklevel=3)

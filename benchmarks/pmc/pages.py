@@ -28,9 +28,9 @@ from __future__ import annotations
 
 import re
 from collections import Counter
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping, Sequence
 
 from benchmarks.pmc.alignment import NGRAM, ngrams, normalize, place_block, place_by_tokens
 from benchmarks.pmc.oracles import JatsBlock

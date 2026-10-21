@@ -125,7 +125,7 @@ _EASYOCR_LANG_MAP: dict[str, str] = {
 }
 
 
-def _resolve_languages(page: "pymupdf.Page", options: "PdfOptions") -> list[str]:
+def _resolve_languages(page: pymupdf.Page, options: PdfOptions) -> list[str]:
     """Resolve the configured OCR languages to EasyOCR language codes."""
     ocr_opts = options.ocr
 
@@ -213,7 +213,7 @@ def _results_to_text(results: list[Any]) -> str:
 
 
 @requires_dependencies("pdf", DEPS_PDF_OCR_EASYOCR)
-def ocr_pixmap(pix: "pymupdf.Pixmap", page: "pymupdf.Page", options: "PdfOptions") -> str:
+def ocr_pixmap(pix: pymupdf.Pixmap, page: pymupdf.Page, options: PdfOptions) -> str:
     """Extract text from a rendered page pixmap using EasyOCR.
 
     Parameters

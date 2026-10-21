@@ -32,7 +32,7 @@ import io
 import struct
 from dataclasses import dataclass
 from pathlib import Path
-from typing import IO, Literal, Union
+from typing import IO, Literal
 
 from all2md.exceptions import MalformedFileError
 
@@ -110,7 +110,7 @@ class CfbReader:
 
     """
 
-    def __init__(self, source: Union[str, Path, bytes, IO[bytes]]):
+    def __init__(self, source: str | Path | bytes | IO[bytes]):
         """Parse the header and directory of ``source``."""
         self._owned: IO[bytes] | None = None
         if isinstance(source, bytes):
@@ -384,7 +384,7 @@ class CfbReader:
         return self._folded.get(path.strip("/").casefold())
 
 
-def sniff_cfb_kind(source: Union[str, Path, bytes, IO[bytes]]) -> CfbKind | None:
+def sniff_cfb_kind(source: str | Path | bytes | IO[bytes]) -> CfbKind | None:
     """Return which Office format a CFB container holds, or None.
 
     Parameters
@@ -431,7 +431,7 @@ def describe_cfb_kind(kind: CfbKind) -> tuple[str, str]:
     }[kind]
 
 
-def _sniff(source: Union[str, Path, bytes, IO[bytes]]) -> CfbKind | None:
+def _sniff(source: str | Path | bytes | IO[bytes]) -> CfbKind | None:
     try:
         with CfbReader(source) as reader:
             return _kind_from_names(reader.root_names())

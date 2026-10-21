@@ -53,10 +53,11 @@ from __future__ import annotations
 
 import time
 from collections import Counter
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Callable, Iterable, Mapping, Sequence
+from typing import Any
 
 from benchmarks.pmc.alignment import MIN_NGRAMS, ngram_counts, ngrams, normalize
 from benchmarks.pmc.article import RECALL_MIN, measure_precision, measure_recall
@@ -706,6 +707,6 @@ def run(
         "all2md_commit": all2md_commit,
         "all2md_version": importlib.metadata.version("all2md"),
         "python": sys.version.split()[0],
-        "recorded_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "recorded_at": datetime.now(UTC).isoformat(timespec="seconds"),
     }
     return payload

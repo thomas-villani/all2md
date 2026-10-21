@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import IO, Any, Optional, Union
+from typing import IO, Any
 
 from all2md.ast import Document, Node
 from all2md.exceptions import InvalidOptionsError, ValidationError
@@ -71,7 +71,7 @@ class BaseParser(ABC):
 
     """
 
-    def __init__(self, options: BaseParserOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: BaseParserOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the parser with optional configuration.
 
         Parameters
@@ -83,7 +83,7 @@ class BaseParser(ABC):
 
         """
         self.options: BaseParserOptions | None = options
-        self.progress_callback: Optional[ProgressCallback] = progress_callback
+        self.progress_callback: ProgressCallback | None = progress_callback
 
     @staticmethod
     def _validate_options_type(options: BaseParserOptions | None, expected_type: type, parser_name: str) -> None:
@@ -112,7 +112,7 @@ class BaseParser(ABC):
             )
 
     @abstractmethod
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse the input document into an AST.
 
         This method must be implemented by all parser subclasses. It should
@@ -335,7 +335,7 @@ class BaseParser(ABC):
         return report.to_dict()
 
     @staticmethod
-    def _validate_zip_security(input_data: Union[str, Path, IO[bytes], bytes], suffix: str = ".zip") -> None:
+    def _validate_zip_security(input_data: str | Path | IO[bytes] | bytes, suffix: str = ".zip") -> None:
         """Validate security of a zip archive across different input types.
 
         This helper method delegates to the parser_helpers module to perform
@@ -367,7 +367,7 @@ class BaseParser(ABC):
         _validate_zip_input_helper(input_data, suffix)
 
     @staticmethod
-    def _validated_zip_input(input_data: Union[str, Path, IO[bytes], bytes], suffix: str = ".zip") -> Any:
+    def _validated_zip_input(input_data: str | Path | IO[bytes] | bytes, suffix: str = ".zip") -> Any:
         """Context manager for validated zip input with automatic cleanup.
 
         This helper method delegates to the parser_helpers module to provide
@@ -427,7 +427,7 @@ class BaseParser(ABC):
         _append_attachment_footnotes_helper(children, attachment_footnotes, section_title)
 
     @staticmethod
-    def _load_text_content(input_data: Union[str, Path, IO[bytes], bytes]) -> str:
+    def _load_text_content(input_data: str | Path | IO[bytes] | bytes) -> str:
         """Load content from various input types with encoding detection.
 
         Parameters
@@ -461,7 +461,7 @@ class BaseParser(ABC):
             return normalize_stream_to_text(input_data)
 
     @staticmethod
-    def _load_bytes_content(input_data: Union[str, Path, IO[bytes], bytes]) -> bytes:
+    def _load_bytes_content(input_data: str | Path | IO[bytes] | bytes) -> bytes:
         """Load data as bytes from various input types.
 
         Parameters

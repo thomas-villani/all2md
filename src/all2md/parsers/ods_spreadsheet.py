@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import IO, Any, Optional, Union, cast
+from typing import IO, Any, cast
 
 from all2md.ast import (
     Alignment,
@@ -229,9 +229,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
 
     """
 
-    def __init__(
-        self, options: Optional[OdsSpreadsheetOptions] = None, progress_callback: Optional[ProgressCallback] = None
-    ):
+    def __init__(self, options: OdsSpreadsheetOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the ODS spreadsheet parser with options and progress callback."""
         BaseParser._validate_options_type(options, OdsSpreadsheetOptions, "ods")
         options = options or OdsSpreadsheetOptions()
@@ -242,7 +240,7 @@ class OdsSpreadsheetToAstConverter(BaseParser):
         self.options: OdsSpreadsheetOptions = options
 
     @requires_dependencies("ods", DEPS_ODF)
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse ODS spreadsheet into an AST.
 
         Parameters

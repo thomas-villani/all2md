@@ -12,8 +12,9 @@ import logging
 import mimetypes
 import re
 import zipfile
+from collections.abc import Iterable
 from pathlib import Path
-from typing import IO, Any, Iterable, Optional, Union
+from typing import IO, Any
 
 import defusedxml.ElementTree as ET
 
@@ -54,7 +55,7 @@ _XLINK_NAMESPACE = "http://www.w3.org/1999/xlink"
 class Fb2ToAstConverter(BaseParser):
     """Convert FB2 ebooks to AST representation."""
 
-    def __init__(self, options: Optional[Fb2Options] = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: Fb2Options | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the FB2 to AST converter.
 
         Parameters
@@ -75,7 +76,7 @@ class Fb2ToAstConverter(BaseParser):
         self._attachment_footnotes: dict[str, str] = {}
         self._whitespace_pattern = re.compile(r"\s+")
 
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse FB2 document into an AST Document."""
         self._emit_progress("started", "Converting FB2 document", current=0, total=1)
 
@@ -199,9 +200,9 @@ class Fb2ToAstConverter(BaseParser):
     # ------------------------------------------------------------------
     # Parsing helpers
     # ------------------------------------------------------------------
-    def _load_fb2_bytes(self, input_data: Union[str, Path, IO[bytes], bytes]) -> bytes:
+    def _load_fb2_bytes(self, input_data: str | Path | IO[bytes] | bytes) -> bytes:
         if isinstance(input_data, (str, Path)):
-            path: Optional[Path]
+            path: Path | None
             if isinstance(input_data, Path):
                 path = input_data
             else:
@@ -235,7 +236,7 @@ class Fb2ToAstConverter(BaseParser):
 
         raise ValidationError("Unsupported input type for FB2 parser")
 
-    def _extract_fb2_from_zip(self, zip_source: Union[str, Path, IO[bytes]]) -> bytes:
+    def _extract_fb2_from_zip(self, zip_source: str | Path | IO[bytes]) -> bytes:
         try:
             with zipfile.ZipFile(zip_source) as archive:
                 fb2_names = [
@@ -426,7 +427,7 @@ class Fb2ToAstConverter(BaseParser):
             return []
         return [BlockQuote(children=quote_children)]
 
-    def _build_paragraph(self, element: ET.Element) -> Optional[Paragraph]:
+    def _build_paragraph(self, element: ET.Element) -> Paragraph | None:
         content = self._convert_inline(element)
         if not content:
             text = self._collect_plain_text(element)
@@ -487,7 +488,7 @@ class Fb2ToAstConverter(BaseParser):
         title = element.attrib.get("title")
         return [Link(url=url, content=content, title=title)]
 
-    def _process_image(self, element: ET.Element, inline: bool) -> Optional[Node]:
+    def _process_image(self, element: ET.Element, inline: bool) -> Node | None:
         href = element.attrib.get(self._qname(self._namespaces.get("xlink", _XLINK_NAMESPACE), "href"))
         if not href:
             href = element.attrib.get("href")
@@ -530,13 +531,13 @@ class Fb2ToAstConverter(BaseParser):
     # ------------------------------------------------------------------
     # XML helpers
     # ------------------------------------------------------------------
-    def _find_child(self, element: ET.Element, local_name: str) -> Optional[ET.Element]:
+    def _find_child(self, element: ET.Element, local_name: str) -> ET.Element | None:
         for child in element:
             if self._local_name(child.tag) == local_name:
                 return child
         return None
 
-    def _find_text(self, element: ET.Element, local_name: str) -> Optional[str]:
+    def _find_text(self, element: ET.Element, local_name: str) -> str | None:
         child = self._find_child(element, local_name)
         if child is None:
             return None

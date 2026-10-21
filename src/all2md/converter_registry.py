@@ -16,7 +16,7 @@ import logging
 import mimetypes
 from collections.abc import Iterable
 from pathlib import Path
-from typing import IO, Any, Dict, List, NoReturn, Optional, Tuple, Union
+from typing import IO, Any, NoReturn
 
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import DependencyError, FormatError
@@ -96,7 +96,7 @@ def check_package_installed(import_name: str) -> bool:
         return False
 
 
-def _load_class(class_spec: Union[str, type, None], default_module_path: str, class_type_name: str) -> Optional[type]:
+def _load_class(class_spec: str | type | None, default_module_path: str, class_type_name: str) -> type | None:
     """Load parsers, renderers, and options classes from various specifications.
 
     Parameters
@@ -150,7 +150,7 @@ def _load_class(class_spec: Union[str, type, None], default_module_path: str, cl
                 return None
 
 
-def _load_options_class(options_class_spec: Union[str, type, None]) -> Optional[type]:
+def _load_options_class(options_class_spec: str | type | None) -> type | None:
     """Load options class from various specifications.
 
     Parameters
@@ -171,7 +171,7 @@ def _load_options_class(options_class_spec: Union[str, type, None]) -> Optional[
     return _load_class(options_class_spec, "all2md.options", "options")
 
 
-def _load_parser_class(parser_class_spec: Union[str, type, None], format_name: str) -> Optional[type]:
+def _load_parser_class(parser_class_spec: str | type | None, format_name: str) -> type | None:
     """Load parser class from various specifications.
 
     Parameters
@@ -194,7 +194,7 @@ def _load_parser_class(parser_class_spec: Union[str, type, None], format_name: s
     return _load_class(parser_class_spec, f"all2md.parsers.{format_name}", "parser")
 
 
-def _load_renderer_class(renderer_class_spec: Union[str, type, None], format_name: str) -> Optional[type]:
+def _load_renderer_class(renderer_class_spec: str | type | None, format_name: str) -> type | None:
     """Load renderer class from various specifications.
 
     Parameters
@@ -217,7 +217,7 @@ def _load_renderer_class(renderer_class_spec: Union[str, type, None], format_nam
     return _load_class(renderer_class_spec, f"all2md.renderers.{format_name}", "renderer")
 
 
-def match_extension(name: Union[str, Path], known_extensions: Iterable[str]) -> Optional[str]:
+def match_extension(name: str | Path, known_extensions: Iterable[str]) -> str | None:
     """Return the longest extension in ``known_extensions`` that ``name`` ends with.
 
     ``Path.suffix`` returns only the final dot-separated component, so testing it
@@ -292,10 +292,10 @@ class ConverterRegistry:
 
     """
 
-    _instance: Optional[ConverterRegistry] = None
-    _converters: Dict[str, List[ConverterMetadata]] = {}
+    _instance: ConverterRegistry | None = None
+    _converters: dict[str, list[ConverterMetadata]] = {}
     _initialized: bool = False
-    _sorted_converters_cache: Optional[List[Tuple[str, ConverterMetadata]]] = None
+    _sorted_converters_cache: list[tuple[str, ConverterMetadata]] | None = None
 
     def __new__(cls) -> ConverterRegistry:
         """Create or return singleton instance."""
@@ -306,7 +306,7 @@ class ConverterRegistry:
             cls._instance._sorted_converters_cache = None
         return cls._instance
 
-    def _sorted_converter_list(self) -> List[Tuple[str, ConverterMetadata]]:
+    def _sorted_converter_list(self) -> list[tuple[str, ConverterMetadata]]:
         """Return all converters flattened and sorted by priority (highest first).
 
         ``detect_format`` is on the conversion hot path and previously rebuilt and
@@ -373,7 +373,7 @@ class ConverterRegistry:
             return True
         return False
 
-    def get_parser_options_class(self, format_name: str) -> Optional[type]:
+    def get_parser_options_class(self, format_name: str) -> type | None:
         """Get parser options class for a format.
 
         Parameters
@@ -410,7 +410,7 @@ class ConverterRegistry:
 
         return None
 
-    def get_renderer_options_class(self, format_name: str) -> Optional[type]:
+    def get_renderer_options_class(self, format_name: str) -> type | None:
         """Get renderer options class for a format.
 
         Parameters
@@ -586,8 +586,8 @@ class ConverterRegistry:
 
     def detect_format(
         self,
-        input_data: Union[str, Path, IO[bytes], bytes],
-        hint: Optional[str] = None,
+        input_data: str | Path | IO[bytes] | bytes,
+        hint: str | None = None,
     ) -> str:
         """Detect format from input data.
 
@@ -744,7 +744,7 @@ class ConverterRegistry:
         test = has_markdown_front_matter if front_matter_only else looks_like_markdown
         return test(content) and find_spec("mistune") is not None
 
-    def _detect_by_filename(self, filename: str, content: Optional[bytes] = None) -> Optional[str]:
+    def _detect_by_filename(self, filename: str, content: bytes | None = None) -> str | None:
         """Detect format from filename with optional content validation.
 
         Parameters
@@ -804,7 +804,7 @@ class ConverterRegistry:
 
         return None
 
-    def _detect_cfb_format(self, source: Any) -> Optional[str]:
+    def _detect_cfb_format(self, source: Any) -> str | None:
         """Route a CFB container by its root streams to a registered format, if any.
 
         Parameters
@@ -827,7 +827,7 @@ class ConverterRegistry:
             return format_name
         return None
 
-    def _detect_by_content(self, content: bytes) -> Optional[str]:
+    def _detect_by_content(self, content: bytes) -> str | None:
         """Detect format from file content.
 
         Parameters
@@ -860,7 +860,7 @@ class ConverterRegistry:
 
         return None
 
-    def list_formats(self) -> List[str]:
+    def list_formats(self) -> list[str]:
         """List all registered format names.
 
         Returns
@@ -871,7 +871,7 @@ class ConverterRegistry:
         """
         return sorted(self._converters.keys())
 
-    def get_format_info(self, format_name: str) -> Optional[List[ConverterMetadata]]:
+    def get_format_info(self, format_name: str) -> list[ConverterMetadata] | None:
         """Get metadata list for a specific format.
 
         Parameters
@@ -965,7 +965,7 @@ class ConverterRegistry:
                         all_extensions.update(metadata.extensions)
         return all_extensions
 
-    def match_extension(self, name: Union[str, Path]) -> Optional[str]:
+    def match_extension(self, name: str | Path) -> str | None:
         """Return the registered extension ``name`` carries, or ``None``.
 
         Convenience wrapper over :func:`match_extension` using every extension
@@ -994,10 +994,10 @@ class ConverterRegistry:
 
     def check_dependencies(
         self,
-        format_name: Optional[str] = None,
-        input_data: Optional[Union[str, Path, IO[bytes], bytes]] = None,
+        format_name: str | None = None,
+        input_data: str | Path | IO[bytes] | bytes | None = None,
         operation: str = "both",
-    ) -> Dict[str, List[str]]:
+    ) -> dict[str, list[str]]:
         """Check which dependencies are missing.
 
         Parameters
@@ -1170,7 +1170,7 @@ class ConverterRegistry:
         # generated manifest never bakes in environment-specific plugins);
         # auto_discover() owns plugin discovery and the initialized flag.
 
-    def _discover_converter_modules(self, package_name: str) -> List[str]:
+    def _discover_converter_modules(self, package_name: str) -> list[str]:
         """Discover converter modules by scanning a package directory.
 
         Parameters
@@ -1184,7 +1184,7 @@ class ConverterRegistry:
             List of module names found in the package
 
         """
-        converter_modules: List[str] = []
+        converter_modules: list[str] = []
 
         try:
             # Import the package to get its path

@@ -20,7 +20,7 @@ import sys
 import threading
 import webbrowser
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, cast
+from typing import Any, cast
 
 from all2md.api import from_ast, to_ast
 from all2md.cli import window
@@ -43,7 +43,7 @@ ASSET_CONTENT_TYPES = {
 
 # Canonical filesystem extension for each target format. Used to suggest a
 # default output path when the user switches formats in the dropdown.
-FORMAT_EXTENSIONS: Dict[str, str] = {
+FORMAT_EXTENSIONS: dict[str, str] = {
     "markdown": "md",
     "html": "html",
     "plaintext": "txt",
@@ -66,14 +66,14 @@ FORMAT_EXTENSIONS: Dict[str, str] = {
 }
 
 
-def _available_target_formats() -> List[Dict[str, str]]:
+def _available_target_formats() -> list[dict[str, str]]:
     """Return target formats whose renderer can actually be loaded.
 
     Walks ``registry.list_formats()`` and probes each via ``get_renderer``.
     Formats whose optional dependencies aren't installed are dropped so the
     dropdown only shows usable choices. ``markdown`` is always first.
     """
-    available: List[Dict[str, str]] = []
+    available: list[dict[str, str]] = []
     seen: set[str] = set()
 
     for fmt in sorted(registry.list_formats()):
@@ -90,7 +90,7 @@ def _available_target_formats() -> List[Dict[str, str]]:
     return available
 
 
-def _build_save_defaults(source_path: Path, source_format: str) -> Tuple[str, str, bool]:
+def _build_save_defaults(source_path: Path, source_format: str) -> tuple[str, str, bool]:
     """Compute the default (target_format, target_path, overwrite) tuple.
 
     For markdown originals the default is to save back over the file (with a
@@ -107,7 +107,7 @@ def _render_editor_page(
     template_path: Path,
     source_path: Path,
     initial_md: str,
-    formats: List[Dict[str, str]],
+    formats: list[dict[str, str]],
     default_target_format: str,
     default_target_path: str,
     default_overwrite: bool,
@@ -146,7 +146,7 @@ def _convert_md_to_target(
     to fall back to a generic render.
     """
     ast = to_ast(io.BytesIO(content.encode("utf-8")), source_format="markdown")
-    kwargs: Dict[str, Any] = {}
+    kwargs: dict[str, Any] = {}
     if source_path is not None and target_format == "docx" and source_path.suffix.lower() == ".docx":
         kwargs["template_path"] = str(source_path)
         kwargs["clear_template_body"] = True
@@ -330,7 +330,7 @@ def handle_edit_command(args: list[str] | None = None) -> int:  # noqa: C901
             self.end_headers()
             self.wfile.write(body)
 
-        def _send_json(self, status: int, payload: Dict[str, Any]) -> None:
+        def _send_json(self, status: int, payload: dict[str, Any]) -> None:
             self._send_text(status, json.dumps(payload), "application/json")
 
         def _serve_asset(self, name: str) -> None:

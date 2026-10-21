@@ -16,7 +16,7 @@ import re
 import tempfile
 import zipfile
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Optional, Union, cast
+from typing import IO, TYPE_CHECKING, Any, cast
 
 import defusedxml.ElementTree as ET
 
@@ -86,7 +86,7 @@ class PptxToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: PptxOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: PptxOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the PPTX parser with options and progress callback."""
         BaseParser._validate_options_type(options, PptxOptions, "pptx")
         options = options or PptxOptions()
@@ -98,10 +98,10 @@ class PptxToAstConverter(BaseParser):
         self._attachment_sequencer = create_attachment_sequencer()
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
         self._pptx_comments: dict[int, list[Comment]] = {}  # slide_num -> list of Comment nodes
-        self._input_data: Union[str, Path, IO[bytes], bytes, None] = None  # Store input for comment extraction
+        self._input_data: str | Path | IO[bytes] | bytes | None = None  # Store input for comment extraction
 
     @requires_dependencies("pptx", DEPS_PPTX)
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse PPTX input into an AST Document.
 
         Parameters
@@ -162,7 +162,7 @@ class PptxToAstConverter(BaseParser):
         # Convert PPTX to AST
         return self.convert_to_ast(prs)
 
-    def convert_to_ast(self, prs: "Presentation") -> Document:
+    def convert_to_ast(self, prs: Presentation) -> Document:
         """Convert PPTX presentation to AST Document.
 
         Parameters
@@ -293,7 +293,7 @@ class PptxToAstConverter(BaseParser):
 
         return nodes
 
-    def _process_shape_to_ast(self, shape: "BaseShape") -> Node | list[Node] | None:
+    def _process_shape_to_ast(self, shape: BaseShape) -> Node | list[Node] | None:
         """Process a PPTX shape to AST nodes.
 
         Parameters
@@ -785,7 +785,7 @@ class PptxToAstConverter(BaseParser):
             return str(int(round(numeric)))
         return f"{float(numeric):.6g}"
 
-    def _process_text_frame_to_ast(self, frame: "TextFrame") -> list[Node] | None:
+    def _process_text_frame_to_ast(self, frame: TextFrame) -> list[Node] | None:
         """Process a text frame to AST nodes.
 
         Parameters
@@ -1004,7 +1004,7 @@ class PptxToAstConverter(BaseParser):
 
         return AstTable(header=header_row, rows=data_rows)
 
-    def _process_paragraph_runs_to_inline_simple(self, frame: "TextFrame") -> list[Node]:
+    def _process_paragraph_runs_to_inline_simple(self, frame: TextFrame) -> list[Node]:
         """Process all paragraphs in a text frame to inline nodes (for tables).
 
         Parameters
@@ -1157,7 +1157,7 @@ class PptxToAstConverter(BaseParser):
         return notes_nodes
 
     def _open_pptx_as_zip(
-        self, input_data: Union[str, Path, IO[bytes], bytes]
+        self, input_data: str | Path | IO[bytes] | bytes
     ) -> tuple[zipfile.ZipFile | None, str | None]:
         """Open PPTX input data as a ZipFile.
 
@@ -1344,7 +1344,7 @@ class PptxToAstConverter(BaseParser):
             metadata=comment_metadata,
         )
 
-    def _extract_pptx_comments(self, input_data: Union[str, Path, IO[bytes], bytes]) -> dict[int, list[Comment]]:
+    def _extract_pptx_comments(self, input_data: str | Path | IO[bytes] | bytes) -> dict[int, list[Comment]]:
         """Extract PowerPoint comments from PPTX ZIP archive.
 
         Parameters

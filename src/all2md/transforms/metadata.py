@@ -35,9 +35,11 @@ Define a transform with metadata:
 
 from __future__ import annotations
 
+import builtins
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, ClassVar, Optional, Type
+from typing import Any, ClassVar
 
 from all2md.ast.transforms import NodeTransformer
 
@@ -109,15 +111,16 @@ class ParameterSpec:
 
     """
 
-    type: Type
+    # builtins.type: inside this class body a bare ``type`` is the field below.
+    type: builtins.type
     default: Any = None
     help: str = ""
-    cli_flag: Optional[str] = None
+    cli_flag: str | None = None
     required: bool = False
-    choices: Optional[list[Any]] = None
-    validator: Optional[Callable[[Any], bool]] = None
-    element_type: Optional[Type] = None
-    expose: Optional[bool] = None
+    choices: list[Any] | None = None
+    validator: Callable[[Any], bool] | None = None
+    element_type: builtins.type | None = None
+    expose: bool | None = None
 
     # Default CLI exposure policy when ``expose`` is not provided.
     DEFAULT_EXPOSE: ClassVar[bool] = False
@@ -204,7 +207,7 @@ class ParameterSpec:
         flag_name = param_name.replace("_", "-")
         return f"--{flag_name}"
 
-    def should_expose(self, default: Optional[bool] = None) -> bool:
+    def should_expose(self, default: bool | None = None) -> bool:
         """Determine whether this parameter should surface in the CLI."""
         if default is None:
             default = self.DEFAULT_EXPOSE
@@ -449,12 +452,12 @@ class TransformMetadata:
 
     name: str
     description: str
-    transformer_class: Type[NodeTransformer]
+    transformer_class: type[NodeTransformer]
     parameters: dict[str, ParameterSpec] = field(default_factory=dict)
     priority: int = 100
     dependencies: list[str] = field(default_factory=list)
     version: str = "1.0.0"
-    author: Optional[str] = None
+    author: str | None = None
     tags: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:

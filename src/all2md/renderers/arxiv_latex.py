@@ -11,7 +11,7 @@ ArXiv submission packages.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any
 
 from all2md.ast.nodes import Document, Image
 from all2md.options.arxiv import ArxivPackagerOptions
@@ -86,7 +86,7 @@ class ArxivLatexRenderer(LatexRenderer):
         self._figure_counter = 0
         return super().render_to_string(document)
 
-    def _render_preamble(self, metadata: Dict[str, Any]) -> None:
+    def _render_preamble(self, metadata: dict[str, Any]) -> None:
         """Render LaTeX preamble with document class options and ArXiv packages."""
         opts = self._arxiv_options
         # Document class with optional options

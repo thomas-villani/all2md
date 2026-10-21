@@ -153,7 +153,7 @@ class TestEncodingHandling:
 
     def test_utf8_encoding(self) -> None:
         """Test parsing UTF-8 encoded CSV."""
-        csv_content = "name,city\nMüller,München\nCafé,Zürich".encode("utf-8")
+        csv_content = "name,city\nMüller,München\nCafé,Zürich".encode()
         converter = CsvToAstConverter()
         doc = converter.parse(BytesIO(csv_content))
 

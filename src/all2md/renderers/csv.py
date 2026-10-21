@@ -21,7 +21,7 @@ import csv
 import io
 import logging
 from pathlib import Path
-from typing import IO, Union
+from typing import IO
 
 from all2md.ast.nodes import (
     Code,
@@ -105,7 +105,7 @@ class CsvRenderer(BaseRenderer):
         BaseRenderer.__init__(self, options)
         self.options: CsvRendererOptions = options
 
-    def render(self, doc: Document, output: Union[str, Path, IO[bytes], IO[str]]) -> None:
+    def render(self, doc: Document, output: str | Path | IO[bytes] | IO[str]) -> None:
         """Render AST document to CSV file.
 
         Parameters

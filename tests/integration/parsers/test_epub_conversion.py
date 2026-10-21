@@ -418,6 +418,6 @@ class TestEpubIntegrationOptionsValidation:
             # If it succeeds, verify it's valid
             assert isinstance(result, str)
             assert_markdown_valid(result)
-        except (OSError, IOError):
+        except OSError:
             # This is also acceptable - file system error
             pass

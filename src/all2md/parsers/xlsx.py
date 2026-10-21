@@ -12,8 +12,9 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Iterable
 from pathlib import Path
-from typing import IO, Any, Iterable, Optional, Union, cast
+from typing import IO, Any, cast
 
 from all2md.ast import (
     Alignment,
@@ -49,7 +50,7 @@ from all2md.utils.spreadsheet import (
 logger = logging.getLogger(__name__)
 
 
-def _cell_hyperlink_url(cell: Any) -> Optional[str]:
+def _cell_hyperlink_url(cell: Any) -> str | None:
     """Extract a cell's hyperlink target, if it has one.
 
     Parameters
@@ -75,7 +76,7 @@ def _cell_hyperlink_url(cell: Any) -> Optional[str]:
     return None
 
 
-def _paired_cell(text: str, url: Optional[str]) -> CellValue:
+def _paired_cell(text: str, url: str | None) -> CellValue:
     """Build a build_table_ast() cell value from cell text and an optional hyperlink.
 
     A hyperlinked cell becomes a real ``Link`` node (rather than a markdown-syntax
@@ -123,9 +124,7 @@ def _alignment_for_cell(cell: Any) -> Alignment:
     return "center"
 
 
-def _trim_paired_rows(
-    rows: list[list[tuple[str, Optional[str]]]], trim_mode: str
-) -> list[list[tuple[str, Optional[str]]]]:
+def _trim_paired_rows(rows: list[list[tuple[str, str | None]]], trim_mode: str) -> list[list[tuple[str, str | None]]]:
     """Trim empty leading/trailing rows from (text, url) cell pairs.
 
     Mirrors :func:`all2md.utils.spreadsheet.trim_rows`, whose emptiness test
@@ -150,8 +149,8 @@ def _trim_paired_rows(
 
 
 def _trim_paired_columns(
-    rows: list[list[tuple[str, Optional[str]]]], trim_mode: str
-) -> list[list[tuple[str, Optional[str]]]]:
+    rows: list[list[tuple[str, str | None]]], trim_mode: str
+) -> list[list[tuple[str, str | None]]]:
     """Trim empty leading/trailing columns from (text, url) cell pairs.
 
     See :func:`_trim_paired_rows` for why this duplicates
@@ -513,7 +512,7 @@ class XlsxToAstConverter(BaseParser):
 
     """
 
-    def __init__(self, options: Optional[XlsxOptions] = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: XlsxOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the XLSX parser with options and progress callback."""
         BaseParser._validate_options_type(options, XlsxOptions, "xlsx")
         options = options or XlsxOptions()
@@ -524,7 +523,7 @@ class XlsxToAstConverter(BaseParser):
         self.options: XlsxOptions = options
 
     @requires_dependencies("xlsx", DEPS_XLSX)
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse the XLSX file into an AST.
 
         Parameters
@@ -590,7 +589,7 @@ class XlsxToAstConverter(BaseParser):
 
     def _convert_rows_to_cells(
         self, raw_rows: list[list[Any]], merged_map: dict[str, str]
-    ) -> list[list[tuple[str, Optional[str]]]]:
+    ) -> list[list[tuple[str, str | None]]]:
         """Convert raw cell rows to (text, hyperlink_url) pairs, handling merged cells.
 
         Parameters
@@ -606,9 +605,9 @@ class XlsxToAstConverter(BaseParser):
             Rows of (cell text, hyperlink URL or None) pairs
 
         """
-        cell_rows: list[list[tuple[str, Optional[str]]]] = []
+        cell_rows: list[list[tuple[str, str | None]]] = []
         for row in raw_rows:
-            out: list[tuple[str, Optional[str]]] = []
+            out: list[tuple[str, str | None]] = []
             for cell in row:
                 coord = getattr(cell, "coordinate", None)
                 # Only apply merged cell logic if mode is "flatten"

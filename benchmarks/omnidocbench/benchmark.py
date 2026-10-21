@@ -8,10 +8,11 @@ import statistics
 import sys
 import time
 from collections import Counter
+from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Mapping
+from typing import TYPE_CHECKING, Any
 
 from .corpus import ANNOTATION_SHA256, CorpusPage, CorpusSnapshot
 from .oracles import GroundTruthPage, PageProjection, project_annotation, project_ast, score_page
@@ -423,7 +424,7 @@ def normalize_results(
             "oracle_schema_version": ORACLE_SCHEMA_VERSION,
             "all2md_commit": all2md_commit,
             "worktree_dirty": worktree_dirty,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "python": sys.version,
             "platform": sys.platform,
             "parser_runtime": dict(sorted(parser_runtime.items())),

@@ -14,9 +14,10 @@ import logging
 import os
 import platform
 import sys
+from collections.abc import Iterator
 from importlib.metadata import version
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any
 from urllib.parse import unquote, urlparse
 
 from all2md.cli.input_items import CLIInputItem
@@ -137,7 +138,7 @@ def has_hidden_component(path: Path, root: Path) -> bool:
     return any(part.startswith(".") for part in rel.parts)
 
 
-def _handle_stdin_input(stdin_data_ref: list[bytes | None], raw_argument: str) -> Optional[CLIInputItem]:
+def _handle_stdin_input(stdin_data_ref: list[bytes | None], raw_argument: str) -> CLIInputItem | None:
     """Process stdin input and return CLIInputItem if valid.
 
     Parameters
@@ -167,7 +168,7 @@ def _handle_stdin_input(stdin_data_ref: list[bytes | None], raw_argument: str) -
     return None
 
 
-def _handle_remote_uri_input(raw_argument: str, remote_items: Dict[str, CLIInputItem]) -> bool:
+def _handle_remote_uri_input(raw_argument: str, remote_items: dict[str, CLIInputItem]) -> bool:
     """Process remote URI input and add to remote_items dict.
 
     Parameters
@@ -205,7 +206,7 @@ def _handle_local_path_input(
     recursive: bool,
     extension_allowed: Any,
     include_hidden: bool = False,
-) -> List[Path]:
+) -> list[Path]:
     """Process local path input (file, directory, or glob) and return matched files.
 
     Parameters
@@ -227,7 +228,7 @@ def _handle_local_path_input(
 
     """
     input_path = Path(raw_argument)
-    matched_paths: List[Path] = []
+    matched_paths: list[Path] = []
 
     # Handle glob patterns
     if any(char in raw_argument for char in _GLOB_CHARS):
@@ -250,7 +251,7 @@ def _handle_local_path_input(
         return []
 
     # Filter by extension and file status
-    filtered_paths: List[Path] = []
+    filtered_paths: list[Path] = []
     for candidate in matched_paths:
         if candidate.is_file() and extension_allowed(candidate):
             filtered_paths.append(candidate)
@@ -259,8 +260,8 @@ def _handle_local_path_input(
 
 
 def _deduplicate_and_create_items(
-    local_candidates: List[Path],
-) -> List[CLIInputItem]:
+    local_candidates: list[Path],
+) -> list[CLIInputItem]:
     """Deduplicate local paths and create CLIInputItem objects.
 
     Parameters
@@ -275,7 +276,7 @@ def _deduplicate_and_create_items(
 
     """
     # Deduplicate by resolved path
-    unique_local: Dict[str, Path] = {}
+    unique_local: dict[str, Path] = {}
     for candidate in local_candidates:
         try:
             key = str(candidate.resolve())
@@ -298,12 +299,12 @@ def _deduplicate_and_create_items(
 
 
 def collect_input_files(
-    input_paths: List[str],
+    input_paths: list[str],
     recursive: bool = False,
-    extensions: Optional[List[str]] = None,
-    exclude_patterns: Optional[List[str]] = None,
+    extensions: list[str] | None = None,
+    exclude_patterns: list[str] | None = None,
     include_hidden: bool = False,
-) -> List[CLIInputItem]:
+) -> list[CLIInputItem]:
     """Collect CLI input items from provided arguments.
 
     Supports local filesystem paths, directories, shell globs, URIs, and stdin.
@@ -326,9 +327,9 @@ def collect_input_files(
             return True
         return match_extension(path, normalized_exts) is not None
 
-    local_candidates: List[Path] = []
-    remote_items: Dict[str, CLIInputItem] = {}
-    stdin_item: Optional[CLIInputItem] = None
+    local_candidates: list[Path] = []
+    remote_items: dict[str, CLIInputItem] = {}
+    stdin_item: CLIInputItem | None = None
     stdin_data_ref: list[bytes | None] = [None]  # Use list for mutability in helper
 
     # Process each input argument
@@ -351,7 +352,7 @@ def collect_input_files(
     local_items = _deduplicate_and_create_items(local_candidates)
 
     # Combine all items
-    all_items: List[CLIInputItem] = []
+    all_items: list[CLIInputItem] = []
     all_items.extend(remote_items.values())
     all_items.extend(local_items)
     if stdin_item is not None:
@@ -568,7 +569,7 @@ License: MIT License
 Author: Thomas Villani <thomas.villani@njii.com>"""
 
 
-def parse_batch_list(list_path: Path | str) -> List[str]:
+def parse_batch_list(list_path: Path | str) -> list[str]:
     """Parse batch list file and return file paths.
 
     Parameters
@@ -624,7 +625,7 @@ def parse_batch_list(list_path: Path | str) -> List[str]:
             if not list_path.exists():
                 raise argparse.ArgumentTypeError(f"Batch list file does not exist: {list_path}")
 
-            with open(list_path, "r", encoding="utf-8") as f:
+            with open(list_path, encoding="utf-8") as f:
                 lines = f.readlines()
 
             # Resolve paths relative to list file directory
@@ -632,7 +633,7 @@ def parse_batch_list(list_path: Path | str) -> List[str]:
             source_desc = str(list_path)
 
         # Parse entries
-        file_paths: List[str] = []
+        file_paths: list[str] = []
 
         for line_num, line in enumerate(lines, 1):
             # Strip whitespace

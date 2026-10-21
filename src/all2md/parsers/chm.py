@@ -14,7 +14,7 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import IO, Any, Optional, Union
+from typing import IO, Any
 
 from all2md.ast import Document, Heading, Node, Text, ThematicBreak
 from all2md.constants import DEPS_CHM
@@ -45,7 +45,7 @@ class ChmParser(BaseParser):
 
     """
 
-    def __init__(self, options: ChmOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: ChmOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the CHM parser with options and progress callback."""
         BaseParser._validate_options_type(options, ChmOptions, "chm")
         options = options or ChmOptions()
@@ -68,7 +68,7 @@ class ChmParser(BaseParser):
         self.html_parser = HtmlToAstConverter(html_options)
 
     @requires_dependencies("chm", DEPS_CHM)
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse CHM file into an AST Document.
 
         Parameters

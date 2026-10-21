@@ -31,7 +31,7 @@ import re
 import struct
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import IO, Any, Optional, Union
+from typing import IO, Any
 
 from all2md.ast import (
     Comment,
@@ -112,10 +112,10 @@ _SWITCHES_WITH_ARGUMENT = frozenset({"\\l", "\\o", "\\t"})
 class _Field:
     instructions: list[str] = field(default_factory=list)
     in_result: bool = False
-    href: Optional[str] = None
+    href: str | None = None
 
 
-def _hyperlink_target(instructions: str) -> Optional[str]:
+def _hyperlink_target(instructions: str) -> str | None:
     r"""Return the target of a ``HYPERLINK`` field, or None for any other field.
 
     ``HYPERLINK "url"`` links to the URL and ``HYPERLINK "url" \l "anchor"`` to
@@ -126,9 +126,9 @@ def _hyperlink_target(instructions: str) -> Optional[str]:
     match = _HYPERLINK.match(instructions.replace("\x01", ""))
     if not match:
         return None
-    url: Optional[str] = None
-    anchor: Optional[str] = None
-    pending_switch: Optional[str] = None
+    url: str | None = None
+    anchor: str | None = None
+    pending_switch: str | None = None
     for token in _FIELD_ARGUMENT.finditer(match.group("args")):
         switch = token.group("switch")
         if switch:
@@ -340,7 +340,7 @@ class DocParser(BaseParser):
 
     """
 
-    def __init__(self, options: DocOptions | None = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: DocOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the .doc parser with options and progress callback."""
         BaseParser._validate_options_type(options, DocOptions, "doc")
         options = options or DocOptions()
@@ -348,7 +348,7 @@ class DocParser(BaseParser):
         self.options: DocOptions = options
         self._metadata = DocumentMetadata()
 
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse a Word 97-2003 document into an AST Document.
 
         Parameters
@@ -416,7 +416,7 @@ class _DocumentBuilder:
         self.text = binary.text
 
     def build(self) -> list[Node]:
-        marks: dict[int, Optional[Node]] = {}
+        marks: dict[int, Node | None] = {}
         notes: list[FootnoteDefinition] = []
         if self.options.include_footnotes:
             notes += self._notes(_PLCFFNDREF, _PLCFFNDTXT, "footnotes", "", marks)
@@ -435,7 +435,7 @@ class _DocumentBuilder:
     # -- stories -------------------------------------------------------------
 
     def _notes(
-        self, ref_index: int, text_index: int, story: str, prefix: str, marks: dict[int, Optional[Node]]
+        self, ref_index: int, text_index: int, story: str, prefix: str, marks: dict[int, Node | None]
     ) -> list[FootnoteDefinition]:
         """Pair each note reference with its text; footnotes and endnotes share this layout."""
         refs, _ = self.binary.plc(ref_index, _FRD_SIZE)
@@ -453,7 +453,7 @@ class _DocumentBuilder:
             definitions.append(FootnoteDefinition(identifier=identifier, content=content))
         return definitions
 
-    def _comments(self, marks: dict[int, Optional[Node]]) -> list[Node]:
+    def _comments(self, marks: dict[int, Node | None]) -> list[Node]:
         refs, records = self.binary.plc(_PLCFANDREF, _ATRD_SIZE)
         bounds, _ = self.binary.plc(_PLCFANDTXT, 0)
         owners = self._comment_owners()
@@ -541,7 +541,7 @@ class _DocumentBuilder:
 
     # -- characters to blocks ----------------------------------------------
 
-    def _resolve_fields(self, start: int, end: int) -> list[tuple[int, str, Optional[str]]]:
+    def _resolve_fields(self, start: int, end: int) -> list[tuple[int, str, str | None]]:
         """Return the visible characters of a story range with their CPs and link targets.
 
         A field's instructions are dropped and its result kept; fields nest,
@@ -551,7 +551,7 @@ class _DocumentBuilder:
         deleted = self.binary.deleted
         if "\x13" not in text[start:end]:
             return [(cp, text[cp], None) for cp in range(start, end) if not deleted[cp]]
-        visible: list[tuple[int, str, Optional[str]]] = []
+        visible: list[tuple[int, str, str | None]] = []
         stack: list[_Field] = []
         for cp in range(start, end):
             if deleted[cp]:
@@ -580,8 +580,8 @@ class _DocumentBuilder:
         start: int,
         end: int,
         *,
-        marks: Optional[dict[int, Optional[Node]]] = None,
-        anchors: Optional[dict[int, list[Node]]] = None,
+        marks: dict[int, Node | None] | None = None,
+        anchors: dict[int, list[Node]] | None = None,
         note: bool = False,
     ) -> list[Node]:
         """Build paragraphs from the characters in ``[start, end)``.
@@ -606,7 +606,7 @@ class _DocumentBuilder:
         inlines: list[Node] = []
         pending: list[Node] = []
         buffer: list[str] = []
-        href: Optional[str] = None
+        href: str | None = None
 
         def flush() -> None:
             if not buffer:

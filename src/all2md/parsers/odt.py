@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Optional, Union, cast
+from typing import IO, TYPE_CHECKING, Any, cast
 
 from all2md.ast import (
     Document,
@@ -67,7 +67,7 @@ class OdtToAstConverter(BaseParser):
     """
 
     @requires_dependencies("odt", DEPS_ODF)
-    def __init__(self, options: Optional[OdtOptions] = None, progress_callback: Optional[ProgressCallback] = None):
+    def __init__(self, options: OdtOptions | None = None, progress_callback: ProgressCallback | None = None):
         """Initialize the ODT parser with options and progress callback."""
         BaseParser._validate_options_type(options, OdtOptions, "odt")
         options = options or OdtOptions()
@@ -87,7 +87,7 @@ class OdtToAstConverter(BaseParser):
         self.STYLENS = namespaces.STYLENS
         self.MATHNS = getattr(namespaces, "MATHNS", "http://www.w3.org/1998/Math/MathML")
 
-    def parse(self, input_data: Union[str, Path, IO[bytes], bytes]) -> Document:
+    def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
         """Parse ODT document into an AST.
 
         Parameters
@@ -120,7 +120,7 @@ class OdtToAstConverter(BaseParser):
 
             return self.convert_to_ast(doc)
 
-    def convert_to_ast(self, doc: "odf.opendocument.OpenDocument") -> Document:
+    def convert_to_ast(self, doc: odf.opendocument.OpenDocument) -> Document:
         """Convert ODT document to AST Document.
 
         Returns
@@ -160,7 +160,7 @@ class OdtToAstConverter(BaseParser):
 
         return Document(children=children, metadata=metadata.to_dict())
 
-    def _process_element(self, element: Any, doc: "odf.opendocument.OpenDocument") -> Node | list[Node] | None:
+    def _process_element(self, element: Any, doc: odf.opendocument.OpenDocument) -> Node | list[Node] | None:
         """Process an ODT element to AST node(s).
 
         Parameters
@@ -194,7 +194,7 @@ class OdtToAstConverter(BaseParser):
 
         return None
 
-    def _process_text_runs(self, element: Any, doc: "odf.opendocument.OpenDocument") -> list[Node]:
+    def _process_text_runs(self, element: Any, doc: odf.opendocument.OpenDocument) -> list[Node]:
         """Process text runs within an element, handling formatting.
 
         Parameters
@@ -281,7 +281,7 @@ class OdtToAstConverter(BaseParser):
                 parts.append(self._get_text_content(node))
         return "".join(parts)
 
-    def _process_paragraph(self, p: Any, doc: "odf.opendocument.OpenDocument") -> Node | list[Node] | None:
+    def _process_paragraph(self, p: Any, doc: odf.opendocument.OpenDocument) -> Node | list[Node] | None:
         """Convert paragraph element to AST Paragraph.
 
         Parameters
@@ -338,7 +338,7 @@ class OdtToAstConverter(BaseParser):
             blocks.append(MathBlock(content=mathml, notation="mathml"))
         return blocks
 
-    def _process_heading(self, h: Any, doc: "odf.opendocument.OpenDocument") -> Heading:
+    def _process_heading(self, h: Any, doc: odf.opendocument.OpenDocument) -> Heading:
         """Convert heading element to AST Heading.
 
         Parameters
@@ -358,7 +358,7 @@ class OdtToAstConverter(BaseParser):
         content = self._process_text_runs(h, doc)
         return Heading(level=level, content=content)
 
-    def _process_list(self, lst: Any, doc: "odf.opendocument.OpenDocument") -> List:
+    def _process_list(self, lst: Any, doc: odf.opendocument.OpenDocument) -> List:
         """Convert list element to AST List.
 
         Parameters
@@ -428,7 +428,7 @@ class OdtToAstConverter(BaseParser):
                 return True
         return False
 
-    def _process_table(self, tbl: Any, doc: "odf.opendocument.OpenDocument") -> Table | None:
+    def _process_table(self, tbl: Any, doc: odf.opendocument.OpenDocument) -> Table | None:
         """Convert table element to AST Table.
 
         Parameters
@@ -476,7 +476,7 @@ class OdtToAstConverter(BaseParser):
 
         return Table(header=header_row, rows=data_rows, alignments=["left"] * len(header_cells))
 
-    def _process_image(self, frame: Any, doc: "odf.opendocument.OpenDocument") -> Image | None:
+    def _process_image(self, frame: Any, doc: odf.opendocument.OpenDocument) -> Image | None:
         """Extract and process an image.
 
         Parameters

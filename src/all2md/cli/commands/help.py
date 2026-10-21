@@ -10,7 +10,6 @@ help sections. Supports both plain text and rich terminal output.
 
 import argparse
 import sys
-from typing import Optional
 
 from all2md.cli.help_formatter import display_help
 
@@ -70,7 +69,7 @@ def handle_help_command(args: list[str] | None = None) -> int | None:
         _print_cheatsheet(use_rich=parsed.rich)
         return 0
 
-    requested_rich: Optional[bool]
+    requested_rich: bool | None
     if parsed.rich:
         requested_rich = True
     else:
