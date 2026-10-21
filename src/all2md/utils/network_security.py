@@ -28,7 +28,7 @@ import socket
 import threading
 import time
 from email.message import Message
-from typing import Any, Literal
+from typing import Any, Literal, Self
 from urllib.parse import urlparse
 
 from all2md.constants import DEFAULT_USER_AGENT, DEPS_NETWORK
@@ -360,7 +360,7 @@ class RateLimiter:
         """Release a concurrent request slot."""
         self.semaphore.release()
 
-    def __enter__(self) -> "RateLimiter":
+    def __enter__(self) -> Self:
         """Context manager entry."""
         if not self.acquire():
             raise TimeoutError("Rate limiter acquisition timeout")

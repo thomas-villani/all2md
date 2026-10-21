@@ -55,7 +55,7 @@ def _parse_enex_date(date_str: str | None) -> datetime.datetime | None:
 
     try:
         # Format: 20230115T143000Z
-        return datetime.datetime.strptime(date_str, "%Y%m%dT%H%M%SZ").replace(tzinfo=datetime.timezone.utc)
+        return datetime.datetime.strptime(date_str, "%Y%m%dT%H%M%SZ").replace(tzinfo=datetime.UTC)
     except (ValueError, TypeError):
         return None
 
@@ -484,12 +484,12 @@ class EnexToAstConverter(BaseParser):
         if self.options.sort_notes_by == "created":
             return sorted(
                 note_data_list,
-                key=lambda n: n.get("created") or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc),
+                key=lambda n: n.get("created") or datetime.datetime.min.replace(tzinfo=datetime.UTC),
             )
         elif self.options.sort_notes_by == "updated":
             return sorted(
                 note_data_list,
-                key=lambda n: n.get("updated") or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc),
+                key=lambda n: n.get("updated") or datetime.datetime.min.replace(tzinfo=datetime.UTC),
                 reverse=True,
             )
         elif self.options.sort_notes_by == "title":

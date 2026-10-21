@@ -6,7 +6,7 @@ import json
 import secrets
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, ClassVar, Iterable, Mapping, MutableMapping, Sequence
 
@@ -113,7 +113,7 @@ class BaseIndex(ABC):
             version=INDEX_MANIFEST_VERSION,
             mode=self.mode,
             index_id=self.index_id,
-            created_at=datetime.now(timezone.utc).isoformat(),
+            created_at=datetime.now(UTC).isoformat(),
             options=self._options_snapshot,
             backend=backend_payload,
         )

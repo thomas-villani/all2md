@@ -3406,8 +3406,7 @@ def _iter_block_items(
             yield paragraph
             # Also yield any images found separately
             if has_image and img_data:
-                for image_data in img_data:
-                    yield image_data
+                yield from img_data
             # A text box's blocks follow the paragraph that anchors it. Each box is a
             # block container of its own, so a box inside a box is found in turn.
             for text_box in _text_box_contents(child):

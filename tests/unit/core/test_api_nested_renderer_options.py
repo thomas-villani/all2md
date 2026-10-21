@@ -1,13 +1,21 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 """Unit tests for nested renderer options handling in API."""
 
+from dataclasses import dataclass, field
+from typing import Optional
+
 import pytest
 
 from all2md.api import (
+    _collect_nested_dataclass_kwargs,
+    _create_options_from_kwargs,
     _create_renderer_options_from_kwargs,
     _split_kwargs_for_parser_and_renderer,
 )
-from all2md.options.epub import EpubRendererOptions
+from all2md.options.base import BaseRendererOptions
+from all2md.options.chm import ChmOptions
+from all2md.options.epub import EpubOptions, EpubRendererOptions
+from all2md.options.html import HtmlOptions
 
 
 class TestNestedRendererOptions:
@@ -186,3 +194,39 @@ class TestNestedRendererOptions:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+@dataclass(frozen=True)
+class _Inner:
+    depth: int = 0
+
+
+@dataclass(frozen=True)
+class _Pep604Options(BaseRendererOptions):
+    plain: _Inner = field(default_factory=_Inner)
+    optional: Optional[_Inner] = None
+    pipe: _Inner | None = None
+
+
+class TestNestedOptionAnnotationForms:
+    """A nested options field is found however its annotation is spelled."""
+
+    @pytest.mark.parametrize("name", ["plain", "optional", "pipe"])
+    def test_nested_field_is_found(self, name):
+        # ``_Inner | None`` has no ``__origin__`` before Python 3.14, which the old
+        # check relied on: its kwargs were silently dropped as unknown options.
+        nested = _collect_nested_dataclass_kwargs(_Pep604Options, {"depth": 3})["nested"]
+        assert nested[name] == {"depth": 3}
+
+    def test_pipe_union_field_is_built(self):
+        options = _create_options_from_kwargs(_Pep604Options, "renderer", depth=3)
+        assert options.pipe == _Inner(depth=3)
+        assert options.optional == _Inner(depth=3)
+
+    @pytest.mark.parametrize("options_class", [ChmOptions, EpubOptions])
+    def test_shipped_html_options_field_takes_html_kwargs(self, options_class, recwarn):
+        # ``html_options: HtmlOptions | None``: on 3.11-3.13 its kwargs were ignored with
+        # a warning instead of reaching the embedded HTML parser.
+        options = _create_options_from_kwargs(options_class, "parser", base_url="https://example.com/")
+        assert options.html_options == HtmlOptions(base_url="https://example.com/")
+        assert not [w for w in recwarn if "ignored" in str(w.message)]

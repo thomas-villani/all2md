@@ -190,7 +190,7 @@ def decode_base64_image_to_file(
 
         return temp_path
 
-    except (OSError, IOError):
+    except OSError:
         return None
 
 

@@ -309,7 +309,7 @@ class MboxToAstConverter(BaseParser):
 
         # Sort messages chronologically based on parent class sort_order option
         messages.sort(
-            key=lambda m: m.get("date") or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc),
+            key=lambda m: m.get("date") or datetime.datetime.min.replace(tzinfo=datetime.UTC),
             reverse=(self.options.sort_order == "desc"),
         )
 

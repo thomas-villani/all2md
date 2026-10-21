@@ -108,9 +108,9 @@ def _parse_date_safely(date_str: str | None) -> datetime.datetime | None:
         parsed = parsedate_to_datetime(date_str)
         # Ensure timezone awareness - convert to UTC if no timezone
         if parsed.tzinfo is None:
-            return parsed.replace(tzinfo=datetime.timezone.utc)
+            return parsed.replace(tzinfo=datetime.UTC)
         else:
-            return parsed.astimezone(datetime.timezone.utc)
+            return parsed.astimezone(datetime.UTC)
     except (ValueError, TypeError):
         return None
 
@@ -1159,7 +1159,7 @@ class EmlToAstConverter(BaseParser):
 
             # Sort messages chronologically based on sort_order option
             messages.sort(
-                key=lambda m: m.get("date") or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc),
+                key=lambda m: m.get("date") or datetime.datetime.min.replace(tzinfo=datetime.UTC),
                 reverse=(self.options.sort_order == "desc"),
             )
 

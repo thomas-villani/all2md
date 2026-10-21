@@ -44,7 +44,7 @@ _VT_LPSTR = 0x001E
 _VT_LPWSTR = 0x001F
 _VT_FILETIME = 0x0040
 
-_FILETIME_EPOCH = datetime.datetime(1601, 1, 1, tzinfo=datetime.timezone.utc)
+_FILETIME_EPOCH = datetime.datetime(1601, 1, 1, tzinfo=datetime.UTC)
 _MAX_PROPERTIES = 1024
 
 
