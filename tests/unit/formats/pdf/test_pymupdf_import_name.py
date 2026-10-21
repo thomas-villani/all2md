@@ -60,9 +60,9 @@ def test_no_source_module_uses_the_legacy_fitz_alias() -> None:
         if hits:
             offenders[source.relative_to(root).as_posix()] = hits
 
-    assert (
-        offenders == _ALIAS_IS_THE_POINT
-    ), "import PyMuPDF as `pymupdf`, not `fitz`: the alias is deprecated and some releases warn on import"
+    assert offenders == _ALIAS_IS_THE_POINT, (
+        "import PyMuPDF as `pymupdf`, not `fitz`: the alias is deprecated and some releases warn on import"
+    )
 
 
 def test_the_declared_dependency_matches_the_runtime_guard() -> None:

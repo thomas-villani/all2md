@@ -472,14 +472,14 @@ def _cached_page_from_manifest(
     actual_size = pdf_path.stat().st_size
     if actual_size != trusted.size_bytes:
         raise CorpusCacheError(
-            f"cached PDF size mismatch for {page.page_id!r}: " f"expected {trusted.size_bytes}, got {actual_size}"
+            f"cached PDF size mismatch for {page.page_id!r}: expected {trusted.size_bytes}, got {actual_size}"
         )
     if not corpus_download._is_pdf(pdf_path):
         raise CorpusCacheError(f"cached PDF is invalid for {page.page_id!r}")
     actual_digest = _sha256(pdf_path)
     if actual_digest != trusted.sha256:
         raise CorpusCacheError(
-            f"cached PDF SHA-256 mismatch for {page.page_id!r}: " f"expected {trusted.sha256}, got {actual_digest}"
+            f"cached PDF SHA-256 mismatch for {page.page_id!r}: expected {trusted.sha256}, got {actual_digest}"
         )
     return CorpusPage(
         page_id=page.page_id,
@@ -616,9 +616,7 @@ def _read_manifest(manifest_path: Path) -> dict[str, _ManifestPage]:
     if payload["dataset"] != DATASET_ID:
         raise CorpusCacheError("artifact manifest dataset mismatch")
     if payload["revision"] != REVISION:
-        raise CorpusCacheError(
-            f"artifact manifest revision mismatch: expected {REVISION}, " f"got {payload['revision']!r}"
-        )
+        raise CorpusCacheError(f"artifact manifest revision mismatch: expected {REVISION}, got {payload['revision']!r}")
     if payload["annotation_sha256"] != ANNOTATION_SHA256:
         raise CorpusCacheError("artifact manifest annotation SHA-256 mismatch")
     if payload["expected_pages"] != EXPECTED_PAGES:
@@ -715,7 +713,7 @@ def _validate_index_header(index: dict[str, Any], *, limit: int | None) -> None:
         raise CorpusCacheError("cache index schema does not match this adapter")
     if index["schema_version"] != INDEX_SCHEMA_VERSION:
         raise CorpusCacheError(
-            f"cache index schema version mismatch: expected {INDEX_SCHEMA_VERSION}, " f"got {index['schema_version']!r}"
+            f"cache index schema version mismatch: expected {INDEX_SCHEMA_VERSION}, got {index['schema_version']!r}"
         )
     if index["dataset"] != DATASET_ID:
         raise CorpusCacheError(f"cache index dataset mismatch: expected {DATASET_ID!r}, got {index['dataset']!r}")

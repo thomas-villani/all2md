@@ -454,7 +454,6 @@ class HttpRetriever(DocumentSourceRetriever):
 
             # Emit download completed event
             if request.progress_callback:
-
                 try:
                     request.progress_callback(
                         ProgressEvent(
@@ -471,7 +470,6 @@ class HttpRetriever(DocumentSourceRetriever):
         except NetworkSecurityError:
             # Emit error event
             if request.progress_callback:
-
                 try:
                     request.progress_callback(
                         ProgressEvent(
@@ -495,7 +493,6 @@ class HttpRetriever(DocumentSourceRetriever):
         except Exception as exc:  # pragma: no cover - defensive fallback
             # Emit error event
             if request.progress_callback:
-
                 try:
                     request.progress_callback(
                         ProgressEvent(

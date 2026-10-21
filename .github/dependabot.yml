@@ -26,7 +26,6 @@ updates:
           - "pytest*"
           - "mypy*"
           - "ruff*"
-          - "black*"
           - "sphinx*"
           - "types-*"
         update-types:

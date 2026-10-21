@@ -601,7 +601,6 @@ class IpynbToAstConverter(BaseParser):
 
         """
         try:
-
             # Parse markdown content with appropriate options
             options = MarkdownParserOptions(
                 parse_strikethrough=True,

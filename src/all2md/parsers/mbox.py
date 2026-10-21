@@ -520,7 +520,6 @@ class MboxToAstConverter(BaseParser):
                 header_lines.append(f"CC: {msg['cc']}")
 
             if "date" in msg and msg["date"] is not None:
-
                 formatted_date = format_eml_date(msg["date"], self.options)
                 if formatted_date:
                     header_lines.append(f"Date: {formatted_date}")

@@ -368,7 +368,7 @@ class OptionsRenderer:
                 lines.append(f"**{field.name}**")
                 lines.append("")
                 lines.append(
-                    "   Embed additional Markdown formatting controls. " "See the ``Markdown Options`` section below."
+                    "   Embed additional Markdown formatting controls. See the ``Markdown Options`` section below."
                 )
                 lines.append("")
                 continue

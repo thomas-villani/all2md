@@ -466,7 +466,7 @@ class TransformMetadata:
         # Validate transformer_class
         if not issubclass(self.transformer_class, NodeTransformer):
             raise ValueError(
-                f"transformer_class must inherit from NodeTransformer, " f"got {self.transformer_class.__name__}"
+                f"transformer_class must inherit from NodeTransformer, got {self.transformer_class.__name__}"
             )
 
         # Validate priority

@@ -218,9 +218,9 @@ class TestLayoutRegionExtraction:
         node = converter._extract_table_from_layout_region(page, _rect(0, 0, 100, 50), page_num=0)
 
         assert isinstance(node, AstParagraph), "the region's text must still survive as prose"
-        assert _rejection_reasons(converter) == [
-            "text_grid_splits_words"
-        ], "the specific guard reports; the vaguer layout_region_not_tabular must not pile on"
+        assert _rejection_reasons(converter) == ["text_grid_splits_words"], (
+            "the specific guard reports; the vaguer layout_region_not_tabular must not pile on"
+        )
         assert converter._tables_rejected == 1, "one region, one rejection, one hit to confidence"
 
 
@@ -319,9 +319,9 @@ class TestWordGutterGrid:
         assert grid is not None
         assert len(grid) == 10
         assert all(len(row) == 3 for row in grid)
-        assert (
-            grid[0].count("SpanningTitleAcrossEverything") == 1
-        ), "the spanning word stays whole in exactly one cell -- the column holding its center"
+        assert grid[0].count("SpanningTitleAcrossEverything") == 1, (
+            "the spanning word stays whole in exactly one cell -- the column holding its center"
+        )
 
     def test_multiword_cells_join_in_reading_order(self):
         """Real multi-word cells put their word gaps at different x per line, unlike a gutter."""

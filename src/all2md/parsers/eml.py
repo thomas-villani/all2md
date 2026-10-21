@@ -288,7 +288,6 @@ def convert_eml_html_to_markdown(html_content: str, options: EmlOptions) -> str:
 
     """
     try:
-
         # Create MarkdownRendererOptions with default hash headings
         md_options = MarkdownRendererOptions(use_hash_headings=True)
 

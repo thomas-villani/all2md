@@ -326,7 +326,7 @@ class TableBuilder:
             # Prevent overwriting existing header (Issue 10)
             if self.header is not None:
                 raise ValueError(
-                    "Table already has a header row. Cannot add another header. " "Use is_header=False for body rows."
+                    "Table already has a header row. Cannot add another header. Use is_header=False for body rows."
                 )
             self.header = row
             if alignments:

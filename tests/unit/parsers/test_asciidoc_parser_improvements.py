@@ -433,9 +433,9 @@ NewTerm:: New def"""
         assert "first line second line" in text
 
         paragraphs = [node for node in doc.children if isinstance(node, Paragraph)]
-        assert any(
-            "after" in "".join(getattr(c, "content", "") for c in p.content) for p in paragraphs
-        ), "the paragraph after the blank line stays outside the list"
+        assert any("after" in "".join(getattr(c, "content", "") for c in p.content) for p in paragraphs), (
+            "the paragraph after the blank line stays outside the list"
+        )
 
     def test_a_multi_paragraph_description_round_trips_with_its_words(self) -> None:
         """The renderer fused a description's paragraphs into one token (#352's class).

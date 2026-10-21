@@ -253,7 +253,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if not args.baseline.exists():
         print(
-            f"No baseline at {args.baseline}. Record one from a CI run " f"(--emit-baseline) before gating.",
+            f"No baseline at {args.baseline}. Record one from a CI run (--emit-baseline) before gating.",
             file=sys.stderr,
         )
         return 2

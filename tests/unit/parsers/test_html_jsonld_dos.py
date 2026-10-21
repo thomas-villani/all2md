@@ -82,7 +82,7 @@ class TestJsonLdDoS:
 
     def test_empty_jsonld_script_handled(self):
         """Test that empty JSON-LD scripts are handled correctly."""
-        html = '<html><head><script type="application/ld+json"></script></head>' "<body><p>Content</p></body></html>"
+        html = '<html><head><script type="application/ld+json"></script></head><body><p>Content</p></body></html>'
 
         result = to_markdown(html, source_format="html")
         assert "Content" in result

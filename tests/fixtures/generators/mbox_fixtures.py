@@ -36,9 +36,7 @@ def create_simple_mbox() -> mailbox.mbox:
     msg1["To"] = "newemployee@company.com"
     msg1["Date"] = format_datetime(datetime.datetime(2024, 1, 15, 9, 0, tzinfo=datetime.timezone.utc))
     msg1.set_payload(
-        "Welcome to the team!\n\n"
-        "We're excited to have you join us. Your first day is Monday.\n\n"
-        "Best regards,\nHR Team"
+        "Welcome to the team!\n\nWe're excited to have you join us. Your first day is Monday.\n\nBest regards,\nHR Team"
     )
     mbox.add(msg1)
 
@@ -97,7 +95,7 @@ def create_mbox_with_thread() -> mailbox.mbox:
     msg1["Message-ID"] = "<bug-report-001@company.com>"
     msg1["Date"] = format_datetime(datetime.datetime(2024, 6, 1, 10, 0, tzinfo=datetime.timezone.utc))
     msg1.set_payload(
-        "Team,\n\n" "We found a critical bug in the payment flow.\n" "Users cannot complete checkout.\n\n" "QA Team"
+        "Team,\n\nWe found a critical bug in the payment flow.\nUsers cannot complete checkout.\n\nQA Team"
     )
     mbox.add(msg1)
 

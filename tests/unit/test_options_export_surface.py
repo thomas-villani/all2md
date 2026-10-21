@@ -74,9 +74,9 @@ def test_registered_options_class_is_exported_from_the_options_package(name: str
 
 @pytest.mark.parametrize("name", sorted(_registered_options_classes()))
 def test_registered_options_class_is_exported_from_the_top_level(name: str) -> None:
-    assert (
-        name in all2md.__all__
-    ), f"{name} is used by a registered converter but is not in all2md.__all__; add it to __all__ and _lazy_options"
+    assert name in all2md.__all__, (
+        f"{name} is used by a registered converter but is not in all2md.__all__; add it to __all__ and _lazy_options"
+    )
 
 
 def test_the_two_surfaces_carry_the_same_format_options() -> None:

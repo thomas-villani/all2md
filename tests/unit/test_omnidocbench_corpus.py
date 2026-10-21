@@ -464,9 +464,7 @@ def test_cross_mode_load_rejects_corruption_using_the_shared_manifest(
 
     revision_dir = tmp_path / corpus.REVISION
     manifest = json.loads(corpus._manifest_path(revision_dir).read_text(encoding="utf-8"))
-    assert str(raised.value) == (
-        f"cached PDF SHA-256 mismatch for 'page-0000': " f"expected {page.sha256}, got {actual}"
-    )
+    assert str(raised.value) == (f"cached PDF SHA-256 mismatch for 'page-0000': expected {page.sha256}, got {actual}")
     assert manifest["pages"]["page-0000"]["sha256"] == page.sha256
     assert corpus._index_path(revision_dir, 1).exists() is False
 

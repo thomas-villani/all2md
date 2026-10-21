@@ -48,7 +48,7 @@ def long_doc():
     """Create a long document with multiple sections for word count splitting."""
     children = []
     for i in range(10):
-        children.append(Heading(level=1, content=[Text(content=f"Section {i+1}")]))
+        children.append(Heading(level=1, content=[Text(content=f"Section {i + 1}")]))
         text = " ".join([f"word{j}" for j in range(100)])
         children.append(Paragraph(content=[Text(content=text)]))
     return Document(children=children)

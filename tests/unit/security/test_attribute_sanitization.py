@@ -200,14 +200,14 @@ class TestFrameworkAttributeSanitization:
             soup = BeautifulSoup(html, "html.parser")
 
             # Should be safe without framework stripping
-            assert is_element_safe(
-                soup.div, strip_framework_attributes=False
-            ), f"Incorrectly blocked {attr} without framework stripping"
+            assert is_element_safe(soup.div, strip_framework_attributes=False), (
+                f"Incorrectly blocked {attr} without framework stripping"
+            )
 
             # Should be blocked with framework stripping
-            assert not is_element_safe(
-                soup.div, strip_framework_attributes=True
-            ), f"Failed to detect {attr} with framework stripping"
+            assert not is_element_safe(soup.div, strip_framework_attributes=True), (
+                f"Failed to detect {attr} with framework stripping"
+            )
 
     def test_vue_js_attributes_detected_when_enabled(self):
         """Test that Vue.js attributes are detected when framework stripping enabled."""
@@ -284,12 +284,12 @@ class TestFrameworkAttributeSanitization:
             html = f'<div {attr}="value">{description}</div>'
             soup = BeautifulSoup(html, "html.parser")
 
-            assert is_element_safe(
-                soup.div, strip_framework_attributes=False
-            ), f"{description}: Safe without framework stripping"
-            assert not is_element_safe(
-                soup.div, strip_framework_attributes=True
-            ), f"{description}: Should be blocked with framework stripping"
+            assert is_element_safe(soup.div, strip_framework_attributes=False), (
+                f"{description}: Safe without framework stripping"
+            )
+            assert not is_element_safe(soup.div, strip_framework_attributes=True), (
+                f"{description}: Should be blocked with framework stripping"
+            )
 
     def test_data_prefixed_framework_attributes(self):
         """Test detection of framework attributes with data- prefix."""
@@ -300,9 +300,9 @@ class TestFrameworkAttributeSanitization:
             soup = BeautifulSoup(html, "html.parser")
 
             assert is_element_safe(soup.div, strip_framework_attributes=False)
-            assert not is_element_safe(
-                soup.div, strip_framework_attributes=True
-            ), f"Failed to detect data-prefixed attribute: {attr}"
+            assert not is_element_safe(soup.div, strip_framework_attributes=True), (
+                f"Failed to detect data-prefixed attribute: {attr}"
+            )
 
     def test_regular_data_attributes_not_blocked(self):
         """Test that regular data-* attributes are not blocked."""
@@ -313,9 +313,9 @@ class TestFrameworkAttributeSanitization:
             soup = BeautifulSoup(html, "html.parser")
 
             # These should be safe even with framework stripping
-            assert is_element_safe(
-                soup.div, strip_framework_attributes=True
-            ), f"Safe data attribute incorrectly blocked: {attr}"
+            assert is_element_safe(soup.div, strip_framework_attributes=True), (
+                f"Safe data attribute incorrectly blocked: {attr}"
+            )
 
 
 @pytest.mark.unit

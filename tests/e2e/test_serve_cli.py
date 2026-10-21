@@ -581,12 +581,12 @@ More content.
         assert server_started, f"Server failed to start. Output:\n{combined_output}"
 
         # Check for warning message in output
-        assert (
-            "WARNING" in combined_output or "warning" in combined_output.lower()
-        ), f"Expected WARNING in output, got: {combined_output[:500]}"
-        assert (
-            "DEVELOPMENT" in combined_output or "development" in combined_output.lower()
-        ), f"Expected DEVELOPMENT in output, got: {combined_output[:500]}"
+        assert "WARNING" in combined_output or "warning" in combined_output.lower(), (
+            f"Expected WARNING in output, got: {combined_output[:500]}"
+        )
+        assert "DEVELOPMENT" in combined_output or "development" in combined_output.lower(), (
+            f"Expected DEVELOPMENT in output, got: {combined_output[:500]}"
+        )
 
     def test_serve_no_cache_single_file(self):
         """Test that --no-cache causes file to be re-converted on each request."""

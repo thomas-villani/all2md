@@ -123,7 +123,7 @@ class MCPConfig(CloneFrozenMixin):
             )
         ):
             raise ValueError(
-                "At least one tool must be enabled " "(to_md, from_md, doc_edit, search, diff, outline, or list_files)"
+                "At least one tool must be enabled (to_md, from_md, doc_edit, search, diff, outline, or list_files)"
             )
 
 

@@ -7,7 +7,9 @@ from all2md.options import DocxRendererOptions, PptxOptions
 
 # Convert a PowerPoint file to Markdown
 pptx_options = PptxOptions(
-    attachment_mode="base64", include_slide_numbers=True, include_notes=True  # Embed images as base64
+    attachment_mode="base64",
+    include_slide_numbers=True,
+    include_notes=True,  # Embed images as base64
 )
 markdown = convert("sample_presentation.pptx", target_format="markdown", parser_options=pptx_options)
 

@@ -99,7 +99,7 @@ class TestBlendResults:
     def test_blend_respects_top_k(self):
         """Test that top_k limits the number of results."""
         keyword_results = [self._make_result(f"chunk-{i}", 0.9 - i * 0.1) for i in range(5)]
-        vector_results = [self._make_result(f"chunk-{i+5}", 0.85 - i * 0.1) for i in range(5)]
+        vector_results = [self._make_result(f"chunk-{i + 5}", 0.85 - i * 0.1) for i in range(5)]
 
         result = blend_results(keyword_results, vector_results, top_k=3)
 
