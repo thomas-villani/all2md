@@ -55,7 +55,7 @@ from __future__ import annotations
 
 import difflib
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import cast
 
 from all2md.ast.nodes import (
@@ -837,7 +837,7 @@ class AddConversionTimestampTransform(NodeTransformer):
 
         """
         # Generate timestamp (timezone-aware UTC)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         if self.timestamp_format == "iso":
             timestamp = now.isoformat(timespec=self.timespec)

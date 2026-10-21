@@ -579,7 +579,7 @@ class OutlookToAstConverter(BaseParser):
 
             # Sort messages chronologically
             messages.sort(
-                key=lambda m: m.get("date") or datetime.datetime.min.replace(tzinfo=datetime.timezone.utc),
+                key=lambda m: m.get("date") or datetime.datetime.min.replace(tzinfo=datetime.UTC),
                 reverse=(self.options.sort_order == "desc"),
             )
 

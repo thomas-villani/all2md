@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import fields, is_dataclass, replace
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any, Optional, TypeVar, Union, cast, get_type_hints
+from typing import IO, TYPE_CHECKING, Any, Optional, TypeVar, Union, cast, get_args, get_type_hints
 
 from all2md.ast.nodes import Document
 from all2md.constants import DocumentFormat
@@ -150,6 +150,22 @@ def _option_type_hints(options_class: type) -> dict[str, Any]:
     return cached
 
 
+def _nested_dataclass_type(field_type: Any) -> type[Any] | None:
+    """Return the options dataclass an annotation refers to, unwrapping ``Optional`` and unions.
+
+    Returns ``None`` when the annotation is not (or does not contain) a dataclass. Every
+    path that builds nested options goes through here: two used to test for
+    ``__origin__``, which ``X | None`` lacks before Python 3.14, so they missed every
+    PEP 604 annotation.
+    """
+    if isinstance(field_type, type) and is_dataclass(field_type):
+        return field_type
+    for arg in get_args(field_type):
+        if arg is not type(None) and isinstance(arg, type) and is_dataclass(arg):
+            return arg
+    return None
+
+
 def _collect_nested_dataclass_kwargs(
     options_class: type[BaseParserOptions] | type[BaseRendererOptions], kwargs: dict
 ) -> dict:
@@ -192,17 +208,9 @@ def _collect_nested_dataclass_kwargs(
     for field in fields(options_class):
         # Get resolved type from hints, fallback to field.type
         field_type = type_hints.get(field.name, field.type)
-
-        # Handle Optional and Union types
-        if hasattr(field_type, "__origin__"):
-            # For Optional[SomeType], get the actual type
-            if hasattr(field_type, "__args__"):
-                for arg in field_type.__args__:
-                    if arg is not type(None) and is_dataclass(arg):
-                        nested_fields[field.name] = arg
-                        break
-        elif is_dataclass(field_type):
-            nested_fields[field.name] = field_type
+        nested_class = _nested_dataclass_type(field_type)
+        if nested_class is not None:
+            nested_fields[field.name] = nested_class
 
     # For each nested field, collect kwargs that match its internal fields
     for nested_field_name, nested_dataclass in nested_fields.items():
@@ -402,18 +410,9 @@ def _create_options_from_kwargs(
                     break
 
         if field_type:
-            nested_class = None
-            if hasattr(field_type, "__origin__"):
-                if hasattr(field_type, "__args__"):
-                    for arg in field_type.__args__:
-                        if arg is not type(None) and is_dataclass(arg):
-                            nested_class = arg
-                            break
-            elif is_dataclass(field_type):
-                nested_class = field_type
-
+            nested_class = _nested_dataclass_type(field_type)
             if nested_class:
-                flat_kwargs[nested_field_name] = nested_class(**nested_kwargs)  # type: ignore[operator]
+                flat_kwargs[nested_field_name] = nested_class(**nested_kwargs)
 
     # Filter to only valid top-level kwargs
     option_names = [field.name for field in fields(options_class)]
@@ -423,21 +422,6 @@ def _create_options_from_kwargs(
         logger.debug(f"Skipping unknown {options_type_name} options: {missing}")
         _warn_dropped_kwargs(missing, stacklevel=4)
     return options_class(**valid_kwargs)
-
-
-def _nested_dataclass_type(field_type: Any) -> type[Any] | None:
-    """Return the options dataclass an annotation refers to, unwrapping ``Optional``.
-
-    Returns ``None`` when the annotation is not (or does not contain) a dataclass.
-    """
-    if field_type is None:
-        return None
-    if isinstance(field_type, type) and is_dataclass(field_type):
-        return field_type
-    for arg in getattr(field_type, "__args__", ()):
-        if arg is not type(None) and isinstance(arg, type) and is_dataclass(arg):
-            return arg
-    return None
 
 
 def _merge_kwargs_into_options(options: OptionsInstanceT, kwargs: dict[str, Any], stacklevel: int) -> OptionsInstanceT:

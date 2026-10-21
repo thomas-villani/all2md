@@ -5,7 +5,7 @@
 # src/all2md/utils/packages.py
 from __future__ import annotations
 
-from functools import lru_cache
+from functools import cache
 from typing import Optional, Tuple
 
 
@@ -35,7 +35,7 @@ def get_package_version(package_name: str) -> Optional[str]:
         return None
 
 
-@lru_cache(maxsize=None)
+@cache
 def check_version_requirement(package_name: str, version_spec: str) -> Tuple[bool, Optional[str]]:
     """Check if installed package meets version requirement.
 

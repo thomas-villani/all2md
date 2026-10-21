@@ -8,7 +8,7 @@ import functools
 import logging
 import time
 from contextlib import contextmanager
-from typing import Any, Callable, Generator, Optional, TypeVar
+from typing import Any, Callable, Generator, Optional, Self, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ class TimingContext:
         self.start_time: Optional[float] = None
         self.end_time: Optional[float] = None
 
-    def __enter__(self) -> "TimingContext":
+    def __enter__(self) -> Self:
         """Enter the timing context and start the timer."""
         self.start_time = time.perf_counter()
         self.logger.log(self.log_level, f"Starting: {self.operation_name}")
