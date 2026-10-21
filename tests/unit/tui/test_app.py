@@ -1,6 +1,6 @@
 """The viewer driven headlessly through Wijjit's harness.
 
-Skipped where Wijjit is not installed (the ``tui`` extra; Python 3.11+).
+Skipped where Wijjit is not installed (the ``tui`` extra).
 """
 
 from __future__ import annotations

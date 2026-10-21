@@ -8,7 +8,7 @@
 [project]
 name = "all2md-mcpb"
 version = "1.17.0"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     # The `mcp` extra is the server plus its formats and rank-bm25; see the
     # comment on it in the root pyproject.toml.

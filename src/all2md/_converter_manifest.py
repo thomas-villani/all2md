@@ -713,7 +713,7 @@ _MANIFEST_RECORDS: list[ConverterMetadata] = [
         parser_required_packages=[("tomli-w", "tomli_w", ">=1.0.0")],
         renderer_required_packages=[("tomli-w", "tomli_w", ">=1.0.0")],
         renders_as_string=True,
-        import_error_message="TOML conversion requires tomli and tomli-w (pip install tomli tomli-w)",
+        import_error_message="TOML conversion requires tomli-w (pip install tomli-w)",
         parser_options_class="all2md.options.toml.TomlParserOptions",
         renderer_options_class="all2md.options.toml.TomlRendererOptions",
         description="Convert TOML to/from a fenced code block (default) or a structured document",

@@ -7,7 +7,7 @@ name = "all2md-simpledoc"
 version = "1.0.0"
 description = "SimpleDoc format plugin for all2md - demonstrates bidirectional document conversion"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
     {name = "All2md Contributors", email = "example@example.com"}

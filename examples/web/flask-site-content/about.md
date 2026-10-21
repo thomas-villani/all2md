@@ -28,7 +28,7 @@ This Flask application demonstrates:
 ## Technical Details
 
 The site is built with:
-- **Python 3.10+**
+- **Python 3.11+**
 - **Flask** web framework
 - **all2md** for markdown processing
 

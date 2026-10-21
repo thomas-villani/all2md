@@ -59,7 +59,7 @@ _TEMPLATE = """
 
 
 def wijjit_available() -> bool:
-    """Return whether Wijjit can be imported (the ``tui`` extra, Python 3.11+)."""
+    """Return whether Wijjit can be imported (the ``tui`` extra)."""
     from importlib.util import find_spec
 
     return find_spec("wijjit") is not None

@@ -107,12 +107,7 @@ active = false
         result_str = renderer.render_to_string(doc)
 
         # Parse result to verify
-        import sys
-
-        if sys.version_info >= (3, 11):
-            import tomllib
-        else:
-            import tomli as tomllib
+        import tomllib
 
         result = tomllib.loads(result_str)
 

@@ -6,16 +6,12 @@ presets, and priority handling.
 
 import json
 import tempfile
+import tomllib
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 import yaml
-
-try:
-    import tomllib
-except ModuleNotFoundError:
-    import tomli as tomllib
 
 try:
     import tomli_w

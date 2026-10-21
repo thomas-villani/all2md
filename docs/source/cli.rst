@@ -3457,8 +3457,7 @@ Rich output needs the ``rich`` package, which the ``cli_extras`` and ``all`` ext
 
 ``all2md read`` (``rcat -i``)
    An interactive viewer in the terminal: the document in a scrolling pane, an outline beside it, and a status
-   bar with the current section and position. It needs the ``tui`` extra (``pip install 'all2md[tui]'``,
-   Python 3.11 or later).
+   bar with the current section and position. It needs the ``tui`` extra (``pip install 'all2md[tui]'``).
 
    .. code-block:: bash
 

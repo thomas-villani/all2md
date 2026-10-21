@@ -165,9 +165,7 @@ class Feature:
 
 #: Capabilities ``check-deps`` reports beside the formats.
 FEATURES: Tuple[Feature, ...] = (
-    Feature(
-        "read", "all2md read and rcat -i, the interactive terminal viewer", "tui", (("wijjit", "wijjit"),), (3, 11)
-    ),
+    Feature("read", "all2md read and rcat -i, the interactive terminal viewer", "tui", (("wijjit", "wijjit"),)),
     Feature("mcp", "all2md mcp, the MCP server", "mcp", (("fastmcp", "fastmcp"), ("rank-bm25", "rank_bm25"))),
     Feature("watch", "--watch, converting again when a file changes", "cli_extras", (("watchdog", "watchdog"),)),
     Feature(

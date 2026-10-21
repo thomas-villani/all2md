@@ -6,7 +6,7 @@ This guide covers all installation methods for all2md, from basic setup to devel
 Requirements
 ------------
 
-* **Python 3.10 or later**
+* **Python 3.11 or later**
 * pip (comes with Python)
 * Optional: git (for development installation)
 
@@ -494,10 +494,6 @@ extra, which installs `Wijjit <https://github.com/thomas-villani/wijjit>`_:
 
 **Dependencies:** rich, wijjit
 
-Wijjit needs **Python 3.11 or later**. On Python 3.10 the ``tui`` extra (and
-``all``) installs without it, ``all2md read`` says why it cannot start, and
-``rcat`` keeps working.
-
 Combined Installations
 ----------------------
 
@@ -528,8 +524,7 @@ supported formats and features:
 This covers PDF, the Office formats (DOCX/PPTX/XLSX), OpenDocument, web/HTML
 (including readability extraction), e-books (EPUB/FB2), RTF, reStructuredText,
 Org, Outlook/MSG, wiki formats, LaTeX, OCR, document rendering, ranked search,
-Jinja templates, the MCP server, archive extraction, and the terminal viewer (on
-Python 3.11 and later).
+Jinja templates, the MCP server, archive extraction, and the terminal viewer.
 
 **Note:** The ``eml`` and ``ipynb`` extras are not listed because these formats
 use built-in Python libraries. The ``pdf_layout`` extra is intentionally
@@ -561,7 +556,7 @@ Check which dependencies are currently installed:
    all2md check-deps docx
 
    # Check a feature that belongs to no single format
-   all2md check-deps read    # all2md read / rcat -i (the tui extra, Python 3.11+)
+   all2md check-deps read    # all2md read / rcat -i (the tui extra)
    all2md check-deps mcp     # all2md mcp, the MCP server
 
 After the formats, the report lists features: ``read`` (the interactive terminal
@@ -660,7 +655,7 @@ The ``dev`` extra includes:
 * **mypy** (>=2.1.0) - Type checking
 * **ruff** (>=0.15.20) and **black** (~=26.1) - Linting and formatting
 * **bandit** (>=1.9.4) - Security linting
-* **sphinx** (>=9.0.4) and **sphinx-rtd-theme** (>=3.1.0) - Documentation build (Python 3.11+)
+* **sphinx** (>=9.0.4) and **sphinx-rtd-theme** (>=3.1.0) - Documentation build
 
 The exact pins live in ``pyproject.toml`` under ``[project.optional-dependencies].dev``; that list is authoritative when the two disagree.
 
@@ -753,13 +748,13 @@ Python Version Issues
 
 **Error:** ``ERROR: Package 'all2md' requires a different Python``
 
-**Solution:** all2md requires Python 3.10+. Check your version:
+**Solution:** all2md requires Python 3.11+. Check your version:
 
 .. code-block:: bash
 
    python --version
 
-Install Python 3.10+ from https://python.org or use pyenv:
+Install Python 3.11+ from https://python.org or use pyenv:
 
 .. code-block:: bash
 
