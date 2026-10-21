@@ -6,7 +6,7 @@
 
 Legend: 🌱 natural next step · 🚀 ambitious · 🌙 moonshot · ⏸️ parked with a reason
 
-## Where we are (2026-10-19)
+## Where we are (2026-10-21)
 
 **v1.17.0 shipped on 2026-10-15**, the first release built and published by the gated
 pipeline: PyPI receives the wheel CI tested, and a release waits on CI, the scheduled lanes
@@ -42,9 +42,13 @@ and pymupdf4llm's 6.26%, and a **6.2-point** table gap that is all row grouping,
 table work stopped on evidence. What remains open on PDF (#442, #456 step 3, #440's
 remainder) is Theme 8 Stage 4 layout reconstruction and is carried there.
 
-**Open issues at this date:** #621 (the DOCX renderer writes footnotes as superscript text
-and drops task-list checkboxes). Upstream, wijjit #94 (a tree shown again forgets its
-highlight) is open; the directory browser works around it.
+Since 1.17.0: PyMuPDF is capped below 2.0 until it is evaluated (#624, for 1.17.1); the
+DOCX renderer writes real Word footnotes and keeps task-list boxes (#621, #628); all2md
+needs Python 3.11, and CI tests 3.11 to 3.15 (#629, #630).
+
+**Open issues at this date:** none. Upstream, wijjit #94 (a tree shown again forgets its
+highlight) is open; the directory browser works around it, and PyMuPDF 2.0's
+`Table.extract()` regression is reported.
 
 ## Next
 
@@ -55,7 +59,8 @@ engines behind them. 1.18 fixes the behavior first, so the docs restructure belo
 written against tools that do what it says:
 
 - **Markdown → Word, often from LLM-written Markdown.** Real Word footnotes and task-list
-  checkboxes (#621), then math, alert labels, and thematic breaks written as a rule rather
+  checkboxes are done (#621, #628; an option for real check box content controls is
+  deferred); next math, alert labels, and thematic breaks written as a rule rather
   than 75 characters; reference templates beyond the fonts #615 fixed.
 - **`all2md view`** shows what it drops today: footnotes, math, relative images, and DOCX
   images.
@@ -68,6 +73,16 @@ written against tools that do what it says:
   has its controls on the born-digital lane: wrong-page gap 0.50 (was 0.10) and a 0.22 drop
   when half the content is deleted (it used to rise), but under 0.01 when a page's blocks
   are reversed, since order is `reading_order_similarity`'s job.
+- **PyMuPDF 2.0.** 2.0 bundles `pymupdf-layout` and installs its table hook on import, so
+  `auto` would always turn layout analysis on; its `Table.extract()` splits decimals and,
+  on rotated pages, drops the spaces between words. Evaluated in #625 and the #627 draft:
+  OmniDocBench is unchanged; on PMC the only regression is the rotated-page article. To
+  lift the cap: the upstream fix, a decision on what `auto` means (layout on is far better
+  on tables, figures and headings, and ~15× slower on small files), re-records of both
+  lanes, and moving the benchmark modules off `import fitz`.
+- **Use what Python 3.11 gives us**, now that it is the floor: audit first (`Self`,
+  `StrEnum`, exception groups and notes, `asyncio.TaskGroup`), then change what reads
+  better. The support window is the latest five minor versions.
 
 ### Now: reading and editing documents in the terminal (Theme 5)
 
@@ -109,7 +124,8 @@ order:
   publishes `server.json` (#586), and an `[mcp]` extra that is a working server (#588).
   Live since the 1.17 release.
 - ✅ **GitHub Marketplace** for the quality-gate action: decided yes (#186), docs rewritten
-  for a reader arriving cold (#587). The listing is a checkbox on the 1.17 release.
+  for a reader arriving cold (#587). The 1.17.0 description was over the Marketplace's
+  125-character limit (#620); the listing goes out with 1.17.1.
 - Upstream-sharing the OCR-gate calibration to pymupdf4llm, whose defaults auto-OCR
   born-digital pages, the exact misfire class the PMC lane measures and gates.
 - The announcement itself, with `docs/source/benchmarks.rst` as the artifact: every figure
@@ -572,8 +588,8 @@ None blocking.
   variance is ~7% and a CPU-class change shifts everything ~18% at once; the
   `startup` gate's raw-plus-normalized agreement rule is the model. The artifacts to
   study accumulate on every push.
-- **#186** — the Marketplace listing: decided yes, docs done (#587); the listing is a
-  checkbox on the 1.17 release.
+- **#186** — the Marketplace listing: decided yes, docs done (#587), description shortened
+  (#620); the listing goes out with 1.17.1.
 - **#570** — the Org parser flattens nested lists; a nested list of the other kind folds
   into its parent's text.
 - **OCR the embedded image, not a 200-dpi re-render**, when a page is one full-page image:
