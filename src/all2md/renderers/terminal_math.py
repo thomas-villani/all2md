@@ -308,38 +308,68 @@ def _operand(text: str) -> str:
     return text if _is_term(text) else f"({text})"
 
 
+# LaTeX tokens (shared with the DOCX renderer's equation writer, docx_math) ---
+
+
+def latex_tokens(nodes: list[Any]) -> list[Any]:
+    """Split character nodes into single characters; other nodes stay as they are."""
+    tokens: list[Any] = []
+    for node in nodes or []:
+        if node is None:
+            continue
+        if _is_node(node, "LatexCharsNode"):
+            tokens.extend(node.chars)
+        elif _is_node(node, "LatexCommentNode"):
+            continue
+        else:
+            tokens.append(node)
+    return tokens
+
+
+def take_argument(tokens: list[Any], index: int) -> tuple[Any, int]:
+    """Return the argument starting at ``tokens[index]`` (spaces skipped) and the index after it."""
+    while index < len(tokens) and isinstance(tokens[index], str) and tokens[index].isspace():
+        index += 1
+    if index >= len(tokens):
+        return None, index
+    return tokens[index], index + 1
+
+
+def macro_arguments(node: Any, tokens: list[Any], index: int, count: int) -> tuple[list[Any], Any, int]:
+    """Return a macro's ``count`` mandatory arguments, its optional one, and the index after them.
+
+    pylatexenc parses the arguments of the macros it knows; for the others
+    they are the next tokens.
+    """
+    parsed = list(getattr(getattr(node, "nodeargd", None), "argnlist", None) or [])
+    optional = None
+    mandatory: list[Any] = []
+    for argument in parsed:
+        if argument is None:
+            continue
+        if _is_node(argument, "LatexGroupNode") and argument.delimiters == ("[", "]"):
+            optional = argument
+        else:
+            mandatory.append(argument)
+    if not parsed and count and index < len(tokens) and _is_char(tokens[index], "["):
+        close = next((i for i in range(index, len(tokens)) if _is_char(tokens[i], "]")), None)
+        if close is not None:
+            optional = "".join(t if isinstance(t, str) else t.latex_verbatim() for t in tokens[index + 1 : close])
+            index = close + 1
+    while len(mandatory) < count:
+        argument, index = take_argument(tokens, index)
+        if argument is None:
+            break
+        mandatory.append(argument)
+    return mandatory, optional, index
+
+
 class _Converter:
     """Turn a pylatexenc node list into fragments of text."""
 
     def __init__(self, l2t: Any, inline: bool) -> None:
         self.l2t = l2t
         self.inline = inline
-
-    # Tokens ---------------------------------------------------------------
-
-    @staticmethod
-    def _tokens(nodes: list[Any]) -> list[Any]:
-        """Split character nodes into single characters; other nodes stay as they are."""
-        tokens: list[Any] = []
-        for node in nodes or []:
-            if node is None:
-                continue
-            if _is_node(node, "LatexCharsNode"):
-                tokens.extend(node.chars)
-            elif _is_node(node, "LatexCommentNode"):
-                continue
-            else:
-                tokens.append(node)
-        return tokens
-
-    @staticmethod
-    def _take_argument(tokens: list[Any], index: int) -> tuple[Any, int]:
-        """Return the argument starting at ``tokens[index]`` (spaces skipped) and the index after it."""
-        while index < len(tokens) and isinstance(tokens[index], str) and tokens[index].isspace():
-            index += 1
-        if index >= len(tokens):
-            return None, index
-        return tokens[index], index + 1
 
     def _text(self, argument: Any) -> str:
         """Return a macro or script argument as one line of text."""
@@ -364,7 +394,7 @@ class _Converter:
 
     def top(self, nodes: list[Any]) -> _Box:
         r"""Convert a whole formula; ``\\`` and ``&`` at the top level make rows, as in ``gather``."""
-        tokens = self._tokens(nodes)
+        tokens = latex_tokens(nodes)
         if any(_is_row_break(token) or _is_cell_break(token) for token in tokens):
             has_cells = any(_is_cell_break(token) for token in tokens)
             laid_out = self._environment("aligned" if has_cells else "gathered", nodes)
@@ -376,7 +406,7 @@ class _Converter:
 
     def fragments(self, nodes: list[Any]) -> list[Fragment]:
         """Convert a node list to fragments: strings, and boxes for anything with rows."""
-        tokens = self._tokens(nodes)
+        tokens = latex_tokens(nodes)
         out: list[Fragment] = []
         index = 0
         while index < len(tokens):
@@ -384,7 +414,7 @@ class _Converter:
             index += 1
             if isinstance(token, str):
                 if token in "^_":
-                    argument, index = self._take_argument(tokens, index)
+                    argument, index = take_argument(tokens, index)
                     out.append(_script(self._text(argument), token == "^"))
                     if getattr(argument, "macro_post_space", ""):
                         # ``^\infty e``: the space that ended the macro keeps ``^∞`` off the ``e``.
@@ -419,40 +449,12 @@ class _Converter:
                 out.append(token.latex_verbatim())
         return out
 
-    def _arguments(self, node: Any, tokens: list[Any], index: int, count: int) -> tuple[list[Any], Any, int]:
-        """Return ``count`` mandatory arguments, the optional one, and the index after them.
-
-        pylatexenc parses the arguments of the macros it knows; for the others
-        they are the next tokens.
-        """
-        parsed = list(getattr(getattr(node, "nodeargd", None), "argnlist", None) or [])
-        optional = None
-        mandatory: list[Any] = []
-        for argument in parsed:
-            if argument is None:
-                continue
-            if _is_node(argument, "LatexGroupNode") and argument.delimiters == ("[", "]"):
-                optional = argument
-            else:
-                mandatory.append(argument)
-        if not parsed and count and index < len(tokens) and _is_char(tokens[index], "["):
-            close = next((i for i in range(index, len(tokens)) if _is_char(tokens[i], "]")), None)
-            if close is not None:
-                optional = "".join(t if isinstance(t, str) else t.latex_verbatim() for t in tokens[index + 1 : close])
-                index = close + 1
-        while len(mandatory) < count:
-            argument, index = self._take_argument(tokens, index)
-            if argument is None:
-                break
-            mandatory.append(argument)
-        return mandatory, optional, index
-
     def _macro(self, node: Any, tokens: list[Any], index: int, out: list[Fragment]) -> int:  # noqa: C901
         """Convert one macro, appending to ``out``; return the index of the next token."""
         name = node.macroname
         trailing = " " if node.macro_post_space else ""
         count = _ARITY.get(name, 0)
-        args, optional, index = self._arguments(node, tokens, index, count)
+        args, optional, index = macro_arguments(node, tokens, index, count)
 
         if name in _SPACES:
             space = _SPACES[name]

@@ -18,10 +18,12 @@ from all2md.constants import (
     DEFAULT_DOCX_INCLUDE_ENDNOTES,
     DEFAULT_DOCX_INCLUDE_FOOTNOTES,
     DEFAULT_DOCX_INCLUDE_IMAGE_CAPTIONS,
+    DEFAULT_DOCX_MATH_MODE,
     DEFAULT_DOCX_REVISIONS,
     DEFAULT_DOCX_TABLE_STYLE,
     DocxCommentMode,
     DocxCommentsPosition,
+    DocxMathMode,
     DocxRevisionPolicy,
 )
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
@@ -77,6 +79,13 @@ class DocxRendererOptions(BaseRendererOptions):
         "Heading 1", and all subsequent headings are promoted by one level
         (H2 → Heading 1, H3 → Heading 2, etc.). Set to False to keep all H1s as
         "Heading 1".
+    math_mode : {"native", "latex"}, default "native"
+        How math is written. ``native`` makes Word equations (OMML) that Word's
+        equation tools can edit: fractions, scripts, roots, sums and integrals,
+        matrices, ``cases`` and aligned rows. Needs ``pylatexenc``, which the
+        ``docx`` extra installs; without it, and for a formula that does not
+        parse, the LaTeX is written as text. ``latex`` always writes the LaTeX
+        source as text, between ``$`` signs.
 
     """
 
@@ -168,6 +177,14 @@ class DocxRendererOptions(BaseRendererOptions):
             "help": "Promote a leading H1 to Word's Title style and shift subsequent headings up one level. "
             "Disable with --no-promote-title to keep all H1s as Heading 1.",
             "cli_name": "no-promote-title",
+            "importance": "core",
+        },
+    )
+    math_mode: DocxMathMode = field(
+        default=DEFAULT_DOCX_MATH_MODE,
+        metadata={
+            "help": "Write math as Word equations (native) or as LaTeX source text (latex)",
+            "choices": ["native", "latex"],
             "importance": "core",
         },
     )

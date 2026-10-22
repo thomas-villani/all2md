@@ -159,6 +159,7 @@ dev = [
     { name = "wijjit" },
 ]
 docx = [
+    { name = "pylatexenc" },
     { name = "python-docx" },
 ]
 docx-render = [
@@ -203,6 +204,7 @@ mcp = [
     { name = "httpx" },
     { name = "odfpy" },
     { name = "openpyxl" },
+    { name = "pylatexenc" },
     { name = "pymupdf" },
     { name = "python-docx" },
     { name = "python-pptx" },
@@ -344,6 +346,7 @@ requires-dist = [
     { name = "py7zr", marker = "extra == 'archive'", specifier = ">=0.22.0" },
     { name = "pychm", marker = "extra == 'chm'", specifier = ">=0.8.6" },
     { name = "pylatexenc", marker = "extra == 'all'", specifier = ">=2.10" },
+    { name = "pylatexenc", marker = "extra == 'docx'", specifier = ">=2.10" },
     { name = "pylatexenc", marker = "extra == 'latex'", specifier = ">=2.10" },
     { name = "pymupdf", marker = "extra == 'all'", specifier = ">=1.28.0,<2" },
     { name = "pymupdf", marker = "extra == 'pdf'", specifier = ">=1.28.0,<2" },
