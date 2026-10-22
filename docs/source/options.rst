@@ -1978,6 +1978,16 @@ including fonts, styles, and formatting preferences.
    :Default: ``True``
    :Importance: core
 
+**math_mode**
+
+   Write math as Word equations (native) or as LaTeX source text (latex)
+
+   :Type: ``Literal['native', 'latex']``
+   :CLI flag: ``--docx-renderer-math-mode``
+   :Default: ``'native'``
+   :Choices: ``native``, ``latex``
+   :Importance: core
+
 Network Options
 +++++++++++++++
 

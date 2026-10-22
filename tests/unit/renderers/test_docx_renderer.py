@@ -63,6 +63,8 @@ if DOCX_AVAILABLE:
 
 pytestmark = pytest.mark.skipif(not DOCX_AVAILABLE, reason="python-docx not installed")
 
+_MATH = "{http://schemas.openxmlformats.org/officeDocument/2006/math}"
+
 # A 1x1 white PNG.
 _PNG_1PX = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC"
 
@@ -829,36 +831,37 @@ class TestMathRendering:
     """Tests for math rendering."""
 
     def test_inline_math(self, tmp_path):
-        """Test inline math rendering."""
+        """Inline math is a Word equation (m:oMath) by default."""
         doc = Document(children=[Paragraph(content=[MathInline(content="x^2", notation="latex")])])
-        renderer = DocxRenderer()
         output_file = tmp_path / "math_inline.docx"
-        renderer.render(doc, output_file)
+        DocxRenderer().render(doc, output_file)
 
-        docx_doc = DocxDocument(str(output_file))
-        # Math is rendered as plain text in simple implementation
-        found = False
-        for para in docx_doc.paragraphs:
-            if "x^2" in para.text:
-                found = True
-                break
-        assert found
+        body = DocxDocument(str(output_file)).element.body
+        assert body.find(f".//{_MATH}oMath/{_MATH}sSup") is not None
 
     def test_block_math(self, tmp_path):
-        """Test block math rendering."""
+        """Display math is an equation paragraph (m:oMathPara) by default."""
         doc = Document(children=[MathBlock(content="E = mc^2", notation="latex")])
-        renderer = DocxRenderer()
         output_file = tmp_path / "math_block.docx"
-        renderer.render(doc, output_file)
+        DocxRenderer().render(doc, output_file)
 
-        docx_doc = DocxDocument(str(output_file))
-        # Math is rendered as code block
-        found = False
-        for para in docx_doc.paragraphs:
-            if "E = mc^2" in para.text:
-                found = True
-                break
-        assert found
+        body = DocxDocument(str(output_file)).element.body
+        assert body.find(f".//{_MATH}oMathPara/{_MATH}oMath") is not None
+
+    def test_latex_mode_writes_the_source(self, tmp_path):
+        """math_mode="latex" keeps the LaTeX as text: inline between $ signs, display as a code block."""
+        doc = Document(
+            children=[
+                Paragraph(content=[MathInline(content="x^2", notation="latex")]),
+                MathBlock(content="E = mc^2", notation="latex"),
+            ]
+        )
+        output_file = tmp_path / "math_latex.docx"
+        DocxRenderer(DocxRendererOptions(math_mode="latex")).render(doc, output_file)
+
+        text = [para.text for para in DocxDocument(str(output_file)).paragraphs]
+        assert any("$x^2$" in line for line in text)
+        assert any("E = mc^2" in line for line in text)
 
 
 @pytest.mark.unit

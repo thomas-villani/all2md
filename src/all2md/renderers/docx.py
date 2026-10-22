@@ -1923,11 +1923,27 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         if self._current_paragraph:
             content, notation = node.get_preferred_representation("latex")
             if notation == "latex":
+                equation = self._equation(content, display=False)
+                if equation is not None:
+                    cast(Any, self._current_paragraph)._p.append(equation)
+                    return
                 text = f"${content}$"
             else:
                 text = content
 
             self._current_paragraph.add_run(text)
+
+    def _equation(self, latex: str, display: bool) -> Any:
+        """Return LaTeX as a Word equation (OMML), or None to write it as text.
+
+        None when ``math_mode`` is ``latex``, when pylatexenc is missing, or when
+        the formula does not convert.
+        """
+        if self.options.math_mode != "native":
+            return None
+        from all2md.renderers.docx_math import latex_to_omml
+
+        return latex_to_omml(latex, display=display)
 
     def visit_footnote_definition(self, node: FootnoteDefinition) -> None:
         """Render a FootnoteDefinition node.
@@ -2098,13 +2114,17 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             Math block to render
 
         """
-        # Render math as code block (proper equation rendering is complex)
         if not self.document:
             return
 
         para = self.document.add_paragraph()
         content, notation = node.get_preferred_representation("latex")
         if notation == "latex":
+            equation = self._equation(content, display=True)
+            if equation is not None:
+                cast(Any, para)._p.append(equation)
+                return
+            # Without a Word equation, the source is written as a code block.
             text = f"$$\n{content}\n$$"
         else:
             text = content

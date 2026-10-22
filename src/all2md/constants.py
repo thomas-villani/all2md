@@ -52,6 +52,7 @@ RobotsTxtPolicy = Literal["strict", "warn", "ignore"]
 CommentMode = Literal["html", "blockquote", "ignore"]
 HtmlCommentMode = Literal["native", "visible", "ignore"]
 DocxCommentMode = Literal["native", "visible", "ignore"]
+DocxMathMode = Literal["native", "latex"]
 LatexCommentMode = Literal["percent", "todonotes", "marginnote", "ignore"]
 OdtCommentMode = Literal["native", "visible", "ignore"]
 PptxCommentMode = Literal["speaker_notes", "visible", "ignore"]
@@ -365,6 +366,7 @@ DEFAULT_COMMENT_RENDER_MODE: CommentRenderMode = "preserve"
 # Comment handling defaults (format-specific)
 DEFAULT_HTML_COMMENT_MODE: HtmlCommentMode = "native"
 DEFAULT_DOCX_COMMENT_MODE: DocxCommentMode = "native"
+DEFAULT_DOCX_MATH_MODE: DocxMathMode = "native"
 DEFAULT_LATEX_COMMENT_MODE: LatexCommentMode = "percent"
 DEFAULT_ODT_COMMENT_MODE: OdtCommentMode = "native"
 DEFAULT_PPTX_COMMENT_MODE: PptxCommentMode = "speaker_notes"

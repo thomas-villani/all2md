@@ -103,7 +103,8 @@ pdf_layout = [
     "pymupdf-layout>=1.28.0,<2",
 ]
 docx = [
-    "python-docx>=1.2.0"
+    "python-docx>=1.2.0",
+    "pylatexenc>=2.10",  # math as Word equations (DocxRendererOptions.math_mode)
 ]
 fb2 = [
     "defusedxml>=0.7.1"
