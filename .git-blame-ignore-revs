@@ -5,3 +5,6 @@
 
 # chore: format with ruff instead of black (#633)
 9634f48a9c3c4e49f93e1bd50fba3e4869c5a1d2
+
+# refactor: adopt Python 3.11 syntax with ruff's pyupgrade rules (#638)
+189ea7c7d49e8c7c3badab57b89bd48bc96a2961
