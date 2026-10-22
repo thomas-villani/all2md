@@ -44,7 +44,8 @@ remainder) is Theme 8 Stage 4 layout reconstruction and is carried there.
 
 Since 1.17.0: PyMuPDF is capped below 2.0 until it is evaluated (#624, for 1.17.1); the
 DOCX renderer writes real Word footnotes and keeps task-list boxes (#621, #628); all2md
-needs Python 3.11, and CI tests 3.11 to 3.15 (#629, #630).
+needs Python 3.11, CI tests 3.11 to 3.15 (#629, #630), and the code uses 3.11 syntax
+(#632, #638); ruff formats instead of black (#633); the OCR extras need Pillow 13 (#634).
 
 **Open issues at this date:** none. Upstream, wijjit #94 (a tree shown again forgets its
 highlight) is open; the directory browser works around it, and PyMuPDF 2.0's
@@ -80,9 +81,10 @@ written against tools that do what it says:
   lift the cap: the upstream fix, a decision on what `auto` means (layout on is far better
   on tables, figures and headings, and ~15× slower on small files), re-records of both
   lanes, and moving the benchmark modules off `import fitz`.
-- **Use what Python 3.11 gives us**, now that it is the floor: audit first (`Self`,
-  `StrEnum`, exception groups and notes, `asyncio.TaskGroup`), then change what reads
-  better. The support window is the latest five minor versions.
+- ✅ **Use what Python 3.11 gives us**, now that it is the floor: the audit found a live
+  bug (kwargs for nested options annotated `X | None` were dropped, #632) and the rest is
+  syntax, applied by ruff's pyupgrade rules (#638). The support window is the latest five
+  minor versions.
 
 ### Now: reading and editing documents in the terminal (Theme 5)
 
