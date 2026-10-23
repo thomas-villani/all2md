@@ -73,7 +73,7 @@ written against tools that do what it says:
   after, and its upload form and `/api/convert` go.
 - ✅ **`all2md grep`** is line-based: `-A`/`-B`/`-C` and `-n` work, `-M 0` does not
   truncate, no match exits 1, and headings, code spans and code blocks are searched
-  (#649). Still missing next to grep: `-q`, `-l`, `-c`, `-v` and `-w`.
+  (#649), with `-q`, `-l`, `-c`, `-v` and `-w` (#650).
 - **Gate the PMC lane on fidelity when its exit criterion is met.** The criterion, written
   2026-08-13, is two consecutive *scheduled* runs that open no new defect issue. The
   2026-10-15 run is the first; the 2026-11-15 run can be the second.
