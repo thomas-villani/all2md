@@ -22,7 +22,7 @@ import webbrowser
 from pathlib import Path
 from typing import Any, cast
 
-from all2md.api import from_ast, to_ast
+from all2md.api import from_ast, library_injected_options, to_ast
 from all2md.cli import window
 from all2md.cli.builder import (
     EXIT_ERROR,
@@ -259,7 +259,9 @@ def handle_edit_command(args: list[str] | None = None) -> int:  # noqa: C901
 
     print(f"Loading {input_path.name} ({source_format})...")
     try:
-        ast = to_ast(str(input_path), attachment_mode="base64")
+        # A format without attachments drops this option; we added it, so no warning.
+        with library_injected_options("attachment_mode"):
+            ast = to_ast(str(input_path), attachment_mode="base64")
         initial_md = from_ast(ast, "markdown")
     except Exception as exc:
         print(f"Error: Could not convert {input_path.name} to markdown: {exc}", file=sys.stderr)
