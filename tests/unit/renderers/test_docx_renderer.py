@@ -668,8 +668,95 @@ class TestBlockElements:
         renderer.render(doc, output_file)
 
         docx_doc = DocxDocument(str(output_file))
-        # Thematic break creates a paragraph with border
-        assert len(docx_doc.paragraphs) >= 1
+        # An empty paragraph with a bottom border, as Word draws "---"; not a line of text.
+        (rule,) = docx_doc.paragraphs
+        assert rule.text == ""
+        assert rule._p.pPr.find(f"{_W}pBdr/{_W}bottom").get(f"{_W}val") == "single"
+
+    def test_thematic_break_round_trips(self):
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="above")]),
+                ThematicBreak(),
+                Paragraph(content=[Text(content="below")]),
+            ]
+        )
+        assert _round_trip(doc) == "above\n\n---\n\nbelow"
+
+
+_W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+
+
+def _round_trip(doc: Document) -> str:
+    """Render to DOCX and convert back to Markdown."""
+    from all2md import to_markdown
+
+    buffer = BytesIO()
+    DocxRenderer().render(doc, buffer)
+    return to_markdown(buffer.getvalue(), source_format="docx").strip()
+
+
+def _alert(kind: str, text: str, title: str | None = None) -> BlockQuote:
+    metadata = {"admonition_type": kind} | ({"admonition_title": title} if title else {})
+    return BlockQuote(children=[Paragraph(content=[Text(content=text)])], metadata=metadata)
+
+
+def _left_bar(paragraph) -> str | None:
+    """The color of a paragraph's left border, or None without one."""
+    properties = paragraph._p.pPr
+    left = properties.find(f"{_W}pBdr/{_W}left") if properties is not None else None
+    return left.get(f"{_W}color") if left is not None else None
+
+
+@pytest.mark.unit
+@pytest.mark.docx
+class TestAlerts:
+    """GitHub alerts and admonitions: a colored bold label and a bar down the left."""
+
+    def render(self, *children) -> list:
+        buffer = BytesIO()
+        DocxRenderer().render(Document(children=list(children)), buffer)
+        return DocxDocument(buffer).paragraphs
+
+    def test_label_and_bar(self):
+        label, body = self.render(_alert("warning", "Mind the gap."))
+        assert label.text == "Warning"
+        assert label.runs[0].bold
+        assert str(label.runs[0].font.color.rgb) == "9A6700"
+        assert body.text == "Mind the gap."
+        assert _left_bar(label) == _left_bar(body) == "9A6700"
+
+    def test_a_custom_title_is_the_label(self):
+        label, _ = self.render(_alert("note", "Body.", title="Read this first"))
+        assert label.text == "Read this first"
+
+    @pytest.mark.parametrize(("kind", "color"), [("danger", "CF222E"), ("hint", "1A7F37"), ("unheard-of", "0969DA")])
+    def test_other_kinds_take_the_nearest_alert_color(self, kind, color):
+        label, body = self.render(_alert(kind, "Body."))
+        assert _left_bar(body) == color
+
+    def test_a_plain_quote_has_no_bar_and_no_label(self):
+        (quote,) = self.render(BlockQuote(children=[Paragraph(content=[Text(content="Quoted.")])]))
+        assert quote.text == "Quoted."
+        assert _left_bar(quote) is None
+
+    def test_only_the_alerts_paragraphs_get_the_bar(self):
+        before, label, body, after = self.render(
+            Paragraph(content=[Text(content="before")]),
+            _alert("tip", "Body."),
+            Paragraph(content=[Text(content="after")]),
+        )
+        assert _left_bar(before) is None and _left_bar(after) is None
+        assert _left_bar(label) == _left_bar(body) == "1A7F37"
+
+    def test_alerts_round_trip_one_by_one(self):
+        doc = Document(children=[_alert("note", "First."), _alert("caution", "Second.")])
+        assert _round_trip(doc) == "> [!NOTE]\n> First.\n\n> [!CAUTION]\n> Second."
+
+    def test_a_custom_title_reads_back_as_a_bold_line(self):
+        """Only the five GitHub labels are recognized; a title could be any bold text."""
+        markdown = _round_trip(Document(children=[_alert("note", "Body.", title="Heads up")]))
+        assert markdown == "> **Heads up**\n> \n> Body."
 
 
 @pytest.mark.unit

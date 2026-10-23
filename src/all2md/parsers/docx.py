@@ -18,7 +18,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, Literal, cast
 
-from all2md.constants import DEFAULT_INDENTATION_PT_PER_LEVEL, DEPS_DOCX
+from all2md.constants import DEFAULT_INDENTATION_PT_PER_LEVEL, DEPS_DOCX, GITHUB_ALERT_TYPES
 from all2md.exceptions import MalformedFileError
 from all2md.utils.attachments import create_attachment_sequencer, extract_docx_image_data, process_attachment
 from all2md.utils.metadata import (
@@ -886,11 +886,46 @@ class DocxToAstConverter(BaseParser):
         while i < len(children) - 1:
             current = children[i]
             following = children[i + 1]
-            if isinstance(current, BlockQuote) and isinstance(following, BlockQuote):
+            # An alert's label opens a new quote: alerts written one after another are
+            # separate alerts, not one quote.
+            if (
+                isinstance(current, BlockQuote)
+                and isinstance(following, BlockQuote)
+                and self._alert_label(following) is None
+            ):
                 current.children.extend(following.children)
                 del children[i + 1]
             else:
                 i += 1
+        for child in children:
+            if isinstance(child, BlockQuote):
+                self._read_alert_label(child)
+
+    @classmethod
+    def _read_alert_label(cls, quote: BlockQuote) -> None:
+        """Make a quote that opens with a bold alert label (``Note``, ``Warning``, ...) that alert.
+
+        The DOCX renderer writes a GitHub alert (``> [!NOTE]``) as a quote whose first
+        paragraph is the bold label, so this reads it back. Something must follow the
+        label; a custom admonition title is not recognized and stays a bold first
+        paragraph. Mutates ``quote``.
+        """
+        kind = cls._alert_label(quote)
+        if kind is not None and len(quote.children) > 1:
+            quote.metadata["admonition_type"] = kind
+            del quote.children[0]
+
+    @staticmethod
+    def _alert_label(quote: BlockQuote) -> str | None:
+        """Return the alert kind when the quote's first paragraph is only its bold label."""
+        first = quote.children[0] if quote.children else None
+        if not (isinstance(first, AstParagraph) and len(first.content) == 1 and isinstance(first.content[0], Strong)):
+            return None
+        label = first.content[0].content
+        if not (len(label) == 1 and isinstance(label[0], Text)):
+            return None
+        kind = label[0].content.strip().lower()
+        return kind if kind in GITHUB_ALERT_TYPES else None
 
     def _attach_captions(self, children: list[Node]) -> None:
         """Pair each Caption-styled paragraph with the figure or table it captions.
