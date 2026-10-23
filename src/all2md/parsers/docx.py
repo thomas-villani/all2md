@@ -73,6 +73,7 @@ from all2md.converter_metadata import ConverterMetadata
 from all2md.options.docx import DocxOptions
 from all2md.parsers.base import BaseParser
 from all2md.parsers.docx_fields import document_has_fields, field_target, resolve_fields
+from all2md.parsers.docx_math import omml_local_name, omml_to_latex
 from all2md.parsers.docx_revisions import document_has_revisions, resolve_revisions, run_revision
 from all2md.parsers.docx_sdt import (
     document_has_content_controls,
@@ -1456,14 +1457,14 @@ class DocxToAstConverter(BaseParser):
         context = self._paragraph_formatting_context(paragraph)
 
         for run in self._iter_inner_content_with_math(paragraph):
-            if _omml_local_name(getattr(run, "tag", None) or "") == "oMath":
+            if omml_local_name(getattr(run, "tag", None) or "") == "oMath":
                 # A bare `m:oMath` sitting between runs: inline maths mid-sentence.
                 # It is not a run, so `iter_inner_content` never yields it; walking the
                 # element children is the only way to see it, and the only way to keep
                 # it in the right place relative to the text around it.
                 flush_group()
                 current_format = current_url = current_style = current_revision = None
-                latex = _omml_to_latex(run)
+                latex = omml_to_latex(run)
                 if latex:
                     result.append(MathInline(content=latex))
                 continue
@@ -1532,7 +1533,7 @@ class DocxToAstConverter(BaseParser):
         element = getattr(paragraph, "_element", None)
         if element is None:
             return []
-        return [child for child in element if _omml_local_name(getattr(child, "tag", None) or "") == "oMath"]
+        return [child for child in element if omml_local_name(getattr(child, "tag", None) or "") == "oMath"]
 
     def _iter_inner_content_with_math(self, paragraph: Paragraph) -> list[Any]:
         """Paragraph inner content in document order, with bare ``m:oMath`` interleaved.
@@ -1585,14 +1586,14 @@ class DocxToAstConverter(BaseParser):
             tag = getattr(child, "tag", None)
             if not isinstance(tag, str):
                 continue
-            if _omml_local_name(tag) != "oMathPara":
+            if omml_local_name(tag) != "oMathPara":
                 continue
-            latex = _omml_to_latex(child)
+            latex = omml_to_latex(child)
             if latex:
                 blocks.append(MathBlock(content=latex))
 
         for child in self._display_omath(paragraph):
-            latex = _omml_to_latex(child)
+            latex = omml_to_latex(child)
             if latex:
                 blocks.append(MathBlock(content=latex))
         return blocks
@@ -1605,9 +1606,9 @@ class DocxToAstConverter(BaseParser):
         nodes: list[MathInline] = []
         for math_elem in element.findall(f".//{MATH_TAG_PREFIX}oMath"):
             parent = getattr(math_elem, "getparent", lambda: None)()
-            if parent is not None and _omml_local_name(getattr(parent, "tag", "")) == "oMathPara":
+            if parent is not None and omml_local_name(getattr(parent, "tag", "")) == "oMathPara":
                 continue
-            latex = _omml_to_latex(math_elem)
+            latex = omml_to_latex(math_elem)
             if latex:
                 nodes.append(MathInline(content=latex))
         return nodes
@@ -3048,183 +3049,6 @@ def _detect_list_level(
         return _detect_list_type_from_text(paragraph.text, indent_level)
 
     return None, 0
-
-
-def _omml_local_name(tag: Any) -> str:
-    # A comment or processing instruction carries a function here, not a string.
-    if not isinstance(tag, str):
-        return ""
-    if "}" in tag:
-        return tag.split("}", 1)[1]
-    return tag
-
-
-def _iter_omml_children(element: Any) -> list[Any]:
-    children: list[Any] = []
-    iterator = getattr(element, "__iter__", None)
-    if iterator is None:
-        return children
-    for child in iterator():
-        tag = getattr(child, "tag", None)
-        if not isinstance(tag, str):
-            continue
-        if _omml_local_name(tag) == "rPr":
-            continue
-        children.append(child)
-    return children
-
-
-def _omml_find_child(element: Any, name: str) -> Any | None:
-    for child in _iter_omml_children(element):
-        if _omml_local_name(getattr(child, "tag", "")) == name:
-            return child
-    return None
-
-
-def _omml_handle_container(element: Any) -> str:
-    """Handle container elements that just concatenate children."""
-    return "".join(_omml_to_latex(child) for child in _iter_omml_children(element))
-
-
-def _omml_handle_text(element: Any) -> str:
-    """Handle text elements."""
-    return (getattr(element, "text", "") or "").strip()
-
-
-def _omml_handle_fraction(element: Any) -> str:
-    """Handle fraction elements (f)."""
-    numerator = _omml_to_latex(_omml_find_child(element, "num"))
-    denominator = _omml_to_latex(_omml_find_child(element, "den"))
-    if numerator and denominator:
-        return f"\\frac{{{numerator}}}{{{denominator}}}"
-    return numerator or denominator
-
-
-def _omml_handle_superscript(element: Any) -> str:
-    """Handle superscript elements (sSup)."""
-    base_expr = _omml_to_latex(_omml_find_child(element, "e"))
-    sup_expr = _omml_to_latex(_omml_find_child(element, "sup"))
-    if base_expr and sup_expr:
-        return f"{base_expr}^{{{sup_expr}}}"
-    return base_expr or sup_expr
-
-
-def _omml_handle_subscript(element: Any) -> str:
-    """Handle subscript elements (sSub)."""
-    base_expr = _omml_to_latex(_omml_find_child(element, "e"))
-    sub_expr = _omml_to_latex(_omml_find_child(element, "sub"))
-    if base_expr and sub_expr:
-        return f"{base_expr}_{{{sub_expr}}}"
-    return base_expr or sub_expr
-
-
-def _omml_handle_subsuperscript(element: Any) -> str:
-    """Handle combined subscript and superscript elements (sSubSup)."""
-    base_expr = _omml_to_latex(_omml_find_child(element, "e"))
-    sub_expr = _omml_to_latex(_omml_find_child(element, "sub"))
-    sup_expr = _omml_to_latex(_omml_find_child(element, "sup"))
-    if base_expr:
-        if sub_expr:
-            base_expr = f"{base_expr}_{{{sub_expr}}}"
-        if sup_expr:
-            base_expr = f"{base_expr}^{{{sup_expr}}}"
-        return base_expr
-    return sub_expr or sup_expr
-
-
-def _omml_handle_radical(element: Any) -> str:
-    """Handle radical elements (rad).
-
-    OMML names the radicand ``m:e``, like every other OMML container, and carries the
-    index in ``m:deg`` with ``m:degHide`` set for a plain square root. This looked for
-    a child called ``m:base``, which does not exist in the schema, so every radical
-    resolved to the empty string and vanished silently -- taking the radicand with it
-    while the surrounding expression carried on looking plausible.
-    """
-    base_expr = _omml_to_latex(_omml_find_child(element, "e"))
-    degree_expr = _omml_to_latex(_omml_find_child(element, "deg"))
-    if base_expr and degree_expr:
-        return f"\\sqrt[{degree_expr}]{{{base_expr}}}"
-    if base_expr:
-        return f"\\sqrt{{{base_expr}}}"
-    return base_expr
-
-
-def _omml_handle_nary(element: Any) -> str:
-    """Handle n-ary operator elements (nary)."""
-    char_node = _omml_find_child(element, "chr")
-    symbol = "\\sum"
-    if char_node is not None:
-        symbol = char_node.get(f"{MATH_TAG_PREFIX}val", symbol) or symbol
-    sub_expr = _omml_to_latex(_omml_find_child(element, "sub"))
-    sup_expr = _omml_to_latex(_omml_find_child(element, "sup"))
-    base_expr = _omml_to_latex(_omml_find_child(element, "e"))
-    result = symbol
-    if sub_expr:
-        result += f"_{{{sub_expr}}}"
-    if sup_expr:
-        result += f"^{{{sup_expr}}}"
-    if base_expr:
-        result += base_expr
-    return result
-
-
-def _omml_handle_default(element: Any) -> str:
-    """Handle default elements by concatenating text, children, and tail."""
-    text = (getattr(element, "text", "") or "").strip()
-    children_text = "".join(_omml_to_latex(child) for child in _iter_omml_children(element))
-    tail = (getattr(element, "tail", "") or "").strip()
-    return (text + children_text + tail).strip()
-
-
-_OMML_HANDLERS: dict[str, Any] = {
-    "oMathPara": lambda el: _omml_handle_container(el).strip(),
-    "oMath": lambda el: _omml_handle_container(el).strip(),
-    "r": _omml_handle_container,
-    "t": _omml_handle_text,
-    "f": _omml_handle_fraction,
-    "num": _omml_handle_container,
-    "den": _omml_handle_container,
-    "e": _omml_handle_container,
-    # No `"base"` entry: OMML has no `m:base`. It sat here looking like the radicand's
-    # element name, which is how `_omml_handle_radical` came to search for one. The
-    # radicand is `m:e`, like every other OMML container. An unknown element would fall
-    # through to the default container handler anyway, so nothing is lost by its absence
-    # -- only the invitation to look for it.
-    "sup": _omml_handle_container,
-    "sub": _omml_handle_container,
-    "sSup": _omml_handle_superscript,
-    "sSub": _omml_handle_subscript,
-    "sSubSup": _omml_handle_subsuperscript,
-    "rad": _omml_handle_radical,
-    "nary": _omml_handle_nary,
-}
-
-
-def _omml_to_latex(element: Any) -> str:
-    """Convert Office Math Markup Language (OMML) element to LaTeX.
-
-    Parameters
-    ----------
-    element : Any
-        OMML element to convert
-
-    Returns
-    -------
-    str
-        LaTeX representation of the element
-
-    """
-    if element is None:
-        return ""
-
-    name = _omml_local_name(getattr(element, "tag", ""))
-    if not name:
-        return ""
-
-    # Dispatch to handler function
-    handler = _OMML_HANDLERS.get(name, _omml_handle_default)
-    return handler(element)
 
 
 def _inline_plain_text(nodes: list[Node]) -> str:

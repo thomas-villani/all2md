@@ -11,7 +11,8 @@ from __future__ import annotations
 import pytest
 from lxml import etree
 
-from all2md.parsers.docx import MATH_NS, _omml_to_latex
+from all2md.parsers.docx import MATH_NS
+from all2md.parsers.docx_math import omml_to_latex
 
 pytestmark = [pytest.mark.unit, pytest.mark.docx]
 
@@ -32,14 +33,14 @@ def run(text: str) -> str:
 # ------------------------------------------------------------------- radicals (#481)
 def test_a_square_root_keeps_its_radicand():
     """The regression: the radicand is `m:e`, not `m:base`."""
-    latex = _omml_to_latex(
+    latex = omml_to_latex(
         omml(f'<m:rad><m:radPr><m:degHide m:val="1"/></m:radPr><m:deg/><m:e>{run("x")}</m:e></m:rad>')
     )
     assert latex == "\\sqrt{x}"
 
 
 def test_a_radical_with_a_degree_keeps_both_parts():
-    latex = _omml_to_latex(omml(f"<m:rad><m:deg>{run('3')}</m:deg><m:e>{run('x')}</m:e></m:rad>"))
+    latex = omml_to_latex(omml(f"<m:rad><m:deg>{run('3')}</m:deg><m:e>{run('x')}</m:e></m:rad>"))
     assert latex == "\\sqrt[3]{x}"
 
 
@@ -48,23 +49,23 @@ def test_a_radical_inside_a_fraction_survives_whole():
     numerator = (
         f'{run("-b±")}<m:rad><m:radPr><m:degHide m:val="1"/></m:radPr><m:deg/><m:e>{run("b^2-4ac")}</m:e></m:rad>'
     )
-    latex = _omml_to_latex(omml(f"<m:f><m:num>{numerator}</m:num><m:den>{run('2a')}</m:den></m:f>"))
+    latex = omml_to_latex(omml(f"<m:f><m:num>{numerator}</m:num><m:den>{run('2a')}</m:den></m:f>"))
     assert "\\sqrt{b^2-4ac}" in latex
-    assert latex == "\\frac{-b±\\sqrt{b^2-4ac}}{2a}"
+    assert latex == "\\frac{-b\\pm\\sqrt{b^2-4ac}}{2a}"
 
 
 # ---------------------------------------------------------- the constructs that worked
 def test_a_fraction_converts():
-    assert _omml_to_latex(omml(f"<m:f><m:num>{run('a')}</m:num><m:den>{run('b')}</m:den></m:f>")) == "\\frac{a}{b}"
+    assert omml_to_latex(omml(f"<m:f><m:num>{run('a')}</m:num><m:den>{run('b')}</m:den></m:f>")) == "\\frac{a}{b}"
 
 
 def test_a_superscript_converts():
-    latex = _omml_to_latex(omml(f"<m:sSup><m:e>{run('x')}</m:e><m:sup>{run('2')}</m:sup></m:sSup>"))
+    latex = omml_to_latex(omml(f"<m:sSup><m:e>{run('x')}</m:e><m:sup>{run('2')}</m:sup></m:sSup>"))
     assert latex == "x^{2}"
 
 
 def test_a_subscript_converts():
-    latex = _omml_to_latex(omml(f"<m:sSub><m:e>{run('x')}</m:e><m:sub>{run('i')}</m:sub></m:sSub>"))
+    latex = omml_to_latex(omml(f"<m:sSub><m:e>{run('x')}</m:e><m:sub>{run('i')}</m:sub></m:sSub>"))
     assert latex == "x_{i}"
 
 
@@ -140,7 +141,7 @@ def test_the_corpus_display_equation_converts_completely():
         pytest.skip("corpus not present")
     out = all2md.to_markdown(str(document))
     assert "$$" in out, "a standalone equation is displayed maths"
-    assert "\\frac{-b±\\sqrt{b^{2}-4ac}}{2a}" in out
+    assert "\\frac{-b\\pm\\sqrt{b^{2}-4ac}}{2a}" in out
 
 
 def test_inline_math_lands_between_the_words_it_sits_between():
