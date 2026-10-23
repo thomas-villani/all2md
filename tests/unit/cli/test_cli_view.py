@@ -178,3 +178,45 @@ class TestViewCommandSectionExtraction:
         result = handle_view_command([str(sample_markdown), "--extract", "#:1", "--keep", str(output_path)])
         # May succeed or fail depending on document structure
         assert result in (0, 1)
+
+
+@pytest.mark.unit
+class TestViewShowsEverything:
+    """What the page dropped: footnotes, math, images by path, and a DOCX's images."""
+
+    def test_footnotes_math_and_relative_images(self, tmp_path: Path):
+        (tmp_path / "img").mkdir()
+        (tmp_path / "img" / "box.png").write_bytes(bytes.fromhex("89504e470d0a1a0a"))
+        source = tmp_path / "doc.md"
+        source.write_text(
+            "A claim.[^1] Math $E = mc^2$.\n\n![box](img/box.png)\n\n[^1]: The source.\n", encoding="utf-8"
+        )
+        output = tmp_path / "out" / "view.html"
+
+        assert handle_view_command([str(source), "--keep", str(output)]) == 0
+        html = output.read_text(encoding="utf-8")
+        assert '<li id="fn-1">' in html and "The source." in html
+        assert "katex.min.js" in html
+        assert 'src="data:image/png;base64,' in html
+
+    def test_docx_images_are_embedded_without_a_warning(self, tmp_path: Path, recwarn):
+        import io
+
+        import docx
+        from PIL import Image as PILImage
+
+        picture = io.BytesIO()
+        PILImage.new("RGB", (8, 8), (200, 30, 30)).save(picture, format="PNG")
+        document = docx.Document()
+        document.add_picture(picture)
+        source = tmp_path / "pictures.docx"
+        document.save(str(source))
+        output = tmp_path / "view.html"
+
+        assert handle_view_command([str(source), "--keep", str(output)]) == 0
+        assert 'src="data:image/png;base64,' in output.read_text(encoding="utf-8")
+
+        markdown = tmp_path / "plain.md"
+        markdown.write_text("# Plain\n", encoding="utf-8")
+        assert handle_view_command([str(markdown), "--keep", str(tmp_path / "plain.html")]) == 0
+        assert not [w for w in recwarn if "were ignored" in str(w.message)]

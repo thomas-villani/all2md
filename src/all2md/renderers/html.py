@@ -155,8 +155,13 @@ class HtmlRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         # Resolve internal anchor links against actual heading IDs
         content = self._resolve_anchor_links(content)
 
-        # Apply template if template_mode is set
+        # Apply template if template_mode is set. A template places the content but has no
+        # place for footnotes, so they close the content, as they close a standalone page;
+        # otherwise every footnote reference pointed at a definition the page never had.
         if self.options.template_mode is not None:
+            footnotes = self._footnotes_html()
+            if footnotes:
+                content += "\n" + footnotes
             return self._apply_template(document, content)
 
         # Wrap in HTML document if standalone
@@ -263,26 +268,30 @@ class HtmlRenderer(NodeVisitor, InlineContentMixin, BaseRenderer):
         parts.append(content)
         parts.append("</main>")
 
-        # Add footnotes section if any
-        if self._footnote_definitions:
-            parts.append('<section id="footnotes">')
-            parts.append("<h2>Footnotes</h2>")
-            parts.append("<ol>")
-            for footnote in self._footnote_definitions:
-                parts.append(f'<li id="fn-{footnote.identifier}">')
-                for child in footnote.content:
-                    saved_output = self._output
-                    self._output = []
-                    child.accept(self)
-                    parts.append("".join(self._output))
-                    self._output = saved_output
-                parts.append(f' <a href="#fnref-{footnote.identifier}">↩</a></li>')
-            parts.append("</ol>")
-            parts.append("</section>")
+        footnotes = self._footnotes_html()
+        if footnotes:
+            parts.append(footnotes)
 
         parts.append("</body>")
         parts.append("</html>")
 
+        return "\n".join(parts)
+
+    def _footnotes_html(self) -> str:
+        """Return the footnotes section, or ``""`` when the document has no footnotes."""
+        if not self._footnote_definitions:
+            return ""
+        parts = ['<section id="footnotes">', "<h2>Footnotes</h2>", "<ol>"]
+        for footnote in self._footnote_definitions:
+            parts.append(f'<li id="fn-{footnote.identifier}">')
+            for child in footnote.content:
+                saved_output = self._output
+                self._output = []
+                child.accept(self)
+                parts.append("".join(self._output))
+                self._output = saved_output
+            parts.append(f' <a href="#fnref-{footnote.identifier}">↩</a></li>')
+        parts.extend(["</ol>", "</section>"])
         return "\n".join(parts)
 
     def _generate_default_css(self) -> str:
