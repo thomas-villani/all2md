@@ -15,7 +15,7 @@
       "sha256": "bb2bcac8ca2ff106a015ccb4974c58fe5521bf96942f673ab6f9cdf1f04cf2df",
       "size_bytes": 13686,
       "generator": "cases/baseline/display-equation.json",
-      "expected_sha256": "0baf354ce763528af58a5f09380835236cc768153eafac7f7316d23448ca2089",
+      "expected_sha256": "984918cadcd550db5f707d76cd885e1fd4eda3287db1f243447383099cf19211",
       "resave_stable": true,
       "resave_failures": []
     },
