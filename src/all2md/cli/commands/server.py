@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote, unquote
 
-from all2md.api import from_ast, to_ast
+from all2md.api import from_ast, library_injected_options, to_ast
 from all2md.cli.builder import EXIT_ERROR, EXIT_FILE_ERROR, EXIT_SUCCESS
 from all2md.cli.commands.shared import has_hidden_component, split_glob_pattern
 from all2md.cli.commands.web_assets import ThemeError, inject_web_assets, resolve_theme
@@ -893,9 +893,12 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
         """Convert a single document to themed HTML, optionally injecting breadcrumbs."""
         # Apply config-supplied converter options for the detected format, but
         # force base64 attachments: images must be inlined to render in-browser.
+        # Formats without attachments (markdown, plain text) drop the option, and
+        # since we added it, not the user, the drop must not warn.
         to_ast_kwargs = prepare_options_for_execution(converter_options, file_path, "auto")
         to_ast_kwargs["attachment_mode"] = "base64"
-        doc = to_ast(str(file_path), **to_ast_kwargs)
+        with library_injected_options("attachment_mode"):
+            doc = to_ast(str(file_path), **to_ast_kwargs)
         doc.metadata["title"] = f"{file_path.name} - all2md"
         html_opts = HtmlRendererOptions(
             template_mode="replace",

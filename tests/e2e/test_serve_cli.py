@@ -174,6 +174,19 @@ def hello():
         assert "Features" in html
         assert "hello" in html
 
+    def test_serve_markdown_does_not_warn_about_attachment_mode(self):
+        """Serve forces base64 attachments; markdown has none, and that must not warn."""
+        md_file = self._create_test_markdown()
+
+        self._start_server(["serve", str(md_file), "--port", "8034"])
+        assert "Test Document" in self._fetch_url("http://127.0.0.1:8034/").decode("utf-8")
+
+        self.server_process.terminate()
+        _, stderr = self.server_process.communicate(timeout=5)
+        self.server_process = None
+
+        assert "were ignored" not in stderr
+
     def test_serve_directory(self):
         """Test serving a directory with multiple files."""
         # Create multiple markdown files
