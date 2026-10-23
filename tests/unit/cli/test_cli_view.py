@@ -220,3 +220,47 @@ class TestViewShowsEverything:
         markdown.write_text("# Plain\n", encoding="utf-8")
         assert handle_view_command([str(markdown), "--keep", str(tmp_path / "plain.html")]) == 0
         assert not [w for w in recwarn if "were ignored" in str(w.message)]
+
+
+@pytest.mark.unit
+class TestViewFolders:
+    """A folder or a glob is browsed through the local server; one document is not."""
+
+    @pytest.fixture
+    def served(self, monkeypatch):
+        calls = []
+
+        def fake_run_server(settings):
+            calls.append(settings)
+            return 0
+
+        monkeypatch.setattr("all2md.cli.commands.server.run_server", fake_run_server)
+        return calls
+
+    def test_folder_starts_the_server_with_the_generated_listing(self, tmp_path: Path, served):
+        (tmp_path / "a.md").write_text("# A")
+        assert handle_view_command([str(tmp_path), "-r", "--port", "8123", "--no-config"]) == 0
+        (settings,) = served
+        assert settings.input == str(tmp_path)
+        assert settings.recursive and settings.browse and settings.port == 8123
+        assert not settings.index_page
+
+    def test_index_page_is_opt_in(self, tmp_path: Path, served):
+        handle_view_command([str(tmp_path), "--index-page", "--dark", "--no-config"])
+        assert served[0].index_page and served[0].dark
+
+    def test_glob_pattern_starts_the_server(self, tmp_path: Path, served):
+        assert handle_view_command([str(tmp_path / "*.md"), "--no-config"]) == 0
+        assert served[0].input == str(tmp_path / "*.md")
+
+    def test_a_file_with_brackets_in_its_name_is_one_document(self, tmp_path: Path, served):
+        document = tmp_path / "notes [draft].md"
+        document.write_text("# Draft")
+        assert handle_view_command([str(document), "--no-config"]) == 0
+        assert served == []
+
+    @pytest.mark.parametrize("flag", [["--keep"], ["--extract", "Intro"]])
+    def test_single_document_flags_are_refused(self, tmp_path: Path, served, flag, capsys):
+        assert handle_view_command([str(tmp_path), *flag, "--no-config"]) != 0
+        assert "single document" in capsys.readouterr().err
+        assert served == []

@@ -38,6 +38,7 @@ all2md document.pdf --pager              # page long output
 ```bash
 all2md view report.pdf                   # open an HTML preview in the browser
 all2md view report.pdf --dark            # dark theme
+all2md view ./docs -r                    # browse a folder: every document, each opened on click
 all2md serve ./docs                      # serve a directory over HTTP with live preview
 all2md serve ./docs --port 8080 --browse
 all2md edit notes.md                     # browser-based Markdown/WYSIWYG editor, saves back

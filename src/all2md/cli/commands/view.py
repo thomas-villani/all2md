@@ -5,7 +5,9 @@
 
 This module provides the view command for converting documents to HTML and
 displaying them in a web browser with optional themes. Supports temporary
-or persistent output files and includes table of contents generation.
+or persistent output files and includes table of contents generation. A folder
+or a glob pattern is browsed through a local server instead: a listing of its
+documents, each converted when opened.
 """
 
 import argparse
@@ -36,7 +38,11 @@ def _create_view_parser() -> argparse.ArgumentParser:
         prog="all2md view",
         description="Convert and view document in browser with HTML themes.",
     )
-    parser.add_argument("input", nargs="?", help="File to view (use '-' for stdin)")
+    parser.add_argument(
+        "input",
+        nargs="?",
+        help="File, folder, or quoted glob pattern (e.g. 'docs/*.pdf') to view (use '-' for stdin)",
+    )
     add_files_from_arguments(parser)
     parser.add_argument(
         "--keep",
@@ -99,8 +105,55 @@ def _create_view_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Disable configuration file loading for this command.",
     )
+    folders = parser.add_argument_group("Folders and glob patterns")
+    folders.add_argument("-r", "--recursive", action="store_true", help="Include the documents in subfolders, too")
+    folders.add_argument(
+        "--include-hidden",
+        action="store_true",
+        help="Include dot-files and dot-folders (skipped by default)",
+    )
+    folders.add_argument(
+        "--index-page",
+        action="store_true",
+        help="Show a folder's index.html, index.md or README.md in place of the generated listing",
+    )
+    folders.add_argument(
+        "-p",
+        "--port",
+        type=int,
+        default=8000,
+        help="Port for the local server (default: 8000, or a free one if it is taken)",
+    )
+    folders.add_argument("--host", default="127.0.0.1", help="Host for the local server (default: 127.0.0.1)")
+    folders.add_argument(
+        "--poll-interval",
+        type=float,
+        default=2.0,
+        help="Seconds between rescans that keep the listing current (0 disables; default: 2.0)",
+    )
     add_cache_arguments(parser)
     return parser
+
+
+def _is_folder_input(raw: str) -> bool:
+    """Return whether ``raw`` names a folder or a glob pattern rather than one document."""
+    if Path(raw).is_dir():
+        return True
+    return any(char in raw for char in "*?[") and not Path(raw).exists()
+
+
+def _view_folder(parsed: argparse.Namespace) -> int:
+    """Browse a folder or a glob's matches through a local server until stopped."""
+    from all2md.cli.commands.server import ServeSettings, run_server
+
+    for flag, value in (("--keep", parsed.keep), ("--extract", parsed.extract)):
+        if value:
+            print(f"Error: {flag} applies to a single document, not a folder", file=sys.stderr)
+            return EXIT_ERROR
+    settings = ServeSettings.from_namespace(parsed, browse=True)
+    # The conversion cache is process-wide, so the server's request threads share it.
+    with conversion_cache_from_args(parsed):
+        return run_server(settings)
 
 
 def handle_view_command(args: list[str] | None = None) -> int:
@@ -131,6 +184,9 @@ def handle_view_command(args: list[str] | None = None) -> int:
     files_from_error = resolve_files_from(parsed, "input", single=True)
     if files_from_error is not None:
         return files_from_error
+
+    if parsed.input and parsed.input != "-" and _is_folder_input(parsed.input):
+        return _view_folder(parsed)
 
     # Handle stdin or validate input file exists
     is_stdin = parsed.input == "-"
