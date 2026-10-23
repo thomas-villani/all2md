@@ -126,6 +126,16 @@ class TestInlineLocalImages:
         doc = _image_doc(str(image), image.as_uri())
         assert inline_local_images(doc, Path("elsewhere")) == 2
 
+    def test_root_keeps_images_outside_it_unread(self, tmp_path: Path):
+        root = tmp_path / "served"
+        (root / "img").mkdir(parents=True)
+        (root / "img" / "in.png").write_bytes(PNG)
+        (tmp_path / "out.png").write_bytes(PNG)
+        urls = ["img/in.png", "../out.png", str(tmp_path / "out.png")]
+        doc = _image_doc(*urls)
+        assert inline_local_images(doc, root, root=root) == 1
+        assert _urls(doc) == ["data:image/png;base64,iVBORw0KGgo=", *urls[1:]]
+
     def test_remote_inline_missing_and_non_images_are_left_alone(self, tmp_path: Path):
         (tmp_path / "notes.txt").write_text("x")
         urls = ["https://example.com/a.png", "data:image/png;base64,AAAA", "missing.png", "notes.txt", "#anchor", ""]

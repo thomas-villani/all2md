@@ -65,8 +65,12 @@ written against tools that do what it says:
   colored bar and thematic breaks as rules (#644), and reference templates whose code,
   link, quote and table styles are used rather than written over, pandoc's included
   (#615, #645), are done.
-- **`all2md view`** shows what it drops today: footnotes, math, relative images, and DOCX
-  images.
+- ✅ **`all2md view`** shows what it dropped: footnotes, math, relative images, and DOCX
+  images (#646).
+- **`all2md view` browses a folder, and `serve` retires.** `view DIR` (or a glob) serves
+  a generated listing of every document, with relative images read from inside the
+  folder; `serve` then becomes a deprecated alias for `view`, removed in the release
+  after, and its upload form and `/api/convert` go.
 - **`all2md grep`** becomes line-based: `-A`/`-B`/`-C` and `-n` work, `-M 0` does not
   truncate, no match exits non-zero, and headings and code spans are searched.
 - **Gate the PMC lane on fidelity when its exit criterion is met.** The criterion, written

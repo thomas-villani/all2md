@@ -159,14 +159,15 @@ def resolve_theme(
     raise ThemeError(msg)
 
 
-def inline_local_images(doc: Document, base_dir: Path) -> int:
+def inline_local_images(doc: Document, base_dir: Path, *, root: Path | None = None) -> int:
     """Embed the images a document links to on disk as ``data:`` URIs, and return how many.
 
     ``view`` writes its page to a temporary file (or wherever ``--keep`` says), so an
     image the source names by relative path (``![](img/a.png)``) no longer resolves
     from the page. A relative path is read against ``base_dir``, the source's folder;
     an absolute path is read as it is. Remote and ``data:`` URLs, and paths that do
-    not name an image file, are left alone.
+    not name an image file, are left alone. With ``root``, only images inside that
+    folder are read, so a served page cannot pull in other files on the machine.
     """
     from all2md.ast.nodes import Image
     from all2md.ast.transforms import extract_nodes
@@ -177,6 +178,8 @@ def inline_local_images(doc: Document, base_dir: Path) -> int:
             continue
         path = _local_image_path(image.url, base_dir)
         if path is None:
+            continue
+        if root is not None and not path.resolve().is_relative_to(root.resolve()):
             continue
         mime, _ = mimetypes.guess_type(path.name)
         if not mime or not mime.startswith("image/"):

@@ -5,7 +5,9 @@ all2md ships two commands for looking at converted documents in a browser instea
 piping Markdown to a file:
 
 * ``all2md view`` converts a single document to a self-contained HTML page and opens it in
-  your browser (or a standalone window with ``-w``).
+  your browser (or a standalone window with ``-w``). Given a folder or a glob pattern, it
+  starts a local server instead and opens a listing of the documents, each converted
+  when you open it.
 * ``all2md serve`` starts a small local HTTP server that converts documents on demand,
   including a live directory index when you point it at a folder.
 
@@ -24,6 +26,11 @@ Quick start
    # View a single file
    all2md view report.pdf
    all2md view notes.md --dark
+
+   # Browse a whole folder (a listing of every document; click one to read it)
+   all2md view ./docs
+   all2md view ./docs --recursive
+   all2md view "reports/*.pdf"
 
    # Serve a whole directory (browse the index, click any file)
    all2md serve ./docs
