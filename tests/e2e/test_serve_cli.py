@@ -502,24 +502,8 @@ More content.
         html = content.decode("utf-8")
         assert "Nested File" in html
 
-    def test_serve_upload_form_enabled(self):
-        """Test that upload form is accessible when enabled."""
-        md_file = self._create_test_markdown()
-
-        self._start_server(["serve", str(md_file), "--enable-upload", "--port", "8012"])
-
-        # Fetch the upload page
-        content = self._fetch_url("http://127.0.0.1:8012/upload")
-        html = content.decode("utf-8")
-
-        # Should show upload form
-        assert "Document Converter" in html
-        assert "multipart/form-data" in html
-        assert "file" in html
-        assert "format" in html
-
-    def test_serve_upload_form_disabled_by_default(self):
-        """Test that upload form is not accessible by default."""
+    def test_serve_has_no_upload_form(self):
+        """The upload form was removed with serve's deprecation."""
         md_file = self._create_test_markdown()
 
         self._start_server(["serve", str(md_file), "--port", "8013"])
@@ -527,100 +511,10 @@ More content.
         # Try to access upload page - should get 404
         try:
             self._fetch_url("http://127.0.0.1:8013/upload")
-            raise AssertionError("Upload page should not be accessible without --enable-upload")
+            raise AssertionError("The upload page should not exist")
         except Exception:
             # Expected - either 404 or connection error
             pass
-
-    def test_serve_upload_link_in_index(self):
-        """Test that upload link appears in directory index when enabled."""
-        # Create a directory with files
-        self._create_test_markdown("file1.md", "# File 1")
-
-        self._start_server(["serve", str(self.temp_dir), "--enable-upload", "--port", "8014"])
-
-        # Fetch the index page
-        content = self._fetch_url("http://127.0.0.1:8014/")
-        html = content.decode("utf-8")
-
-        # Should show upload link
-        assert "/upload" in html
-        assert "Upload" in html or "upload" in html
-
-    def test_serve_development_warning(self):
-        """Test that development warning is printed when upload/API enabled."""
-        md_file = self._create_test_markdown()
-
-        # Use a unique port to avoid conflicts with other tests
-        port = 8889
-
-        # Create temp files for output capture
-        stdout_file = self.temp_dir / "stdout.txt"
-        stderr_file = self.temp_dir / "stderr.txt"
-
-        # Start server with output redirected to files
-        cmd = [
-            sys.executable,
-            "-u",
-            "-m",
-            "all2md",
-            "serve",
-            str(md_file),
-            "--port",
-            str(port),
-            "--enable-upload",
-            "--enable-api",
-        ]
-
-        with open(stdout_file, "w", encoding="utf-8") as stdout_f, open(stderr_file, "w", encoding="utf-8") as stderr_f:
-            self.server_process = subprocess.Popen(
-                cmd,
-                cwd=self.cli_path.parent.parent.parent,
-                stdout=stdout_f,
-                stderr=stderr_f,
-                text=True,
-            )
-
-            # Wait for server to start
-            max_retries = 50
-            server_started = False
-            for _ in range(max_retries):
-                if self.server_process.poll() is not None:
-                    # Server failed to start
-                    break
-
-                try:
-                    urlopen(f"http://127.0.0.1:{port}/", timeout=1)
-                    server_started = True
-                    # Give it a moment to finish printing all startup messages
-                    time.sleep(1)
-                    break
-                except (URLError, OSError):
-                    time.sleep(0.1)
-
-            # Terminate the server
-            self.server_process.terminate()
-            try:
-                self.server_process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                self.server_process.kill()
-                self.server_process.wait()
-
-        # Read output from files
-        stdout_content = stdout_file.read_text(encoding="utf-8") if stdout_file.exists() else ""
-        stderr_content = stderr_file.read_text(encoding="utf-8") if stderr_file.exists() else ""
-        combined_output = stdout_content + stderr_content
-
-        # Check that server actually started
-        assert server_started, f"Server failed to start. Output:\n{combined_output}"
-
-        # Check for warning message in output
-        assert "WARNING" in combined_output or "warning" in combined_output.lower(), (
-            f"Expected WARNING in output, got: {combined_output[:500]}"
-        )
-        assert "DEVELOPMENT" in combined_output or "development" in combined_output.lower(), (
-            f"Expected DEVELOPMENT in output, got: {combined_output[:500]}"
-        )
 
     def test_serve_no_cache_single_file(self):
         """Test that --no-cache causes file to be re-converted on each request."""

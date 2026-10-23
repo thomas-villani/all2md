@@ -50,12 +50,14 @@ class _MenuEntry:
 
 
 # All entries this command knows how to install. ``view``/``edit`` apply to
-# files (``*\shell``); ``serve`` applies to folders (``Directory\shell``).
+# files (``*\shell``); ``serve`` applies to folders (``Directory\shell``). It keeps
+# its id and registry key, so an install from before ``serve`` was deprecated is
+# still found and replaced, but it runs ``view``, which now browses a folder.
 _ENTRIES: dict[str, _MenuEntry] = {
     "view": _MenuEntry("view", r"Software\Classes\*\shell\all2mdView", "View with all2md", "file", "%1"),
     "edit": _MenuEntry("edit", r"Software\Classes\*\shell\all2mdEdit", "Edit with all2md", "file", "%1"),
     "serve": _MenuEntry(
-        "serve", r"Software\Classes\Directory\shell\all2mdServe", "Serve with all2md", "directory", "%V"
+        "serve", r"Software\Classes\Directory\shell\all2mdServe", "View folder with all2md", "directory", "%V"
     ),
 }
 
@@ -158,9 +160,11 @@ def _build_entry_command(entry: _MenuEntry, launchers: dict[str, str]) -> tuple[
             return f'"{all2md}" view "{entry.arg}"', False
         return None
 
-    # edit / serve: explicit subcommand on the console launcher.
+    # edit / a folder: explicit subcommand on the console launcher, which the folder
+    # server needs so that closing the console stops it.
     if all2md:
-        return f'"{all2md}" {entry.id} "{entry.arg}"', False
+        subcommand = "view" if entry.id == "serve" else entry.id
+        return f'"{all2md}" {subcommand} "{entry.arg}"', False
     return None
 
 

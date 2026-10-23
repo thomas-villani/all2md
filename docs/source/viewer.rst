@@ -1,22 +1,27 @@
-Document Viewer & Server
-========================
+Document Viewer
+===============
 
-all2md ships two commands for looking at converted documents in a browser instead of
-piping Markdown to a file:
+``all2md view`` shows converted documents in a browser instead of piping Markdown to a
+file:
 
-* ``all2md view`` converts a single document to a self-contained HTML page and opens it in
-  your browser (or a standalone window with ``-w``). Given a folder or a glob pattern, it
-  starts a local server instead and opens a listing of the documents, each converted
-  when you open it.
-* ``all2md serve`` starts a small local HTTP server that converts documents on demand,
-  including a live directory index when you point it at a folder.
+* Given a document, it converts it to a self-contained HTML page and opens it in your
+  browser (or a standalone window with ``-w``).
+* Given a folder or a glob pattern, it starts a local server and opens a listing of the
+  documents, each converted when you open it.
 
 To read a document in the terminal instead, see ``rcat`` and ``all2md read`` in
 :doc:`cli`.
 
-Both share the same theming, diagram rendering, and syntax-highlighting features described
-below. For the exhaustive list of flags, see the ``view`` and ``serve`` sections of the
-:doc:`cli` reference.
+Both share the theming, diagram rendering, and syntax-highlighting features described
+below. For the exhaustive list of flags, see the ``view`` section of the :doc:`cli`
+reference.
+
+.. note::
+
+   ``all2md serve`` is deprecated: ``all2md view`` on a folder or a glob does what it did.
+   ``serve`` still works in 1.18, printing a note, and will be removed in the next
+   release. Its upload form and ``/api/convert`` endpoint were removed in 1.18; convert
+   from a program with the Python API or ``all2md mcp`` instead.
 
 Quick start
 -----------
@@ -32,14 +37,7 @@ Quick start
    all2md view ./docs --recursive
    all2md view "reports/*.pdf"
 
-   # Serve a whole directory (browse the index, click any file)
-   all2md serve ./docs
-   all2md serve ./docs --recursive --browse
-
-   # Serve a filtered set
-   all2md serve "reports/*.pdf"
-
-Both commands accept ``-`` for stdin, so you can preview piped content:
+``view`` accepts ``-`` for stdin, so you can preview piped content:
 
 .. code-block:: bash
 
@@ -72,7 +70,7 @@ For example, a Markdown file containing:
        B -- No --> A
    ```
 
-renders as a flowchart in ``all2md view`` / ``all2md serve``.
+renders as a flowchart in ``all2md view``.
 
 Themes
 ------
@@ -93,7 +91,7 @@ Built-in themes
 .. code-block:: bash
 
    all2md view article.md --theme newspaper
-   all2md serve ./docs --theme docs
+   all2md view ./docs --theme docs
 
 .. _viewer-custom-theme:
 
@@ -148,7 +146,7 @@ Then point ``--theme`` at the file:
 .. code-block:: bash
 
    all2md view document.pdf --theme ./my-theme.html
-   all2md serve ./docs --theme ./my-theme.html
+   all2md view ./docs --theme ./my-theme.html
 
 Because mermaid.js and highlight.js are injected automatically, your theme does **not**
 need to include any diagram or highlighting scripts -- just style ``pre``/``code`` to taste.
@@ -169,7 +167,7 @@ plain ``.css`` file. all2md wraps it in a minimal HTML shell automatically:
 .. code-block:: bash
 
    all2md view report.pdf --theme ./brand.css
-   all2md serve ./docs --theme ./brand.css
+   all2md view ./docs --theme ./brand.css
 
 Named themes in configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -184,51 +182,48 @@ Register reusable theme names in a ``[themes]`` table in any all2md configuratio
    corporate = "~/themes/corporate.html"
    brand = "~/themes/brand.css"
 
-   # Optionally set a default theme per command
+   # Optionally set a default theme for the command
    [view]
    theme = "corporate"
 
-   [serve]
-   theme = "brand"
-
-Now the registered name resolves on either command:
+Now the registered names resolve on the command line:
 
 .. code-block:: bash
 
    all2md view report.pdf --theme corporate
-   all2md serve ./docs --theme brand
+   all2md view ./docs --theme brand
 
 See :doc:`configuration` for how configuration files are discovered and merged.
 
-Serving directories
---------------------
+Browsing a folder
+-----------------
 
-Point ``all2md serve`` at a folder to get a browsable index. The index:
+Point ``all2md view`` at a folder, or at a quoted glob pattern, to get a browsable
+listing. The listing:
 
 * lists only files all2md can convert (unsupported files are hidden);
 * offers an aligned **table** view (Name / Size / Modified / Created) and a **card** view,
   with a toggle that is remembered per browser (table is the default);
 * updates live as files are added or removed (see ``--poll-interval``);
-* honors a hand-authored ``index.html`` / ``index.md`` / ``README.md`` unless you pass
-  ``--force-auto-index``.
+* is generated even when the folder has a README, which rarely lists everything; pass
+  ``--index-page`` to show a hand-authored ``index.html`` / ``index.md`` / ``README.md``
+  instead.
+
+Images a document names by path are shown when they are inside the folder being viewed;
+the server never reads files outside it. It listens on ``127.0.0.1`` only, unless you
+pass ``--host``.
 
 .. code-block:: bash
 
-   # Recursively serve a docs tree and open it
-   all2md serve ./docs --recursive --browse
+   # Browse a docs tree, subfolders included
+   all2md view ./docs --recursive
 
-   # Always show the generated listing, ignoring a repo README
-   all2md serve . --recursive --force-auto-index
-
-.. note::
-
-   ``--enable-upload`` and ``--enable-api`` expose write/convert endpoints intended for
-   local development only. Do not expose a server started with those flags to untrusted
-   networks. See the :doc:`cli` reference and :doc:`security` for details.
+   # Show the repo README in place of the generated listing
+   all2md view . --recursive --index-page
 
 See also
 --------
 
-* :doc:`cli` -- complete flag reference for ``view`` and ``serve``
+* :doc:`cli` -- complete flag reference for ``view``
 * :doc:`configuration` -- configuration files, ``[themes]``, and per-command defaults
 * :doc:`static_sites` -- generating a static HTML site instead of serving live

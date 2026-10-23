@@ -33,14 +33,13 @@ all2md read docs/                        # ...on a tree of a folder's documents 
 all2md document.pdf --pager              # page long output
 ```
 
-## Preview, serve & edit
+## Preview & edit
 
 ```bash
 all2md view report.pdf                   # open an HTML preview in the browser
 all2md view report.pdf --dark            # dark theme
 all2md view ./docs -r                    # browse a folder: every document, each opened on click
-all2md serve ./docs                      # serve a directory over HTTP with live preview
-all2md serve ./docs --port 8080 --browse
+all2md view ./docs --port 8080           # the folder server on a fixed port
 all2md edit notes.md                     # browser-based Markdown/WYSIWYG editor, saves back
 ```
 
