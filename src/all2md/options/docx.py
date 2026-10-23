@@ -51,18 +51,24 @@ class DocxRendererOptions(BaseRendererOptions):
     use_styles : bool, default True
         Whether to use built-in Word styles vs direct formatting.
     table_style : str or None, default "Light Grid Accent 1"
-        Built-in table style name. If None, uses plain table formatting.
-    code_font : str, default "Courier New"
-        Font name for code blocks and inline code.
-    code_font_size : int, default 10
-        Font size for code blocks and inline code.
+        Table style name. If None, uses plain table formatting. A template without
+        the style falls back to its ``Table`` style (a pandoc reference document's),
+        then to ``Table Grid``.
+    code_font : str or None, default None
+        Font name for code blocks and inline code. None means Courier New for a
+        blank document; a template's own code styles (``CodeBlock`` or pandoc's
+        ``Source Code`` for blocks, ``Verbatim Char`` inline) keep their font.
+    code_font_size : int or None, default None
+        Font size in points for code. None means 10, or the template's own size.
     preserve_formatting : bool, default True
         Whether to preserve text formatting (bold, italic, etc.).
     template_path : str or None, default None
         Path to .docx template file. When specified, the renderer uses the template's
         styles (headings, body text, etc.) instead of creating a blank document. This
         is powerful for corporate environments where documents must adopt specific style
-        guidelines defined in a template.
+        guidelines defined in a template. The styles used are Word's own names, plus
+        pandoc's where Word has none (``Source Code``, ``Block Text``, ``Table``), so
+        a pandoc reference document works as a template too.
     network : NetworkFetchOptions, default NetworkFetchOptions()
         Network security settings for fetching remote images. By default,
         remote image fetching is disabled (allow_remote_fetch=False).
@@ -122,13 +128,25 @@ class DocxRendererOptions(BaseRendererOptions):
     )
     table_style: str | None = field(
         default=DEFAULT_DOCX_TABLE_STYLE,
-        metadata={"help": "Built-in table style name (None = plain formatting)", "importance": "advanced"},
+        metadata={
+            "help": "Table style name (None = plain; a template without it uses its Table or Table Grid style)",
+            "importance": "advanced",
+        },
     )
-    code_font: str = field(
-        default=DEFAULT_DOCX_CODE_FONT, metadata={"help": "Font for code blocks and inline code", "importance": "core"}
+    code_font: str | None = field(
+        default=None,
+        metadata={
+            "help": f"Font for code (default {DEFAULT_DOCX_CODE_FONT}; a template keeps its own unless set)",
+            "importance": "core",
+        },
     )
-    code_font_size: int = field(
-        default=DEFAULT_DOCX_CODE_FONT_SIZE, metadata={"help": "Font size for code", "type": int, "importance": "core"}
+    code_font_size: int | None = field(
+        default=None,
+        metadata={
+            "help": f"Font size for code (default {DEFAULT_DOCX_CODE_FONT_SIZE}; a template keeps its own unless set)",
+            "type": int,
+            "importance": "core",
+        },
     )
     preserve_formatting: bool = field(
         default=True,
@@ -212,7 +230,7 @@ class DocxRendererOptions(BaseRendererOptions):
         if self.default_font_size is not None and self.default_font_size <= 0:
             raise ValueError(f"default_font_size must be positive, got {self.default_font_size}")
 
-        if self.code_font_size <= 0:
+        if self.code_font_size is not None and self.code_font_size <= 0:
             raise ValueError(f"code_font_size must be positive, got {self.code_font_size}")
 
         # Validate heading font sizes dictionary
@@ -319,7 +337,7 @@ class DocxOptions(BaseParserOptions, AttachmentOptionsMixin):
         },
     )
     quote_style_names: list[str] = field(
-        default_factory=lambda: ["Quote", "Intense Quote"],
+        default_factory=lambda: ["Quote", "Intense Quote", "Block Text"],
         metadata={
             "help": "List of paragraph style names to treat as block quotes (case-insensitive exact match)",
             "importance": "advanced",

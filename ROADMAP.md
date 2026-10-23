@@ -62,11 +62,11 @@ written against tools that do what it says:
 - **Markdown → Word, often from LLM-written Markdown.** Real Word footnotes and task-list
   checkboxes (#621, #628; an option for real check box content controls is deferred),
   math as Word equations read back as LaTeX (#641, #643), and alerts with a label and a
-  colored bar and thematic breaks as rules (#644) are done; next reference templates
-  beyond the fonts #615 fixed.
-- ✅ **`all2md view`** shows what it dropped: footnotes, math, relative images, and DOCX
-  images (#646). `serve` still misses relative images; embedding them there waits on
-  a design limited to the served folder, since `serve` accepts uploads.
+  colored bar and thematic breaks as rules (#644), and reference templates whose code,
+  link, quote and table styles are used rather than written over, pandoc's included
+  (#615, #645), are done.
+- **`all2md view`** shows what it drops today: footnotes, math, relative images, and DOCX
+  images.
 - **`all2md grep`** becomes line-based: `-A`/`-B`/`-C` and `-n` work, `-M 0` does not
   truncate, no match exits non-zero, and headings and code spans are searched.
 - **Gate the PMC lane on fidelity when its exit criterion is met.** The criterion, written
