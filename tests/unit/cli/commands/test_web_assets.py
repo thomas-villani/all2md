@@ -8,6 +8,7 @@ from all2md.cli.commands.web_assets import (
     ThemeError,
     builtin_theme_names,
     inject_web_assets,
+    inline_local_images,
     resolve_theme,
 )
 
@@ -87,3 +88,47 @@ class TestInjectWebAssets:
     def test_appends_when_no_head_close(self):
         out = inject_web_assets("<body>x</body>", highlight=False)
         assert "mermaid@11" in out
+
+    def test_math_is_typeset_only_when_the_page_has_latex(self):
+        math = '<html><head></head><body><span class="math math-inline" data-notation="latex">$x$</span></body></html>'
+        out = inject_web_assets(math, mermaid=False, highlight=False)
+        assert "katex.min.js" in out
+        assert out.index("katex.min.js") < out.index("</head>")
+        assert "katex" not in inject_web_assets(self.HTML, mermaid=False, highlight=False)
+        assert "katex" not in inject_web_assets(math, mermaid=False, highlight=False, math=False)
+
+
+PNG = bytes.fromhex("89504e470d0a1a0a")
+
+
+def _image_doc(*urls: str):
+    from all2md.ast import Document, Image, Paragraph
+
+    return Document(children=[Paragraph(content=[Image(url=url, alt_text="a") for url in urls])])
+
+
+def _urls(doc) -> list[str]:
+    return [image.url for image in doc.children[0].content]
+
+
+@pytest.mark.unit
+class TestInlineLocalImages:
+    def test_relative_paths_resolve_against_the_source_folder(self, tmp_path: Path):
+        (tmp_path / "img").mkdir()
+        (tmp_path / "img" / "a b.png").write_bytes(PNG)
+        doc = _image_doc("img/a b.png", "img/a%20b.png")
+        assert inline_local_images(doc, tmp_path) == 2
+        assert _urls(doc) == ["data:image/png;base64,iVBORw0KGgo="] * 2
+
+    def test_absolute_paths_and_file_urls(self, tmp_path: Path):
+        image = tmp_path / "a.png"
+        image.write_bytes(PNG)
+        doc = _image_doc(str(image), image.as_uri())
+        assert inline_local_images(doc, Path("elsewhere")) == 2
+
+    def test_remote_inline_missing_and_non_images_are_left_alone(self, tmp_path: Path):
+        (tmp_path / "notes.txt").write_text("x")
+        urls = ["https://example.com/a.png", "data:image/png;base64,AAAA", "missing.png", "notes.txt", "#anchor", ""]
+        doc = _image_doc(*urls)
+        assert inline_local_images(doc, tmp_path) == 0
+        assert _urls(doc) == urls

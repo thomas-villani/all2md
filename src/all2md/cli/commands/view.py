@@ -17,10 +17,11 @@ import webbrowser
 from pathlib import Path
 
 from all2md import HtmlRendererOptions, from_ast, to_ast
+from all2md.api import library_injected_options
 from all2md.cli import EXIT_FILE_ERROR, window
 from all2md.cli.builder import EXIT_ERROR, EXIT_SUCCESS
 from all2md.cli.commands.shared import add_cache_arguments, conversion_cache_from_args
-from all2md.cli.commands.web_assets import ThemeError, inject_web_assets, resolve_theme
+from all2md.cli.commands.web_assets import ThemeError, inject_web_assets, inline_local_images, resolve_theme
 from all2md.cli.config import apply_config_to_parser, load_config_with_priority
 from all2md.cli.files_from import add_files_from_arguments, resolve_files_from
 
@@ -175,8 +176,19 @@ def handle_view_command(args: list[str] | None = None) -> int:
         # detected format (None path for stdin falls back to format-qualified keys).
         opts_path = None if is_stdin else Path(parsed.input)
         to_ast_kwargs = prepare_options_for_execution(converter_options, opts_path, "auto")
-        with conversion_cache_from_args(parsed):
+        # Embed attachments so a DOCX's or PDF's images show in the page, unless the
+        # config chose otherwise. A format without attachments drops the option, and
+        # since we added it, not the user, that must not warn.
+        injected: tuple[str, ...] = ()
+        if "attachment_mode" not in to_ast_kwargs:
+            to_ast_kwargs["attachment_mode"] = "base64"
+            injected = ("attachment_mode",)
+        with conversion_cache_from_args(parsed), library_injected_options(*injected):
             doc = to_ast(input_source, **to_ast_kwargs)
+
+        # Images the source names by path would not resolve from the page's own
+        # location (a temp file, or --keep's), so they are embedded too.
+        inline_local_images(doc, Path.cwd() if is_stdin else Path(parsed.input).resolve().parent)
 
         # Apply section extraction if requested
         if parsed.extract:

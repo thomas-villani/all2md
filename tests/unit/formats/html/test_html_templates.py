@@ -341,3 +341,36 @@ class TestTemplateValidation:
         # Should use template, not standalone wrapping
         assert result.count("<html>") == 1  # Only from template
         assert "<!DOCTYPE html>" not in result  # Not from standalone mode
+
+
+@pytest.mark.unit
+class TestTemplateFootnotes:
+    """A template has no place for footnotes, so they close the content."""
+
+    @pytest.mark.parametrize("mode", ["replace", "inject"])
+    def test_footnotes_follow_the_content(self, tmp_path, mode):
+        from all2md.ast import FootnoteDefinition, FootnoteReference
+
+        template = tmp_path / "template.html"
+        template.write_text(
+            '<!DOCTYPE html><html><body><main id="content">{CONTENT}</main></body></html>', encoding="utf-8"
+        )
+        doc = Document(
+            children=[
+                Paragraph(content=[Text(content="A claim."), FootnoteReference(identifier="1")]),
+                FootnoteDefinition(identifier="1", content=[Paragraph(content=[Text(content="The source.")])]),
+            ]
+        )
+        options = HtmlRendererOptions(template_mode=mode, template_file=str(template), template_selector="#content")
+        html = HtmlRenderer(options).render_to_string(doc)
+
+        assert '<li id="fn-1">' in html
+        assert "The source." in html
+        assert html.index("A claim.") < html.index('<section id="footnotes">')
+
+    def test_no_footnotes_no_section(self, tmp_path):
+        template = tmp_path / "template.html"
+        template.write_text("<html><body>{CONTENT}</body></html>", encoding="utf-8")
+        options = HtmlRendererOptions(template_mode="replace", template_file=str(template))
+        html = HtmlRenderer(options).render_to_string(Document(children=[Paragraph(content=[Text(content="x")])]))
+        assert "footnotes" not in html

@@ -16,11 +16,19 @@ scripts. This module centralises two concerns that both commands need:
 from __future__ import annotations
 
 import atexit
+import base64
+import mimetypes
 import os
+import re
 import tempfile
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+from urllib.parse import unquote, urlsplit
+from urllib.request import url2pathname
+
+if TYPE_CHECKING:
+    from all2md.ast.nodes import Document
 
 # Directory holding the packaged built-in theme templates.
 _THEMES_DIR = Path(__file__).parent / "themes"
@@ -33,6 +41,11 @@ _NON_THEME_STEMS = frozenset({"editor"})
 # uses the official browser build published via jsDelivr's GitHub mirror.
 _MERMAID_ESM = "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs"
 _HLJS_BASE = "https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11/build"
+# KaTeX, the version the HTML renderer's standalone pages load.
+_KATEX_BASE = "https://cdn.jsdelivr.net/npm/katex@0.16.9/dist"
+
+# A Windows path with a drive letter, which urlsplit would take for a URL scheme.
+_WINDOWS_DRIVE = re.compile(r"^[A-Za-z]:[\\/]")
 
 # Minimal HTML shell used to wrap a plain ``.css`` theme into a valid replace-mode
 # template. ``{TITLE}``/``{CONTENT}`` mirror the placeholders the built-in themes expose.
@@ -146,6 +159,58 @@ def resolve_theme(
     raise ThemeError(msg)
 
 
+def inline_local_images(doc: Document, base_dir: Path) -> int:
+    """Embed the images a document links to on disk as ``data:`` URIs, and return how many.
+
+    ``view`` writes its page to a temporary file (or wherever ``--keep`` says), so an
+    image the source names by relative path (``![](img/a.png)``) no longer resolves
+    from the page. A relative path is read against ``base_dir``, the source's folder;
+    an absolute path is read as it is. Remote and ``data:`` URLs, and paths that do
+    not name an image file, are left alone.
+    """
+    from all2md.ast.nodes import Image
+    from all2md.ast.transforms import extract_nodes
+
+    count = 0
+    for image in extract_nodes(doc, Image):
+        if not isinstance(image, Image):
+            continue
+        path = _local_image_path(image.url, base_dir)
+        if path is None:
+            continue
+        mime, _ = mimetypes.guess_type(path.name)
+        if not mime or not mime.startswith("image/"):
+            continue
+        try:
+            data = path.read_bytes()
+        except OSError:
+            continue
+        image.url = f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"
+        count += 1
+    return count
+
+
+def _local_image_path(url: str, base_dir: Path) -> Path | None:
+    """Return the file an image URL names on disk, or None for a remote, inline or missing one."""
+    if not url or url.startswith(("#", "//")):
+        return None
+    if not _WINDOWS_DRIVE.match(url):
+        scheme = urlsplit(url).scheme
+        if scheme == "file":
+            return _existing(Path(url2pathname(urlsplit(url).path)))
+        if scheme:
+            return None
+    path = Path(unquote(url.split("?", 1)[0].split("#", 1)[0]))
+    return _existing(path if path.is_absolute() else base_dir / path)
+
+
+def _existing(path: Path) -> Path | None:
+    try:
+        return path if path.is_file() else None
+    except OSError:
+        return None
+
+
 def _highlight_block(dark: bool) -> str:
     """Return the highlight.js ``<link>``/``<script>`` include block."""
     style = "github-dark" if dark else "github"
@@ -168,25 +233,49 @@ def _mermaid_block(dark: bool) -> str:
     )
 
 
+def _math_block() -> str:
+    """Return the KaTeX include block, which typesets the renderer's LaTeX math elements.
+
+    The HTML renderer writes LaTeX as ``$...$`` in ``span.math-inline`` and ``$$...$$``
+    in ``div.math-block``, both with ``data-notation="latex"``. Only those elements are
+    typeset, so a dollar sign in prose is never mistaken for math.
+    """
+    return (
+        f'<link rel="stylesheet" href="{_KATEX_BASE}/katex.min.css">\n'
+        f'<script src="{_KATEX_BASE}/katex.min.js"></script>\n'
+        "<script>window.addEventListener('DOMContentLoaded',function(){"
+        "if(!window.katex){return;}"
+        "document.querySelectorAll('.math[data-notation=\"latex\"]').forEach(function(el){"
+        "var display=el.classList.contains('math-block');"
+        "var tex=el.textContent.trim().replace(display?/^\\$\\$|\\$\\$$/g:/^\\$|\\$$/g,'');"
+        "try{window.katex.render(tex,el,{displayMode:display,throwOnError:false});}catch(e){}"
+        "});});</script>\n"
+    )
+
+
 def inject_web_assets(
     html: str,
     *,
     mermaid: bool = True,
     highlight: bool = True,
     dark: bool = False,
+    math: bool = True,
 ) -> str:
-    """Splice mermaid.js / highlight.js CDN includes into a rendered HTML page.
+    """Splice mermaid.js / highlight.js / KaTeX CDN includes into a rendered HTML page.
 
     The assets are inserted immediately before ``</head>`` (appended if there is no
     ``</head>``). highlight.js only targets ``<pre><code>`` elements, so it leaves the
-    ``<pre class="mermaid">`` diagram blocks untouched. If the CDN is unreachable the
-    page degrades gracefully: diagrams stay as readable text and code stays unhighlighted.
+    ``<pre class="mermaid">`` diagram blocks untouched. KaTeX is added only when the page
+    has LaTeX math. If the CDN is unreachable the page degrades gracefully: diagrams stay
+    as readable text, code stays unhighlighted, and math stays LaTeX source.
     """
     block = ""
     if highlight:
         block += _highlight_block(dark)
     if mermaid:
         block += _mermaid_block(dark)
+    if math and 'data-notation="latex"' in html:
+        block += _math_block()
     if not block:
         return html
 
