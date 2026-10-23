@@ -353,8 +353,9 @@ Line 7: Seventh line of text.
         """Test grep when no results are found."""
         result = self._run_grep(["nonexistent_pattern_xyz", str(self.doc)])
 
-        assert result.returncode == 0
-        assert "No results found" in result.stdout
+        # As for grep: no match exits 1 and prints nothing.
+        assert result.returncode == 1
+        assert result.stdout == ""
 
     def test_grep_missing_inputs(self):
         """Test grep without input files."""

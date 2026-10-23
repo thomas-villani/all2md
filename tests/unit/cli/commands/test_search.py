@@ -685,3 +685,103 @@ class TestFormatPlainSnippetEdgeCases:
         text = "Line 1\n\nLine 3"
         lines = _format_plain_snippet(text, width=100, indent="  ")
         assert len(lines) == 3
+
+
+_GREP_DOC = """Intro line about latency.
+
+# Results
+
+First paragraph.
+
+Second paragraph with latency here.
+
+Third paragraph.
+
+- item one
+- item latency two
+
+| Region | p50 |
+|---|---|
+| us-east | 42 |
+
+Run `compute_latency()` now.
+
+```python
+def latency():
+    return 1
+```
+
+## Sub latency
+
+Sub text.
+"""
+
+
+@pytest.mark.unit
+class TestGrepLines:
+    """grep searches lines: a paragraph, list item, table row, heading or line of code each."""
+
+    @pytest.fixture
+    def doc(self, tmp_path: Path) -> Path:
+        path = tmp_path / "doc.md"
+        path.write_text(_GREP_DOC, encoding="utf-8")
+        return path
+
+    def _grep(self, capsys, *args: str) -> tuple[int, list[str]]:
+        from all2md.cli.commands.search import handle_grep_command
+
+        code = handle_grep_command(list(args))
+        return code, [line.strip() for line in capsys.readouterr().out.splitlines() if line.strip()]
+
+    def test_every_block_is_a_line_numbered_through_the_document(self, doc: Path, capsys):
+        code, lines = self._grep(capsys, "-n", "latency", str(doc))
+        assert code == 0
+        assert lines[1:] == [
+            "(preamble):1:Intro line about latency.",
+            "Results:4:Second paragraph with latency here.",
+            "Results:7:- item latency two",
+            "Results:10:Run compute_latency() now.",
+            "Results:11:def latency():",
+            "Sub latency:13:Sub latency",
+        ]
+
+    def test_a_table_row_is_a_line(self, doc: Path, capsys):
+        _, lines = self._grep(capsys, "-n", "us-east", str(doc))
+        assert lines[1:] == ["Results:9:us-east | 42"]
+
+    def test_context_marks_context_lines_and_separates_runs(self, doc: Path, capsys):
+        _, lines = self._grep(capsys, "-n", "-C", "1", "-e", "Second|two", str(doc))
+        assert lines[lines.index("Results") + 1 :] == [
+            "3- First paragraph.",
+            "4: Second paragraph with latency here.",
+            "5- Third paragraph.",
+            "6- - item one",
+            "7: - item latency two",
+            "8- Region | p50",
+        ]
+        _, lines = self._grep(capsys, "-n", "-A", "1", "-e", "First|two", str(doc))
+        assert lines[lines.index("Results") + 1 :] == [
+            "3: First paragraph.",
+            "4- Second paragraph with latency here.",
+            "--",
+            "7: - item latency two",
+            "8- Region | p50",
+        ]
+
+    def test_max_columns_zero_does_not_truncate(self, tmp_path: Path, capsys):
+        path = tmp_path / "long.md"
+        sentence = "word " * 80 + "needle " + "word " * 80
+        path.write_text(sentence.strip() + "\n", encoding="utf-8")
+        _, lines = self._grep(capsys, "-M", "0", "needle", str(path))
+        assert lines[1] == "(preamble):" + sentence.strip()
+        _, lines = self._grep(capsys, "-M", "40", "needle", str(path))
+        assert "needle" in lines[1] and "..." in lines[1] and len(lines[1]) < 80
+
+    def test_no_match_exits_one_and_prints_nothing(self, doc: Path, capsys):
+        assert self._grep(capsys, "nothing-matches-this", str(doc)) == (1, [])
+
+    def test_an_invalid_regex_is_an_error_not_a_miss(self, doc: Path, capsys):
+        from all2md.cli.commands.search import handle_grep_command
+
+        assert handle_grep_command(["-e", "(", str(doc)]) == 3
+        assert "invalid regular expression" in capsys.readouterr().err
