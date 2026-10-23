@@ -20,6 +20,7 @@ import pytest
 
 try:
     from docx import Document as DocxDocument
+    from docx.oxml.ns import qn
 
     DOCX_AVAILABLE = True
 except ImportError:
@@ -2110,3 +2111,128 @@ class TestTemplateFont:
         assert _normal_font(result) == ("Georgia", 12)
         assert "Body" in [p.text for p in DocxDocument(BytesIO(result)).paragraphs]
         assert template.read_bytes() == before
+
+
+def _pandoc_like_template(path) -> str:
+    """A reference document with pandoc's style names and no Word ``Quote``.
+
+    Its code, link and quote styles have their own look, so a test can tell
+    whether the renderer used them or wrote over them with direct formatting.
+    """
+    from docx.enum.style import WD_STYLE_TYPE
+    from docx.shared import Pt, RGBColor
+
+    template_doc = DocxDocument()
+    styles = template_doc.styles
+    for name in ("Quote", "Light Grid Accent 1"):
+        element = styles[name].element
+        element.getparent().remove(element)
+    source = styles.add_style("Source Code", WD_STYLE_TYPE.PARAGRAPH)
+    source.font.name = "Consolas"
+    source.font.size = Pt(9)
+    verbatim = styles.add_style("Verbatim Char", WD_STYLE_TYPE.CHARACTER)
+    verbatim.font.name = "Consolas"
+    styles.add_style("Block Text", WD_STYLE_TYPE.PARAGRAPH).font.italic = True
+    styles.add_style("Hyperlink", WD_STYLE_TYPE.CHARACTER).font.color.rgb = RGBColor(0, 0x80, 0)
+    styles.add_style("Table", WD_STYLE_TYPE.TABLE)
+    template_doc.save(str(path))
+    return str(path)
+
+
+_SAMPLE = Document(
+    children=[
+        Paragraph(
+            content=[
+                Link(url="https://example.com", content=[Text(content="site")]),
+                Text(content=" and "),
+                Code(content="code"),
+            ]
+        ),
+        CodeBlock(content="print(1)"),
+        BlockQuote(children=[Paragraph(content=[Text(content="quoted")])]),
+        Table(
+            header=TableRow(cells=[TableCell(content=[Text(content="a")])]),
+            rows=[TableRow(cells=[TableCell(content=[Text(content="1")])])],
+        ),
+    ]
+)
+
+
+def _render(options: DocxRendererOptions | None = None):
+    return DocxDocument(BytesIO(DocxRenderer(options).render_to_bytes(_SAMPLE)))
+
+
+def _runs(docx_doc, text: str) -> list:
+    return [run for paragraph in docx_doc.paragraphs for run in paragraph.runs if run.text.strip() == text]
+
+
+@pytest.mark.unit
+@pytest.mark.docx
+class TestTemplateStyles:
+    """A template's own styles are used, not written over with direct formatting."""
+
+    def test_links_are_blue_and_underlined_without_a_template(self):
+        """python-docx's blank document has no Hyperlink style, so links printed as plain text."""
+        style = _render().styles["Hyperlink"]
+        assert str(style.font.color.rgb) == "0563C1"
+        assert style.font.underline
+
+    def test_a_templates_hyperlink_style_is_kept(self, tmp_path):
+        docx_doc = _render(DocxRendererOptions(template_path=_pandoc_like_template(tmp_path / "ref.docx")))
+        assert str(docx_doc.styles["Hyperlink"].font.color.rgb) == "008000"
+
+    def test_code_is_styled_without_direct_formatting(self):
+        docx_doc = _render()
+        (block,) = [p for p in docx_doc.paragraphs if p.text == "print(1)"]
+        assert block.style.name == "CodeBlock"
+        assert block.runs[0].font.name is None
+        assert block._p.pPr.find(qn("w:shd")) is None
+        style = docx_doc.styles["CodeBlock"]
+        assert (style.font.name, style.font.size.pt) == ("Courier New", 10)
+        assert style.element.pPr.find(qn("w:shd")).get(qn("w:fill")) == "F0F0F0"
+        (inline,) = _runs(docx_doc, "code")
+        assert inline.style.name == "Verbatim Char"
+        assert inline.font.name is None
+
+    def test_a_templates_code_styles_keep_their_font(self, tmp_path):
+        docx_doc = _render(DocxRendererOptions(template_path=_pandoc_like_template(tmp_path / "ref.docx")))
+        (block,) = [p for p in docx_doc.paragraphs if p.text == "print(1)"]
+        assert block.style.name == "Source Code"
+        assert block.runs[0].font.name is None
+        assert docx_doc.styles["Source Code"].font.name == "Consolas"
+        assert docx_doc.styles["Verbatim Char"].font.name == "Consolas"
+        assert "CodeBlock" not in [style.name for style in docx_doc.styles]
+
+    def test_a_named_code_font_is_set_on_the_templates_styles(self, tmp_path):
+        template = _pandoc_like_template(tmp_path / "ref.docx")
+        docx_doc = _render(DocxRendererOptions(template_path=template, code_font="Menlo", code_font_size=8))
+        for name in ("Source Code", "Verbatim Char"):
+            assert (docx_doc.styles[name].font.name, docx_doc.styles[name].font.size.pt) == ("Menlo", 8)
+
+    def test_without_styles_code_is_formatted_directly(self):
+        docx_doc = _render(DocxRendererOptions(use_styles=False))
+        (block,) = [p for p in docx_doc.paragraphs if p.text == "print(1)"]
+        assert (block.runs[0].font.name, block.runs[0].font.size.pt) == ("Courier New", 10)
+        shading = block._p.pPr.find(qn("w:shd"))
+        assert (shading.get(qn("w:val")), shading.get(qn("w:fill"))) == ("clear", "F0F0F0")
+        (inline,) = _runs(docx_doc, "code")
+        assert inline.font.name == "Courier New"
+
+    def test_pandoc_quote_and_table_styles_are_used(self, tmp_path):
+        docx_doc = _render(DocxRendererOptions(template_path=_pandoc_like_template(tmp_path / "ref.docx")))
+        (quote,) = [p for p in docx_doc.paragraphs if p.text == "quoted"]
+        assert quote.style.name == "Block Text"
+        assert docx_doc.tables[0].style.name == "Table"
+
+    def test_a_missing_table_style_falls_back_to_table_grid(self):
+        docx_doc = _render(DocxRendererOptions(table_style="No Such Style"))
+        assert docx_doc.tables[0].style.name == "Table Grid"
+
+    def test_the_pandoc_template_round_trips(self, tmp_path):
+        from all2md import to_markdown
+
+        options = DocxRendererOptions(template_path=_pandoc_like_template(tmp_path / "ref.docx"))
+        markdown = to_markdown(DocxRenderer(options).render_to_bytes(_SAMPLE), source_format="docx")
+        assert "[site](https://example.com) and `code`" in markdown
+        assert "```\nprint(1)\n```" in markdown
+        assert "> quoted" in markdown

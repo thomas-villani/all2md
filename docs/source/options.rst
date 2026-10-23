@@ -1907,7 +1907,7 @@ including fonts, styles, and formatting preferences.
 
 **table_style**
 
-   Built-in table style name (None = plain formatting)
+   Table style name (None = plain; a template without it uses its Table or Table Grid style)
 
    :Type: ``str | None``
    :CLI flag: ``--docx-renderer-table-style``
@@ -1916,20 +1916,20 @@ including fonts, styles, and formatting preferences.
 
 **code_font**
 
-   Font for code blocks and inline code
+   Font for code (default Courier New; a template keeps its own unless set)
 
-   :Type: ``str``
+   :Type: ``str | None``
    :CLI flag: ``--docx-renderer-code-font``
-   :Default: ``'Courier New'``
+   :Default: ``None``
    :Importance: core
 
 **code_font_size**
 
-   Font size for code
+   Font size for code (default 10; a template keeps its own unless set)
 
-   :Type: ``int``
+   :Type: ``int | None``
    :CLI flag: ``--docx-renderer-code-font-size``
-   :Default: ``10``
+   :Default: ``None``
    :Importance: core
 
 **preserve_formatting**

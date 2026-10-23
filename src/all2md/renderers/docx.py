@@ -72,7 +72,13 @@ from all2md.ast.nodes import (
 )
 from all2md.ast.transforms import remove_xml_illegal_characters
 from all2md.ast.visitors import NodeVisitor
-from all2md.constants import DEFAULT_DOCX_FONT, DEFAULT_DOCX_FONT_SIZE, DEPS_DOCX_RENDER
+from all2md.constants import (
+    DEFAULT_DOCX_CODE_FONT,
+    DEFAULT_DOCX_CODE_FONT_SIZE,
+    DEFAULT_DOCX_FONT,
+    DEFAULT_DOCX_FONT_SIZE,
+    DEPS_DOCX_RENDER,
+)
 from all2md.exceptions import RenderingError
 from all2md.options.docx import DocxRendererOptions
 from all2md.renderers.base import BaseRenderer
@@ -147,6 +153,11 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
     # built-in present in the default template.
     _INLINE_CODE_CHAR_STYLE = "Verbatim Char"
     _BLOCKQUOTE_STYLE = "Quote"
+    # A template may be a pandoc reference document, whose names differ where Word has
+    # no built-in: "Block Text" for quotes, "Source Code" for code blocks, "Table".
+    _BLOCKQUOTE_STYLES = (_BLOCKQUOTE_STYLE, "Block Text")
+    _CODE_BLOCK_STYLES = ("CodeBlock", "Source Code")
+    _HYPERLINK_STYLE = "Hyperlink"
     # An alert (``> [!NOTE]``) or admonition is a quote with a bold label and a bar down
     # its left side, in GitHub's alert colors. Other admonition kinds (reST, MkDocs,
     # AsciiDoc) take the color of the GitHub alert nearest in meaning.
@@ -219,6 +230,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         # (paragraph style, numId or None) of the list at each level; see visit_list
         self._list_format_stack: list[tuple[str | None, str | None]] = []
         self._blockquote_depth: int = 0  # Track blockquote nesting depth
+        self._code_block_style: str | None = None  # Paragraph style for code blocks, once chosen
         self._captioned_figure_depth: int = 0  # Inside a Figure that writes its own caption
         self._available_styles: set[str] = set()  # Populated after document creation
         self._caption_counts: dict[str, int] = {}  # SEQ identifier -> captions numbered so far
@@ -275,6 +287,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 self.document = self._Document()
 
             self._caption_counts = {}
+            self._code_block_style = None
 
             # Cache available style names for safe lookups with templates
             self._available_styles = {s.name for s in self.document.styles}
@@ -669,34 +682,101 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
         return False
 
+    def _code_font(self) -> tuple[str, int]:
+        """Return the code font and size for direct formatting: the options', else the defaults."""
+        return (
+            self.options.code_font or DEFAULT_DOCX_CODE_FONT,
+            self.options.code_font_size or DEFAULT_DOCX_CODE_FONT_SIZE,
+        )
+
+    def _set_named_code_font(self, font: Any) -> None:
+        """Set a template's code style to the code font the caller named, if any."""
+        if self.options.code_font:
+            font.name = self.options.code_font
+        if self.options.code_font_size:
+            font.size = self._Pt(self.options.code_font_size)
+
     def _ensure_code_block_style(self) -> None:
-        """Create the CodeBlock style if it doesn't already exist."""
-        if not self.document:
+        """Choose the paragraph style for code blocks, creating ``CodeBlock`` if there is none.
+
+        A template's own code style (``CodeBlock``, or pandoc's ``Source Code``) is used
+        as it is, keeping its font and shading unless the caller names a code font. The
+        ``CodeBlock`` style created otherwise carries the font, spacing and shading
+        itself, so a code paragraph needs no direct formatting to override.
+        """
+        if not self.document or not self.options.use_styles:
             return
 
-        if not self._has_style("CodeBlock"):
-            # Create the CodeBlock style
-            styles = self.document.styles
-            style = styles.add_style("CodeBlock", self._WD_STYLE_TYPE.PARAGRAPH)
-            self._available_styles.add("CodeBlock")
-            style.font.name = self.options.code_font
-            style.font.size = self._Pt(self.options.code_font_size)
-            # Set paragraph format for the style
-            style.paragraph_format.space_before = self._Pt(6)
-            style.paragraph_format.space_after = self._Pt(6)
+        existing = next((name for name in self._CODE_BLOCK_STYLES if self._has_style(name)), None)
+        if existing:
+            self._code_block_style = existing
+            self._set_named_code_font(self.document.styles[existing].font)
+            return
+
+        style = self.document.styles.add_style("CodeBlock", self._WD_STYLE_TYPE.PARAGRAPH)
+        self._available_styles.add("CodeBlock")
+        font_name, font_size = self._code_font()
+        style.font.name = font_name
+        style.font.size = self._Pt(font_size)
+        style.paragraph_format.space_before = self._Pt(6)
+        style.paragraph_format.space_after = self._Pt(6)
+        self._set_shading(style.element.get_or_add_pPr(), "F0F0F0")
+        self._code_block_style = "CodeBlock"
 
     def _ensure_inline_code_style(self) -> None:
-        """Create the inline-code character style if it doesn't already exist."""
+        """Create the inline-code character style if it doesn't already exist.
+
+        A template's own ``Verbatim Char`` keeps its font unless the caller names one.
+        """
         if not self.document:
             return
 
         name = self._INLINE_CODE_CHAR_STYLE
-        if not self._has_style(name):
-            styles = self.document.styles
-            style = styles.add_style(name, self._WD_STYLE_TYPE.CHARACTER)
-            self._available_styles.add(name)
-            style.font.name = self.options.code_font
-            style.font.size = self._Pt(self.options.code_font_size)
+        if self._has_style(name):
+            self._set_named_code_font(self.document.styles[name].font)
+            return
+        style = self.document.styles.add_style(name, self._WD_STYLE_TYPE.CHARACTER)
+        self._available_styles.add(name)
+        font_name, font_size = self._code_font()
+        style.font.name = font_name
+        style.font.size = self._Pt(font_size)
+
+    def _ensure_hyperlink_style(self) -> None:
+        """Create Word's ``Hyperlink`` character style if the document lacks it.
+
+        Links are written with that style and no direct formatting. python-docx's
+        blank document does not define it, and Word draws a run whose style is
+        undefined as plain text, so links were black and not underlined.
+        """
+        if not self.document or self._has_style(self._HYPERLINK_STYLE):
+            return
+        styles = self.document.styles
+        style = styles.add_style(self._HYPERLINK_STYLE, self._WD_STYLE_TYPE.CHARACTER)
+        self._available_styles.add(self._HYPERLINK_STYLE)
+        if self._has_style("Default Paragraph Font"):
+            style.base_style = styles["Default Paragraph Font"]
+        # Word's own definition: blue, underlined, listed only once used.
+        style.font.color.rgb = self._RGBColor.from_string("0563C1")
+        style.font.underline = True
+        style.priority = 99
+        style.unhide_when_used = True
+
+    def _quote_style(self) -> str | None:
+        """Return the paragraph style for a block quote: Word's ``Quote``, else pandoc's ``Block Text``."""
+        if not self.options.use_styles:
+            return None
+        return next((name for name in self._BLOCKQUOTE_STYLES if self._has_style(name)), None)
+
+    def _table_style(self) -> str | None:
+        """Return the table style to apply: the requested one, else ``Table`` (pandoc's), else ``Table Grid``.
+
+        The requested style is a name in Word's default template; a template of
+        one's own may not define it, and a table with no style has no borders.
+        """
+        requested = self.options.table_style
+        if not requested:
+            return None
+        return next((name for name in (requested, "Table", "Table Grid") if self._has_style(name)), None)
 
     def _set_document_properties(self, metadata: dict) -> None:
         """Set document properties from metadata.
@@ -818,13 +898,12 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             # Inside a blockquote, prefer Word's "Quote" paragraph style over a raw left
             # indent: it looks right in Word and, unlike a bare indent, the parser can tell
             # it apart from a list item (#71). An explicit source_style still wins.
-            use_quote_style = (
-                self._blockquote_depth > 0 and self.options.use_styles and self._has_style(self._BLOCKQUOTE_STYLE)
-            )
+            quote_style = self._quote_style() if self._blockquote_depth > 0 else None
+            use_quote_style = quote_style is not None
             if self.options.use_styles and source_style and self._has_style(source_style):
                 self._current_paragraph = self.document.add_paragraph(style=source_style)
-            elif use_quote_style:
-                self._current_paragraph = self.document.add_paragraph(style=self._BLOCKQUOTE_STYLE)
+            elif quote_style:
+                self._current_paragraph = self.document.add_paragraph(style=quote_style)
             else:
                 self._current_paragraph = self.document.add_paragraph()
 
@@ -856,23 +935,20 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         if not self.document:
             return
 
-        # Add paragraph with code formatting
+        # The code style carries the font and shading; without styles they are direct.
         para = self.document.add_paragraph()
-
-        # Apply CodeBlock style if it exists
-        if self._has_style("CodeBlock"):
-            para.style = "CodeBlock"
-
         run = para.add_run(node.content)
-        run.font.name = self.options.code_font
-        run.font.size = self._Pt(self.options.code_font_size)
+        if self._code_block_style:
+            para.style = self._code_block_style
+        else:
+            font_name, font_size = self._code_font()
+            run.font.name = font_name
+            run.font.size = self._Pt(font_size)
+            self._set_paragraph_shading(para, "F0F0F0")
 
         # Apply blockquote indentation if inside a blockquote
         if self._blockquote_depth > 0:
             para.paragraph_format.left_indent = self._Inches(0.5 * self._blockquote_depth)
-
-        # Set paragraph background (light gray)
-        self._set_paragraph_shading(para, "F0F0F0")
 
     def _set_paragraph_shading(self, paragraph: Paragraph, color: str) -> None:
         """Set paragraph background color.
@@ -885,9 +961,19 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             Hex color code (e.g., "F0F0F0")
 
         """
-        shading_elm = self._OxmlElement("w:shd")
-        shading_elm.set(self._qn("w:fill"), color)
-        paragraph._element.get_or_add_pPr().append(shading_elm)
+        self._set_shading(paragraph._element.get_or_add_pPr(), color)
+
+    def _set_shading(self, properties: Any, color: str) -> None:
+        """Shade a paragraph's (or a paragraph style's) ``w:pPr`` with a solid fill.
+
+        ``w:shd`` goes at its place in the schema sequence, which Word holds a
+        paragraph to, and with the ``w:val`` the schema requires.
+        """
+        shading = self._OxmlElement("w:shd")
+        shading.set(self._qn("w:val"), "clear")
+        shading.set(self._qn("w:color"), "auto")
+        shading.set(self._qn("w:fill"), color)
+        properties.insert_element_before(shading, *self._PPR_AFTER_BORDERS[1:])
 
     def visit_block_quote(self, node: BlockQuote) -> None:
         """Render a BlockQuote node.
@@ -1192,8 +1278,9 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         table = self.document.add_table(rows=grid.num_rows, cols=grid.num_cols)
 
         # Apply table style if requested and available in the document
-        if self.options.table_style and self._has_style(self.options.table_style):
-            table.style = self.options.table_style
+        table_style = self._table_style()
+        if table_style:
+            table.style = table_style
 
         self._in_table = True
 
@@ -1403,10 +1490,12 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                     run.font.superscript = True
                 if subscript:
                     run.font.subscript = True
-                if code_font:
-                    run.font.name = self.options.code_font
-                    run.font.size = self._Pt(self.options.code_font_size)
-                self._apply_character_style(run, node_style)
+                # Inline code's font comes from its character style when it has one, so
+                # a template's Verbatim Char is not overridden by direct formatting.
+                if self._apply_character_style(run, node_style) != self._INLINE_CODE_CHAR_STYLE and code_font:
+                    font_name, font_size = self._code_font()
+                    run.font.name = font_name
+                    run.font.size = self._Pt(font_size)
 
             elif isinstance(node, Strong):
                 # Recursively render with bold flag
@@ -1548,15 +1637,18 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                         character_style=node_style,
                     )
 
-    def _apply_character_style(self, run: Run, style_name: str | None) -> None:
+    def _apply_character_style(self, run: Run, style_name: str | None) -> str | None:
         """Apply a named character style to a run when the template defines it.
 
         Mirrors the paragraph-level ``source_style`` handling: only acts when
         styles are enabled and the style exists in the active template, so it is
-        a silent no-op for the default (template-less) render path.
+        a silent no-op for the default (template-less) render path. Returns the
+        style applied, or None.
         """
         if style_name and self.options.use_styles and self._has_style(style_name):
             run.style = style_name
+            return style_name
+        return None
 
     def visit_text(self, node: Text) -> None:
         """Render a Text node.
@@ -1680,8 +1772,9 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         rPr = self._OxmlElement("w:rPr")
 
         # Add hyperlink style
+        self._ensure_hyperlink_style()
         r_style = self._OxmlElement("w:rStyle")
-        r_style.set(self._qn("w:val"), "Hyperlink")
+        r_style.set(self._qn("w:val"), self._HYPERLINK_STYLE)
         rPr.append(r_style)
         new_run.append(rPr)
 
@@ -2195,8 +2288,9 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             text = content
 
         run = para.add_run(text)
-        run.font.name = self.options.code_font
-        run.font.size = self._Pt(self.options.code_font_size)
+        font_name, font_size = self._code_font()
+        run.font.name = font_name
+        run.font.size = self._Pt(font_size)
 
     def visit_comment(self, node: Comment) -> None:
         """Render a Comment node (block-level).
