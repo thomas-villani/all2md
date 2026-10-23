@@ -222,12 +222,13 @@ overhead of building persistent indexes.
 Common grep-style options:
 
 * ``-i`` / ``--ignore-case`` – Perform case-insensitive matching (default: case-sensitive)
-* ``-n`` / ``--line-number`` – Show line numbers for matching lines
+* ``-n`` / ``--line-number`` – Show line numbers, counted through the document: ``N:`` marks
+  a matching line, ``N-`` a context line
 * ``-A`` / ``--after-context`` – Print N lines of trailing context
 * ``-B`` / ``--before-context`` – Print N lines of leading context
 * ``-C`` / ``--context`` – Print N lines of leading and trailing context
 * ``-e`` / ``--regex`` – Interpret query as a regular expression
-* ``-M`` / ``--max-columns`` – Maximum display width for long lines (default: 150, 0 = unlimited)
+* ``-M`` / ``--max-columns`` – Maximum display width for long lines (default: 150; 0 = unlimited)
 * ``--rich`` – Enable colorized output with match highlighting (on a terminal; plain when piped)
 * ``-r`` / ``--recursive`` – Recurse into directories when searching
 * ``--exclude`` – Glob pattern to exclude files (repeatable)
@@ -237,9 +238,20 @@ damaged or encrypted file) is skipped with a one-line warning on stderr, as ``gr
 an unreadable file, and the rest are searched. The command fails only when no input could
 be read.
 
-The grep command provides section-based output, grouping matches by document structure
-(headings, preambles) for better context. Line numbers are relative to each section when
-using ``-n``.
+What is a line? Each paragraph, list item, table row (cells joined by `` | ``), heading
+and line of code is one line, and a soft line break in a Markdown or text source starts a
+new one, so a ``.md`` file keeps its own lines. Inline code and link text are searched
+like the text around them. Blank lines are not counted. ``all2md FILE --to plaintext``
+shows the same text, with blank lines between blocks.
+
+Matches are grouped by document and then by section (the text before the first heading is
+``(preamble)``). Context from ``-A``/``-B``/``-C`` stays within a section, and with context
+on, ``--`` separates runs of lines that are not adjacent, as in ``grep``.
+
+The exit status follows ``grep``: ``0`` when a line matched, ``1`` when none did (nothing
+is printed), and ``2`` or more on an error, for example ``3`` for an invalid regular
+expression. So ``if all2md grep -i "indemnif" contract.pdf > /dev/null; then ...`` works in
+a script.
 
 Diff Command
 ------------
@@ -5825,7 +5837,7 @@ Common Exit Codes
 The CLI provides granular exit codes for automation and scripting:
 
 * ``0`` - Success
-* ``1`` - General/unexpected error
+* ``1`` - General/unexpected error (for ``all2md grep``, no line matched)
 * ``2`` - Missing dependency error
 * ``3`` - Validation error (invalid arguments)
 * ``4`` - File error (not found, permission denied, malformed)
