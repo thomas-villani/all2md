@@ -63,7 +63,7 @@ def test_build_entry_command_edit_and_serve_use_console() -> None:
     edit = context_menu._build_entry_command(context_menu._ENTRIES["edit"], launchers)
     assert edit == (r'"C:\bin\all2md.exe" edit "%1"', False)
     serve = context_menu._build_entry_command(context_menu._ENTRIES["serve"], launchers)
-    assert serve == (r'"C:\bin\all2md.exe" serve "%V"', False)
+    assert serve == (r'"C:\bin\all2md.exe" view "%V"', False)
 
 
 def test_build_entry_command_edit_requires_console() -> None:
@@ -206,7 +206,7 @@ def test_registry_round_trip(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) ->
         # The serve entry is a directory entry with a folder command and no AppliesTo.
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, serve_entry.command_key) as cmd:
             serve_command = winreg.QueryValueEx(cmd, "")[0]
-        assert serve_command == f'"{fake_c}" serve "%V"'
+        assert serve_command == f'"{fake_c}" view "%V"'
     finally:
         context_menu._uninstall()
 

@@ -84,7 +84,7 @@ all2md read handbook.pdf
 all2md read docs/            # choose from the documents in a folder
 ```
 
-When you would rather have a browser, `all2md view report.docx` opens a styled HTML preview, `all2md serve ./docs -r` serves a whole folder with on-demand conversion, and `all2md edit notes.md` opens a browser editor that saves back to the file.
+When you would rather have a browser, `all2md view report.docx` opens a styled HTML preview, `all2md view ./docs -r` browses a whole folder with on-demand conversion, and `all2md edit notes.md` opens a browser editor that saves back to the file.
 
 Styling needs the `cli_extras` extra and the viewer needs `tui`; `all2md[all]` includes both. More in the [viewer documentation](https://all2md.readthedocs.io/en/latest/viewer.html).
 

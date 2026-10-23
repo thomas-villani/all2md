@@ -723,7 +723,7 @@ budget and can otherwise cut a table mid-row; these flags give you control:
    all2md chunk report.pdf --attachment-mode skip
 
 ``all2md chunk`` also reads converter settings from a config file (the same ``[pdf]``,
-``[html]``, and top-level keys used by ``all2md``/``view``/``serve``), honoring
+``[html]``, and top-level keys used by ``all2md`` and ``view``), honoring
 ``--config``/``--no-config``. ``--attachment-mode`` overrides the config value.
 
 Tokenizer
@@ -2168,7 +2168,7 @@ minimal HTML shell that provides the ``{TITLE}``/``{CONTENT}`` placeholders:
 .. code-block:: bash
 
    all2md view document.pdf --theme ./my-styles.css
-   all2md serve ./docs --theme ./my-styles.css
+   all2md view ./docs --theme ./my-styles.css
 
 **Named themes via configuration:**
 
@@ -2186,9 +2186,9 @@ point at ``.html`` templates or ``.css`` files:
 
    # Resolve the registered name
    all2md view report.pdf --theme corporate
-   all2md serve ./docs --theme brand
+   all2md view ./docs --theme brand
 
-You can also set a default theme per command via the ``[view]``/``[serve]`` sections
+You can also set a default theme for ``view`` in its ``[view]`` section
 (``theme = "corporate"``).
 
 Examples
@@ -2667,477 +2667,29 @@ on 1-based output lines and honor ``--line-numbers``:
 These are mutually exclusive with each other and with
 ``--extract``/``--outline``/``--split-by``/``--slice``.
 
-Document Serving
-----------------
-
-The ``all2md serve`` command provides an HTTP server for browsing documents locally with instant on-demand conversion. This is useful for exploring large document collections, sharing documents on a local network, or developing with live document preview.
-
-.. code-block:: bash
-
-   all2md serve FILE_OR_DIRECTORY [OPTIONS]
-
-Basic Usage
-~~~~~~~~~~~
-
-Serve a single document:
-
-.. code-block:: bash
-
-   # Serve a PDF file
-   all2md serve document.pdf
-
-   # Serve a Markdown file
-   all2md serve README.md
-
-Serve all documents in a directory:
-
-.. code-block:: bash
-
-   # Serve all documents in current directory
-   all2md serve .
-
-   # Serve documents in docs folder
-   all2md serve ./docs
-
-   # Serve documents recursively (includes subdirectories)
-   all2md serve ./docs --recursive
-
-The command will:
-
-1. Scan the directory for supported document formats
-2. Generate an index page with links to all documents (with ``--recursive``, each subdirectory gets its own index page with breadcrumb navigation)
-3. Start an HTTP server (default: http://127.0.0.1:8000/)
-4. Convert documents on-demand when requested (lazy loading)
-5. Cache converted HTML for faster subsequent requests
-
-Arguments
-~~~~~~~~~
-
-**Required Arguments:**
-
-``FILE_OR_DIRECTORY``
-   Path to a file or directory to serve. When serving a directory, creates an index page with all supported documents. Supports all formats that all2md can convert.
-
-**Optional Arguments:**
-
-``--port PORT``
-   Port to serve on. Default: ``8000``. If the requested port is unavailable
-   (already in use, or access denied), the server automatically binds an
-   OS-assigned random free port instead and prints the actual URL, rather than
-   failing.
-
-   .. code-block:: bash
-
-      # Serve on port 9000
-      all2md serve ./docs --port 9000
-
-``--host HOST``
-   Host address to bind to. Default: ``127.0.0.1`` (localhost only).
-
-   .. code-block:: bash
-
-      # Allow access from local network
-      all2md serve ./docs --host 0.0.0.0
-
-      # Localhost only (default)
-      all2md serve ./docs --host 127.0.0.1
-
-``--browse``
-   Open the served URL in your default web browser once the server has started.
-   When bound to a wildcard host (e.g. ``0.0.0.0``), the browser is pointed at
-   ``127.0.0.1``.
-
-   .. code-block:: bash
-
-      # Serve and open in the browser
-      all2md serve ./docs --browse
-
-``-r``, ``--recursive``
-   Recursively serve subdirectories. When enabled, scans all nested folders for documents and generates a per-subdirectory index page for each folder. Each index lists immediate files and child directories, with breadcrumb navigation (e.g., ``Home > reports > 2026``) for easy traversal of the directory tree.
-
-   .. code-block:: bash
-
-      # Serve only immediate directory
-      all2md serve ./docs
-
-      # Serve all subdirectories recursively (with breadcrumb navigation)
-      all2md serve ./docs --recursive
-
-``--toc``
-   Include an automatically generated table of contents in converted documents.
-
-   .. code-block:: bash
-
-      # Serve with table of contents
-      all2md serve ./docs --toc
-
-``--dark``
-   Use the dark mode theme. Quick shortcut for ``--theme dark``.
-
-   .. code-block:: bash
-
-      # Serve with dark theme
-      all2md serve ./docs --dark
-
-``--theme THEME``
-   Specify a theme for HTML output. ``THEME`` may be a built-in theme name, a custom
-   ``.html`` template, a plain ``.css`` file, or a name registered in a ``[themes]``
-   configuration table (see :ref:`custom-themes`).
-
-   **Built-in themes:**
-
-   * ``minimal`` (default) - Clean, centered layout
-   * ``dark`` - Dark mode with VS Code colors
-   * ``newspaper`` - Classic newspaper style
-   * ``docs`` - GitHub-style documentation
-   * ``sidebar`` - Two-column layout with TOC
-
-   .. code-block:: bash
-
-      # Use newspaper theme
-      all2md serve ./articles --theme newspaper
-
-      # Use custom theme
-      all2md serve ./docs --theme /path/to/theme.html
-
-``--no-mermaid``
-   Disable client-side rendering of ``mermaid`` code blocks as diagrams (loaded
-   from a CDN, on by default). See the note under the ``view`` command's options.
-
-``--no-syntax-highlight``
-   Disable client-side syntax highlighting of code blocks and source files (highlight.js
-   loaded from a CDN, on by default).
-
-.. note::
-
-   The directory index lists only files all2md can convert. It offers an aligned
-   **table** view (default) and a **card** view; the toggle is remembered per browser.
-
-``--enable-upload``
-   Enable file upload form at ``/upload`` route. This provides a web interface for uploading and converting documents. **For development use only - do not expose to untrusted networks.**
-
-   .. code-block:: bash
-
-      # Enable upload form
-      all2md serve ./docs --enable-upload
-
-   When enabled, a link to the upload page appears in the directory index.
-
-``--enable-api``
-   Enable REST API endpoint at ``/api/convert``. Accepts document uploads and returns converted output in the requested format. **For development use only - do not expose to untrusted networks.**
-
-   .. code-block:: bash
-
-      # Enable REST API
-      all2md serve ./docs --enable-api
-
-      # Enable both upload form and API
-      all2md serve ./docs --enable-upload --enable-api
-
-``--max-upload-size SIZE``
-   Maximum upload file size in megabytes. Default: ``50`` MB. Only applies when ``--enable-upload`` or ``--enable-api`` is enabled.
-
-   .. code-block:: bash
-
-      # Allow uploads up to 100MB
-      all2md serve ./docs --enable-upload --max-upload-size 100
-
-      # Restrict to 10MB
-      all2md serve . --enable-api --max-upload-size 10
-
-``--no-cache``
-   Disable caching and always render fresh content on every request. Useful for live editing when you want to see changes without restarting the server.
-
-   .. code-block:: bash
-
-      # Serve with live reload (no caching)
-      all2md serve document.md --no-cache
-
-      # Serve directory with live updates
-      all2md serve ./docs --no-cache --recursive
-
-   **When to use:**
-
-   * **Live editing**: See document changes immediately without restarting
-   * **Development**: Watch for file additions/removals in directories
-   * **Testing**: Verify conversion behavior with frequently changing inputs
-
-   **Performance note**: Disabling cache means documents are re-converted on every request, which may be slower for large files or complex conversions.
-
-``--poll-interval SECONDS``
-   Seconds between background directory rescans. When serving a directory, a daemon thread periodically rescans for added, removed, or modified files; if the file set changes, the cached index page is invalidated so the next visit reflects the new contents. Default: ``2.0``. Set to ``0`` to disable polling (the index then only updates on server restart or when ``--no-cache`` is in effect). No-op in single-file mode.
-
-   .. code-block:: bash
-
-      # Faster pickup of new files (1s polling)
-      all2md serve ./drafts --poll-interval 1
-
-      # Disable polling entirely (static directory)
-      all2md serve ./archive --poll-interval 0
-
-``--force-auto-index``
-   Always render the auto-generated directory listing, even when an ``index.html``, ``index.md``, or ``README.md`` file is present in the directory being served. See :ref:`serve-index-files` below for the default behavior.
-
-   .. code-block:: bash
-
-      # Ignore the repo's README.md and show the file listing instead
-      all2md serve . --recursive --force-auto-index
-
-.. _serve-index-files:
-
-Index Files
-~~~~~~~~~~~
-
-When a request resolves to a directory, ``all2md serve`` first looks for an index file in that directory and, if one is present, renders it through the current theme instead of generating a file listing. Candidate names (case-insensitive, in priority order):
-
-#. ``index.html``
-#. ``index.htm``
-#. ``index.md``
-#. ``README.md``
-
-This applies to every directory the server can reach — root and subdirectories alike — so you can drop a ``README.md`` into any folder to get a hand-authored landing page. Recurse-mode (``--recursive``) is fully supported: each subdirectory can have its own index file, and the auto-generated listing is used wherever no index file exists.
-
-Pass ``--force-auto-index`` to opt out and always show the generated listing.
-
-Examples
-~~~~~~~~
-
-**Basic Serving:**
-
-.. code-block:: bash
-
-   # Serve current directory on default port
-   all2md serve .
-
-   # Serve specific directory with dark theme
-   all2md serve ./documents --dark
-
-   # Serve on custom port
-   all2md serve ./docs --port 8080
-
-**Recursive Directory Serving:**
-
-.. code-block:: bash
-
-   # Serve entire documentation tree
-   all2md serve ./docs --recursive --toc
-
-   # Serve with sidebar theme
-   all2md serve ./manual --recursive --theme sidebar --toc
-
-   # Serve on local network with custom port
-   all2md serve ./shared-docs --recursive --host 0.0.0.0 --port 9000
-
-**Network Sharing:**
-
-.. code-block:: bash
-
-   # Share on local network (accessible to other devices)
-   all2md serve ./team-docs --host 0.0.0.0 --port 8000
-
-   # Then access from other devices at http://YOUR_IP:8000
-
-**Development Features:**
-
-.. code-block:: bash
-
-   # Enable upload form for testing conversions
-   all2md serve . --enable-upload
-
-   # Enable REST API for integration testing
-   all2md serve . --enable-api --max-upload-size 100
-
-   # Enable both with custom theme
-   all2md serve ./test-docs --enable-upload --enable-api --theme docs
-
-   # Development server with all features
-   all2md serve . --enable-upload --enable-api --recursive --toc --dark
-
-**Live Editing (No Cache):**
-
-.. code-block:: bash
-
-   # Edit and see changes immediately
-   all2md serve README.md --no-cache
-
-   # Watch directory for new files and changes
-   all2md serve ./docs --no-cache --recursive
-
-   # Live editing with dark theme and TOC
-   all2md serve ./documentation --no-cache --dark --toc
-
-   # Development workflow with live reload
-   all2md serve . --no-cache --theme docs --recursive
-
-Performance
-~~~~~~~~~~~
-
-The serve command uses lazy loading for optimal performance:
-
-* **Startup:** Instant - only scans filenames and creates index
-* **First request:** Converts document on-demand
-* **Subsequent requests:** Served from in-memory cache (instant)
-* **Concurrency:** Requests are handled on per-connection threads, so a slow conversion doesn't block other visitors
-* **Memory:** Efficient - only caches accessed documents
-* **Live updates:** A background poller (``--poll-interval``, default 2.0s) rescans the directory; when files appear, disappear, or change, the cached index page is invalidated so the next visit picks up the new state without needing ``--no-cache``
-
-This makes it practical to serve directories with hundreds or thousands of documents.
-
-**With ``--no-cache`` flag:**
-
-* **Every request:** Re-converts document from source
-* **Directory index:** Re-scans for new/removed files on each root request (background polling is skipped)
-* **Memory:** Minimal - no caching
-* **Use case:** Live editing of file *contents* (the regular cached mode already picks up added/removed files via polling)
-
-The ``--no-cache`` mode trades performance for live updates, making it ideal for active development but slower for large files or frequent requests.
-
-Use Cases
-~~~~~~~~~
-
-**Local Documentation Server:**
-
-.. code-block:: bash
-
-   # Serve your project's documentation
-   all2md serve ./docs --recursive --theme docs --toc
-
-**Document Collection Browser:**
-
-.. code-block:: bash
-
-   # Browse a collection of PDFs, Word docs, etc.
-   all2md serve ~/Documents/reports --recursive
-
-**Team Document Sharing:**
-
-.. code-block:: bash
-
-   # Share documents on local network
-   all2md serve ./shared --host 0.0.0.0 --recursive
-
-**Development Preview:**
-
-.. code-block:: bash
-
-   # Live preview while editing documents (cached)
-   all2md serve . --dark
-
-   # Live editing with instant updates (no cache)
-   all2md serve . --no-cache --dark
-
-**Live Editing Workflow:**
-
-.. code-block:: bash
-
-   # Edit documentation and see changes immediately
-   all2md serve ./docs --no-cache --recursive --theme docs
-
-   # Watch for new files in directory
-   all2md serve ./drafts --no-cache
-
-Development Features
-~~~~~~~~~~~~~~~~~~~~
-
-The serve command includes optional file upload and REST API capabilities for development and testing. These features are **disabled by default** and should only be enabled in trusted environments.
-
-.. warning::
-
-   The upload and API features are for **development use only**. Do not expose them to untrusted networks or use in production environments. When enabled, a security warning is displayed at server startup.
-
-**File Upload Form**
-
-Enable the web-based upload form at ``http://127.0.0.1:8000/upload``:
-
-.. code-block:: bash
-
-   # Enable upload form
-   all2md serve ./docs --enable-upload
-
-   # With custom upload size limit
-   all2md serve . --enable-upload --max-upload-size 100
-
-The upload form provides:
-
-* Web interface matching the selected theme
-* Support for all input formats (PDF, DOCX, HTML, etc.)
-* Conversion to any supported output format (Markdown, HTML, PDF, etc.)
-* Immediate download of converted documents
-* File size validation before processing
-
-**REST API**
-
-Enable the REST API endpoint at ``http://127.0.0.1:8000/api/convert``:
-
-.. code-block:: bash
-
-   # Enable REST API
-   all2md serve . --enable-api
-
-   # Enable both features
-   all2md serve . --enable-upload --enable-api --max-upload-size 50
-
-**API Usage Examples:**
-
-Using curl with multipart/form-data:
-
-.. code-block:: bash
-
-   # Convert PDF to Markdown
-   curl -X POST http://127.0.0.1:8000/api/convert \
-     -F "file=@document.pdf" \
-     -F "format=markdown" \
-     -o output.md
-
-   # Convert DOCX to HTML
-   curl -X POST http://127.0.0.1:8000/api/convert \
-     -F "file=@report.docx" \
-     -F "format=html" \
-     -o output.html
-
-Using curl with JSON (base64):
-
-.. code-block:: bash
-
-   # Prepare base64-encoded file
-   base64_content=$(base64 -w 0 document.pdf)
-
-   # Send request
-   curl -X POST http://127.0.0.1:8000/api/convert \
-     -H "Content-Type: application/json" \
-     -d "{\"file\": \"$base64_content\", \"format\": \"markdown\"}" \
-     -o output.md
-
-**Supported Output Formats:**
-
-The API supports conversion to: ``html``, ``markdown``, ``pdf``, ``docx``, ``epub``, ``odt``, ``rtf``, ``latex``, ``asciidoc``, ``rst``, ``org``, ``mediawiki``, ``dokuwiki``, ``textile``, ``json``, ``yaml``, ``toml``, ``ini``, ``csv``, ``plaintext``, and more.
-
-**Security Considerations:**
-
-* Only enable in trusted development environments
-* Use ``--host 127.0.0.1`` (default) to restrict to localhost
-* Set appropriate ``--max-upload-size`` limits
-* Monitor server output for suspicious activity
-* Never expose to public networks or production environments
-
-Notes
-~~~~~
-
-* Documents are converted on first access and cached in memory
-* The server runs until interrupted with Ctrl+C (shutdown is now prompt — no need to nudge it with another request)
-* Unsupported file types are automatically excluded from the index
-* Directory index shows file sizes and organizes by subdirectory
-* A directory containing an ``index.html``, ``index.md``, or ``README.md`` is rendered through the theme instead of an auto-generated listing (override with ``--force-auto-index``)
-* New, removed, or modified files in a served directory are picked up automatically by a background poller (configurable via ``--poll-interval``)
-* All conversion errors are shown in the console and as HTTP 500 responses
-* Requests are handled on per-connection threads, suitable for local use and small teams
-
-See Also
-~~~~~~~~
-
-- :doc:`python_api` - For programmatic HTTP server integration
-- ``all2md view`` - For single-file browser preview
-- ``all2md --help`` - Built-in help
+Document Serving (deprecated)
+-----------------------------
+
+``all2md serve`` is deprecated: ``all2md view`` on a folder or a glob pattern does what it
+did (see :ref:`view-folders`). ``serve`` still works in 1.18 and prints a note saying so;
+it will be removed in the next release.
+
+Moving a ``serve`` command line to ``view``:
+
+* ``all2md serve ./docs --browse`` becomes ``all2md view ./docs``. ``view`` opens the
+  browser itself.
+* ``view`` lists every document by default. Where ``serve`` showed a folder's
+  ``index.html``, ``index.md`` or ``README.md``, pass ``--index-page``, and drop
+  ``--force-auto-index``.
+* ``--recursive``, ``--include-hidden``, ``--port``, ``--host``, ``--poll-interval``,
+  ``--theme``, ``--dark``, ``--toc``, ``--no-mermaid`` and ``--no-syntax-highlight`` carry
+  over unchanged. ``--address HOST:PORT`` becomes ``--host HOST --port PORT``.
+* A ``[serve]`` section in a configuration file becomes ``[view]``.
+
+The upload form (``--enable-upload``), the ``/api/convert`` endpoint (``--enable-api``)
+and ``--max-upload-size`` were removed in 1.18; ``serve`` now refuses them with an
+explanation. To convert documents from another program, use the :doc:`python_api` or
+``all2md mcp``.
 
 Document Editing
 ----------------
@@ -3316,8 +2868,7 @@ Security Notes
 See Also
 ~~~~~~~~
 
-- ``all2md serve`` - Read-only browser preview of a directory of documents
-- ``all2md view`` - One-shot single-file browser preview
+- ``all2md view`` - Read-only browser preview of a document, or of a folder of documents
 - :doc:`python_api` - For programmatic conversion (no editor)
 
 Global Options
@@ -6193,11 +5744,13 @@ On Windows, ``all2md context-menu`` manages per-user right-click shell entries
 
 * **View with all2md** — on files; opens the document in the browser preview.
 * **Edit with all2md** — on files; opens the in-browser editor (``all2md edit``).
-* **Serve with all2md** — on folders; serves the directory (``all2md serve``).
+* **View folder with all2md** — on folders; browses the folder (``all2md view``).
 
 ``install`` registers the View entry by default. Add ``--edit`` and/or
-``--serve`` to install those entries too, or ``--all`` for all three. (The Edit
-and Serve entries require the ``all2md`` console launcher on PATH.)
+``--serve`` (the folder entry; the flag keeps its name) to install those entries
+too, or ``--all`` for all three. (The Edit and folder entries require the
+``all2md`` console launcher on PATH. A folder entry installed before 1.18 runs the
+deprecated ``all2md serve``; install it again to switch it to ``view``.)
 
 .. code-block:: bash
 
