@@ -67,8 +67,9 @@ written against tools that do what it says:
   (#615, #645), are done.
 - **`all2md view`** shows what it drops today: footnotes, math, relative images, and DOCX
   images.
-- **`all2md grep`** becomes line-based: `-A`/`-B`/`-C` and `-n` work, `-M 0` does not
-  truncate, no match exits non-zero, and headings and code spans are searched.
+- ✅ **`all2md grep`** is line-based: `-A`/`-B`/`-C` and `-n` work, `-M 0` does not
+  truncate, no match exits 1, and headings, code spans and code blocks are searched
+  (#649), with `-q`, `-l`, `-c`, `-v` and `-w` (#650).
 - **Gate the PMC lane on fidelity when its exit criterion is met.** The criterion, written
   2026-08-13, is two consecutive *scheduled* runs that open no new defect issue. The
   2026-10-15 run is the first; the 2026-11-15 run can be the second.

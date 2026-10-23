@@ -10,9 +10,8 @@ from pathlib import Path
 from typing import cast
 
 from all2md.api import to_ast
-from all2md.ast.nodes import Document
+from all2md.ast.nodes import Document, Node
 from all2md.ast.sections import get_all_sections, get_preamble
-from all2md.ast.utils import extract_text
 from all2md.constants import DocumentFormat
 from all2md.exceptions import All2MdError
 from all2md.options.search import SearchOptions
@@ -395,6 +394,8 @@ class SearchService:
                 ignore_case=self.options.grep_ignore_case,
                 show_line_numbers=self.options.grep_show_line_numbers,
                 max_columns=self.options.grep_max_columns,
+                word_regexp=self.options.grep_word_regexp,
+                invert_match=self.options.grep_invert_match,
             )
         # Fallback to chunk-based grep for backward compatibility
         return _match_lines(
@@ -605,6 +606,38 @@ def _truncate_to_match(
     return result, adjusted_spans
 
 
+def grep_document_label(doc_input: SearchDocumentInput) -> str:
+    """Return the name grep shows for a document: its path, or ``(standard input)`` as grep says."""
+    if isinstance(doc_input.source, Path):
+        return doc_input.source.as_posix()
+    if isinstance(doc_input.source, bytes):
+        return "(standard input)"
+    return str(doc_input.source)
+
+
+def _grep_lines(nodes: Sequence[Node]) -> list[str]:
+    """Return the text of ``nodes`` as grep searches it, one block per line.
+
+    The plain-text renderer writes a paragraph, a list item, a table row or a line of
+    code per line, and keeps inline code and link text, so every line is something a
+    reader can find again. A soft line break also starts a line, so a Markdown or text
+    source keeps its own lines. Lines are not wrapped, and blank lines are dropped.
+    """
+    from all2md.ast.nodes import LineBreak
+    from all2md.options.plaintext import PlainTextOptions
+    from all2md.renderers.plaintext import PlainTextRenderer
+
+    class _LineRenderer(PlainTextRenderer):
+        def visit_line_break(self, node: LineBreak) -> None:
+            self._output.append("\n")
+
+    if not nodes:
+        return []
+    options = PlainTextOptions(max_line_width=None, preserve_blank_lines=False)
+    rendered = _LineRenderer(options).render_to_string(Document(children=list(nodes)))
+    return [line for line in rendered.splitlines() if line.strip()]
+
+
 def _grep_ast_documents(
     documents: Sequence[tuple[Document, SearchDocumentInput]],
     query: str,
@@ -615,11 +648,14 @@ def _grep_ast_documents(
     ignore_case: bool = False,
     show_line_numbers: bool = False,
     max_columns: int = 0,
+    word_regexp: bool = False,
+    invert_match: bool = False,
 ) -> list[SearchResult]:
-    """Search directly through AST documents for grep-style matching.
+    """Search documents line by line, grep-style, returning one result per section with matches.
 
-    This function bypasses chunking and searches the AST structure directly,
-    providing clean section-based results.
+    A document's lines are its plain text (see :func:`_grep_lines`): its preamble, then
+    each section's heading and body. Line numbers count those lines through the whole
+    document, and context (``context_before``/``context_after``) stays within a section.
 
     Parameters
     ----------
@@ -639,6 +675,10 @@ def _grep_ast_documents(
         Whether to show line numbers for matching lines
     max_columns : int, default = 0
         Maximum display width for long lines (0 = unlimited)
+    word_regexp : bool, default = False
+        Whether a match must be a whole word: no word character on either side
+    invert_match : bool, default = False
+        Whether to select the lines that do not match instead
 
     Returns
     -------
@@ -647,60 +687,49 @@ def _grep_ast_documents(
 
     """
     matches: list[SearchResult] = []
-    pattern = re.compile(query, re.IGNORECASE if ignore_case else 0) if regex else None
+    pattern: re.Pattern[str] | None = None
+    if regex or word_regexp:
+        body = query if regex else re.escape(query)
+        if word_regexp:
+            body = rf"(?<!\w)(?:{body})(?!\w)"
+        pattern = re.compile(body, re.IGNORECASE if ignore_case else 0)
     lowered_query = query.lower() if ignore_case else query
 
     for doc, doc_input in documents:
-        document_path = doc_input.source.as_posix() if isinstance(doc_input.source, Path) else str(doc_input.source)
+        document_path = grep_document_label(doc_input)
         document_id = doc_input.document_id or document_path
 
-        # Process preamble (content before first heading)
-        preamble_nodes = get_preamble(doc)
-        if preamble_nodes:
-            preamble_text = extract_text(preamble_nodes)
-            section_matches = _search_text_block(
-                text=preamble_text,
-                query=query,
-                lowered_query=lowered_query,
-                pattern=pattern,
-                section_heading=None,
-                document_path=document_path,
-                document_id=document_id,
-                context_before=context_before,
-                context_after=context_after,
-                ignore_case=ignore_case,
-                show_line_numbers=show_line_numbers,
-                max_columns=max_columns,
-            )
-            matches.extend(section_matches)
+        blocks: list[tuple[str | None, list[str]]] = [(None, _grep_lines(get_preamble(doc)))]
+        for section in get_all_sections(doc):
+            blocks.append((section.get_heading_text(), _grep_lines([section.heading, *section.content])))
 
-        # Process each section
-        sections = get_all_sections(doc)
-        for section in sections:
-            heading_text = section.get_heading_text()
-            body_text = extract_text(list(section.content))
-
-            section_matches = _search_text_block(
-                text=body_text,
-                query=query,
-                lowered_query=lowered_query,
-                pattern=pattern,
-                section_heading=heading_text,
-                document_path=document_path,
-                document_id=document_id,
-                context_before=context_before,
-                context_after=context_after,
-                ignore_case=ignore_case,
-                show_line_numbers=show_line_numbers,
-                max_columns=max_columns,
+        first_line = 1
+        for section_heading, lines in blocks:
+            matches.extend(
+                _search_text_block(
+                    lines=lines,
+                    query=query,
+                    lowered_query=lowered_query,
+                    pattern=pattern,
+                    section_heading=section_heading,
+                    document_path=document_path,
+                    document_id=document_id,
+                    context_before=context_before,
+                    context_after=context_after,
+                    ignore_case=ignore_case,
+                    show_line_numbers=show_line_numbers,
+                    max_columns=max_columns,
+                    first_line=first_line,
+                    invert_match=invert_match,
+                )
             )
-            matches.extend(section_matches)
+            first_line += len(lines)
 
     return matches
 
 
 def _search_text_block(
-    text: str,
+    lines: list[str],
     query: str,
     lowered_query: str,
     pattern: re.Pattern[str] | None,
@@ -712,13 +741,15 @@ def _search_text_block(
     ignore_case: bool,
     show_line_numbers: bool,
     max_columns: int,
+    first_line: int = 1,
+    invert_match: bool = False,
 ) -> list[SearchResult]:
-    """Search a text block and return matches with context.
+    """Search one section's lines and return its matches with context.
 
     Parameters
     ----------
-    text : str
-        Text to search
+    lines : list[str]
+        The section's lines
     query : str
         Search query
     lowered_query : str
@@ -738,17 +769,20 @@ def _search_text_block(
     ignore_case : bool
         Whether to perform case-insensitive matching
     show_line_numbers : bool
-        Whether to show line numbers for matching lines
+        Whether to prefix lines with their number: ``N: `` for a match, ``N- `` for context
     max_columns : int
         Maximum display width for long lines (0 = unlimited)
+    first_line : int, default = 1
+        The number of the section's first line within its document
+    invert_match : bool, default = False
+        Whether to select the lines that do not match instead
 
     Returns
     -------
     list[SearchResult]
-        Matches found in this text block
+        Matches found in this section
 
     """
-    lines = text.splitlines()
     if not lines:
         return []
 
@@ -759,13 +793,20 @@ def _search_text_block(
         if spans:
             line_spans[idx] = spans
 
+    # Inverted, the selected lines are the ones without a match, and nothing is highlighted.
+    if invert_match:
+        line_spans = {idx: [] for idx in range(len(lines)) if idx not in line_spans}
+
     if not line_spans:
         return []
 
-    # Build result with context
+    # Build result with context; with context on, "--" separates runs of lines that
+    # are not adjacent, as grep does.
+    separate = context_before > 0 or context_after > 0
     matched_indices = sorted(line_spans.keys())
     fragment_lines: list[str] = []
     included: set[int] = set()
+    last_included = -1
 
     for idx in matched_indices:
         start = max(0, idx - context_before)
@@ -773,28 +814,30 @@ def _search_text_block(
         for line_idx in range(start, end):
             if line_idx in included:
                 continue
+            if separate and fragment_lines and line_idx > last_included + 1:
+                fragment_lines.append("--")
             is_match = line_idx in line_spans
             line_text = lines[line_idx]
             line_spans_to_use = line_spans.get(line_idx) if is_match else None
 
-            # Truncate long lines
-            truncate_threshold = max_columns if max_columns > 0 else 200
-            if len(line_text) > truncate_threshold and is_match:
-                line_text, line_spans_to_use = _truncate_to_match(
-                    line_text, line_spans[line_idx], max_length=max_columns
-                )
-            elif len(line_text) > truncate_threshold:
-                max_len = max_columns if max_columns > 0 else 197
-                line_text = line_text[:max_len] + "..."
+            # Truncate long lines (0 = unlimited)
+            if max_columns > 0 and len(line_text) > max_columns:
+                if is_match:
+                    line_text, line_spans_to_use = _truncate_to_match(
+                        line_text, line_spans[line_idx], max_length=max_columns
+                    )
+                else:
+                    line_text = line_text[: max(max_columns - 3, 0)] + "..."
 
             highlighted = _highlight_line(line_text, line_spans_to_use)
 
-            # Add line numbers if requested
+            # Add line numbers if requested, marking context lines as grep does
             if show_line_numbers:
-                highlighted = f"{line_idx + 1}: {highlighted}"
+                highlighted = f"{first_line + line_idx}{':' if is_match else '-'} {highlighted}"
 
             fragment_lines.append(highlighted)
             included.add(line_idx)
+            last_included = line_idx
 
     snippet = "\n".join(fragment_lines)
 
