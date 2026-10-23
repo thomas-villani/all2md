@@ -1255,8 +1255,8 @@ class TestMathExtraction:
         math_nodes = extract_nodes(ast_doc, MathBlock)
         assert math_nodes, "Expected at least one MathBlock from math fixture"
 
+        assert math_nodes[0].content.startswith(r"e^{\pi i}")
         content = math_nodes[0].content.replace(" ", "")
-        assert content.startswith("e^{πi}")
         assert "=-1" in content
         assert math_nodes[0].notation == "latex"
         assert math_nodes[0].representations["latex"].replace(" ", "") == content

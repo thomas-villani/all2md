@@ -34,7 +34,7 @@
   "facts": {
     "math": {
       "unicodemath": "x=(-b±√(b^2-4ac))/(2a)",
-      "expected_latex": "x=\\frac{-b±\\sqrt{b^{2}-4ac}}{2a}",
+      "expected_latex": "x=\\frac{-b\\pm\\sqrt{b^{2}-4ac}}{2a}",
       "encoding": "bare m:oMath child of w:p",
       "oMathPara": false,
       "display": true,

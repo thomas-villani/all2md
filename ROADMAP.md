@@ -321,9 +321,9 @@ equation and table fixes it drove (v1.14.0); the DOCX lane, its defect stream, t
 oracle audit, the heading measure and the table diagnosis (v1.15.0).
 
 - 🌱 **PDF → DOCX fidelity** — the next batch; see **Next**.
-- 🚀 **Math support** — coverage, not existence: OMML → LaTeX already exists in the DOCX
-  parser (fractions, scripts, radicals and n-ary correct; matrices, delimiters and accents
-  degrade). PDF equation regions are isolated and de-emphasised since v1.14.0 but their
+- 🚀 **Math support** — coverage, not existence: DOCX math is covered both ways (the
+  renderer writes Word equations, #641, and the parser reads every OMML structure Word
+  builds back as LaTeX, round trip tested against the renderer). PDF equation regions are isolated and de-emphasised since v1.14.0 but their
   sub- and superscripts are not reconstructed. Neither external lane can grade it:
   OmniDocBench's formula pages are rasters and PMC's JATS records MathML the page never
   prints. The instrument is an **arXiv lane**: arXiv's own LaTeXML HTML as truth beside
