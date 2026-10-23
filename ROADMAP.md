@@ -64,8 +64,9 @@ written against tools that do what it says:
   math as Word equations read back as LaTeX (#641, #643), and alerts with a label and a
   colored bar and thematic breaks as rules (#644) are done; next reference templates
   beyond the fonts #615 fixed.
-- **`all2md view`** shows what it drops today: footnotes, math, relative images, and DOCX
-  images.
+- ✅ **`all2md view`** shows what it dropped: footnotes, math, relative images, and DOCX
+  images (#646). `serve` still misses relative images; embedding them there waits on
+  a design limited to the served folder, since `serve` accepts uploads.
 - **`all2md grep`** becomes line-based: `-A`/`-B`/`-C` and `-n` work, `-M 0` does not
   truncate, no match exits non-zero, and headings and code spans are searched.
 - **Gate the PMC lane on fidelity when its exit criterion is met.** The criterion, written
