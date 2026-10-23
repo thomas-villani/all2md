@@ -147,6 +147,17 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
     # built-in present in the default template.
     _INLINE_CODE_CHAR_STYLE = "Verbatim Char"
     _BLOCKQUOTE_STYLE = "Quote"
+    # An alert (``> [!NOTE]``) or admonition is a quote with a bold label and a bar down
+    # its left side, in GitHub's alert colors. Other admonition kinds (reST, MkDocs,
+    # AsciiDoc) take the color of the GitHub alert nearest in meaning.
+    _ALERT_COLORS = {"note": "0969DA", "tip": "1A7F37", "important": "8250DF", "warning": "9A6700", "caution": "CF222E"}
+    _ALERT_KINDS = {
+        **dict.fromkeys(("info", "abstract", "summary", "tldr", "seealso", "todo"), "note"),
+        **dict.fromkeys(("hint", "success", "check", "done"), "tip"),
+        **dict.fromkeys(("question", "help", "faq", "example"), "important"),
+        **dict.fromkeys(("attention",), "warning"),
+        **dict.fromkeys(("danger", "error", "failure", "fail", "missing", "bug"), "caution"),
+    }
     # Word's built-in caption style, the one Insert Caption applies. The parser pairs a
     # paragraph in it with the figure or table beside it, so a caption written in it
     # comes back a caption rather than an italic paragraph.
@@ -887,8 +898,23 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             Block quote to render
 
         """
+        metadata = node.metadata or {}
+        kind = str(metadata.get("admonition_type") or "").lower()
+        # In a table cell the quote's paragraphs merge into the cell's, so there is
+        # nothing to draw a bar beside; the content is written as before.
+        alert = bool(kind) and self.document is not None and not self._in_table
+        color = self._ALERT_COLORS.get(kind) or self._ALERT_COLORS[self._ALERT_KINDS.get(kind, "note")]
+        body = self.document.element.body if alert and self.document else None
+        start = len(body) if body is not None else 0
+
         # Increase blockquote depth for indentation tracking
         self._blockquote_depth += 1
+
+        if body is not None and self.document:
+            label = metadata.get("admonition_title") or kind.capitalize()
+            ASTParagraph(content=[Strong(content=[Text(content=label)])]).accept(self)
+            for run in self.document.paragraphs[-1].runs:
+                run.font.color.rgb = self._RGBColor.from_string(color)
 
         # Render children (they will check _blockquote_depth and indent themselves)
         for child in node.children:
@@ -896,6 +922,45 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
         # Decrease blockquote depth
         self._blockquote_depth -= 1
+
+        if body is not None:
+            self._draw_alert_bar(body, start, color)
+
+    def _draw_alert_bar(self, body: Any, start: int, color: str) -> None:
+        """Draw a bar down the left of each paragraph an alert added to the body.
+
+        ``start`` is the body's length when the alert began. Word keeps the section
+        properties last, so new paragraphs are inserted before them.
+        """
+        added = list(body)[start - 1 if start and body[-1].tag == self._qn("w:sectPr") else start :]
+        for element in added:
+            if element.tag == self._qn("w:p"):
+                self._set_paragraph_border(element, "left", color, size=18, space=8)
+
+    def _set_paragraph_border(self, paragraph: Any, side: str, color: str, size: int, space: int) -> None:
+        """Add a single-line border on one side of a paragraph (a ``w:p`` element).
+
+        ``size`` is in eighths of a point and ``space`` in points, as Word stores them.
+        """
+        properties = paragraph.get_or_add_pPr()
+        borders = properties.find(self._qn("w:pBdr"))
+        if borders is None:
+            borders = self._OxmlElement("w:pBdr")
+            # w:pBdr's place in w:pPr's schema sequence, before everything after it.
+            properties.insert_element_before(borders, *self._PPR_AFTER_BORDERS)
+        border = self._OxmlElement(f"w:{side}")
+        for name, value in (("val", "single"), ("sz", str(size)), ("space", str(space)), ("color", color)):
+            border.set(self._qn(f"w:{name}"), value)
+        borders.append(border)
+
+    _PPR_AFTER_BORDERS = tuple(
+        f"w:{name}"
+        for name in (
+            "shd tabs suppressAutoHyphens kinsoku wordWrap overflowPunct topLinePunct autoSpaceDE autoSpaceDN bidi "
+            "adjustRightInd snapToGrid spacing ind contextualSpacing mirrorIndents suppressOverlap jc textDirection "
+            "textAlignment textboxTightWrap outlineLvl divId cnfStyle rPr sectPr pPrChange"
+        ).split()
+    )
 
     def visit_figure(self, node: Figure) -> None:
         """Render a Figure node.
@@ -1222,10 +1287,10 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         if not self.document:
             return
 
-        # Add horizontal line using a simple text separator
+        # An empty paragraph with a bottom border: the rule Word itself draws when "---"
+        # is typed, and what the DOCX parser reads back as a thematic break.
         para = self.document.add_paragraph()
-        run = para.add_run("─" * 75)  # Box drawing horizontal character
-        run.font.color.rgb = self._RGBColor(192, 192, 192)  # Light gray
+        self._set_paragraph_border(para._p, "bottom", "auto", size=6, space=1)
 
     def visit_html_block(self, node: HTMLBlock) -> None:
         """Render an HTMLBlock node.
