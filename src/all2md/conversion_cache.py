@@ -17,7 +17,7 @@ funnel through :func:`all2md.to_ast` need no per-call plumbing::
         ...                                    # to_ast() transparently caches
 
 A module-global (not a ``ContextVar``) holds the active cache so it is visible
-from ``all2md serve``'s per-request worker threads, which a context variable set
+from the folder server's per-request worker threads, which a context variable set
 on the main thread would not reach.
 """
 

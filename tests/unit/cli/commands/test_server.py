@@ -17,10 +17,7 @@ from all2md.cli.commands.server import (
     _format_timestamp,
     _generate_breadcrumbs,
     _generate_directory_index,
-    _generate_upload_form,
-    _get_content_type_for_format,
     _parse_address,
-    _parse_multipart_form_data,
     _scan_directory_for_documents,
     handle_serve_command,
 )
@@ -52,31 +49,6 @@ class TestParseAddress:
 @pytest.mark.unit
 class TestServerHelpers:
     """Test helper functions for serve command."""
-
-    def test_get_content_type_html(self):
-        """Test getting content type for HTML."""
-        content_type = _get_content_type_for_format("html")
-        assert content_type == "text/html; charset=utf-8"
-
-    def test_get_content_type_markdown(self):
-        """Test getting content type for Markdown."""
-        content_type = _get_content_type_for_format("markdown")
-        assert content_type == "text/markdown; charset=utf-8"
-
-    def test_get_content_type_json(self):
-        """Test getting content type for JSON."""
-        content_type = _get_content_type_for_format("json")
-        assert content_type == "application/json"
-
-    def test_get_content_type_pdf(self):
-        """Test getting content type for PDF."""
-        content_type = _get_content_type_for_format("pdf")
-        assert content_type == "application/pdf"
-
-    def test_get_content_type_unknown(self):
-        """Test getting content type for unknown format."""
-        content_type = _get_content_type_for_format("xyz_unknown")
-        assert content_type == "application/octet-stream"
 
     def test_format_file_size_bytes(self):
         """Test formatting file size in bytes."""
@@ -182,96 +154,6 @@ class TestBindHttpServer:
                 _bind_http_server("203.0.113.1", 8000, object)  # type: ignore[arg-type]
 
         assert excinfo.value.errno == errno.EADDRNOTAVAIL
-
-    def test_get_content_type_md(self):
-        """Test getting content type for md alias."""
-        content_type = _get_content_type_for_format("md")
-        assert content_type == "text/markdown; charset=utf-8"
-
-    def test_get_content_type_plaintext(self):
-        """Test getting content type for plaintext."""
-        content_type = _get_content_type_for_format("plaintext")
-        assert content_type == "text/plain; charset=utf-8"
-
-    def test_get_content_type_txt(self):
-        """Test getting content type for txt."""
-        content_type = _get_content_type_for_format("txt")
-        assert content_type == "text/plain; charset=utf-8"
-
-    def test_get_content_type_yaml(self):
-        """Test getting content type for yaml."""
-        content_type = _get_content_type_for_format("yaml")
-        assert content_type == "application/x-yaml"
-
-    def test_get_content_type_yml(self):
-        """Test getting content type for yml alias."""
-        content_type = _get_content_type_for_format("yml")
-        assert content_type == "application/x-yaml"
-
-    def test_get_content_type_toml(self):
-        """Test getting content type for toml."""
-        content_type = _get_content_type_for_format("toml")
-        assert content_type == "application/toml"
-
-    def test_get_content_type_xml(self):
-        """Test getting content type for xml."""
-        content_type = _get_content_type_for_format("xml")
-        assert content_type == "application/xml"
-
-    def test_get_content_type_csv(self):
-        """Test getting content type for csv."""
-        content_type = _get_content_type_for_format("csv")
-        assert content_type == "text/csv; charset=utf-8"
-
-    def test_get_content_type_docx(self):
-        """Test getting content type for docx."""
-        content_type = _get_content_type_for_format("docx")
-        assert content_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-
-    def test_get_content_type_odt(self):
-        """Test getting content type for odt."""
-        content_type = _get_content_type_for_format("odt")
-        assert content_type == "application/vnd.oasis.opendocument.text"
-
-    def test_get_content_type_rtf(self):
-        """Test getting content type for rtf."""
-        content_type = _get_content_type_for_format("rtf")
-        assert content_type == "application/rtf"
-
-    def test_get_content_type_epub(self):
-        """Test getting content type for epub."""
-        content_type = _get_content_type_for_format("epub")
-        assert content_type == "application/epub+zip"
-
-    def test_get_content_type_latex(self):
-        """Test getting content type for latex."""
-        content_type = _get_content_type_for_format("latex")
-        assert content_type == "application/x-latex"
-
-    def test_get_content_type_tex(self):
-        """Test getting content type for tex alias."""
-        content_type = _get_content_type_for_format("tex")
-        assert content_type == "application/x-latex"
-
-    def test_get_content_type_rst(self):
-        """Test getting content type for rst."""
-        content_type = _get_content_type_for_format("rst")
-        assert content_type == "text/x-rst; charset=utf-8"
-
-    def test_get_content_type_asciidoc(self):
-        """Test getting content type for asciidoc."""
-        content_type = _get_content_type_for_format("asciidoc")
-        assert content_type == "text/asciidoc; charset=utf-8"
-
-    def test_get_content_type_org(self):
-        """Test getting content type for org."""
-        content_type = _get_content_type_for_format("org")
-        assert content_type == "text/org; charset=utf-8"
-
-    def test_get_content_type_case_insensitive(self):
-        """Test getting content type is case insensitive."""
-        assert _get_content_type_for_format("HTML") == "text/html; charset=utf-8"
-        assert _get_content_type_for_format("Json") == "application/json"
 
 
 @pytest.mark.unit
@@ -399,6 +281,16 @@ class TestHandleServeCommand:
         captured = capsys.readouterr()
         assert "usage:" in captured.out.lower() or "Usage:" in captured.out
 
+    def test_serve_prints_its_deprecation(self, capsys):
+        handle_serve_command(["nonexistent_path_xyz"])
+        assert "'all2md serve' is deprecated" in capsys.readouterr().err
+
+    @pytest.mark.parametrize("flag", [["--enable-upload"], ["--enable-api"], ["--max-upload-size", "10"]])
+    def test_removed_upload_and_api_flags_explain_themselves(self, tmp_path, flag, capsys):
+        (tmp_path / "a.md").write_text("# A")
+        assert handle_serve_command([str(tmp_path), *flag]) != 0
+        assert f"{flag[0]} was removed" in capsys.readouterr().err
+
     def test_serve_nonexistent_input(self, capsys):
         """Test serving nonexistent file/directory."""
         exit_code = handle_serve_command(["nonexistent_path_xyz"])
@@ -479,163 +371,6 @@ class TestHandleServeCommand:
 
 
 @pytest.mark.unit
-class TestParseMultipartFormData:
-    """Test multipart form data parsing functionality."""
-
-    def test_parse_simple_text_field(self):
-        """Test parsing a simple text field."""
-        boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW"
-        body = (
-            f'------{boundary}\r\nContent-Disposition: form-data; name="format"\r\n\r\nhtml\r\n------{boundary}--'
-        ).encode()
-
-        content_type = f"multipart/form-data; boundary=----{boundary}"
-        result = _parse_multipart_form_data(body, content_type)
-
-        assert "format" in result
-        assert result["format"] == "html"
-
-    def test_parse_file_field(self):
-        """Test parsing a file upload field."""
-        boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW"
-        file_content = b"Hello, this is file content"
-        body = (
-            (
-                f"------{boundary}\r\n"
-                f'Content-Disposition: form-data; name="file"; filename="test.txt"\r\n'
-                f"Content-Type: text/plain\r\n"
-                f"\r\n"
-            ).encode()
-            + file_content
-            + f"\r\n------{boundary}--".encode()
-        )
-
-        content_type = f"multipart/form-data; boundary=----{boundary}"
-        result = _parse_multipart_form_data(body, content_type)
-
-        # File uploads use the filename as the key
-        assert "test.txt" in result or "file" in result
-        # Check the content is present
-        file_value = result.get("test.txt") or result.get("file")
-        if isinstance(file_value, dict):
-            assert file_value["data"] == file_content
-        else:
-            assert file_value == file_content.decode("utf-8")
-
-    def test_parse_multiple_fields(self):
-        """Test parsing multiple fields."""
-        boundary = "----WebKitFormBoundary7MA4YWxkTrZu0gW"
-        body = (
-            f"------{boundary}\r\n"
-            f'Content-Disposition: form-data; name="format"\r\n'
-            f"\r\n"
-            f"markdown\r\n"
-            f"------{boundary}\r\n"
-            f'Content-Disposition: form-data; name="option"\r\n'
-            f"\r\n"
-            f"value\r\n"
-            f"------{boundary}--"
-        ).encode()
-
-        content_type = f"multipart/form-data; boundary=----{boundary}"
-        result = _parse_multipart_form_data(body, content_type)
-
-        assert result["format"] == "markdown"
-        assert result["option"] == "value"
-
-    def test_parse_no_boundary_raises_error(self):
-        """Test parsing without boundary raises ValueError."""
-        body = b"some content"
-        content_type = "multipart/form-data"
-
-        with pytest.raises(ValueError, match="No boundary found"):
-            _parse_multipart_form_data(body, content_type)
-
-    def test_parse_boundary_with_quotes(self):
-        """Test parsing boundary with quotes."""
-        boundary = "testboundary"
-        body = (f'--{boundary}\r\nContent-Disposition: form-data; name="field"\r\n\r\nvalue\r\n--{boundary}--').encode()
-
-        content_type = f'multipart/form-data; boundary="{boundary}"'
-        result = _parse_multipart_form_data(body, content_type)
-
-        assert result["field"] == "value"
-
-    def test_parse_empty_parts(self):
-        """Test parsing with empty parts is handled."""
-        boundary = "testboundary"
-        body = f"--{boundary}--".encode()
-
-        content_type = f"multipart/form-data; boundary={boundary}"
-        result = _parse_multipart_form_data(body, content_type)
-
-        assert result == {}
-
-    def test_parse_newline_variations(self):
-        """Test parsing with different newline styles."""
-        boundary = "testboundary"
-        # Using just \n instead of \r\n
-        body = (f'--{boundary}\nContent-Disposition: form-data; name="field"\n\nvalue\n--{boundary}--').encode()
-
-        content_type = f"multipart/form-data; boundary={boundary}"
-        result = _parse_multipart_form_data(body, content_type)
-
-        assert result["field"] == "value"
-
-
-@pytest.mark.unit
-class TestGenerateUploadForm:
-    """Test upload form generation functionality."""
-
-    def test_generate_upload_form_basic(self, tmp_path):
-        """Test basic upload form generation."""
-        # Create a minimal theme template
-        theme_path = tmp_path / "theme.html"
-        theme_path.write_text("<!DOCTYPE html><html><head><title>{TITLE}</title></head><body>{CONTENT}</body></html>")
-
-        with patch("all2md.cli.commands.server.registry") as mock_registry:
-            mock_registry.list_formats.return_value = ["html", "markdown", "pdf"]
-
-            html = _generate_upload_form(theme_path)
-
-        assert "{TITLE}" not in html  # Template should be replaced
-        assert "{CONTENT}" not in html
-        assert "Document Converter" in html
-        assert "<form" in html
-        assert 'type="file"' in html
-        assert "<select" in html
-
-    def test_generate_upload_form_includes_formats(self, tmp_path):
-        """Test that upload form includes format options."""
-        theme_path = tmp_path / "theme.html"
-        theme_path.write_text("{TITLE} {CONTENT}")
-
-        with patch("all2md.cli.commands.server.registry") as mock_registry:
-            mock_registry.list_formats.return_value = ["html", "markdown", "pdf", "docx"]
-
-            html = _generate_upload_form(theme_path)
-
-        # Should include format options
-        assert 'value="html"' in html
-        assert 'value="markdown"' in html
-        assert 'value="pdf"' in html
-        assert 'value="docx"' in html
-
-    def test_generate_upload_form_excludes_auto(self, tmp_path):
-        """Test that upload form excludes 'auto' format."""
-        theme_path = tmp_path / "theme.html"
-        theme_path.write_text("{TITLE} {CONTENT}")
-
-        with patch("all2md.cli.commands.server.registry") as mock_registry:
-            mock_registry.list_formats.return_value = ["auto", "html", "markdown"]
-
-            html = _generate_upload_form(theme_path)
-
-        assert 'value="auto"' not in html
-        assert 'value="html"' in html
-
-
-@pytest.mark.unit
 class TestGenerateDirectoryIndex:
     """Test directory index generation functionality."""
 
@@ -657,48 +392,12 @@ class TestGenerateDirectoryIndex:
             [file1, file2],
             theme_path,
             test_dir,
-            enable_upload=False,
         )
 
         assert "TestDir" in html
         assert "doc1.pdf" in html
         assert "doc2.md" in html
         assert "2 document(s)" in html
-
-    def test_generate_directory_index_with_upload_link(self, tmp_path):
-        """Test directory index with upload link enabled."""
-        file1 = tmp_path / "test.md"
-        file1.write_text("content")
-
-        theme_path = tmp_path / "theme.html"
-        theme_path.write_text("{TITLE} {CONTENT}")
-
-        html = _generate_directory_index(
-            [file1],
-            theme_path,
-            tmp_path,
-            enable_upload=True,
-        )
-
-        assert "/upload" in html
-        assert "Upload" in html
-
-    def test_generate_directory_index_no_upload_link(self, tmp_path):
-        """Test directory index without upload link."""
-        file1 = tmp_path / "test.md"
-        file1.write_text("content")
-
-        theme_path = tmp_path / "theme.html"
-        theme_path.write_text("{TITLE} {CONTENT}")
-
-        html = _generate_directory_index(
-            [file1],
-            theme_path,
-            tmp_path,
-            enable_upload=False,
-        )
-
-        assert "/upload" not in html
 
     def test_generate_directory_index_nested_files(self, tmp_path):
         """Test directory index with nested directory structure."""
@@ -718,7 +417,6 @@ class TestGenerateDirectoryIndex:
             [file1, file2],
             theme_path,
             tmp_path,
-            enable_upload=False,
         )
 
         assert "root.md" in html
@@ -744,7 +442,6 @@ class TestGenerateDirectoryIndex:
             theme_path,
             tmp_path,
             current_subdir="reports",
-            enable_upload=False,
         )
 
         assert "reports" in html  # Directory name in heading
@@ -764,7 +461,6 @@ class TestGenerateDirectoryIndex:
             [file1],
             theme_path,
             tmp_path,
-            enable_upload=False,
         )
 
         # Should contain file size
@@ -782,7 +478,6 @@ class TestGenerateDirectoryIndex:
             [file1],
             theme_path,
             tmp_path,
-            enable_upload=False,
         )
 
         assert "modified" in html
@@ -799,7 +494,6 @@ class TestGenerateDirectoryIndex:
             [],
             theme_path,
             test_dir,
-            enable_upload=False,
         )
 
         assert "EmptyDir" in html
@@ -822,33 +516,12 @@ class TestGenerateDirectoryIndex:
             theme_path,
             tmp_path,
             current_subdir="docs/api",
-            enable_upload=False,
         )
 
         assert "Home" in html  # Root breadcrumb
         assert 'href="/"' in html  # Home link
         assert 'href="/docs/"' in html  # Parent dir breadcrumb link
         assert "api" in html  # Current dir in breadcrumb
-
-    def test_generate_directory_index_upload_only_at_root(self, tmp_path):
-        """Test that upload link only appears at root level."""
-        subdir = tmp_path / "sub"
-        subdir.mkdir()
-        file1 = subdir / "doc.md"
-        file1.write_text("content")
-
-        theme_path = tmp_path / "theme.html"
-        theme_path.write_text("{TITLE} {CONTENT}")
-
-        html = _generate_directory_index(
-            [file1],
-            theme_path,
-            tmp_path,
-            current_subdir="sub",
-            enable_upload=True,
-        )
-
-        assert "/upload" not in html  # Upload link should NOT appear in subdirectory
 
 
 @pytest.mark.unit

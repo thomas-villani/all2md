@@ -163,7 +163,7 @@ _SUBCOMMAND_SUMMARIES: Sequence[tuple[str, str]] = (
     ("read", "Read a document in an interactive terminal viewer (rcat -i; needs the [tui] extra)"),
     ("edit", "Edit a document in a browser-based editor and save back"),
     ("diff", "Compare two documents and generate diff output (unified/HTML/JSON)"),
-    ("serve", "Serve documents via HTTP server with on-demand conversion"),
+    ("serve", "Deprecated: use 'view' on a folder or glob (removed in the next release)"),
     ("context-menu", 'Manage the Windows right-click "View with all2md" entry (install/uninstall/status)'),
     ("search", "Search documents using keyword, vector, or hybrid retrieval"),
     ("grep", "Search for text patterns in documents (like grep for any format)"),
