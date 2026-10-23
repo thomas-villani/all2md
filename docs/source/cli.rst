@@ -228,6 +228,12 @@ Common grep-style options:
 * ``-B`` / ``--before-context`` – Print N lines of leading context
 * ``-C`` / ``--context`` – Print N lines of leading and trailing context
 * ``-e`` / ``--regex`` – Interpret query as a regular expression
+* ``-w`` / ``--word-regexp`` – Match only whole words (no letter, digit or ``_`` on either side)
+* ``-v`` / ``--invert-match`` – Select the lines that do not match
+* ``-q`` / ``--quiet`` – Print nothing; the exit status alone says whether a line matched
+* ``-l`` / ``--files-with-matches`` – Print only the name of each document with a matching line
+* ``-c`` / ``--count`` – Print only the number of matching lines, per document (named when
+  there are several, with ``0`` for a document without a match)
 * ``-M`` / ``--max-columns`` – Maximum display width for long lines (default: 150; 0 = unlimited)
 * ``--rich`` – Enable colorized output with match highlighting (on a terminal; plain when piped)
 * ``-r`` / ``--recursive`` – Recurse into directories when searching
@@ -250,8 +256,17 @@ on, ``--`` separates runs of lines that are not adjacent, as in ``grep``.
 
 The exit status follows ``grep``: ``0`` when a line matched, ``1`` when none did (nothing
 is printed), and ``2`` or more on an error, for example ``3`` for an invalid regular
-expression. So ``if all2md grep -i "indemnif" contract.pdf > /dev/null; then ...`` works in
-a script.
+expression. So ``if all2md grep -q -i "indemnif" contract.pdf; then ...`` works in a
+script. As in ``grep``, ``-q`` outranks ``-l``, which outranks ``-c``, and piped input is
+named ``(standard input)``.
+
+.. code-block:: bash
+
+   # Which contracts mention an indemnity clause?
+   all2md grep -l -i "indemnif" contracts/ -r
+
+   # How many lines mention the old name in each report?
+   all2md grep -c -w "Acme" reports/*.docx
 
 Diff Command
 ------------
