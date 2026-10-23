@@ -785,3 +785,61 @@ class TestGrepLines:
 
         assert handle_grep_command(["-e", "(", str(doc)]) == 3
         assert "invalid regular expression" in capsys.readouterr().err
+
+
+@pytest.mark.unit
+class TestGrepSelectionAndSummaryFlags:
+    """-w, -v, -q, -l and -c behave as they do in grep."""
+
+    @pytest.fixture
+    def docs(self, tmp_path: Path) -> tuple[Path, Path]:
+        first = tmp_path / "doc.md"
+        first.write_text(_GREP_DOC, encoding="utf-8")
+        second = tmp_path / "other.md"
+        second.write_text("Nothing to see.\n", encoding="utf-8")
+        return first, second
+
+    def _grep(self, capsys, *args: str) -> tuple[int, list[str]]:
+        from all2md.cli.commands.search import handle_grep_command
+
+        code = handle_grep_command(list(args))
+        return code, [line.strip() for line in capsys.readouterr().out.splitlines() if line.strip()]
+
+    def test_word_regexp_skips_a_match_inside_a_word(self, docs, capsys):
+        _, lines = self._grep(capsys, "-n", "-w", "latency", str(docs[0]))
+        assert "Results:10:Run compute_latency() now." not in lines
+        assert "Results:11:def latency():" in lines
+        _, lines = self._grep(capsys, "-w", "-e", "late.cy|p50", str(docs[0]))
+        assert "Results:Region | p50" in lines
+
+    def test_invert_match_selects_the_lines_without_a_match(self, docs, capsys):
+        code, lines = self._grep(
+            capsys, "-n", "-v", "-e", "latency|paragraph|item|Region|us-east|Run|return", str(docs[0])
+        )
+        assert code == 0
+        assert lines[1:] == ["Results:2:Results", "Sub latency:14:Sub text."]
+
+    def test_quiet_prints_nothing_and_reports_by_exit_status(self, docs, capsys):
+        assert self._grep(capsys, "-q", "latency", str(docs[0])) == (0, [])
+        assert self._grep(capsys, "-q", "absent", str(docs[0])) == (1, [])
+
+    def test_files_with_matches_names_each_matching_document_once(self, docs, capsys):
+        first, second = docs
+        code, lines = self._grep(capsys, "-l", "latency", str(first), str(second))
+        assert code == 0
+        assert lines == [first.as_posix()]
+
+    def test_count_lists_every_document_and_names_them_only_when_several(self, docs, capsys):
+        first, second = docs
+        assert self._grep(capsys, "-c", "latency", str(first)) == (0, ["6"])
+        code, lines = self._grep(capsys, "-c", "latency", str(first), str(second))
+        assert code == 0
+        assert lines == [f"{first.as_posix()}:6", f"{second.as_posix()}:0"]
+        assert self._grep(capsys, "-c", "absent", str(second)) == (1, ["0"])
+
+    def test_stdin_is_named_standard_input(self, monkeypatch, capsys):
+        import io
+
+        monkeypatch.setattr("sys.stdin", io.TextIOWrapper(io.BytesIO(b"hello world\n")))
+        _, lines = self._grep(capsys, "-l", "hello", "-")
+        assert lines == ["(standard input)"]

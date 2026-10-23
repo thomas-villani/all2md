@@ -963,6 +963,39 @@ def handle_grep_command(args: list[str] | None = None) -> int:
         help="Perform case-insensitive matching",
     )
     parser.add_argument(
+        "-w",
+        "--word-regexp",
+        dest="grep_word_regexp",
+        action="store_true",
+        help="Match only whole words",
+    )
+    parser.add_argument(
+        "-v",
+        "--invert-match",
+        dest="grep_invert_match",
+        action="store_true",
+        help="Select the lines that do not match",
+    )
+    output = parser.add_argument_group("Output instead of the matching lines")
+    output.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        help="Print nothing; the exit status alone says whether a line matched",
+    )
+    output.add_argument(
+        "-l",
+        "--files-with-matches",
+        action="store_true",
+        help="Print only the name of each document with a matching line",
+    )
+    output.add_argument(
+        "-c",
+        "--count",
+        action="store_true",
+        help="Print only the number of matching lines in each document",
+    )
+    parser.add_argument(
         "-M",
         "--max-columns",
         dest="grep_max_columns",
@@ -1000,6 +1033,10 @@ def handle_grep_command(args: list[str] | None = None) -> int:
         overrides["grep_show_line_numbers"] = parsed.grep_show_line_numbers
     if parsed.grep_ignore_case:
         overrides["grep_ignore_case"] = parsed.grep_ignore_case
+    if parsed.grep_word_regexp:
+        overrides["grep_word_regexp"] = True
+    if parsed.grep_invert_match:
+        overrides["grep_invert_match"] = True
     if parsed.grep_max_columns is not None:
         overrides["grep_max_columns"] = parsed.grep_max_columns
 
@@ -1050,8 +1087,15 @@ def handle_grep_command(args: list[str] | None = None) -> int:
         print(f"Error during search: {exc}", file=sys.stderr)
         return EXIT_PARSING_ERROR
 
+    status = EXIT_SUCCESS if results else EXIT_NO_MATCH
+    # As in grep, -q outranks -l, which outranks -c.
+    if parsed.quiet:
+        return status
+    if parsed.files_with_matches or parsed.count:
+        _print_grep_summary(service, results, counts=not parsed.files_with_matches)
+        return status
     if not results:
-        return EXIT_NO_MATCH
+        return status
 
     # Render results
     _render_search_results(
@@ -1062,6 +1106,31 @@ def handle_grep_command(args: list[str] | None = None) -> int:
         grep_show_line_numbers=options.grep_show_line_numbers,
     )
     return EXIT_SUCCESS
+
+
+def _print_grep_summary(service: SearchService, results: list[SearchResult], *, counts: bool) -> None:
+    """Print grep's ``-l`` (names of documents with a match) or ``-c`` (lines matched per document).
+
+    Documents are listed in the order searched. ``-c`` lists every document, 0 included,
+    and names each only when there is more than one, as grep does.
+    """
+    from all2md.search.service import grep_document_label
+
+    matched: dict[str, int] = {}
+    for result in results:
+        label = str(result.chunk.metadata.get("document_path", ""))
+        occurrences = result.metadata.get("occurrences", 0) if isinstance(result.metadata, Mapping) else 0
+        matched[label] = matched.get(label, 0) + int(occurrences)
+
+    labels = [grep_document_label(doc_input) for _, doc_input in service.state.documents or []]
+    for label in dict.fromkeys(labels):
+        if not counts:
+            if matched.get(label):
+                print(label)
+        elif len(labels) > 1:
+            print(f"{label}:{matched.get(label, 0)}")
+        else:
+            print(matched.get(label, 0))
 
 
 def _report_skipped(service: SearchService, command: str = "search") -> None:
