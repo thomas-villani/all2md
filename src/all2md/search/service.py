@@ -394,6 +394,8 @@ class SearchService:
                 ignore_case=self.options.grep_ignore_case,
                 show_line_numbers=self.options.grep_show_line_numbers,
                 max_columns=self.options.grep_max_columns,
+                word_regexp=self.options.grep_word_regexp,
+                invert_match=self.options.grep_invert_match,
             )
         # Fallback to chunk-based grep for backward compatibility
         return _match_lines(
@@ -604,6 +606,15 @@ def _truncate_to_match(
     return result, adjusted_spans
 
 
+def grep_document_label(doc_input: SearchDocumentInput) -> str:
+    """Return the name grep shows for a document: its path, or ``(standard input)`` as grep says."""
+    if isinstance(doc_input.source, Path):
+        return doc_input.source.as_posix()
+    if isinstance(doc_input.source, bytes):
+        return "(standard input)"
+    return str(doc_input.source)
+
+
 def _grep_lines(nodes: Sequence[Node]) -> list[str]:
     """Return the text of ``nodes`` as grep searches it, one block per line.
 
@@ -637,6 +648,8 @@ def _grep_ast_documents(
     ignore_case: bool = False,
     show_line_numbers: bool = False,
     max_columns: int = 0,
+    word_regexp: bool = False,
+    invert_match: bool = False,
 ) -> list[SearchResult]:
     """Search documents line by line, grep-style, returning one result per section with matches.
 
@@ -662,6 +675,10 @@ def _grep_ast_documents(
         Whether to show line numbers for matching lines
     max_columns : int, default = 0
         Maximum display width for long lines (0 = unlimited)
+    word_regexp : bool, default = False
+        Whether a match must be a whole word: no word character on either side
+    invert_match : bool, default = False
+        Whether to select the lines that do not match instead
 
     Returns
     -------
@@ -670,11 +687,16 @@ def _grep_ast_documents(
 
     """
     matches: list[SearchResult] = []
-    pattern = re.compile(query, re.IGNORECASE if ignore_case else 0) if regex else None
+    pattern: re.Pattern[str] | None = None
+    if regex or word_regexp:
+        body = query if regex else re.escape(query)
+        if word_regexp:
+            body = rf"(?<!\w)(?:{body})(?!\w)"
+        pattern = re.compile(body, re.IGNORECASE if ignore_case else 0)
     lowered_query = query.lower() if ignore_case else query
 
     for doc, doc_input in documents:
-        document_path = doc_input.source.as_posix() if isinstance(doc_input.source, Path) else str(doc_input.source)
+        document_path = grep_document_label(doc_input)
         document_id = doc_input.document_id or document_path
 
         blocks: list[tuple[str | None, list[str]]] = [(None, _grep_lines(get_preamble(doc)))]
@@ -698,6 +720,7 @@ def _grep_ast_documents(
                     show_line_numbers=show_line_numbers,
                     max_columns=max_columns,
                     first_line=first_line,
+                    invert_match=invert_match,
                 )
             )
             first_line += len(lines)
@@ -719,6 +742,7 @@ def _search_text_block(
     show_line_numbers: bool,
     max_columns: int,
     first_line: int = 1,
+    invert_match: bool = False,
 ) -> list[SearchResult]:
     """Search one section's lines and return its matches with context.
 
@@ -750,6 +774,8 @@ def _search_text_block(
         Maximum display width for long lines (0 = unlimited)
     first_line : int, default = 1
         The number of the section's first line within its document
+    invert_match : bool, default = False
+        Whether to select the lines that do not match instead
 
     Returns
     -------
@@ -766,6 +792,10 @@ def _search_text_block(
         spans = _find_spans(line, query, lowered_query, pattern, ignore_case)
         if spans:
             line_spans[idx] = spans
+
+    # Inverted, the selected lines are the ones without a match, and nothing is highlighted.
+    if invert_match:
+        line_spans = {idx: [] for idx in range(len(lines)) if idx not in line_spans}
 
     if not line_spans:
         return []

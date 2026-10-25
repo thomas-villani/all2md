@@ -156,6 +156,20 @@ class SearchOptions(CloneFrozenMixin):
             "importance": "advanced",
         },
     )
+    grep_word_regexp: bool = field(
+        default=False,
+        metadata={
+            "help": "Match only whole words in grep mode",
+            "importance": "advanced",
+        },
+    )
+    grep_invert_match: bool = field(
+        default=False,
+        metadata={
+            "help": "Select the lines that do not match in grep mode",
+            "importance": "advanced",
+        },
+    )
     grep_show_line_numbers: bool = field(
         default=False,
         metadata={
