@@ -7,6 +7,184 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-10-25
+
+### Added
+
+- **Alerts and horizontal rules in DOCX output look the part.** A GitHub alert
+  (`> [!NOTE]`) or an admonition from reST, MkDocs or AsciiDoc was written as a plain
+  quote, its kind lost. It now opens with its label in bold ("Note", "Warning", or the
+  admonition's own title) and has a bar down its left side, both in the GitHub color
+  for its kind; other admonition kinds take the nearest one (`danger` is red like
+  `caution`). The DOCX parser reads the five GitHub labels back, so an alert round
+  trips. A thematic break (`---`) was a line of 75 gray box-drawing characters, which
+  read back as text; it is now the bottom-bordered empty paragraph Word draws itself,
+  and reads back as `---`.
+- **Math in DOCX output is a Word equation.** The DOCX renderer wrote inline math as its
+  LaTeX source between `$` signs and display math as a code block, so Markdown with math
+  arrived in Word as source code. It now writes Office Math (OMML), which Word's equation
+  tools edit: scripts, fractions and binomials, roots, accents, bars and braces, sums,
+  products and integrals with their limits, named functions (`\sin`, `\lim_{x \to 0}`),
+  `\left`/`\middle`/`\right` delimiters, matrices, `cases`, rows aligned at `&`, font
+  styles (`\mathbf`, `\mathbb`, ...) and `\text`. A macro it does not know stays in the
+  equation as written. The new `math_mode` option (`--docx-renderer-math-mode`) is
+  `native` by default; `latex` keeps the old output. The `docx` extra now installs
+  `pylatexenc`, which reads the LaTeX; without it, and for a formula that does not parse,
+  the source is written as before.
+- **`all2md grep` gains grep's `-q`, `-l`, `-c`, `-v` and `-w`.** `-q` prints nothing and
+  answers by exit status, `-l` names each document with a match, `-c` counts matching
+  lines per document (0 included), `-v` selects the lines that do not match, and `-w`
+  matches whole words only. Piped input is now named `(standard input)`; it used to be
+  shown as the raw bytes it held.
+- **The PMC lane can score under a chosen layout mode.** `benchmarks.pmc score
+  --layout-mode {enabled,disabled,auto}`, and a `layout_mode` input on the workflow's
+  manual dispatch, convert the corpus under that `layout_analysis_mode` and record it in
+  the payload's `parser_config`. The lane's policy, its scheduled runs and
+  `reference.json` stay `enabled`; the other modes measure what layout analysis is worth,
+  which PyMuPDF 2.0 makes the question behind what `auto` should mean.
+- **`all2md view` browses a folder.** Given a folder or a quoted glob pattern
+  (`all2md view ./docs -r`, `all2md view "reports/*.pdf"`), `view` starts a local server
+  and opens a listing of every document it can convert, each converted when opened; the
+  listing follows the folder as files change. The listing is generated even when the
+  folder has a README, which rarely lists everything (`--index-page` shows the README or
+  `index.md` instead). Images a document names by path now show, in `view` and `serve`
+  alike, when they are inside the folder being viewed. `--recursive`, `--include-hidden`,
+  `--port`, `--host`, `--poll-interval`, `--window` and `--cache` all work here.
+
+### Changed
+
+- **A reference template's styles are used, not written over.** With `template_path`,
+  the DOCX renderer still gave code blocks and inline code their font, size and gray
+  shading as direct formatting, which overrides any style, so a template's code styles
+  never showed. Code is now styled only through its styles: the template's `CodeBlock`,
+  or pandoc's `Source Code`, for blocks, and `Verbatim Char` inline; the `CodeBlock`
+  style created for a document without one carries the font and shading itself. A
+  template without Word's `Quote` style uses pandoc's `Block Text`, and one without the
+  requested table style uses its `Table` (pandoc's) or `Table Grid` instead of leaving
+  the table bare, so a pandoc reference document works as a template. `code_font` and
+  `code_font_size` now default to None, like `default_font`: Courier New 10 for a blank
+  document, the template's own otherwise, and a font named explicitly is set on the
+  template's code styles. The DOCX parser reads `Block Text` paragraphs as quotes.
+- **Links in DOCX output look like links.** They were written with Word's `Hyperlink`
+  character style, which the blank document does not define, so Word drew them as plain
+  black text. The style is now created when missing, blue and underlined as Word's own;
+  a template's own `Hyperlink` style is kept.
+- The README is reorganized around what you want to do: read documents in the terminal, convert them, use the Python API, search, chunk for RAG, connect an AI assistant over MCP, or check conversion fidelity. A "pick your path" table leads to each, an animated GIF shows `all2md read`, and links are absolute so they work on PyPI too. `scripts/make_readme_gif.py` re-records the GIF headlessly.
+
+### Deprecated
+
+- **`all2md serve` is deprecated; use `all2md view`**, which browses a folder or a glob
+  the same way. `serve` still works in this release and prints a note; it will be removed
+  in the next. Moving over: `view` opens the browser itself (drop `-B`), lists every
+  document by default (pass `--index-page` where `serve` showed a README, and drop
+  `--force-auto-index`), takes `--host`/`--port` in place of `--address`, and reads
+  `[view]` in place of `[serve]`. The Windows folder context-menu entry now runs `view`;
+  install it again to update one installed earlier.
+
+### Removed
+
+- **Python 3.10 is no longer supported; all2md needs Python 3.11 or later.** Python 3.10
+  reached end of life on 2026-10-01, and PyMuPDF 2.0 already requires 3.11. The
+  `tomli` and `typing_extensions` backports are gone from the core dependencies, so a
+  bare install is four packages: `tomli-w`, `pyyaml`, `platformdirs` and `mistune`. The
+  `tui` extra (`all2md read`) no longer needs a Python marker, and `check-deps read` no
+  longer reports a minimum Python for it. CI tests 3.11 to 3.15.
+- **`serve`'s upload form and `/api/convert` endpoint are removed**, with
+  `--enable-upload`, `--enable-api` and `--max-upload-size`. They were marked
+  development-only; `serve` now refuses those flags with an explanation. Convert from a
+  program with the Python API or `all2md mcp`.
+
+### Fixed
+
+- **Markdown footnotes become Word footnotes, and task items keep their boxes, in DOCX
+  output.** The DOCX renderer wrote a footnote reference as superscript `[1]` text and its
+  definition as a `[1]: ` paragraph, and dropped a task item's box, so both were lost on
+  the way through Word and back. A reference with a definition is now a real Word
+  footnote: a `word/footnotes.xml` part with Word's separators and its "footnote text" and
+  "footnote reference" styles, numbered by Word and set at the foot of the page. The note's
+  content goes through the same rendering as the body, so its formatting, links (related
+  from the footnotes part, where Word looks for them) and lists survive, and a template
+  that brings its own footnotes keeps them and numbers after them. A label referred to
+  twice gets a note at each reference; a reference with no definition, one inside a note
+  (Word has no notes within notes) and a definition nothing refers to stay text, as before.
+  A task item opens with the box Word's check box shows, ☐ or ☒, and the DOCX parser
+  reads a list item that opens with ☐, ☑ or ☒ and a space back as a task item, which also
+  reads Word's own check box content controls as tasks. Real check box content controls,
+  which can be ticked in Word, are not written yet.
+  ([#621](https://github.com/thomas-villani/all2md/issues/621))
+- **The GitHub Action's description fits the Marketplace.** `action.yml` described the
+  action in 164 characters, and GitHub Marketplace refuses listings at 125 or more.
+- **Word equations read back as the LaTeX they are.** The DOCX parser read fractions,
+  scripts and roots, but flattened the rest: brackets, matrices, `cases`, accents, bars,
+  braces, named functions and limits lost their structure, and every sum or integral read
+  as `\sum`, because the operator's character was looked for in the wrong place (an
+  `m:nary` with none is an integral). Each OMML structure Word builds now has its LaTeX:
+  `\left(`...`\right)` around a tall group and plain brackets otherwise, `pmatrix` and
+  its siblings by bracket, `cases`, `aligned` or `gathered` equation arrays, `\binom`,
+  `\hat`/`\widehat` and the other accents, `\overline`, `\underbrace{...}_{...}`,
+  `\sin x`, `\lim_{x \to 0}`, `\operatorname`, `\boxed`, `\text`, and font styles
+  (`\mathbf`, `\mathbb`, ...). Symbols are written as macros (`\alpha`, `\le`, `\to`)
+  rather than left as Unicode, which LaTeX does not read in math, so `±` is now `\pm`.
+  Equations the DOCX renderer writes come back unchanged.
+- **`all2md grep` works line by line, as grep does.** Each section used to be searched as
+  one flattened line, so `-A`/`-B`/`-C` added nothing, `-n` always printed 1, and a table
+  came out as one run of words. Now each paragraph, list item, table row, heading and line
+  of code is a line (a soft break in a Markdown or text source starts one), `-n` counts
+  lines through the document, context lines are marked `N-`, and `--` separates runs.
+  Headings, inline code and code blocks are searched; they were skipped. `-M 0` no longer
+  truncates long lines. And the exit status follows grep: 1 when nothing matched (with
+  nothing printed, where it used to print "No results found." and exit 0), 3 for an
+  invalid regular expression.
+- **HTML options passed as keyword arguments reach the HTML inside EPUB and CHM files.**
+  `to_markdown("book.epub", base_url=...)`, or any of the 18 HTML options the EPUB and
+  CHM options don't have themselves, was ignored with a warning on Python 3.11–3.13
+  instead of going to their `html_options`. Those fields are annotated `HtmlOptions | None`,
+  which two of the three paths that build nested options missed: they tested for
+  `__origin__`, which `X | None` lacks before Python 3.14. The three paths now share one
+  helper. The CLI was not affected.
+- **PDF conversion keeps PyMuPDF below 2.0 until 2.0 is evaluated.** PyMuPDF 2.0
+  (released 2026-10-19) bundles `pymupdf-layout`, which it imports on every
+  `import pymupdf`. Installed beside 1.17.0, that turned the layout model on for every
+  PDF under the default `layout_analysis_mode="auto"`, about fifteen times slower on a
+  short document and with headings one level deeper, and installed a process-wide hook
+  that reroutes `find_tables()` through the model. It also changes table and paragraph
+  extraction on its own: about half the born-digital development corpus converts
+  differently with layout off. The `pdf`, `pdf_layout` and `all` extras now require
+  `pymupdf<2`; supporting 2.0, and what `auto` should mean once layout ships with every
+  install, is follow-up work measured on the benchmark lanes.
+- **`all2md serve` and `all2md edit` no longer warn about `attachment_mode` on Markdown
+  files.** Both force base64 images so the page or editor shows them, and formats with no
+  attachments (Markdown, plain text) drop the option. The drop printed "Keyword arguments
+  were ignored: ['attachment_mode']" for an option the user never passed. The forced value
+  is now marked as all2md's own, as `--package` and the MCP server already do.
+- **`all2md view` shows what it used to drop.** Footnotes: the HTML renderer wrote the
+  footnotes section only for a standalone page, so with any template (`replace`, `inject`
+  or `jinja`, and so in `view` and `serve`) each `[1]` linked to a definition the page
+  never had; the section now closes the content. Math: the page loaded no math library,
+  so LaTeX showed as `$...$` source; `view` and `serve` now load KaTeX when a page has
+  math and typeset exactly the renderer's math elements, so a dollar sign in prose stays
+  text (offline, the source shows as before). Images: a DOCX's or PDF's pictures came out
+  as `<img src="">`, because `view` left attachments at their default of alt text; it now
+  embeds them, unless the config sets `attachment_mode`. And an image named by path
+  (`![](img/a.png)`) broke once the page was written to a temporary file; `view` now
+  embeds local images, reading relative paths against the source's folder.
+
+### Security
+
+- **The lockfile moves to certifi 2026.10.19 and mcp 1.30.0.** certifi drops the emSign
+  root certificates whose intermediate keys were compromised (GHSA-6q48-6c7w-9gw2), and
+  mcp fixes unbounded session growth in its streamable HTTP transport
+  (GHSA-84m7-p3x7-pcfv). `uv.lock` pins only development and CI; an install from PyPI
+  resolves its own versions, so upgrade certifi in your environment if it is older. The
+  mcp advisory does not reach `all2md mcp`, which serves over stdio.
+- **The OCR extras need Pillow 13.0.0 or later.** Pillow 13.0.0 fixes nine advisories in
+  its JPEG, TIFF, GIF, EPS and PDF readers, one of them critical (a heap buffer overflow in
+  `ImagingJpegDecode`). all2md's own use of Pillow only builds images from pixels PyMuPDF
+  has already rendered, so it never reached those readers. But Pillow is also what the
+  libraries we call use to open pictures embedded in documents, and documents are often
+  untrusted, so `ocr`, `ocr-easyocr` and `all` now require `pillow>=13.0.0`. OCR on an
+  older Pillow stops with a `DependencyError` that names the version it needs.
+
 ## [1.17.0] - 2026-10-14
 
 ### Added
@@ -5041,7 +5219,8 @@ surfaced one real conversion bug, which is the reason to take the release.
 - NumPy-style docstrings
 - Modular architecture with clear separation of concerns
 
-[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.17.0...HEAD
+[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.18.0...HEAD
+[1.18.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.18.0
 [1.17.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.17.0
 [1.16.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.16.0
 [1.15.1]: https://github.com/thomas-villani/all2md/releases/tag/v1.15.1
