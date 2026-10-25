@@ -223,7 +223,7 @@ all2md optimize hard.pdf --sample-pages 5     # auto-tune the settings for a dif
 The same scores run as a GitHub Action, which fails the build when your documents stop converting cleanly:
 
 ```yaml
-- uses: thomas-villani/all2md@v1.17.0
+- uses: thomas-villani/all2md@v1.18.0
   with:
     paths: docs/**/*.md
     roundtrip-fail-under: 97

@@ -6,35 +6,30 @@
 
 Legend: 🌱 natural next step · 🚀 ambitious · 🌙 moonshot · ⏸️ parked with a reason
 
-## Where we are (2026-10-21)
+## Where we are (2026-10-25)
 
-**v1.17.0 shipped on 2026-10-15**, the first release built and published by the gated
-pipeline: PyPI receives the wheel CI tested, and a release waits on CI, the scheduled lanes
-and a smoke test of the installed package (#616). It carries:
+**v1.18.0, the everyday tools**, fixes the tasks the docs audit of 2026-10-06 found
+working less well than the engines behind them:
 
-- **Reading documents in the terminal.** The terminal renderer built from the AST (#580,
-  #581), the interactive viewer `all2md read` with its directory browser (#596, #598, #603,
-  #604, #607), links that are clickable only on request and always show their target
-  (#608), `--math unicode` (#609), and `--files-from` so a picker such as fzf can drive any
-  command (#618).
-- **The outward push.** `all2md mcp`, listed in the MCP Registry by the release workflow
-  (#584, #586, #588; live as `io.github.thomas-villani/all2md` 1.17.0), and the
-  quality-gate action's docs rewritten for Marketplace readers (#587, #620). The README is
-  now organized around who it is for (#622).
-- **What the docs audit of 2026-10-06 found in the code.** `ALL2MD_<OPTION>` environment
-  variables set options (#601), `config generate` writes a config that works (#599), stdin
-  detects HTML fragments and short Markdown (#600), a Word template keeps its own fonts and
-  `.dotx` loads (#615), the Org parser keeps nested lists (#614), and `mistune` is in the
-  core install, so a bare install reads Markdown (#617).
-- **Measurement.** `block_structure_similarity` is content-backed and blind to how blocks
-  are split (#256, #612), and CI gates per-format throughput relative to the rest of the
-  run (#183, #613).
+- **Markdown → Word, often from LLM-written Markdown.** Real Word footnotes and task-list
+  checkboxes (#621, #628), math written as Word equations and read back as LaTeX (#641,
+  #643), alerts with a label and a colored bar and thematic breaks as rules (#644), and
+  reference templates whose code, link, quote and table styles are used rather than
+  written over, pandoc's included (#645).
+- **`all2md view`** shows what it used to drop (footnotes, math, relative images, and DOCX
+  images, #646) and browses a folder or a glob with a generated listing (#647). `serve`
+  is a deprecated alias for it, removed in the next release, and its upload form and
+  `/api/convert` are gone (#648).
+- **`all2md grep`** is line-based, as grep is: `-A`/`-B`/`-C` and `-n` work, no match
+  exits 1, and headings and code are searched (#649); `-q`, `-l`, `-c`, `-v` and `-w`
+  are there (#650).
+- **Python 3.11 is the floor**, CI tests 3.11 to 3.15 (#629, #630), and the code uses 3.11
+  syntax (#632, #638); ruff formats instead of black (#633); the OCR extras need Pillow 13
+  (#634); PyMuPDF is capped below 2.0 until it is evaluated (#624).
 
-The PMC lane's first scheduled run on that code (2026-10-15) is now its reference
-(`benchmarks/pmc/reference.json`, oracle v4): attainable recall **98.9%**, novel share
-**0.40%**, tables unchanged. It is also the first run that counts toward gating the lane,
-and it opened no defect. The scanned lane was re-recorded on #612, and the weekly corpus
-gate and DOCX ledger are green.
+The PMC lane's reference is the 2026-10-15 run (`benchmarks/pmc/reference.json`, oracle
+v4): attainable recall **98.9%**, novel share **0.40%**. It is the first run that counts
+toward gating the lane, and it opened no defect.
 
 The PDF side's comparison numbers stand as of v1.15.0 (sealed 103-article holdout, reading
 of 2026-08-29): attainable recall **97.3%**, novel share **0.55%** against Docling's 2.05%
@@ -42,56 +37,39 @@ and pymupdf4llm's 6.26%, and a **6.2-point** table gap that is all row grouping,
 table work stopped on evidence. What remains open on PDF (#442, #456 step 3, #440's
 remainder) is Theme 8 Stage 4 layout reconstruction and is carried there.
 
-Since 1.17.0: PyMuPDF is capped below 2.0 until it is evaluated (#624, for 1.17.1); the
-DOCX renderer writes real Word footnotes and keeps task-list boxes (#621, #628); all2md
-needs Python 3.11, CI tests 3.11 to 3.15 (#629, #630), and the code uses 3.11 syntax
-(#632, #638); ruff formats instead of black (#633); the OCR extras need Pillow 13 (#634).
-
 **Open issues at this date:** none. Upstream, wijjit #94 (a tree shown again forgets its
 highlight) is open; the directory browser works around it, and PyMuPDF 2.0's
 `Table.extract()` regression is reported.
 
 ## Next
 
-### Next release (1.18): the everyday tools
+### Next release (1.19)
 
-The docs audit of 2026-10-06 found the tasks people come for working less well than the
-engines behind them. 1.18 fixes the behavior first, so the docs restructure below can be
-written against tools that do what it says:
+- **Remove `serve`**, deprecated in 1.18.
+- **Docs a first-time user can navigate** (below), now that the tools do what the guides
+  will say.
 
-- **Markdown → Word, often from LLM-written Markdown.** Real Word footnotes and task-list
-  checkboxes (#621, #628; an option for real check box content controls is deferred),
-  math as Word equations read back as LaTeX (#641, #643), and alerts with a label and a
-  colored bar and thematic breaks as rules (#644), and reference templates whose code,
-  link, quote and table styles are used rather than written over, pandoc's included
-  (#615, #645), are done.
-- ✅ **`all2md view`** shows what it dropped: footnotes, math, relative images, and DOCX
-  images (#646).
-- ✅ **`all2md view` browses a folder, and `serve` retires.** `view DIR` (or a glob) serves
-  a generated listing of every document, with relative images read from inside the
-  folder; `serve` then becomes a deprecated alias for `view`, removed in the release
-  after, and its upload form and `/api/convert` go.
-- ✅ **`all2md grep`** is line-based: `-A`/`-B`/`-C` and `-n` work, `-M 0` does not
-  truncate, no match exits 1, and headings, code spans and code blocks are searched
-  (#649), with `-q`, `-l`, `-c`, `-v` and `-w` (#650).
+### Next: measurement and the PDF engine
+
+Carried out of 1.18: none of these blocked it, and each waits on something outside a
+pull request.
+
 - **Gate the PMC lane on fidelity when its exit criterion is met.** The criterion, written
   2026-08-13, is two consecutive *scheduled* runs that open no new defect issue. The
   2026-10-15 run is the first; the 2026-11-15 run can be the second.
 - **Decide whether `block_structure_similarity` can be gated.** Its redefinition (#256) now
   has its controls on the born-digital lane: wrong-page gap 0.50 (was 0.10) and a 0.22 drop
   when half the content is deleted (it used to rise), but under 0.01 when a page's blocks
-  are reversed, since order is `reading_order_similarity`'s job.
+  are reversed, since order is `reading_order_similarity`'s job. What is left is a
+  threshold and which lanes it applies to.
 - **PyMuPDF 2.0.** 2.0 bundles `pymupdf-layout` and installs its table hook on import, so
   `auto` would always turn layout analysis on; its `Table.extract()` splits decimals and,
   on rotated pages, drops the spaces between words. Evaluated in #625 and the #627 draft:
   OmniDocBench is unchanged; on PMC the only regression is the rotated-page article. To
-  lift the cap: the upstream fix, a decision on what `auto` means (layout on is far better
+  lift the cap: the upstream fix (offering it as a pull request to PyMuPDF, not only the
+  report, is the faster route), a decision on what `auto` means (layout on is far better
   on tables, figures and headings, and ~15× slower on small files), re-records of both
   lanes, and moving the benchmark modules off `import fitz`.
-- ✅ **Use what Python 3.11 gives us**, now that it is the floor: the audit found a live
-  bug (kwargs for nested options annotated `X | None` were dropped, #632) and the rest is
-  syntax, applied by ruff's pyupgrade rules (#638). The support window is the latest five
-  minor versions.
 
 ### Now: reading and editing documents in the terminal (Theme 5)
 
@@ -134,7 +112,7 @@ order:
   Live since the 1.17 release.
 - ✅ **GitHub Marketplace** for the quality-gate action: decided yes (#186), docs rewritten
   for a reader arriving cold (#587). The 1.17.0 description was over the Marketplace's
-  125-character limit (#620); the listing goes out with 1.17.1.
+  125-character limit (#620); the listing goes out with 1.18.0.
 - Upstream-sharing the OCR-gate calibration to pymupdf4llm, whose defaults auto-OCR
   born-digital pages, the exact misfire class the PMC lane measures and gates.
 - The announcement itself, with `docs/source/benchmarks.rst` as the artifact: every figure
@@ -599,7 +577,7 @@ None blocking.
   `startup` gate's raw-plus-normalized agreement rule is the model. The artifacts to
   study accumulate on every push.
 - **#186** — the Marketplace listing: decided yes, docs done (#587), description shortened
-  (#620); the listing goes out with 1.17.1.
+  (#620); the listing goes out with 1.18.0.
 - **#570** — the Org parser flattens nested lists; a nested list of the other kind folds
   into its parent's text.
 - **OCR the embedded image, not a 200-dpi re-render**, when a page is one full-page image:
@@ -613,6 +591,9 @@ None blocking.
 
 One line each; `CHANGELOG.md` has the ledger.
 
+- **v1.18.0** (2026-10-25) — Markdown → Word that keeps footnotes, math, alerts and a
+  template's styles; `view` that shows everything and browses folders, retiring `serve`;
+  a line-based `grep` with grep's flags; Python 3.11 as the floor.
 - **v1.17.0** (2026-10-15) — `all2md read` and the terminal renderer; the MCP server in the
   MCP Registry; the docs-audit fixes; a release pipeline that ships the wheel CI tested.
 - **v1.16.1** (2026-10-06) — a document's control characters kept out of terminal output.
