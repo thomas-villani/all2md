@@ -1,20 +1,18 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
 # ${DIR_PATH}/${FILE_NAME}
-"""HTTP server command for all2md CLI.
+"""The local HTTP server behind ``all2md view DIR``, and the deprecated ``serve`` command.
 
-This module provides the serve command for hosting documents via HTTP server
-with on-demand conversion to HTML. Supports directory listings, multiple
-themes, file upload forms, and REST API endpoints for development use.
+:func:`run_server` serves a document, a folder or a glob's matches as themed HTML,
+converting each document on demand, with a listing that follows the folder.
+``all2md serve`` still parses its own flags and runs the same server, but it is
+deprecated in favor of ``all2md view`` and will be removed in the next release.
 """
 
 import argparse
-import base64
 import errno
 import fnmatch
 import http.server
-import io
-import json
 import os
 import socketserver
 import sys
@@ -45,121 +43,6 @@ INDEX_FILE_NAMES: tuple[str, ...] = (
     "README.md",
     "readme.md",
 )
-
-
-def _get_content_type_for_format(format_name: str) -> str:
-    """Get MIME type for a given output format.
-
-    Parameters
-    ----------
-    format_name : str
-        Output format name
-
-    Returns
-    -------
-    str
-        MIME type string
-
-    """
-    content_types = {
-        "html": "text/html; charset=utf-8",
-        "markdown": "text/markdown; charset=utf-8",
-        "md": "text/markdown; charset=utf-8",
-        "plaintext": "text/plain; charset=utf-8",
-        "txt": "text/plain; charset=utf-8",
-        "json": "application/json",
-        "yaml": "application/x-yaml",
-        "yml": "application/x-yaml",
-        "toml": "application/toml",
-        "xml": "application/xml",
-        "csv": "text/csv; charset=utf-8",
-        "pdf": "application/pdf",
-        "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "odt": "application/vnd.oasis.opendocument.text",
-        "rtf": "application/rtf",
-        "epub": "application/epub+zip",
-        "latex": "application/x-latex",
-        "tex": "application/x-latex",
-        "rst": "text/x-rst; charset=utf-8",
-        "asciidoc": "text/asciidoc; charset=utf-8",
-        "org": "text/org; charset=utf-8",
-    }
-    return content_types.get(format_name.lower(), "application/octet-stream")
-
-
-def _generate_upload_form(theme_path: Path) -> str:
-    """Generate HTML upload form with theme styling.
-
-    Parameters
-    ----------
-    theme_path : Path
-        Path to the theme template file
-
-    Returns
-    -------
-    str
-        HTML content for the upload form
-
-    """
-    # Get list of supported output formats
-    supported_formats = registry.list_formats()
-    format_options = ""
-    for fmt in sorted(supported_formats):
-        if fmt != "auto":  # Skip auto format
-            format_options += f'<option value="{fmt}">{fmt}</option>\n'
-
-    # Read theme template
-    theme_content = theme_path.read_text(encoding="utf-8")
-
-    # Generate form HTML
-    form_html = (
-        """
-                <h1>Document Converter</h1>
-                <p>Upload a document to convert it to another format.</p>
-
-                <form method="POST" enctype="multipart/form-data" style="max-width: 600px; margin: 20px 0;">
-                    <div style="margin-bottom: 20px;">
-                        <label for="file" style="display: block; margin-bottom: 5px; font-weight: bold;">
-                            Select Document:
-                        </label>
-                        <input type="file" name="file" id="file" required
-                       style="display: block; width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 4px;">
-                    </div>
-
-                    <div style="margin-bottom: 20px;">
-                        <label for="format" style="display: block; margin-bottom: 5px; font-weight: bold;">
-                            Output Format:
-                        </label>
-                        <select name="format" id="format" required
-                            style="display: block; width: 100%; padding: 10px; border: 2px solid #ddd;
-                            border-radius: 4px;">
-                            <option value="html" selected>html</option>
-                """
-        + format_options
-        + """
-            </select>
-        </div>
-
-        <button type="submit"
-                style="padding: 12px 24px; background: #0066cc; color: white; border: none;
-                       border-radius: 4px; font-size: 16px; cursor: pointer;">
-            Convert Document
-        </button>
-    </form>
-
-    <div style="margin-top: 40px; padding: 20px; background: #f5f5f5; border-radius: 4px;">
-        <h3>Supported Input Formats:</h3>
-        <p>PDF, DOCX, PPTX, HTML, Markdown, RTF, ODT, EPUB, and many more...</p>
-    </div>
-    """
-    )
-
-    # Apply theme template
-    title = "Upload Document - all2md"
-    html = theme_content.replace("{TITLE}", title)
-    html = html.replace("{CONTENT}", form_html)
-
-    return html
 
 
 def _scan_directory_for_documents(
@@ -321,7 +204,6 @@ def _generate_directory_index(
     theme_path: Path,
     base_dir: Path,
     current_subdir: str = "",
-    enable_upload: bool = False,
 ) -> str:
     """Generate HTML index page for a directory listing.
 
@@ -338,8 +220,6 @@ def _generate_directory_index(
         Base directory path for computing relative paths
     current_subdir : str
         Relative subdirectory path (e.g., "" for root, "reports/2024" for nested)
-    enable_upload : bool
-        Whether to show link to upload page (root only)
 
     Returns
     -------
@@ -384,18 +264,6 @@ def _generate_directory_index(
     content = breadcrumbs
     content += _INDEX_STYLE
     content += f"<h1>Directory: {escape_html(dir_display)}</h1>"
-
-    # Add upload link if enabled (root only)
-    if enable_upload and not current_subdir:
-        content += """
-        <div style="margin: 20px 0; padding: 15px; background: #e8f4f8;
-                    border-left: 4px solid #0066cc; border-radius: 4px;">
-            <a href="/upload" style="text-decoration: none; color: #0066cc; font-weight: bold;">
-                Upload & Convert Document
-            </a>
-            <span style="margin-left: 10px; color: #666;">- Convert any document to different format</span>
-        </div>
-        """
 
     # Show subdirectories
     if child_dir_names:
@@ -577,90 +445,6 @@ def _generate_breadcrumbs(url_path: str) -> str:
     return f'<nav style="{breadcrumb_style}">{separator.join(crumbs)}</nav>'
 
 
-def _parse_multipart_form_data(body: bytes, content_type: str) -> dict[str, Any]:
-    """Parse multipart/form-data without using deprecated cgi module.
-
-    Parameters
-    ----------
-    body : bytes
-        Raw request body
-    content_type : str
-        Content-Type header value
-
-    Returns
-    -------
-    dict
-        Dictionary mapping field names to their values or file data.
-        File fields return dict with 'filename' and 'data' keys.
-
-    Raises
-    ------
-    ValueError
-        If no boundary found in Content-Type header
-
-    """
-    # Extract boundary from content type
-    boundary = None
-    for ct_part in content_type.split(";"):
-        ct_part = ct_part.strip()
-        if ct_part.startswith("boundary="):
-            boundary = ct_part.split("=", 1)[1]
-            # Remove quotes if present
-            boundary = boundary.strip('"')
-            break
-
-    if not boundary:
-        raise ValueError("No boundary found in Content-Type")
-
-    # Split by boundary markers
-    boundary_bytes = ("--" + boundary).encode("utf-8")
-    parts = body.split(boundary_bytes)
-
-    result: dict[str, Any] = {}
-
-    for part_bytes in parts:
-        # Skip empty parts and end marker
-        part_bytes = part_bytes.strip()
-        if not part_bytes or part_bytes == b"--":
-            continue
-
-        # Split headers from content
-        headers_section: bytes
-        content: bytes
-        if b"\r\n\r\n" in part_bytes:
-            headers_section, content = part_bytes.split(b"\r\n\r\n", 1)
-        elif b"\n\n" in part_bytes:
-            headers_section, content = part_bytes.split(b"\n\n", 1)
-        else:
-            continue
-
-        # Parse Content-Disposition header
-        headers = headers_section.decode("utf-8", errors="ignore")
-        field_name = None
-        filename = None
-
-        for line in headers.split("\n"):
-            line = line.strip()
-            if line.lower().startswith("content-disposition:"):
-                # Parse field name and filename
-                for param in line.split(";"):
-                    param = param.strip()
-                    if "name=" in param:
-                        field_name = param.split("=", 1)[1].strip('"')
-                    elif "filename=" in param:
-                        filename = param.split("=", 1)[1].strip('"')
-
-        if field_name:
-            if filename:
-                # File field
-                result[field_name] = {"filename": filename, "data": content.rstrip(b"\r\n")}
-            else:
-                # Text field
-                result[field_name] = content.rstrip(b"\r\n").decode("utf-8", errors="ignore")
-
-    return result
-
-
 class _ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     """HTTPServer that handles each request in a daemon thread.
 
@@ -720,9 +504,6 @@ class ServeSettings:
     no_syntax_highlight: bool = False
     browse: bool = False
     window: bool = False
-    enable_upload: bool = False
-    enable_api: bool = False
-    max_upload_size: int = 50
     no_cache: bool = False
     poll_interval: float = 2.0
     config: str | None = None
@@ -736,6 +517,16 @@ class ServeSettings:
         return cls(**values)
 
 
+# serve flags for the upload form and the REST API, both removed in 1.18.
+_REMOVED_FLAGS = ("--enable-upload", "--enable-api", "--max-upload-size")
+
+_DEPRECATION_NOTE = (
+    "Note: 'all2md serve' is deprecated and will be removed in the next release. "
+    "Use 'all2md view' on the same file, folder or glob: it opens the browser itself and "
+    "lists every document (add --index-page to show a folder's README or index instead)."
+)
+
+
 def _create_serve_parser() -> argparse.ArgumentParser:
     """Build the argument parser for the ``serve`` command.
 
@@ -744,7 +535,8 @@ def _create_serve_parser() -> argparse.ArgumentParser:
     """
     parser = argparse.ArgumentParser(
         prog="all2md serve",
-        description="Serve document(s) as HTML via HTTP server with theme support.",
+        description="Deprecated: use 'all2md view', which browses a folder or a glob the same way. "
+        "Serve document(s) as HTML via HTTP server with theme support.",
     )
     parser.add_argument("input", help="File, directory, or glob pattern (e.g. 'docs/*.pdf') to serve")
     parser.add_argument("-p", "--port", type=int, default=8000, help="Port to serve on (default: 8000)")
@@ -788,22 +580,10 @@ def _create_serve_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Open the served URL in the default web browser once the server starts",
     )
-    parser.add_argument(
-        "--enable-upload",
-        action="store_true",
-        help="Enable file upload form at /upload (development only)",
-    )
-    parser.add_argument(
-        "--enable-api",
-        action="store_true",
-        help="Enable REST API endpoint at /api/convert (development only)",
-    )
-    parser.add_argument(
-        "--max-upload-size",
-        type=int,
-        default=50,
-        help="Maximum upload file size in MB (default: 50)",
-    )
+    # Removed in 1.18; still parsed so an old command line gets an explanation.
+    parser.add_argument("--enable-upload", nargs="?", const=True, help=argparse.SUPPRESS)
+    parser.add_argument("--enable-api", nargs="?", const=True, help=argparse.SUPPRESS)
+    parser.add_argument("--max-upload-size", nargs="?", const=True, help=argparse.SUPPRESS)
     parser.add_argument(
         "--no-cache",
         action="store_true",
@@ -864,6 +644,16 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
         parsed = parser.parse_args(args or [])
     except SystemExit as e:
         return e.code if isinstance(e.code, int) else EXIT_ERROR
+
+    print(_DEPRECATION_NOTE, file=sys.stderr)
+    for removed in _REMOVED_FLAGS:
+        if getattr(parsed, removed.lstrip("-").replace("-", "_")) is not None:
+            print(
+                f"Error: {removed} was removed in all2md 1.18, with the upload form and /api/convert. "
+                "Convert from a program with the Python API or 'all2md mcp'.",
+                file=sys.stderr,
+            )
+            return EXIT_ERROR
 
     # A combined --address host:port overrides --host/--port. Only the supplied
     # half is applied, so 'host:' keeps the default port and ':port' the host.
@@ -1072,7 +862,6 @@ def run_server(settings: ServeSettings) -> int:  # noqa: C901
             theme_path,
             input_path,
             current_subdir=subdir,
-            enable_upload=settings.enable_upload,
         )
 
     # Create custom request handler
@@ -1080,12 +869,6 @@ def run_server(settings: ServeSettings) -> int:  # noqa: C901
         def do_GET(self) -> None:
             # Remove query string if present
             path = self.path.split("?")[0]
-
-            # Handle upload form route
-            if path == "/upload" and settings.enable_upload:
-                upload_form = _generate_upload_form(theme_path)
-                self._send_html(upload_form)
-                return
 
             # Directory index requests (root or known subdirectory)
             if _is_directory_index_path(path):
@@ -1162,207 +945,6 @@ def run_server(settings: ServeSettings) -> int:  # noqa: C901
             # Custom logging format
             print(f"[{self.log_date_time_string()}] {format % args}")
 
-        def do_POST(self) -> None:
-            # Remove query string if present
-            path = self.path.split("?")[0]
-
-            # Handle upload form submission
-            if path == "/upload" and settings.enable_upload:
-                self._handle_upload()
-                return
-
-            # Handle API conversion
-            if path == "/api/convert" and settings.enable_api:
-                self._handle_api_convert()
-                return
-
-            # Not found
-            self.send_response(404)
-            self.send_header("Content-type", "application/json")
-            self.end_headers()
-            error = {"error": "Not found", "message": "The requested endpoint does not exist"}
-            self.wfile.write(json.dumps(error).encode("utf-8"))
-
-        def _handle_upload(self) -> None:
-            """Handle file upload from web form."""
-            try:
-                # Parse multipart form data
-                content_type = self.headers.get("Content-Type", "")
-                if "multipart/form-data" not in content_type:
-                    self.send_response(400)
-                    self.send_header("Content-type", "text/html; charset=utf-8")
-                    self.end_headers()
-                    error_html = "<html><body><h1>400 Bad Request</h1><p>Expected multipart/form-data</p></body></html>"
-                    self.wfile.write(error_html.encode("utf-8"))
-                    return
-
-                # Get content length
-                content_length = int(self.headers.get("Content-Length", 0))
-                max_size_bytes = settings.max_upload_size * 1024 * 1024  # Convert MB to bytes
-
-                if content_length > max_size_bytes:
-                    self.send_response(413)
-                    self.send_header("Content-type", "text/html; charset=utf-8")
-                    self.end_headers()
-                    error_html = (
-                        f"<html><body><h1>413 Payload Too Large</h1>"
-                        f"<p>File size exceeds {settings.max_upload_size}MB limit</p></body></html>"
-                    )
-                    self.wfile.write(error_html.encode("utf-8"))
-                    return
-
-                # Read and parse form data
-                body = self.rfile.read(content_length)
-                form_data = _parse_multipart_form_data(body, content_type)
-
-                # Get file and format
-                if "file" not in form_data:
-                    self.send_response(400)
-                    self.send_header("Content-type", "text/html; charset=utf-8")
-                    self.end_headers()
-                    error_html = "<html><body><h1>400 Bad Request</h1><p>No file uploaded</p></body></html>"
-                    self.wfile.write(error_html.encode("utf-8"))
-                    return
-
-                file_item = form_data["file"]
-                target_format = form_data.get("format", "html")
-
-                # Extract file data
-                if isinstance(file_item, dict) and "data" in file_item:
-                    file_data = file_item["data"]
-                else:
-                    file_data = file_item
-
-                # Convert document
-                print(f"Converting uploaded file to {target_format}...")
-                doc = to_ast(io.BytesIO(file_data))
-
-                # Convert to target format
-                result = from_ast(doc, target_format)
-
-                # Send response with appropriate content type
-                content_type = _get_content_type_for_format(target_format)
-                self.send_response(200)
-                self.send_header("Content-type", content_type)
-                self.end_headers()
-
-                if isinstance(result, str):
-                    self.wfile.write(result.encode("utf-8"))
-                elif isinstance(result, bytes):
-                    self.wfile.write(result)
-
-            except Exception as e:
-                print(f"Error in upload handler: {e}", file=sys.stderr)
-                self.send_response(500)
-                self.send_header("Content-type", "text/html; charset=utf-8")
-                self.end_headers()
-                error_html = f"<html><body><h1>500 Internal Server Error</h1><p>Error: {e}</p></body></html>"
-                self.wfile.write(error_html.encode("utf-8"))
-
-        def _handle_api_convert(self) -> None:
-            """Handle API conversion request."""
-            try:
-                # Parse multipart form data or JSON
-                content_type = self.headers.get("Content-Type", "")
-
-                if "multipart/form-data" in content_type:
-                    # Get content length and check size
-                    content_length = int(self.headers.get("Content-Length", 0))
-                    max_size_bytes = settings.max_upload_size * 1024 * 1024
-
-                    if content_length > max_size_bytes:
-                        self.send_response(413)
-                        self.send_header("Content-type", "application/json")
-                        self.end_headers()
-                        error = {
-                            "error": "Payload too large",
-                            "message": f"File size exceeds {settings.max_upload_size}MB limit",
-                        }
-                        self.wfile.write(json.dumps(error).encode("utf-8"))
-                        return
-
-                    # Read and parse form data
-                    body = self.rfile.read(content_length)
-                    form_data = _parse_multipart_form_data(body, content_type)
-
-                    if "file" not in form_data:
-                        self.send_response(400)
-                        self.send_header("Content-type", "application/json")
-                        self.end_headers()
-                        error = {"error": "Bad request", "message": "No file provided"}
-                        self.wfile.write(json.dumps(error).encode("utf-8"))
-                        return
-
-                    file_item = form_data["file"]
-                    target_format = form_data.get("format", "html")
-
-                    # Extract file data
-                    if isinstance(file_item, dict) and "data" in file_item:
-                        file_data = file_item["data"]
-                    else:
-                        file_data = file_item
-
-                else:
-                    # Assume JSON with base64-encoded file
-                    content_length = int(self.headers.get("Content-Length", 0))
-                    max_size_bytes = settings.max_upload_size * 1024 * 1024
-
-                    if content_length > max_size_bytes:
-                        self.send_response(413)
-                        self.send_header("Content-type", "application/json")
-                        self.end_headers()
-                        error = {
-                            "error": "Payload too large",
-                            "message": f"Request size exceeds {settings.max_upload_size}MB limit",
-                        }
-                        self.wfile.write(json.dumps(error).encode("utf-8"))
-                        return
-
-                    json_body = self.rfile.read(content_length).decode("utf-8")
-                    data = json.loads(json_body)
-
-                    if "file" not in data:
-                        self.send_response(400)
-                        self.send_header("Content-type", "application/json")
-                        self.end_headers()
-                        error = {"error": "Bad request", "message": "No file data provided"}
-                        self.wfile.write(json.dumps(error).encode("utf-8"))
-                        return
-
-                    # Decode base64 file data
-                    file_data = base64.b64decode(data["file"])
-                    target_format = data.get("format", "html")
-
-                # Convert document
-                print(f"API: Converting to {target_format}...")
-                doc = to_ast(io.BytesIO(file_data))
-                result = from_ast(doc, target_format)
-
-                # Send response with appropriate content type
-                content_type = _get_content_type_for_format(target_format)
-                self.send_response(200)
-                self.send_header("Content-type", content_type)
-                self.end_headers()
-
-                if isinstance(result, str):
-                    self.wfile.write(result.encode("utf-8"))
-                elif isinstance(result, bytes):
-                    self.wfile.write(result)
-
-            except json.JSONDecodeError as e:
-                self.send_response(400)
-                self.send_header("Content-type", "application/json")
-                self.end_headers()
-                error = {"error": "Invalid JSON", "message": str(e)}
-                self.wfile.write(json.dumps(error).encode("utf-8"))
-            except Exception as e:
-                print(f"Error in API handler: {e}", file=sys.stderr)
-                self.send_response(500)
-                self.send_header("Content-type", "application/json")
-                self.end_headers()
-                error = {"error": "Internal server error", "message": str(e)}
-                self.wfile.write(json.dumps(error).encode("utf-8"))
-
     # Start server. If the requested port is taken, fall back to an OS-assigned
     # random free port instead of giving up (port 8000 is frequently in use).
     try:
@@ -1381,20 +963,6 @@ def run_server(settings: ServeSettings) -> int:  # noqa: C901
 
     url = f"http://{settings.host}:{bound_port}/"
     print(f"\nServing at {url}")
-
-    # Print development warning if upload or API is enabled
-    if settings.enable_upload or settings.enable_api:
-        print("\n" + "=" * 70)
-        print("WARNING: Development features enabled")
-        print("=" * 70)
-        if settings.enable_upload:
-            print(f"  - File upload form: {url}upload")
-        if settings.enable_api:
-            print(f"  - REST API endpoint: {url}api/convert")
-        print(f"  - Maximum upload size: {settings.max_upload_size}MB")
-        print("\nThis server is for DEVELOPMENT USE ONLY.")
-        print("DO NOT expose to untrusted networks or use in production.")
-        print("=" * 70 + "\n")
 
     # Use a loopback host for the browser when bound to a wildcard address, which
     # browsers can't navigate to directly.

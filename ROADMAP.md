@@ -67,7 +67,7 @@ written against tools that do what it says:
   (#615, #645), are done.
 - ✅ **`all2md view`** shows what it dropped: footnotes, math, relative images, and DOCX
   images (#646).
-- **`all2md view` browses a folder, and `serve` retires.** `view DIR` (or a glob) serves
+- ✅ **`all2md view` browses a folder, and `serve` retires.** `view DIR` (or a glob) serves
   a generated listing of every document, with relative images read from inside the
   folder; `serve` then becomes a deprecated alias for `view`, removed in the release
   after, and its upload form and `/api/convert` go.
@@ -393,8 +393,9 @@ is I/O. Shape when it is needed: `ato_markdown` / `aconvert` over `asyncio.to_th
 - 🚀 **Deferred asset resolution** — parse to placeholders, resolve remote assets
   concurrently, finalise. Turns N serial fetches into one batch for asset-heavy HTML.
 - 🚀 **Parallel batch engine v2** — resume, a failure manifest, as-completed progress.
-- 🌱 **`serve` on the persistent conversion cache** — the one command still on its own
-  in-process render cache rather than the fingerprinted on-disk one (v1.9.0).
+- 🌱 **The folder server on the persistent conversion cache** — `view DIR --cache` parses
+  through the fingerprinted on-disk cache (#647), but rendered pages still live in the
+  server's own in-process cache.
 - 🌙 **WASM build** — in-browser, privacy-preserving conversion via Pyodide or a Rust core.
 
 ---

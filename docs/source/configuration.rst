@@ -440,10 +440,10 @@ on every invocation. Each command reads a table named after the command:
      - Example keys
    * - ``all2md view``
      - ``[view]``
-     - ``no_wait``, ``toc``, ``dark``, ``theme``, ``keep``
-   * - ``all2md serve``
+     - ``no_wait``, ``toc``, ``dark``, ``theme``, ``keep``, ``port``, ``recursive``, ``index_page``
+   * - ``all2md serve`` (deprecated)
      - ``[serve]``
-     - ``port``, ``host``, ``theme``, ``no_cache``, ``poll_interval``
+     - as for ``view``; move the section to ``[view]``
    * - ``all2md diff``
      - ``[diff]``
      - ``format``, ``granularity``, ``context``, ``color``
@@ -473,9 +473,7 @@ Example:
    no_wait = true        # don't wait for Enter before cleaning up the temp file
    theme = "sidebar"
 
-   [serve]
-   port = 9123
-   host = "0.0.0.0"
+   port = 9123           # the folder server's port (view ./docs)
 
    [diff]
    granularity = "word"

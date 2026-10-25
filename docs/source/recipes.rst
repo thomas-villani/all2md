@@ -88,7 +88,7 @@ View and Publish
 .. code-block:: bash
 
    all2md view report.pdf            # render to HTML and open in a browser
-   all2md serve docs/ --recursive    # live-reloading local server
+   all2md view docs/ --recursive     # browse a folder; the listing follows the files
    all2md generate-site docs/ --generator hugo --output-dir ./site   # build a static site
 
 .. note::
