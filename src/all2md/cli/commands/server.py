@@ -20,15 +20,17 @@ import socketserver
 import sys
 import threading
 import webbrowser
+from dataclasses import dataclass, fields
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote, unquote
 
 from all2md.api import from_ast, library_injected_options, to_ast
+from all2md.cli import window
 from all2md.cli.builder import EXIT_ERROR, EXIT_FILE_ERROR, EXIT_SUCCESS
 from all2md.cli.commands.shared import has_hidden_component, split_glob_pattern
-from all2md.cli.commands.web_assets import ThemeError, inject_web_assets, resolve_theme
+from all2md.cli.commands.web_assets import ThemeError, inject_web_assets, inline_local_images, resolve_theme
 from all2md.cli.config import apply_config_to_parser, load_config_with_priority
 from all2md.converter_registry import registry
 from all2md.options.html import HtmlRendererOptions
@@ -695,6 +697,45 @@ def _parse_address(address: str) -> tuple[str | None, int | None]:
     return host, int(port_part)
 
 
+@dataclass
+class ServeSettings:
+    """What :func:`run_server` serves and how; ``serve`` and ``view`` both build one.
+
+    ``input`` is a file, a directory, or a glob pattern. ``index_page`` shows a folder's
+    ``index.html``, ``index.md`` or ``README.md`` in place of the generated listing.
+    ``browse`` opens the page in a browser tab, ``window`` in a native window, which
+    stops the server when it closes.
+    """
+
+    input: str
+    host: str = "127.0.0.1"
+    port: int = 8000
+    recursive: bool = False
+    include_hidden: bool = False
+    index_page: bool = False
+    toc: bool = False
+    dark: bool = False
+    theme: str | None = None
+    no_mermaid: bool = False
+    no_syntax_highlight: bool = False
+    browse: bool = False
+    window: bool = False
+    enable_upload: bool = False
+    enable_api: bool = False
+    max_upload_size: int = 50
+    no_cache: bool = False
+    poll_interval: float = 2.0
+    config: str | None = None
+    no_config: bool = False
+
+    @classmethod
+    def from_namespace(cls, namespace: argparse.Namespace, **overrides: Any) -> "ServeSettings":
+        """Take each field a parsed command line has, then apply ``overrides``."""
+        values = {f.name: getattr(namespace, f.name) for f in fields(cls) if hasattr(namespace, f.name)}
+        values.update(overrides)
+        return cls(**values)
+
+
 def _create_serve_parser() -> argparse.ArgumentParser:
     """Build the argument parser for the ``serve`` command.
 
@@ -837,35 +878,44 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
         if addr_port is not None:
             parsed.port = addr_port
 
+    return run_server(ServeSettings.from_namespace(parsed, index_page=not parsed.force_auto_index))
+
+
+def run_server(settings: ServeSettings) -> int:  # noqa: C901
+    """Serve a document, a folder or a glob's matches as themed HTML until stopped.
+
+    Documents convert on demand and are cached; a folder's listing follows the files
+    on disk. Returns the exit code.
+    """
     # Converter options from the config file (e.g. [pdf], [html], top-level keys)
     # so a single config drives `all2md`, `view`, and `serve` identically.
     from all2md.cli.processors import load_converter_config_options, prepare_options_for_execution
 
-    converter_options = load_converter_config_options(explicit_path=parsed.config, no_config=parsed.no_config)
+    converter_options = load_converter_config_options(explicit_path=settings.config, no_config=settings.no_config)
 
     # Resolve the input: a glob pattern, a directory, or a single file.
     # A glob is served as a directory listing restricted to matching files, so
     # live rescans continue to pick up newly added matches.
     serve_pattern: str | None = None
-    if any(char in parsed.input for char in "*?["):
-        input_path, serve_pattern, glob_recursive = split_glob_pattern(parsed.input)
+    if any(char in settings.input for char in "*?["):
+        input_path, serve_pattern, glob_recursive = split_glob_pattern(settings.input)
         if not input_path.is_dir():
-            print(f"Error: No directory to serve for pattern: {parsed.input}", file=sys.stderr)
+            print(f"Error: No directory to serve for pattern: {settings.input}", file=sys.stderr)
             return EXIT_FILE_ERROR
         if glob_recursive:
-            parsed.recursive = True
+            settings.recursive = True
         # Show the filtered listing, not a hand-authored index in the directory.
-        parsed.force_auto_index = True
+        settings.index_page = False
     else:
-        input_path = Path(parsed.input)
+        input_path = Path(settings.input)
         if not input_path.exists():
-            print(f"Error: Input path not found: {parsed.input}", file=sys.stderr)
+            print(f"Error: Input path not found: {settings.input}", file=sys.stderr)
             return EXIT_FILE_ERROR
 
     # Select theme template (built-in name, .html/.css path, or [themes] config name).
-    theme_config = {} if parsed.no_config else load_config_with_priority(explicit_path=parsed.config)
+    theme_config = {} if settings.no_config else load_config_with_priority(explicit_path=settings.config)
     try:
-        theme_path = resolve_theme(parsed.theme, dark=parsed.dark, config=theme_config)
+        theme_path = resolve_theme(settings.theme, dark=settings.dark, config=theme_config)
     except ThemeError as e:
         print(f"Error: {e}", file=sys.stderr)
         return EXIT_FILE_ERROR
@@ -874,10 +924,11 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
         return EXIT_FILE_ERROR
 
     # Whether to serve the dark variant of the highlight.js / mermaid themes.
-    is_dark = parsed.dark or parsed.theme == "dark"
+    is_dark = settings.dark or settings.theme == "dark"
 
     # Determine if input is file or directory (a glob always serves a listing).
     is_directory = serve_pattern is not None or input_path.is_dir()
+    served_root = (input_path if is_directory else input_path.parent).resolve()
 
     # Shared state guarded by state_lock so the polling thread and request
     # handler threads can coexist safely.
@@ -899,13 +950,16 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
         to_ast_kwargs["attachment_mode"] = "base64"
         with library_injected_options("attachment_mode"):
             doc = to_ast(str(file_path), **to_ast_kwargs)
+        # The page lives at a URL, not beside its source, so images named by path are
+        # embedded; only ones inside the served folder, which is all a visitor may read.
+        inline_local_images(doc, file_path.parent, root=served_root)
         doc.metadata["title"] = f"{file_path.name} - all2md"
         html_opts = HtmlRendererOptions(
             template_mode="replace",
             template_file=str(theme_path),
-            include_toc=parsed.toc,
+            include_toc=settings.toc,
             external_links_new_tab=True,
-            render_mermaid=not parsed.no_mermaid,
+            render_mermaid=not settings.no_mermaid,
         )
         html_content = from_ast(doc, "html", renderer_options=html_opts)
         if not isinstance(html_content, str):
@@ -914,8 +968,8 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
         # before breadcrumbs so the injection targets the original <head>.
         html_content = inject_web_assets(
             html_content,
-            mermaid=not parsed.no_mermaid,
-            highlight=not parsed.no_syntax_highlight,
+            mermaid=not settings.no_mermaid,
+            highlight=not settings.no_syntax_highlight,
             dark=is_dark,
         )
         if breadcrumb_path:
@@ -932,7 +986,7 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
         if not is_directory:
             return False
         new_files, new_subdirs, new_mapping, new_signature = _compute_directory_state(
-            input_path, parsed.recursive, serve_pattern, parsed.include_hidden
+            input_path, settings.recursive, serve_pattern, settings.include_hidden
         )
         with state_lock:
             if not initial and new_signature == scan_signature:
@@ -959,11 +1013,11 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
 
         # Empty directories are still legitimate if they ship an index.html /
         # index.md / README.md the user wants served.
-        if not supported_files and (parsed.force_auto_index or _find_index_file(input_path) is None):
+        if not supported_files and (not settings.index_page or _find_index_file(input_path) is None):
             print(f"Error: No supported document files found in {input_path}", file=sys.stderr)
             return EXIT_ERROR
 
-        mode_str = "recursively" if parsed.recursive else "in directory"
+        mode_str = "recursively" if settings.recursive else "in directory"
         print(f"Found {len(supported_files)} document(s) {mode_str} - will convert on demand")
     else:
         print(f"Converting {input_path.name}...")
@@ -1001,7 +1055,7 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
         if not (target_dir == root or target_dir.is_relative_to(root)):
             return None
 
-        if not parsed.force_auto_index:
+        if settings.index_page:
             index_file = _find_index_file(target_dir)
             if index_file is not None:
                 breadcrumb_path: str | None = ("/" + subdir + "/") if subdir else None
@@ -1018,7 +1072,7 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
             theme_path,
             input_path,
             current_subdir=subdir,
-            enable_upload=parsed.enable_upload,
+            enable_upload=settings.enable_upload,
         )
 
     # Create custom request handler
@@ -1028,7 +1082,7 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
             path = self.path.split("?")[0]
 
             # Handle upload form route
-            if path == "/upload" and parsed.enable_upload:
+            if path == "/upload" and settings.enable_upload:
                 upload_form = _generate_upload_form(theme_path)
                 self._send_html(upload_form)
                 return
@@ -1036,7 +1090,7 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
             # Directory index requests (root or known subdirectory)
             if _is_directory_index_path(path):
                 cached: str | None = None
-                if not parsed.no_cache:
+                if not settings.no_cache:
                     with state_lock:
                         cached = index_cache.get(path)
                 if cached is not None:
@@ -1044,13 +1098,13 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
                     return
                 # In --no-cache mode the polling thread is off, so force a
                 # rescan on root requests to keep the listing fresh.
-                if parsed.no_cache and path == "/":
+                if settings.no_cache and path == "/":
                     _rescan_directory()
                 html_content = _render_directory_index(path)
                 if html_content is None:
                     self._send_500("Failed to render directory index")
                     return
-                if not parsed.no_cache:
+                if not settings.no_cache:
                     with state_lock:
                         index_cache[path] = html_content
                 self._send_html(html_content)
@@ -1065,7 +1119,7 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
                 self._send_404()
                 return
 
-            if cached_file is not None and not parsed.no_cache:
+            if cached_file is not None and not settings.no_cache:
                 self._send_html(cached_file)
                 return
 
@@ -1078,7 +1132,7 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
                 self._send_500(f"Error converting document: {e}")
                 return
 
-            if not parsed.no_cache:
+            if not settings.no_cache:
                 with state_lock:
                     file_cache[path] = html_content
             self._send_html(html_content)
@@ -1113,12 +1167,12 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
             path = self.path.split("?")[0]
 
             # Handle upload form submission
-            if path == "/upload" and parsed.enable_upload:
+            if path == "/upload" and settings.enable_upload:
                 self._handle_upload()
                 return
 
             # Handle API conversion
-            if path == "/api/convert" and parsed.enable_api:
+            if path == "/api/convert" and settings.enable_api:
                 self._handle_api_convert()
                 return
 
@@ -1144,7 +1198,7 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
 
                 # Get content length
                 content_length = int(self.headers.get("Content-Length", 0))
-                max_size_bytes = parsed.max_upload_size * 1024 * 1024  # Convert MB to bytes
+                max_size_bytes = settings.max_upload_size * 1024 * 1024  # Convert MB to bytes
 
                 if content_length > max_size_bytes:
                     self.send_response(413)
@@ -1152,7 +1206,7 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
                     self.end_headers()
                     error_html = (
                         f"<html><body><h1>413 Payload Too Large</h1>"
-                        f"<p>File size exceeds {parsed.max_upload_size}MB limit</p></body></html>"
+                        f"<p>File size exceeds {settings.max_upload_size}MB limit</p></body></html>"
                     )
                     self.wfile.write(error_html.encode("utf-8"))
                     return
@@ -1214,7 +1268,7 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
                 if "multipart/form-data" in content_type:
                     # Get content length and check size
                     content_length = int(self.headers.get("Content-Length", 0))
-                    max_size_bytes = parsed.max_upload_size * 1024 * 1024
+                    max_size_bytes = settings.max_upload_size * 1024 * 1024
 
                     if content_length > max_size_bytes:
                         self.send_response(413)
@@ -1222,7 +1276,7 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
                         self.end_headers()
                         error = {
                             "error": "Payload too large",
-                            "message": f"File size exceeds {parsed.max_upload_size}MB limit",
+                            "message": f"File size exceeds {settings.max_upload_size}MB limit",
                         }
                         self.wfile.write(json.dumps(error).encode("utf-8"))
                         return
@@ -1251,7 +1305,7 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
                 else:
                     # Assume JSON with base64-encoded file
                     content_length = int(self.headers.get("Content-Length", 0))
-                    max_size_bytes = parsed.max_upload_size * 1024 * 1024
+                    max_size_bytes = settings.max_upload_size * 1024 * 1024
 
                     if content_length > max_size_bytes:
                         self.send_response(413)
@@ -1259,7 +1313,7 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
                         self.end_headers()
                         error = {
                             "error": "Payload too large",
-                            "message": f"Request size exceeds {parsed.max_upload_size}MB limit",
+                            "message": f"Request size exceeds {settings.max_upload_size}MB limit",
                         }
                         self.wfile.write(json.dumps(error).encode("utf-8"))
                         return
@@ -1312,7 +1366,7 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
     # Start server. If the requested port is taken, fall back to an OS-assigned
     # random free port instead of giving up (port 8000 is frequently in use).
     try:
-        httpd, fell_back = _bind_http_server(parsed.host, parsed.port, ServeHandler)
+        httpd, fell_back = _bind_http_server(settings.host, settings.port, ServeHandler)
     except OSError as e:
         print(f"Error: Could not start server: {e}", file=sys.stderr)
         return EXIT_ERROR
@@ -1323,36 +1377,44 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
     # Use the port we actually bound (differs from --port when we fell back).
     bound_port = httpd.server_address[1]
     if fell_back:
-        print(f"Port {parsed.port} is unavailable; bound a random free port instead.", file=sys.stderr)
+        print(f"Port {settings.port} is unavailable; bound a random free port instead.", file=sys.stderr)
 
-    url = f"http://{parsed.host}:{bound_port}/"
+    url = f"http://{settings.host}:{bound_port}/"
     print(f"\nServing at {url}")
 
     # Print development warning if upload or API is enabled
-    if parsed.enable_upload or parsed.enable_api:
+    if settings.enable_upload or settings.enable_api:
         print("\n" + "=" * 70)
         print("WARNING: Development features enabled")
         print("=" * 70)
-        if parsed.enable_upload:
+        if settings.enable_upload:
             print(f"  - File upload form: {url}upload")
-        if parsed.enable_api:
+        if settings.enable_api:
             print(f"  - REST API endpoint: {url}api/convert")
-        print(f"  - Maximum upload size: {parsed.max_upload_size}MB")
+        print(f"  - Maximum upload size: {settings.max_upload_size}MB")
         print("\nThis server is for DEVELOPMENT USE ONLY.")
         print("DO NOT expose to untrusted networks or use in production.")
         print("=" * 70 + "\n")
 
-    print("Press Ctrl+C to stop")
+    # Use a loopback host for the browser when bound to a wildcard address, which
+    # browsers can't navigate to directly.
+    # nosec B104: not binding here -- detecting a wildcard bind host so the
+    # browser is pointed at a reachable loopback address instead.
+    wildcard_hosts = ("0.0.0.0", "::", "")  # nosec B104
+    browse_host = "127.0.0.1" if settings.host in wildcard_hosts else settings.host
+    browse_url = f"http://{browse_host}:{bound_port}/"
+
+    # A native window needs pywebview; without it, fall back to a browser tab.
+    use_window = settings.window and not os.environ.get("ALL2MD_TEST_NO_BROWSER")
+    if use_window and not window.is_available():
+        print(f"Note: {window.INSTALL_HINT}", file=sys.stderr)
+        print("Falling back to a browser tab.", file=sys.stderr)
+        use_window = False
+    print("Close the window to stop" if use_window else "Press Ctrl+C to stop")
 
     # Open the served URL in the browser when requested (skipped under test mode,
-    # matching `all2md view`). Use a loopback host for the browser when bound to a
-    # wildcard address, which browsers can't navigate to directly.
-    if parsed.browse and not os.environ.get("ALL2MD_TEST_NO_BROWSER"):
-        # nosec B104: not binding here -- detecting a wildcard bind host so the
-        # browser is pointed at a reachable loopback address instead.
-        wildcard_hosts = ("0.0.0.0", "::", "")  # nosec B104
-        browse_host = "127.0.0.1" if parsed.host in wildcard_hosts else parsed.host
-        browse_url = f"http://{browse_host}:{bound_port}/"
+    # matching `all2md view`).
+    if settings.browse and not use_window and not os.environ.get("ALL2MD_TEST_NO_BROWSER"):
         print(f"Opening {browse_url} in browser...")
         try:
             webbrowser.open(browse_url)
@@ -1365,11 +1427,11 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
     # mode, when polling is disabled, or when caching is off (rescan happens
     # inline on each request anyway).
     poll_thread: threading.Thread | None = None
-    if is_directory and parsed.poll_interval > 0 and not parsed.no_cache:
+    if is_directory and settings.poll_interval > 0 and not settings.no_cache:
 
         def _poll_loop() -> None:
             while not stop_event.is_set():
-                if stop_event.wait(timeout=parsed.poll_interval):
+                if stop_event.wait(timeout=settings.poll_interval):
                     return
                 try:
                     if _rescan_directory():
@@ -1388,6 +1450,10 @@ def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
     server_thread.start()
 
     try:
+        # The window blocks until it is closed, which stops the server.
+        if use_window:
+            window.open_window(browse_url, title=f"{Path(settings.input).name} - all2md")
+            stop_event.set()
         # stop_event.wait with a periodic timeout keeps Python returning to
         # the interpreter so KeyboardInterrupt can fire on Windows.
         while not stop_event.is_set():

@@ -187,6 +187,27 @@ def hello():
 
         assert "were ignored" not in stderr
 
+    def test_view_folder_lists_every_document_and_embeds_its_images(self, monkeypatch):
+        """``view DIR`` serves the generated listing even beside a README, and the folder's images."""
+        monkeypatch.setenv("ALL2MD_TEST_NO_BROWSER", "1")
+        png = bytes.fromhex(
+            "89504e470d0a1a0a0000000d4948445200000001000000010806000000"
+            "1f15c4890000000d49444154789c63f8cfc0f01f0005000201c2a6a9a60000000049454e44ae426082"
+        )
+        docs = self.temp_dir / "docs"
+        (docs / "img").mkdir(parents=True)
+        (docs / "img" / "in.png").write_bytes(png)
+        (self.temp_dir / "out.png").write_bytes(png)
+        (docs / "README.md").write_text("# Only a few documents\n", encoding="utf-8")
+        (docs / "a.md").write_text("# A\n\n![in](img/in.png)\n\n![out](../out.png)\n", encoding="utf-8")
+
+        self._start_server(["view", str(docs), "--no-config", "--port", "8035"])
+        index = self._fetch_url("http://127.0.0.1:8035/").decode("utf-8")
+        assert "href='/a.md'" in index and "href='/README.md'" in index
+        page = self._fetch_url("http://127.0.0.1:8035/a.md").decode("utf-8")
+        assert 'src="data:image/png;base64,' in page
+        assert 'src="../out.png"' in page
+
     def test_serve_directory(self):
         """Test serving a directory with multiple files."""
         # Create multiple markdown files
