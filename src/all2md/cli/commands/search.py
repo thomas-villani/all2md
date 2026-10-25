@@ -12,6 +12,7 @@ formatting, and configurable chunking strategies.
 import argparse
 import json
 import os
+import re
 import sys
 import textwrap
 from collections.abc import Mapping
@@ -19,7 +20,14 @@ from dataclasses import fields
 from pathlib import Path
 from typing import Any
 
-from all2md.cli.builder import EXIT_DEPENDENCY_ERROR, EXIT_ERROR, EXIT_FILE_ERROR, EXIT_SUCCESS, EXIT_VALIDATION_ERROR
+from all2md.cli.builder import (
+    EXIT_DEPENDENCY_ERROR,
+    EXIT_ERROR,
+    EXIT_FILE_ERROR,
+    EXIT_PARSING_ERROR,
+    EXIT_SUCCESS,
+    EXIT_VALIDATION_ERROR,
+)
 from all2md.cli.commands.shared import add_cache_arguments, collect_input_files, conversion_cache_from_args
 from all2md.cli.config import load_config_with_priority
 from all2md.cli.files_from import add_files_from_arguments, resolve_files_from
@@ -28,6 +36,9 @@ from all2md.exceptions import DependencyError
 from all2md.options.search import SearchOptions
 from all2md.progress import ProgressCallback, ProgressEvent
 from all2md.search.service import SearchDocumentInput, SearchMode, SearchResult, SearchService
+
+# grep's exit status when no line matched, as for Unix grep.
+EXIT_NO_MATCH = 1
 
 
 def _make_search_progress_callback(enabled: bool) -> ProgressCallback | None:
@@ -891,12 +902,15 @@ def handle_grep_command(args: list[str] | None = None) -> int:
     """Handle ``all2md grep`` for simple text search in documents.
 
     This is a simplified interface to the search system that only uses grep mode,
-    making it work like traditional grep but for binary document formats.
+    making it work like traditional grep but for binary document formats. A line is a
+    paragraph, list item, table row, heading or line of code. As with grep, the exit
+    status is 0 when something matched, 1 when nothing did, and 2 or more on an error.
     """
     parser = argparse.ArgumentParser(
         prog="all2md grep",
-        description="Search for text patterns in documents (works on binary formats too).",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description="Search for text patterns in documents (works on binary formats too). "
+        "A line is a paragraph, list item, table row, heading or line of code. "
+        "Exits 0 when a line matched, 1 when none did, and 2 or more on an error.",
     )
     parser.add_argument("query", help="Search query text or pattern")
     parser.add_argument(
@@ -939,7 +953,7 @@ def handle_grep_command(args: list[str] | None = None) -> int:
         "--line-number",
         dest="grep_show_line_numbers",
         action="store_true",
-        help="Show line numbers for matching lines",
+        help="Show line numbers, counted through the document ('N:' a match, 'N-' context)",
     )
     parser.add_argument(
         "-i",
@@ -953,7 +967,7 @@ def handle_grep_command(args: list[str] | None = None) -> int:
         "--max-columns",
         dest="grep_max_columns",
         type=int,
-        help="Maximum display width for long lines (default: 150, 0 = unlimited)",
+        help="Maximum display width for long lines (default: 150; 0 = unlimited)",
     )
     parser.add_argument("-r", "--recursive", action="store_true", help="Recurse into directories when searching")
     parser.add_argument("--exclude", action="append", help="Glob pattern to exclude (repeatable)")
@@ -1019,18 +1033,25 @@ def handle_grep_command(args: list[str] | None = None) -> int:
         return EXIT_DEPENDENCY_ERROR
     except Exception as exc:
         print(f"Error building index: {exc}", file=sys.stderr)
-        return EXIT_ERROR
+        return EXIT_PARSING_ERROR
     _report_skipped(service, command="grep")
 
+    # Exit 1 means only "no match", as for grep, so errors use their own codes.
     try:
         # Grep mode returns all results (no top_k limit)
         results = service.search(parsed.query, mode="grep", top_k=999999)
     except DependencyError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return EXIT_DEPENDENCY_ERROR
+    except re.error as exc:
+        print(f"Error: invalid regular expression: {exc}", file=sys.stderr)
+        return EXIT_VALIDATION_ERROR
     except Exception as exc:
         print(f"Error during search: {exc}", file=sys.stderr)
-        return EXIT_ERROR
+        return EXIT_PARSING_ERROR
+
+    if not results:
+        return EXIT_NO_MATCH
 
     # Render results
     _render_search_results(

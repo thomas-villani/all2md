@@ -69,10 +69,11 @@ written against tools that do what it says:
   images (#646).
 - ✅ **`all2md view` browses a folder, and `serve` retires.** `view DIR` (or a glob) serves
   a generated listing of every document, with relative images read from inside the
-  folder (#647); `serve` is deprecated and its upload form and `/api/convert` are gone
-  (#648). **Remove `serve` in the release after 1.18.**
-- **`all2md grep`** becomes line-based: `-A`/`-B`/`-C` and `-n` work, `-M 0` does not
-  truncate, no match exits non-zero, and headings and code spans are searched.
+  folder; `serve` then becomes a deprecated alias for `view`, removed in the release
+  after, and its upload form and `/api/convert` go.
+- ✅ **`all2md grep`** is line-based: `-A`/`-B`/`-C` and `-n` work, `-M 0` does not
+  truncate, no match exits 1, and headings, code spans and code blocks are searched
+  (#649). Still missing next to grep: `-q`, `-l`, `-c`, `-v` and `-w`.
 - **Gate the PMC lane on fidelity when its exit criterion is met.** The criterion, written
   2026-08-13, is two consecutive *scheduled* runs that open no new defect issue. The
   2026-10-15 run is the first; the 2026-11-15 run can be the second.
