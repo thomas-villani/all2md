@@ -113,7 +113,7 @@ jobs:
       # Pinned to a commit: this step holds the PyPI credential. Dependabot updates
       # the pin; the comment names the release it points at.
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086  # v1.14.3
         with:
           print-hash: true
           # Idempotent: if this version is already on PyPI (e.g. a tag push and
