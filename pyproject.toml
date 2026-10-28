@@ -96,10 +96,10 @@ odf = [
 # imports on `import pymupdf`, turns layout analysis on under the default "auto", and
 # installs a process-wide find_tables() hook; it also changes PDF output on its own.
 pdf = [
-    "pymupdf>=1.28.0,<2"
+    "pymupdf>=1.28.0,<3"
 ]
 pdf_layout = [
-    "pymupdf>=1.28.0,<2",
+    "pymupdf>=1.28.0,<3",
     "pymupdf-layout>=1.28.0,<2",
 ]
 docx = [
@@ -280,7 +280,7 @@ all = [
     "orgparse>=0.4.20251020",
     "pillow>=13.0.0",
     "py7zr>=0.22.0",
-    "pymupdf>=1.28.0,<2",
+    "pymupdf>=1.28.0,<3",
     # Note: pymupdf-layout is NOT included in 'all' due to its Polyform Noncommercial license.
     # Install separately via: pip install all2md[pdf_layout]
     "pytesseract>=0.3.13",
