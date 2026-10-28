@@ -100,7 +100,7 @@ pdf = [
 ]
 pdf_layout = [
     "pymupdf>=1.28.0,<2",
-    "pymupdf-layout>=1.28.0,<2",
+    "pymupdf-layout>=1.28.0,<3",
 ]
 docx = [
     "python-docx>=1.2.0",
