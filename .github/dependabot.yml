@@ -19,6 +19,14 @@ updates:
     labels:
       - "dependencies"
       - "python"
+    # PyMuPDF 2.x changes PDF output (pymupdf4llm's import flips quad
+    # corrections); the move is planned on feat/pymupdf-2. Drop this ignore
+    # when that lands.
+    ignore:
+      - dependency-name: "pymupdf"
+        versions: [">=2"]
+      - dependency-name: "pymupdf-layout"
+        versions: [">=2"]
     # Group dependency updates to reduce PR noise
     groups:
       dev-dependencies:
