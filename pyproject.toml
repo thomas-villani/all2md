@@ -216,7 +216,7 @@ docx_render = [
 # (faiss, sentence-transformers) serves modes the MCP server rejects. The .mcpb
 # bundle and server.json install exactly this extra.
 mcp = [
-    "fastmcp>=2.11.3",  # oldest that installs with current mcp/pydantic; has output_schema=
+    "fastmcp>=3.4.10",  # 3.0-3.4.9 skip component authorization after transforms
     "rank-bm25>=0.2.2",
     "all2md[pdf,pdf_render,docx,html,xlsx,pptx,epub,rst,markdown,odf]",
 ]
@@ -233,6 +233,10 @@ org = [
 ]
 archive = [
     "py7zr>=0.22.0",
+    # py7zr only requires brotli>=1.2.0; 1.2.1 fixes an out-of-bounds write in the
+    # decoder, reachable from a crafted 7z archive.
+    "brotli>=1.2.1; platform_python_implementation == 'CPython'",
+    "brotlicffi>=1.2.1.0; platform_python_implementation == 'PyPy'",
     "rarfile>=4.2",
 ]
 ocr = [
@@ -271,7 +275,7 @@ all = [
     "docutils>=0.22",
     "ebooklib>=0.20",
     "extract-msg>=0.56.1",
-    "fastmcp>=2.11.3",
+    "fastmcp>=3.4.10",
     "httpx>=0.28.1",
     "jinja2>=3.1.0",
     "mistune>=3.3.2",  # 3.3 fixes single-line $$...$$ block-math parsing
@@ -280,6 +284,10 @@ all = [
     "orgparse>=0.4.20251020",
     "pillow>=13.0.0",
     "py7zr>=0.22.0",
+    # py7zr only requires brotli>=1.2.0; 1.2.1 fixes an out-of-bounds write in the
+    # decoder, reachable from a crafted 7z archive.
+    "brotli>=1.2.1; platform_python_implementation == 'CPython'",
+    "brotlicffi>=1.2.1.0; platform_python_implementation == 'PyPy'",
     "pymupdf>=1.28.0,<2",
     # Note: pymupdf-layout is NOT included in 'all' due to its Polyform Noncommercial license.
     # Install separately via: pip install all2md[pdf_layout]
