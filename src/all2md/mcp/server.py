@@ -143,7 +143,7 @@ def create_server(
         from fastmcp import FastMCP
     except ImportError as e:
         print("Error: FastMCP not installed. Install with: pip install 'all2md[mcp]'", file=sys.stderr)
-        raise DependencyError("mcp", [("fastmcp", ">=2.11.3")]) from e
+        raise DependencyError("mcp", [("fastmcp", ">=3.4.10")]) from e
 
     # Create MCP server. Without `version`, the initialize handshake reports
     # fastmcp's own version as the server's.

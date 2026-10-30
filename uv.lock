@@ -47,6 +47,8 @@ dependencies = [
 [package.optional-dependencies]
 all = [
     { name = "beautifulsoup4" },
+    { name = "brotli", marker = "platform_python_implementation == 'CPython'" },
+    { name = "brotlicffi", marker = "platform_python_implementation == 'PyPy'" },
     { name = "chardet" },
     { name = "defusedxml" },
     { name = "docutils" },
@@ -82,6 +84,8 @@ all = [
     { name = "wijjit" },
 ]
 archive = [
+    { name = "brotli", marker = "platform_python_implementation == 'CPython'" },
+    { name = "brotlicffi", marker = "platform_python_implementation == 'PyPy'" },
     { name = "py7zr" },
     { name = "rarfile" },
 ]
@@ -102,6 +106,8 @@ cli-extras = [
 dev = [
     { name = "bandit" },
     { name = "beautifulsoup4" },
+    { name = "brotli", marker = "platform_python_implementation == 'CPython'" },
+    { name = "brotlicffi", marker = "platform_python_implementation == 'PyPy'" },
     { name = "chardet" },
     { name = "defusedxml" },
     { name = "docutils" },
@@ -293,6 +299,10 @@ requires-dist = [
     { name = "beautifulsoup4", marker = "extra == 'all'", specifier = ">=4.15.0" },
     { name = "beautifulsoup4", marker = "extra == 'html'", specifier = ">=4.15.0" },
     { name = "bleach", marker = "extra == 'sanitizer'", specifier = ">=6.4.0" },
+    { name = "brotli", marker = "platform_python_implementation == 'CPython' and extra == 'all'", specifier = ">=1.2.1" },
+    { name = "brotli", marker = "platform_python_implementation == 'CPython' and extra == 'archive'", specifier = ">=1.2.1" },
+    { name = "brotlicffi", marker = "platform_python_implementation == 'PyPy' and extra == 'all'", specifier = ">=1.2.1.0" },
+    { name = "brotlicffi", marker = "platform_python_implementation == 'PyPy' and extra == 'archive'", specifier = ">=1.2.1.0" },
     { name = "chardet", marker = "extra == 'all'", specifier = ">=5.2.0" },
     { name = "chardet", marker = "extra == 'html'", specifier = ">=5.2.0" },
     { name = "chardet", marker = "extra == 'markdown'", specifier = ">=5.2.0" },
@@ -314,8 +324,8 @@ requires-dist = [
     { name = "extract-msg", marker = "extra == 'all'", specifier = ">=0.56.1" },
     { name = "extract-msg", marker = "extra == 'outlook'", specifier = ">=0.56.1" },
     { name = "faiss-cpu", marker = "extra == 'search'", specifier = ">=1.7.4" },
-    { name = "fastmcp", marker = "extra == 'all'", specifier = ">=2.11.3" },
-    { name = "fastmcp", marker = "extra == 'mcp'", specifier = ">=2.11.3" },
+    { name = "fastmcp", marker = "extra == 'all'", specifier = ">=3.4.10" },
+    { name = "fastmcp", marker = "extra == 'mcp'", specifier = ">=3.4.10" },
     { name = "html5lib", marker = "extra == 'dev'", specifier = ">=1.1" },
     { name = "httpx", marker = "extra == 'all'", specifier = ">=0.28.1" },
     { name = "httpx", marker = "extra == 'html'", specifier = ">=0.28.1" },
