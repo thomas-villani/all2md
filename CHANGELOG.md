@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.18.1] - 2026-10-30
+
+### Security
+
+- **The `archive` and `all` extras now require brotli 1.2.1, and the `mcp` and `all`
+  extras require fastmcp 3.4.10.** brotli 1.2.0 and older can write out of bounds while
+  decoding (CVE-2026-111497, GHSA-9v8h-qqgm-4m35), and a 7z archive compressed with
+  Brotli reaches that decoder through py7zr, which itself only requires brotli 1.2.0.
+  brotli is now a direct requirement of the `archive` extra, or brotlicffi 1.2.1.0 on PyPy,
+  so an upgrade pulls it forward. fastmcp 3.0 to 3.4.9 skip component authorization after
+  transforms (GHSA-7xgj-8392-5q4r). The fastmcp floor rises from 2.11.3, so fastmcp 2.x
+  is no longer supported.
+- **The lockfile moves to authlib 1.9.1, dnspython 2.9.0, opentelemetry-api 1.45.1,
+  filelock 4.2.4, virtualenv 21.14.13 and setuptools 84.1.0**, alongside the brotli and
+  fastmcp versions above. authlib fixes JWS/JWT signature forgery and validation bugs,
+  which all2md's stdio MCP server does not reach because it configures no
+  authentication; dnspython fixes excessive CPU use parsing DNS names; filelock,
+  virtualenv and setuptools are development tooling only. `uv.lock` pins only
+  development and CI; an install from PyPI resolves its own versions, so upgrade these
+  in your environment if they are older.
+
 ## [1.18.0] - 2026-10-25
 
 ### Added
@@ -5219,7 +5240,8 @@ surfaced one real conversion bug, which is the reason to take the release.
 - NumPy-style docstrings
 - Modular architecture with clear separation of concerns
 
-[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.18.0...HEAD
+[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.18.1...HEAD
+[1.18.1]: https://github.com/thomas-villani/all2md/releases/tag/v1.18.1
 [1.18.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.18.0
 [1.17.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.17.0
 [1.16.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.16.0

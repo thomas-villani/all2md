@@ -7,10 +7,10 @@
 # [tool.bumpversion] config — do NOT hand-edit the version strings below.
 [project]
 name = "all2md-mcpb"
-version = "1.18.0"
+version = "1.18.1"
 requires-python = ">=3.11"
 dependencies = [
     # The `mcp` extra is the server plus its formats and rank-bm25; see the
     # comment on it in the root pyproject.toml.
-    "all2md[mcp]>=1.18.0",
+    "all2md[mcp]>=1.18.1",
 ]

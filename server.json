@@ -8,13 +8,13 @@
     "source": "github"
   },
   "websiteUrl": "https://all2md.readthedocs.io/en/latest/mcp.html",
-  "version": "1.18.0",
+  "version": "1.18.1",
   "packages": [
     {
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "all2md",
-      "version": "1.18.0",
+      "version": "1.18.1",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"
@@ -23,7 +23,7 @@
         {
           "type": "named",
           "name": "--with",
-          "value": "all2md[mcp]==1.18.0",
+          "value": "all2md[mcp]==1.18.1",
           "description": "The mcp extra: the server, its format parsers and its search dependency"
         }
       ],
