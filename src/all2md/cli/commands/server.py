@@ -340,6 +340,15 @@ def _generate_directory_index(
     return html
 
 
+def _file_stamp(path: Path) -> tuple[int, int] | None:
+    """Return what identifies this version of a file (size, modified time), or None if it is gone."""
+    try:
+        stat_result = path.stat()
+    except OSError:
+        return None
+    return stat_result.st_size, stat_result.st_mtime_ns
+
+
 def _format_timestamp(timestamp: float) -> str:
     """Format an epoch timestamp as a compact local ``YYYY-MM-DD HH:MM`` string."""
     return datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M")
@@ -477,7 +486,6 @@ class ServeSettings:
     no_syntax_highlight: bool = False
     browse: bool = False
     window: bool = False
-    no_cache: bool = False
     poll_interval: float = 2.0
     config: str | None = None
     no_config: bool = False
@@ -493,8 +501,8 @@ class ServeSettings:
 def run_server(settings: ServeSettings) -> int:  # noqa: C901
     """Serve a folder or a glob's matches as themed HTML until stopped.
 
-    Documents convert on demand and are cached; a folder's listing follows the files
-    on disk. Returns the exit code.
+    Documents convert on demand and are cached until the file changes; a folder's
+    listing follows the files on disk. Returns the exit code.
     """
     # Converter options from the config file (e.g. [pdf], [html], top-level keys)
     # so a single config drives `all2md` and `view` identically.
@@ -540,7 +548,7 @@ def run_server(settings: ServeSettings) -> int:  # noqa: C901
     # Shared state guarded by state_lock so the polling thread and request
     # handler threads can coexist safely.
     state_lock = threading.Lock()
-    file_cache: dict[str, str] = {}
+    file_cache: dict[str, tuple[tuple[int, int], str]] = {}  # URL path -> (file stamp, page)
     index_cache: dict[str, str] = {}
     file_mapping: dict[str, Path] = {}
     supported_files: list[Path] = []
@@ -673,38 +681,35 @@ def run_server(settings: ServeSettings) -> int:  # noqa: C901
 
             # Directory index requests (root or known subdirectory)
             if _is_directory_index_path(path):
-                cached: str | None = None
-                if not settings.no_cache:
-                    with state_lock:
-                        cached = index_cache.get(path)
+                with state_lock:
+                    cached = index_cache.get(path)
                 if cached is not None:
                     self._send_html(cached)
                     return
-                # In --no-cache mode the polling thread is off, so force a
-                # rescan on root requests to keep the listing fresh.
-                if settings.no_cache and path == "/":
-                    _rescan_directory()
                 html_content = _render_directory_index(path)
                 if html_content is None:
                     self._send_500("Failed to render directory index")
                     return
-                if not settings.no_cache:
-                    with state_lock:
-                        index_cache[path] = html_content
+                with state_lock:
+                    index_cache[path] = html_content
                 self._send_html(html_content)
                 return
 
             # File request
             with state_lock:
                 file_path = file_mapping.get(path)
-                cached_file: str | None = file_cache.get(path) if file_path else None
+                cached_file = file_cache.get(path) if file_path else None
 
-            if file_path is None:
+            # Checked on every request rather than left to the poller, so a refresh right
+            # after saving shows the edit. Taken before converting: a file saved during the
+            # conversion then differs from this stamp, and converts again on the next request.
+            stamp = _file_stamp(file_path) if file_path else None
+            if file_path is None or stamp is None:
                 self._send_404()
                 return
 
-            if cached_file is not None and not settings.no_cache:
-                self._send_html(cached_file)
+            if cached_file is not None and cached_file[0] == stamp:
+                self._send_html(cached_file[1])
                 return
 
             print(f"Converting {file_path.name}...")
@@ -715,9 +720,8 @@ def run_server(settings: ServeSettings) -> int:  # noqa: C901
                 self._send_500(f"Error converting document: {e}")
                 return
 
-            if not settings.no_cache:
-                with state_lock:
-                    file_cache[path] = html_content
+            with state_lock:
+                file_cache[path] = (stamp, html_content)
             self._send_html(html_content)
 
         def _send_html(self, html: str) -> None:
@@ -791,10 +795,9 @@ def run_server(settings: ServeSettings) -> int:  # noqa: C901
 
     stop_event = threading.Event()
 
-    # Background polling for live directory updates. Skipped when polling is
-    # disabled or caching is off (rescan happens inline on each request anyway).
+    # Background polling for live directory updates. Skipped when polling is disabled.
     poll_thread: threading.Thread | None = None
-    if settings.poll_interval > 0 and not settings.no_cache:
+    if settings.poll_interval > 0:
 
         def _poll_loop() -> None:
             while not stop_event.is_set():
