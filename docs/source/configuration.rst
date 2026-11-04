@@ -441,9 +441,6 @@ on every invocation. Each command reads a table named after the command:
    * - ``all2md view``
      - ``[view]``
      - ``no_wait``, ``toc``, ``dark``, ``theme``, ``keep``, ``port``, ``recursive``, ``index_page``
-   * - ``all2md serve`` (deprecated)
-     - ``[serve]``
-     - as for ``view``; move the section to ``[view]``
    * - ``all2md diff``
      - ``[diff]``
      - ``format``, ``granularity``, ``context``, ``color``

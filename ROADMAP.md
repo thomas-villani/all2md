@@ -45,7 +45,7 @@ highlight) is open; the directory browser works around it, and PyMuPDF 2.0's
 
 ### Next release (1.19)
 
-- **Remove `serve`**, deprecated in 1.18.
+- ✅ **Remove `serve`**, deprecated in 1.18.
 - **Docs a first-time user can navigate** (below), now that the tools do what the guides
   will say.
 
@@ -324,7 +324,7 @@ oracle audit, the heading measure and the table diagnosis (v1.15.0).
   stops short of the heading text. #296 was closed at a 1.3% class; the heading measure
   says 6.2%; reconcile the two and measure precision *first*, because every run-in gate
   tried so far invented more headings than it recovered.
-- 🌱 **"Omni-flavor" viewer** — make `view` and `serve` render the union of Markdown
+- 🌱 **"Omni-flavor" viewer** — make `view` render the union of Markdown
   dialects. Verified gaps, each currently shown as literal text: raw HTML blocks escaped
   in the viewer (the HTML renderer's default is `escape` and `view` never overrides it;
   render under `sanitize` with an allowlist, the biggest win), GFM alerts, heading

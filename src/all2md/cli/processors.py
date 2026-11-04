@@ -35,7 +35,7 @@ from all2md.cli.builder import (
     DynamicCLIBuilder,
     get_exit_code_for_exception,
 )
-from all2md.cli.config import SUBCOMMAND_CONFIG_SECTIONS, load_config_with_priority
+from all2md.cli.config import RETIRED_CONFIG_SECTIONS, SUBCOMMAND_CONFIG_SECTIONS, load_config_with_priority
 from all2md.cli.input_items import CLIInputItem
 from all2md.cli.output import should_use_rich_output
 from all2md.cli.packaging import create_package_from_conversions
@@ -989,9 +989,8 @@ def load_converter_config_options(*, explicit_path: str | None, no_config: bool)
     if not isinstance(config, dict) or not config:
         return {}
 
-    converter_config = {
-        key: value for key, value in config.items() if key not in SUBCOMMAND_CONFIG_SECTIONS and key != "rich"
-    }
+    not_converter_sections = {*SUBCOMMAND_CONFIG_SECTIONS, *RETIRED_CONFIG_SECTIONS, "rich"}
+    converter_config = {key: value for key, value in config.items() if key not in not_converter_sections}
     if not converter_config:
         return {}
 

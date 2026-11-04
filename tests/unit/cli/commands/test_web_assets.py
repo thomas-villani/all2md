@@ -1,4 +1,4 @@
-"""Unit tests for the shared view/serve web-asset helpers."""
+"""Unit tests for the shared view web-asset helpers."""
 
 from pathlib import Path
 

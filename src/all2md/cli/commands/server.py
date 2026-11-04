@@ -1,12 +1,10 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
 # ${DIR_PATH}/${FILE_NAME}
-"""The local HTTP server behind ``all2md view DIR``, and the deprecated ``serve`` command.
+"""The local HTTP server behind ``all2md view DIR``.
 
-:func:`run_server` serves a document, a folder or a glob's matches as themed HTML,
-converting each document on demand, with a listing that follows the folder.
-``all2md serve`` still parses its own flags and runs the same server, but it is
-deprecated in favor of ``all2md view`` and will be removed in the next release.
+:func:`run_server` serves a folder or a glob's matches as themed HTML, converting each
+document on demand, with a listing that follows the folder.
 """
 
 import argparse
@@ -29,7 +27,7 @@ from all2md.cli import window
 from all2md.cli.builder import EXIT_ERROR, EXIT_FILE_ERROR, EXIT_SUCCESS
 from all2md.cli.commands.shared import has_hidden_component, split_glob_pattern
 from all2md.cli.commands.web_assets import ThemeError, inject_web_assets, inline_local_images, resolve_theme
-from all2md.cli.config import apply_config_to_parser, load_config_with_priority
+from all2md.cli.config import load_config_with_priority
 from all2md.converter_registry import registry
 from all2md.options.html import HtmlRendererOptions
 from all2md.utils.html_utils import escape_html
@@ -456,36 +454,11 @@ class _ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     allow_reuse_address = True
 
 
-def _parse_address(address: str) -> tuple[str | None, int | None]:
-    """Split an ``--address`` value into an optional host and port.
-
-    Accepts ``host:port``, ``host:`` (port omitted), ``:port`` (host omitted),
-    or a bare ``host`` (no colon). The host/port are returned as ``None`` when
-    that half is absent, so the caller keeps its existing default for it. Splits
-    on the last colon so IPv6 literals like ``::1:8000`` resolve the port from
-    the trailing segment.
-
-    Raises
-    ------
-    ValueError
-        If a port segment is present but not an integer.
-
-    """
-    host_part, sep, port_part = address.rpartition(":")
-    if not sep:
-        # No colon at all -- treat the whole token as a host.
-        return (address or None), None
-    host = host_part or None
-    if not port_part:
-        return host, None
-    return host, int(port_part)
-
-
 @dataclass
 class ServeSettings:
-    """What :func:`run_server` serves and how; ``serve`` and ``view`` both build one.
+    """What :func:`run_server` serves and how; ``view`` builds one from its flags.
 
-    ``input`` is a file, a directory, or a glob pattern. ``index_page`` shows a folder's
+    ``input`` is a directory or a glob pattern. ``index_page`` shows a folder's
     ``index.html``, ``index.md`` or ``README.md`` in place of the generated listing.
     ``browse`` opens the page in a browser tab, ``window`` in a native window, which
     stops the server when it closes.
@@ -517,173 +490,19 @@ class ServeSettings:
         return cls(**values)
 
 
-# serve flags for the upload form and the REST API, both removed in 1.18.
-_REMOVED_FLAGS = ("--enable-upload", "--enable-api", "--max-upload-size")
-
-_DEPRECATION_NOTE = (
-    "Note: 'all2md serve' is deprecated and will be removed in the next release. "
-    "Use 'all2md view' on the same file, folder or glob: it opens the browser itself and "
-    "lists every document (add --index-page to show a folder's README or index instead)."
-)
-
-
-def _create_serve_parser() -> argparse.ArgumentParser:
-    """Build the argument parser for the ``serve`` command.
-
-    Exposed as a factory so ``config generate`` can introspect the command's
-    options to emit a ``[serve]`` config-template section.
-    """
-    parser = argparse.ArgumentParser(
-        prog="all2md serve",
-        description="Deprecated: use 'all2md view', which browses a folder or a glob the same way. "
-        "Serve document(s) as HTML via HTTP server with theme support.",
-    )
-    parser.add_argument("input", help="File, directory, or glob pattern (e.g. 'docs/*.pdf') to serve")
-    parser.add_argument("-p", "--port", type=int, default=8000, help="Port to serve on (default: 8000)")
-    # Note: -h is reserved by argparse for --help, so host uses -H.
-    parser.add_argument("-H", "--host", default="127.0.0.1", help="Host to serve on (default: 127.0.0.1)")
-    parser.add_argument(
-        "-a",
-        "--address",
-        metavar="HOST:PORT",
-        help="Bind address as 'host:port', 'host:', or ':port' (overrides --host/--port). Example: -a 0.0.0.0:9000",
-    )
-    parser.add_argument(
-        "-r", "--recursive", action="store_true", help="Recursively serve subdirectories (for directory input)"
-    )
-    parser.add_argument(
-        "--include-hidden",
-        action="store_true",
-        help="Include dot-files and dot-folders when scanning a directory or glob (skipped by default)",
-    )
-    parser.add_argument("--toc", action="store_true", help="Include table of contents")
-    parser.add_argument("--dark", action="store_true", help="Use dark mode theme")
-    parser.add_argument(
-        "--theme",
-        help="Theme to use: a built-in name (minimal, dark, newspaper, docs, sidebar), "
-        "a custom .html template or plain .css file path, or a name registered in the "
-        "config [themes] table",
-    )
-    parser.add_argument(
-        "--no-mermaid",
-        action="store_true",
-        help="Disable client-side rendering of ```mermaid code blocks as diagrams",
-    )
-    parser.add_argument(
-        "--no-syntax-highlight",
-        action="store_true",
-        help="Disable client-side syntax highlighting of code blocks (highlight.js)",
-    )
-    parser.add_argument(
-        "-B",
-        "--browse",
-        action="store_true",
-        help="Open the served URL in the default web browser once the server starts",
-    )
-    # Removed in 1.18; still parsed so an old command line gets an explanation.
-    parser.add_argument("--enable-upload", nargs="?", const=True, help=argparse.SUPPRESS)
-    parser.add_argument("--enable-api", nargs="?", const=True, help=argparse.SUPPRESS)
-    parser.add_argument("--max-upload-size", nargs="?", const=True, help=argparse.SUPPRESS)
-    parser.add_argument(
-        "--no-cache",
-        action="store_true",
-        help="Disable caching - always render fresh content (useful for live editing)",
-    )
-    parser.add_argument(
-        "--poll-interval",
-        type=float,
-        default=2.0,
-        help=(
-            "Seconds between directory rescans for live index updates "
-            "(directory mode only; set to 0 to disable; default: 2.0)"
-        ),
-    )
-    parser.add_argument(
-        "--force-auto-index",
-        action="store_true",
-        help=(
-            "Always use the auto-generated directory listing, even when an "
-            "index.html, index.md, or README.md is present in the directory"
-        ),
-    )
-    parser.add_argument(
-        "-C",
-        "--config",
-        help="Path to a configuration file. Values in its [serve] section provide defaults "
-        "(CLI flags still override). If omitted, ALL2MD_CONFIG and auto-discovered configs apply.",
-    )
-    parser.add_argument(
-        "--no-config",
-        action="store_true",
-        help="Disable configuration file loading for this command.",
-    )
-    return parser
-
-
-def handle_serve_command(args: list[str] | None = None) -> int:  # noqa: C901
-    """Handle serve command to serve documents via HTTP server.
-
-    Parameters
-    ----------
-    args : list[str], optional
-        Command line arguments (beyond 'serve')
-
-    Returns
-    -------
-    int
-        Exit code (0 for success)
-
-    """
-    parser = _create_serve_parser()
-
-    try:
-        # Pre-parse to discover config flags, fold the [serve] config section in as
-        # defaults, then parse for real so explicit CLI flags win over config.
-        pre_args, _ = parser.parse_known_args(args or [])
-        apply_config_to_parser(parser, "serve", explicit_path=pre_args.config, no_config=pre_args.no_config)
-        parsed = parser.parse_args(args or [])
-    except SystemExit as e:
-        return e.code if isinstance(e.code, int) else EXIT_ERROR
-
-    print(_DEPRECATION_NOTE, file=sys.stderr)
-    for removed in _REMOVED_FLAGS:
-        if getattr(parsed, removed.lstrip("-").replace("-", "_")) is not None:
-            print(
-                f"Error: {removed} was removed in all2md 1.18, with the upload form and /api/convert. "
-                "Convert from a program with the Python API or 'all2md mcp'.",
-                file=sys.stderr,
-            )
-            return EXIT_ERROR
-
-    # A combined --address host:port overrides --host/--port. Only the supplied
-    # half is applied, so 'host:' keeps the default port and ':port' the host.
-    if parsed.address:
-        try:
-            addr_host, addr_port = _parse_address(parsed.address)
-        except ValueError:
-            print(f"Error: Invalid port in --address: {parsed.address!r}", file=sys.stderr)
-            return EXIT_ERROR
-        if addr_host is not None:
-            parsed.host = addr_host
-        if addr_port is not None:
-            parsed.port = addr_port
-
-    return run_server(ServeSettings.from_namespace(parsed, index_page=not parsed.force_auto_index))
-
-
 def run_server(settings: ServeSettings) -> int:  # noqa: C901
-    """Serve a document, a folder or a glob's matches as themed HTML until stopped.
+    """Serve a folder or a glob's matches as themed HTML until stopped.
 
     Documents convert on demand and are cached; a folder's listing follows the files
     on disk. Returns the exit code.
     """
     # Converter options from the config file (e.g. [pdf], [html], top-level keys)
-    # so a single config drives `all2md`, `view`, and `serve` identically.
+    # so a single config drives `all2md` and `view` identically.
     from all2md.cli.processors import load_converter_config_options, prepare_options_for_execution
 
     converter_options = load_converter_config_options(explicit_path=settings.config, no_config=settings.no_config)
 
-    # Resolve the input: a glob pattern, a directory, or a single file.
+    # Resolve the input: a glob pattern or a directory.
     # A glob is served as a directory listing restricted to matching files, so
     # live rescans continue to pick up newly added matches.
     serve_pattern: str | None = None
@@ -698,8 +517,8 @@ def run_server(settings: ServeSettings) -> int:  # noqa: C901
         settings.index_page = False
     else:
         input_path = Path(settings.input)
-        if not input_path.exists():
-            print(f"Error: Input path not found: {settings.input}", file=sys.stderr)
+        if not input_path.is_dir():
+            print(f"Error: Not a folder: {settings.input}", file=sys.stderr)
             return EXIT_FILE_ERROR
 
     # Select theme template (built-in name, .html/.css path, or [themes] config name).
@@ -716,9 +535,7 @@ def run_server(settings: ServeSettings) -> int:  # noqa: C901
     # Whether to serve the dark variant of the highlight.js / mermaid themes.
     is_dark = settings.dark or settings.theme == "dark"
 
-    # Determine if input is file or directory (a glob always serves a listing).
-    is_directory = serve_pattern is not None or input_path.is_dir()
-    served_root = (input_path if is_directory else input_path.parent).resolve()
+    served_root = input_path.resolve()
 
     # Shared state guarded by state_lock so the polling thread and request
     # handler threads can coexist safely.
@@ -773,8 +590,6 @@ def run_server(settings: ServeSettings) -> int:  # noqa: C901
         Returns ``True`` when the file set has actually changed (or on the
         initial scan), ``False`` otherwise.
         """
-        if not is_directory:
-            return False
         new_files, new_subdirs, new_mapping, new_signature = _compute_directory_state(
             input_path, settings.recursive, serve_pattern, settings.include_hidden
         )
@@ -796,34 +611,20 @@ def run_server(settings: ServeSettings) -> int:  # noqa: C901
                 file_cache.pop(removed, None)
         return True
 
-    # Setup based on input type
-    if is_directory:
-        print(f"Preparing directory: {input_path.name}")
-        _rescan_directory(initial=True)
+    print(f"Preparing directory: {input_path.name}")
+    _rescan_directory(initial=True)
 
-        # Empty directories are still legitimate if they ship an index.html /
-        # index.md / README.md the user wants served.
-        if not supported_files and (not settings.index_page or _find_index_file(input_path) is None):
-            print(f"Error: No supported document files found in {input_path}", file=sys.stderr)
-            return EXIT_ERROR
+    # Empty directories are still legitimate if they ship an index.html /
+    # index.md / README.md the user wants served.
+    if not supported_files and (not settings.index_page or _find_index_file(input_path) is None):
+        print(f"Error: No supported document files found in {input_path}", file=sys.stderr)
+        return EXIT_ERROR
 
-        mode_str = "recursively" if settings.recursive else "in directory"
-        print(f"Found {len(supported_files)} document(s) {mode_str} - will convert on demand")
-    else:
-        print(f"Converting {input_path.name}...")
-        try:
-            html_content = _convert_to_html(input_path)
-            with state_lock:
-                file_cache["/"] = html_content
-                file_mapping["/"] = input_path
-        except Exception as e:
-            print(f"Error: Could not convert {input_path.name}: {e}", file=sys.stderr)
-            return EXIT_ERROR
+    mode_str = "recursively" if settings.recursive else "in directory"
+    print(f"Found {len(supported_files)} document(s) {mode_str} - will convert on demand")
 
     def _is_directory_index_path(path: str) -> bool:
-        """Return ``True`` when ``path`` addresses a directory listing in directory mode."""
-        if not is_directory:
-            return False
+        """Return ``True`` when ``path`` addresses a directory listing."""
         if path == "/":
             return True
         subdir = unquote(path.strip("/"))
@@ -908,8 +709,7 @@ def run_server(settings: ServeSettings) -> int:  # noqa: C901
 
             print(f"Converting {file_path.name}...")
             try:
-                breadcrumb_path = unquote(path) if is_directory else None
-                html_content = _convert_to_html(file_path, breadcrumb_path=breadcrumb_path)
+                html_content = _convert_to_html(file_path, breadcrumb_path=unquote(path))
             except Exception as e:
                 print(f"Error converting {file_path.name}: {e}", file=sys.stderr)
                 self._send_500(f"Error converting document: {e}")
@@ -991,11 +791,10 @@ def run_server(settings: ServeSettings) -> int:  # noqa: C901
 
     stop_event = threading.Event()
 
-    # Background polling for live directory updates. Skipped in single-file
-    # mode, when polling is disabled, or when caching is off (rescan happens
-    # inline on each request anyway).
+    # Background polling for live directory updates. Skipped when polling is
+    # disabled or caching is off (rescan happens inline on each request anyway).
     poll_thread: threading.Thread | None = None
-    if is_directory and settings.poll_interval > 0 and not settings.no_cache:
+    if settings.poll_interval > 0 and not settings.no_cache:
 
         def _poll_loop() -> None:
             while not stop_event.is_set():

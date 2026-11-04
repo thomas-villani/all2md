@@ -4,7 +4,7 @@ A small, dependency-free primitive shared by any subsystem that persists an
 artifact derived from a set of input files and wants to reuse it *only* while
 those inputs are unchanged. Today it guards the persistent search index
 (:mod:`all2md.search.service`); the same digest is intended to key the broader
-conversion cache (converted ASTs/output reused by ``view``/``serve`` and the
+conversion cache (converted ASTs/output reused by ``view`` and the
 conversion optimizer).
 
 The default signature is ``(size, mtime_ns)`` — an ``os.stat`` with no read —
