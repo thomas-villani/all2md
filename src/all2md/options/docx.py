@@ -5,6 +5,7 @@ This module defines options for Microsoft Word document conversion,
 supporting both AST parsing and rendering operations.
 """
 
+import warnings
 from dataclasses import dataclass, field
 
 from all2md.constants import (
@@ -68,7 +69,15 @@ class DocxRendererOptions(BaseRendererOptions):
         is powerful for corporate environments where documents must adopt specific style
         guidelines defined in a template. The styles used are Word's own names, plus
         pandoc's where Word has none (``Source Code``, ``Block Text``, ``Table``), so
-        a pandoc reference document works as a template too.
+        a pandoc reference document works as a template too. The template's own text
+        is left out unless ``keep_template_body`` is set; its page setup, headers and
+        footers are always used.
+    keep_template_body : bool, default False
+        Keep the template's own text and add the new content after it, for a template
+        whose body belongs in every document, such as a letterhead or a cover page.
+    clear_template_body : bool or None, default None
+        Deprecated, and removed in the next release. Leaving out the template's text
+        is now the default, and ``False`` is the same as ``keep_template_body=True``.
     network : NetworkFetchOptions, default NetworkFetchOptions()
         Network security settings for fetching remote images. By default,
         remote image fetching is disabled (allow_remote_fetch=False).
@@ -163,19 +172,19 @@ class DocxRendererOptions(BaseRendererOptions):
             "importance": "core",
         },
     )
-    clear_template_body: bool = field(
+    keep_template_body: bool = field(
         default=False,
         metadata={
-            "help": (
-                "When template_path is set, remove the template's existing body "
-                "content (paragraphs, tables) before rendering the AST. Section "
-                "properties (margins, page size), headers/footers, and style "
-                "definitions are always preserved. Default False keeps the "
-                "append behavior (useful for letterhead-style templates); set "
-                "True for round-trip 'edit' workflows that want to replace the "
-                "body while preserving the document's look."
-            ),
+            "help": "Keep the template's own text and add the new content after it (for a letterhead or cover page)",
             "importance": "core",
+        },
+    )
+    clear_template_body: bool | None = field(
+        default=None,
+        metadata={
+            "help": "Deprecated: a template's text is now left out by default. To keep it, use keep_template_body",
+            "action": "store_true",  # the flag took no value before it was deprecated
+            "importance": "advanced",
         },
     )
     comment_mode: DocxCommentMode = field(
@@ -226,6 +235,8 @@ class DocxRendererOptions(BaseRendererOptions):
         # Call parent validation
         super().__post_init__()
 
+        self._apply_deprecated_clear_template_body()
+
         # Validate positive font sizes
         if self.default_font_size is not None and self.default_font_size <= 0:
             raise ValueError(f"default_font_size must be positive, got {self.default_font_size}")
@@ -240,6 +251,29 @@ class DocxRendererOptions(BaseRendererOptions):
                     raise ValueError(f"heading_font_sizes keys must be in range [1, 6], got {level}")
                 if size <= 0:
                     raise ValueError(f"heading_font_sizes values must be positive, got {size} for level {level}")
+
+    def _apply_deprecated_clear_template_body(self) -> None:
+        """Honor the old option once, then clear it so a copy of these options does not warn again.
+
+        Raises
+        ------
+        ValueError
+            If the old option asks to clear the template's text and ``keep_template_body`` to keep it.
+
+        """
+        clear = self.clear_template_body
+        if clear is None:
+            return
+        warnings.warn(
+            "clear_template_body is deprecated: a template's text is now left out by default. "
+            "To keep it, use keep_template_body=True.",
+            FutureWarning,  # DeprecationWarning is hidden by default, and this also reaches CLI users
+            stacklevel=4,  # past this method, __post_init__ and the generated __init__
+        )
+        if clear and self.keep_template_body:
+            raise ValueError("clear_template_body=True contradicts keep_template_body=True")
+        object.__setattr__(self, "keep_template_body", not clear)
+        object.__setattr__(self, "clear_template_body", None)
 
 
 @dataclass(frozen=True)

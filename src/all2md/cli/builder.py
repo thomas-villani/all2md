@@ -274,6 +274,11 @@ class DynamicCLIBuilder:
         kwargs: dict[str, Any] = {}
         default_value: Any = MISSING
 
+        # An Optional[bool] can still be a plain switch; without this it would demand a value.
+        if metadata.get("action") == "store_true":
+            kwargs["action"] = "store_true"
+            return kwargs
+
         if self._has_default(field):
             candidate_default = self._get_default(field)
             if isinstance(candidate_default, bool):

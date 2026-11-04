@@ -261,17 +261,15 @@ document. The plain round-trip is lossy (page setup, theme, custom styles
 all collapse to defaults), so all2md exposes two related mechanisms to
 preserve formatting via *template-based rendering*:
 
-* The renderer option ``template_path`` already loaded the template's
-  styles, theme, headers/footers, and section properties (margins, page
-  size). This existed before — it's the foundation.
-* A new ``clear_template_body`` flag (default ``False``) controls whether
-  the template's existing body content is *kept and the AST appended*
-  (letterhead-style, the historical behavior) or *cleared and replaced*
-  by the AST (round-trip-style).
+* The renderer option ``template_path`` uses the template's styles, theme,
+  headers/footers, and section properties (margins, page size), and replaces
+  its text with your content.
+* The ``keep_template_body`` option keeps the template's text and adds your
+  content after it, for a letterhead or a cover page.
 * A ``preserve_formatting`` kwarg on :func:`from_ast`, :func:`from_markdown`,
   and :func:`convert` is a one-flag shortcut that picks up the source path
   ``to_ast`` automatically stashes on ``Document.metadata['source_path']``
-  and applies both ``template_path`` and ``clear_template_body=True``.
+  and uses it as ``template_path``.
 
 The simplest LLM-edit workflow:
 
@@ -311,19 +309,17 @@ explicitly instead:
 
    options = DocxRendererOptions(
        template_path="corporate_template.docx",
-       clear_template_body=True,  # replace template body with AST content
    )
    from_ast(doc, "docx", output="report.docx", renderer_options=options)
 
-Set ``clear_template_body=False`` (the default) to keep the template's
-body content and *append* the AST after it — the natural fit for a
-letterhead, cover page, or boilerplate-prefix template:
+Set ``keep_template_body=True`` to keep the template's text and add the new
+content after it, for a letterhead, a cover page, or standard opening text:
 
 .. code-block:: python
 
    options = DocxRendererOptions(
        template_path="letterhead.docx",
-       # clear_template_body=False  (default; template body is preserved)
+       keep_template_body=True,
    )
    from_ast(doc, "docx", output="letter.docx", renderer_options=options)
 

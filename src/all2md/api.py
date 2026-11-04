@@ -1525,8 +1525,8 @@ def _maybe_apply_preserve_formatting(
 ) -> None:
     """When enabled, route a template-based round-trip through render kwargs.
 
-    Sets ``template_path`` to the AST's stashed source path and
-    ``clear_template_body=True`` so the AST replaces the template's body
+    Sets ``template_path`` to the AST's stashed source path and forces
+    ``keep_template_body=False`` so the AST replaces the template's body
     while inheriting page setup, theme, headers/footers, and style
     definitions. No-ops if the target isn't docx, the AST has no
     ``source_path``, or the caller already specified a ``template_path``
@@ -1542,7 +1542,7 @@ def _maybe_apply_preserve_formatting(
     if renderer_options is not None and getattr(renderer_options, "template_path", None):
         return
     kwargs["template_path"] = source_path
-    kwargs.setdefault("clear_template_body", True)
+    kwargs.setdefault("keep_template_body", False)
 
 
 def from_ast(
@@ -1630,7 +1630,7 @@ def from_ast(
         >>> markdown_text = from_ast(ast_doc, "markdown", renderer_options=md_opts)
 
     """
-    # Inject template_path / clear_template_body when preserve_formatting=True
+    # Inject template_path when preserve_formatting=True
     _maybe_apply_preserve_formatting(preserve_formatting, ast_doc, target_format, renderer_options, kwargs)
 
     # Prepare renderer options
@@ -1944,7 +1944,7 @@ def convert(
         renderer_kwargs["flavor"] = flavor
         injected_by_shorthand = ("flavor",)
 
-    # Inject template_path / clear_template_body when preserve_formatting=True
+    # Inject template_path when preserve_formatting=True
     _maybe_apply_preserve_formatting(
         preserve_formatting,
         ast_document,

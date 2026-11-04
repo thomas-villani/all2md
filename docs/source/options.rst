@@ -1950,14 +1950,24 @@ including fonts, styles, and formatting preferences.
    :Default: ``None``
    :Importance: core
 
-**clear_template_body**
+**keep_template_body**
 
-   When template_path is set, remove the template's existing body content (paragraphs, tables) before rendering the AST. Section properties (margins, page size), headers/footers, and style definitions are always preserved. Default False keeps the append behavior (useful for letterhead-style templates); set True for round-trip 'edit' workflows that want to replace the body while preserving the document's look.
+   Keep the template's own text and add the new content after it (for a letterhead or cover page)
 
    :Type: ``bool``
-   :CLI flag: ``--docx-renderer-clear-template-body``
+   :CLI flag: ``--docx-renderer-keep-template-body``
    :Default: ``False``
    :Importance: core
+
+**clear_template_body**
+
+   Deprecated: a template's text is now left out by default. To keep it, use keep_template_body
+
+   :Type: ``bool | None``
+   :CLI flag: ``--docx-renderer-clear-template-body``
+   :Default: ``None``
+   :CLI action: ``store_true``
+   :Importance: advanced
 
 **comment_mode**
 
