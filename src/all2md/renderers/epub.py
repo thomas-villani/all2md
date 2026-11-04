@@ -157,7 +157,7 @@ class EpubRenderer(BaseRenderer):
 
         # Create EPUB chapters
         epub_chapters = []
-        spine_items = ["nav"]
+        spine_items: list[Any] = ["nav"]
 
         for idx, (heading, content_nodes) in enumerate(chapters_data, start=1):
             chapter_title = self._get_chapter_title(heading, idx)
