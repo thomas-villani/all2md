@@ -194,6 +194,8 @@ Key options:
 ``.all2md.toml``. Install the optional extras ``all2md[search]`` to enable BM25 and
 vector search backends.
 
+.. _grep-command:
+
 Grep Command
 ------------
 
@@ -681,6 +683,8 @@ Configuration sources are applied in this order (highest to lowest priority):
    # 5. Use it (auto-discovered)
    all2md document.pdf
 
+.. _chunk-command:
+
 Chunk Command
 -------------
 
@@ -803,6 +807,8 @@ extra keyword arguments to the converter (e.g. ``attachment_mode="skip"``).
 
 For lower-level control over an AST you already hold, call
 ``all2md.chunking.chunk_ast(doc, strategy=..., max_tokens=...)`` directly.
+
+.. _report-command:
 
 Report Command
 --------------
