@@ -1,201 +1,168 @@
-all2md Documentation
-=====================
+all2md
+======
 
-Welcome to all2md, a Python document conversion library for rapid, lightweight transformation of various document formats to Markdown. Designed specifically for LLMs and document processing pipelines.
+Convert documents to clean Markdown and back, and read and search them wherever you work:
+in a browser, in the terminal, or through an AI assistant.
 
-.. image:: https://img.shields.io/badge/python-3.11+-blue.svg
-   :target: https://python.org
-   :alt: Python Version
+.. code-block:: bash
 
-.. image:: https://img.shields.io/badge/License-MIT-yellow.svg
-   :target: https://opensource.org/licenses/MIT
-   :alt: License: MIT
+   pip install "all2md[pdf,docx,markdown,cli_extras]"
 
-.. image:: https://badge.fury.io/py/all2md.svg
-   :target: https://badge.fury.io/py/all2md
-   :alt: PyPI version
+Those extras cover the examples below, apart from MCP, which needs its own. :doc:`formats`
+lists every format and the extra it needs, and :doc:`installation` covers the other ways to
+install.
 
-Key Features
-------------
+What do you want to do?
+-----------------------
 
-🚀 **Rapid Conversion Pipelines** – Optimised parsers and renderers for fast, reliable Markdown
+**Turn a document into Markdown for an LLM**
+   Point ``all2md`` at a file and redirect the output. See the :doc:`quickstart`, and
+   :ref:`chunk-command` for splitting the result for retrieval.
 
-🔍 **Smart Detection** – Multi-stage format detection (extension, MIME, magic bytes) with graceful fallbacks
+   .. code-block:: bash
 
-📄 **Wide Format Coverage** – 40+ document, markup, data, and archive formats plus nearly 200 source-code/flat text types
+      all2md report.pdf > report.md
 
-⚙️ **Dynamic Configuration** – Dataclass-driven options, presets, and CLI/env overrides for every converter
+**Turn Markdown into a styled Word document**
+   Use your own ``.docx`` as the source of the styles. See
+   :ref:`round-trip-editing-with-template-preservation`.
 
-🖼️ **Attachment Management** – Unified system for downloading, embedding, or annotating images and binaries
+   .. code-block:: bash
 
-🧠 **AST Transforms** – Hookable transformation pipeline with built-in TOC generation, boilerplate removal, and plugins
+      all2md answer.md --out answer.docx \
+        --docx-renderer-template-path house.docx --docx-renderer-clear-template-body
 
-✅ **Document Linter** – 47 built-in rules across structure, headings, links, lists, tables, images, and typography, with safe auto-fixes (``lint --fix``), JSON/text output, and CI-friendly exit codes
+**Look at a document**
+   Open it in a browser with the :doc:`document viewer <viewer>`, or
+   :ref:`read it in the terminal <terminal-reading>`.
 
-🎨 **Custom Templates** – Jinja2-based rendering for custom output formats (DocBook, YAML, ANSI terminal, etc.) without writing Python
+   .. code-block:: bash
 
-🧭 **Rich CLI Toolkit** – Batch processing, watch mode, parallel workers, collated output, and themed Rich terminals
+      all2md view proposal.docx
+      rcat proposal.docx
 
-🤖 **Integrations Ready** – MCP server, plugin entry points, static-site templating, and bidirectional conversion APIs
+**Search PDFs and Word files for a phrase**
+   Search a whole folder without converting it first. See :ref:`grep-command`.
 
-Quick Example
+   .. code-block:: bash
+
+      all2md grep -i "indemnif" contracts/ -r
+
+**Give an AI assistant your documents**
+   Install the ``mcp`` extra, then point the server at a folder. :ref:`mcp-clients` shows how
+   to connect your client to it. See :doc:`mcp` for everything else.
+
+   .. code-block:: bash
+
+      all2md-mcp --read-dirs ~/Documents
+
+**Know how far to trust a conversion**
+   Get a confidence score and the signals behind it for one document. See
+   :ref:`report-command`, :doc:`pdf`, and the measured results in :doc:`benchmarks`.
+
+   .. code-block:: bash
+
+      all2md report scan.pdf
+
+Using Python?
 -------------
 
 .. code-block:: python
 
    from all2md import to_markdown
 
-   # Convert any document to Markdown
-   markdown = to_markdown('document.pdf')
-   print(markdown)
+   markdown = to_markdown("report.pdf")
 
-   # With custom options
-   from all2md.options import PdfOptions
+Continue with the :doc:`Python workflows <python_api>` or the :doc:`API reference <api/index>`.
 
-   options = PdfOptions(
-       pages=[1, 2, 3],  # First 3 pages only
-       attachment_mode='save',
-       attachment_output_dir='./images'
-   )
-   markdown = to_markdown('document.pdf', parser_options=options)
-
-   # With AST transforms
-   from all2md.transforms import RemoveImagesTransform, HeadingOffsetTransform
-
-   markdown = to_markdown(
-       'document.pdf',
-       transforms=[
-           RemoveImagesTransform(),
-           HeadingOffsetTransform(offset=1)
-       ]
-   )
-
-Command Line Usage
+About this project
 ------------------
 
-.. code-block:: bash
+**all2md** is developed by Tom Villani, Ph.D. and released under the :doc:`MIT License <license>`.
 
-   # Convert any document to markdown
-   all2md document.pdf
-
-   # Save output to file
-   all2md document.docx --out output.md
-
-   # Download images to a directory
-   all2md document.html --attachment-mode save --attachment-output-dir ./images
-
-Supported Formats
------------------
-
-**Documents**
-  PDF, Word (DOCX), PowerPoint (PPTX), OpenDocument (ODT/ODP with bidirectional support), RTF, EPUB, FictionBook (FB2), CHM
-
-**Web & markup**
-  HTML/MHTML, Safari web archives, Markdown, reStructuredText, AsciiDoc, Org-Mode, LaTeX, MediaWiki, Textile, DokuWiki, BBCode
-
-**Data & spreadsheets**
-  Excel (XLSX), OpenDocument Spreadsheet (ODS), CSV/TSV, JSON, YAML, TOML, INI, OpenAPI/Swagger
-
-**Email & notes**
-  EML, MBOX, Outlook (MSG/PST/OST), Evernote (ENEX)
-
-**Notebooks, code & archives**
-  Jupyter Notebooks (IPYNB), nearly 200 source-code and plain-text types, Archives (ZIP/TAR/TGZ/7Z/RAR)
-
-See :doc:`formats` for the full matrix of input and output support and the extra each one needs.
-
-Getting Started
----------------
-
-New to all2md? Start here:
-
-1. :doc:`installation` - Install all2md with the formats you need
-2. :doc:`quickstart` - Get up and running in 5 minutes
-3. :doc:`overview` - Understand the library architecture and capabilities
-
-Guides & References
--------------------
+* **Source code**: https://github.com/thomas-villani/all2md
+* **Issues**: https://github.com/thomas-villani/all2md/issues
+* **PyPI**: https://pypi.org/project/all2md/
+* **Indexes**: :ref:`genindex`, :ref:`modindex`, :ref:`search`
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Getting Started
+   :hidden:
+   :maxdepth: 1
+   :caption: Get started
 
    installation
    quickstart
-   overview
    formats
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Core Workflows
+   :hidden:
+   :maxdepth: 1
+   :caption: Guides
 
-   python_api
-   cli
    viewer
-   cheatsheet
-   lint_guide
-   options
+   mcp
+   agent_skills
    batch
    attachments
+   lint_guide
+   github_action
    transforms
-   ast_guide
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Advanced Topics
-
-   architecture
-   pdf
    templates
    static_sites
+   recipes
+   troubleshooting
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :caption: Formats
+
+   pdf
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :caption: Reference
+
+   cli
+   options
+   configuration
+   environment_variables
+   cheatsheet
+   python_api
+   api/index
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :caption: Explanation
+
+   overview
+   benchmarks
    security
    threat_model
    performance
-   optimizations
-   benchmarks
-   recipes
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Integrations & Operations
-
-   mcp
-   agent_skills
-   plugins
-   integrations
-   github_action
-   configuration
-   environment_variables
-   troubleshooting
-
-API Reference
--------------
-
-Comprehensive documentation for all public modules and classes.
-
-.. toctree::
-   :maxdepth: 2
-
-   api/index
-
-About
------
-
-.. toctree::
+   :hidden:
    :maxdepth: 1
+   :caption: Extending all2md
+
+   ast_guide
+   plugins
+   architecture
+   integrations
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :caption: Engineering notes
+
+   optimizations
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :caption: About
 
    license
-
-**all2md** is developed by Tom Villani, Ph.D. and released under the MIT License.
-
-* **Source Code**: https://github.com/thomas-villani/all2md
-* **Issues**: https://github.com/thomas-villani/all2md/issues
-* **PyPI**: https://pypi.org/project/all2md/
-* **License**: :doc:`MIT License <license>`
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
