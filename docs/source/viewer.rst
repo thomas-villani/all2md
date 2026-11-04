@@ -18,10 +18,8 @@ reference.
 
 .. note::
 
-   ``all2md serve`` is deprecated: ``all2md view`` on a folder or a glob does what it did.
-   ``serve`` still works in 1.18, printing a note, and will be removed in the next
-   release. Its upload form and ``/api/convert`` endpoint were removed in 1.18; convert
-   from a program with the Python API or ``all2md mcp`` instead.
+   ``all2md serve`` was removed in 1.19: ``all2md view`` on a folder or a glob does what
+   it did. To convert from a program, use the Python API or ``all2md mcp``.
 
 Quick start
 -----------

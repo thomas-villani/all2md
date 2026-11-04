@@ -149,13 +149,11 @@ def _subcommand_parser_factories() -> dict[str, Any]:
     from all2md.cli.commands.read import _create_read_parser
     from all2md.cli.commands.report import _create_report_parser
     from all2md.cli.commands.roundtrip import _create_roundtrip_parser
-    from all2md.cli.commands.server import _create_serve_parser
     from all2md.cli.commands.view import _create_view_parser
 
     return {
         "view": _create_view_parser,
         "read": _create_read_parser,
-        "serve": _create_serve_parser,
         "edit": _create_edit_parser,
         "diff": _create_diff_parser,
         "arxiv": _create_arxiv_parser,
@@ -187,7 +185,7 @@ def _build_default_config_data() -> dict[str, Any]:
 
     config["search"] = _serialize_config_value(SearchOptions())
 
-    # Subcommand sections (view/serve/diff/edit/arxiv/generate-site). These are
+    # Subcommand sections (view/diff/edit/arxiv/generate-site). These are
     # consumed only by their own command via apply_config_to_parser; the main
     # converter ignores them.
     factories = _subcommand_parser_factories()

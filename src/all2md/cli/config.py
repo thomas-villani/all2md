@@ -23,13 +23,12 @@ logger = logging.getLogger(__name__)
 CONFIG_FILENAMES = [".all2md.toml", ".all2md.yaml", ".all2md.yml", ".all2md.json", "pyproject.toml"]
 
 # Subcommands whose flags can be set from a same-named config section
-# (e.g. ``[view]``, ``[serve]``). Each section is applied to that command's
+# (e.g. ``[view]``, ``[diff]``). Each section is applied to that command's
 # argparse parser via ``apply_config_to_parser``; ``config generate`` emits a
 # template section for each. Keep this in sync with the wired handlers.
 SUBCOMMAND_CONFIG_SECTIONS: tuple[str, ...] = (
     "view",
     "read",
-    "serve",
     "edit",
     "diff",
     "arxiv",
@@ -39,6 +38,10 @@ SUBCOMMAND_CONFIG_SECTIONS: tuple[str, ...] = (
     "roundtrip",
     "optimize",
 )
+
+# Sections of commands that no longer exist. Nothing reads them, but an old config file
+# may still have one, and its keys must not be taken for converter options.
+RETIRED_CONFIG_SECTIONS: tuple[str, ...] = ("serve",)
 
 
 def _load_pyproject_all2md_section(pyproject_path: Path) -> dict[str, Any]:
@@ -527,7 +530,7 @@ def apply_config_to_parser(
     as defaults, explicit CLI arguments still override them, and the config in
     turn overrides the parser's hard-coded defaults.
 
-    This is the bridge that lets standalone subcommands (``view``, ``serve``,
+    This is the bridge that lets standalone subcommands (``view``,
     ``diff``) honor config files the same way the main converter command does.
     Subcommand parsers use plain argparse actions rather than the converter's
     tracking actions, so applying values as defaults before parsing is the
@@ -557,7 +560,7 @@ def apply_config_to_parser(
     parser : argparse.ArgumentParser
         Parser to apply defaults to.
     section : str
-        Config section name to read (e.g. ``"view"``, ``"serve"``, ``"diff"``).
+        Config section name to read (e.g. ``"view"``, ``"diff"``).
     explicit_path : str, optional
         Explicit config path (typically from a ``--config`` flag).
     no_config : bool

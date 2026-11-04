@@ -57,7 +57,7 @@ def protect_stdout() -> Iterator[None]:
 def add_cache_arguments(parser: argparse.ArgumentParser) -> None:
     """Add the shared opt-in conversion-cache flags to a subcommand parser.
 
-    Commands that convert documents (grep, search, chunk, view, serve) share this
+    Commands that convert documents (grep, search, chunk, view) share this
     so the flag names and help text stay consistent.
     """
     group = parser.add_argument_group("Conversion cache")
