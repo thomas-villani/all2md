@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
+from all2md.cli.builder import EXIT_INPUT_ERROR
 from all2md.cli.commands import dispatch_command
 
 
@@ -58,14 +59,22 @@ class TestDispatchCommand:
             mock_handler.assert_called_once_with(["test.pdf"])
             assert result == 0
 
-    def test_dispatch_serve_command(self):
-        """Test dispatch routes serve command."""
-        with patch("all2md.cli.commands.server.handle_serve_command") as mock_handler:
-            mock_handler.return_value = 0
-            result = dispatch_command(["serve", "directory"])
+    @pytest.mark.parametrize("args", [["serve"], ["serve", "docs"], ["serve", "docs", "--port", "9000"]])
+    def test_removed_serve_command_points_to_view(self, args, tmp_path, monkeypatch, capsys):
+        """An old command line gets an explanation, not its folder converted to stdout."""
+        monkeypatch.chdir(tmp_path)
 
-            mock_handler.assert_called_once_with(["directory"])
-            assert result == 0
+        assert dispatch_command(args) == EXIT_INPUT_ERROR
+        captured = capsys.readouterr()
+        assert "'all2md serve' was removed" in captured.err and "all2md view" in captured.err
+        assert captured.out == ""
+
+    def test_a_file_named_serve_still_converts(self, tmp_path, monkeypatch):
+        """``serve`` is only a retired command while no such file exists."""
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "serve").write_text("# A document", encoding="utf-8")
+
+        assert dispatch_command(["serve"]) is None
 
     def test_dispatch_generate_site_command(self):
         """Test dispatch routes generate-site command."""
@@ -231,16 +240,6 @@ class TestDispatchCommandWithArgs:
             args_passed = mock_handler.call_args[0][0]
             assert args_passed == ["document.pdf", "--no-browser"]
             assert "view" not in args_passed
-
-    def test_dispatch_serve_strips_command(self):
-        """Test that serve command strips 'serve' from args."""
-        with patch("all2md.cli.commands.server.handle_serve_command") as mock_handler:
-            mock_handler.return_value = 0
-            dispatch_command(["serve", ".", "--port", "9000"])
-
-            args_passed = mock_handler.call_args[0][0]
-            assert args_passed == [".", "--port", "9000"]
-            assert "serve" not in args_passed
 
 
 @pytest.mark.unit

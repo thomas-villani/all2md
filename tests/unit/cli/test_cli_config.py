@@ -983,7 +983,7 @@ class TestConfigIntegration:
 @pytest.mark.unit
 @pytest.mark.cli
 class TestApplyConfigToParser:
-    """Test apply_config_to_parser, the subcommand (view/serve/diff) config bridge."""
+    """Test apply_config_to_parser, the subcommand (view/diff) config bridge."""
 
     def _diff_parser(self):
         from all2md.cli.commands.diff import _create_diff_parser
@@ -1081,13 +1081,13 @@ class TestApplyConfigToParser:
 
         assert "original" not in applied
 
-    def test_view_no_wait_and_serve_port(self, tmp_path):
-        """The documented examples: [view] no_wait and [serve] port resolve correctly."""
+    def test_view_no_wait_and_edit_port(self, tmp_path):
+        """Each command reads its own section: [view] no_wait and [edit] port resolve correctly."""
         import argparse
 
         from all2md.cli.config import apply_config_to_parser
 
-        cfg = self._write(tmp_path, "[view]\nno_wait = true\n[serve]\nport = 9123\n")
+        cfg = self._write(tmp_path, "[view]\nno_wait = true\n[edit]\nport = 9123\n")
 
         view_parser = argparse.ArgumentParser()
         view_parser.add_argument("input")
@@ -1095,11 +1095,19 @@ class TestApplyConfigToParser:
         apply_config_to_parser(view_parser, "view", explicit_path=cfg)
         assert view_parser.parse_args(["x.md"]).no_wait is True
 
-        serve_parser = argparse.ArgumentParser()
-        serve_parser.add_argument("input")
-        serve_parser.add_argument("--port", type=int, default=8000)
-        apply_config_to_parser(serve_parser, "serve", explicit_path=cfg)
-        assert serve_parser.parse_args(["x.md"]).port == 9123
+        edit_parser = argparse.ArgumentParser()
+        edit_parser.add_argument("input")
+        edit_parser.add_argument("--port", type=int, default=8000)
+        apply_config_to_parser(edit_parser, "edit", explicit_path=cfg)
+        assert edit_parser.parse_args(["x.md"]).port == 9123
+
+    def test_a_leftover_serve_section_is_not_taken_for_converter_options(self, tmp_path):
+        """``serve`` is gone, but a config file may still have its section."""
+        from all2md.cli.processors import load_converter_config_options
+
+        cfg = self._write(tmp_path, '[serve]\nport = 9123\nhost = "0.0.0.0"\n')
+
+        assert load_converter_config_options(explicit_path=cfg, no_config=False) == {}
 
     def test_missing_section_is_a_noop(self, tmp_path):
         """A config without the requested section changes nothing."""
@@ -1190,11 +1198,12 @@ class TestConfigGenerateSubcommandSections:
         for section in SUBCOMMAND_CONFIG_SECTIONS:
             assert section in config, f"missing [{section}] section"
 
-    def test_serve_port_and_view_no_wait_defaults(self):
+    def test_view_port_and_no_wait_defaults_and_no_serve_section(self):
         from all2md.cli.commands.config import _build_default_config_data
 
         config = _build_default_config_data()
-        assert config["serve"]["port"] == 8000
+        assert "serve" not in config
+        assert config["view"]["port"] == 8000
         assert config["view"]["no_wait"] is False
 
     def test_required_and_cli_only_keys_omitted(self):
@@ -1205,6 +1214,6 @@ class TestConfigGenerateSubcommandSections:
         # arxiv --output is required (no default) and must not appear.
         assert "output" not in config["arxiv"]
         # The CLI-only config controls are never emitted.
-        for section in ("view", "serve", "arxiv"):
+        for section in ("view", "edit", "arxiv"):
             assert "config" not in config[section]
             assert "no_config" not in config[section]

@@ -1,14 +1,11 @@
-"""End-to-end tests for all2md serve CLI command.
+"""End-to-end tests for ``all2md view`` on a folder: the local server, its listing and pages."""
 
-This module tests the serve command functionality, including HTTP server setup,
-directory/file serving, theme support, and proper shutdown.
-"""
-
+import os
 import subprocess
 import sys
 import time
 from pathlib import Path
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
 import pytest
@@ -17,8 +14,8 @@ from utils import cleanup_test_dir, create_test_temp_dir
 
 @pytest.mark.e2e
 @pytest.mark.cli
-class TestServeCLIEndToEnd:
-    """End-to-end tests for serve CLI command."""
+class TestViewFolderCLIEndToEnd:
+    """``view`` on a folder, through a real server process."""
 
     def setup_method(self):
         """Set up test environment."""
@@ -40,7 +37,7 @@ class TestServeCLIEndToEnd:
         cleanup_test_dir(self.temp_dir)
 
     def _start_server(self, args: list[str], wait_for_start: bool = True) -> subprocess.Popen:
-        """Start the serve command in a subprocess.
+        """Start ``all2md view`` in a subprocess, with no browser and no config file.
 
         Parameters
         ----------
@@ -55,7 +52,7 @@ class TestServeCLIEndToEnd:
             The server process
 
         """
-        cmd = [sys.executable, "-m", "all2md"] + args
+        cmd = [sys.executable, "-m", "all2md", *args, "--no-config"]
 
         self.server_process = subprocess.Popen(
             cmd,
@@ -63,6 +60,7 @@ class TestServeCLIEndToEnd:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
+            env={**os.environ, "ALL2MD_TEST_NO_BROWSER": "1"},
         )
 
         if wait_for_start:
@@ -141,7 +139,7 @@ class TestServeCLIEndToEnd:
         if content is None:
             content = """# Test Document
 
-This is a test document for the serve command.
+This is a test document for the folder view.
 
 ## Features
 
@@ -160,26 +158,26 @@ def hello():
         md_file.write_text(content, encoding="utf-8")
         return md_file
 
-    def test_serve_single_file(self):
+    def test_view_folder_single_file(self):
         """Test serving a single file."""
-        md_file = self._create_test_markdown()
+        self._create_test_markdown()
 
-        self._start_server(["serve", str(md_file), "--port", "8001"])
+        self._start_server(["view", str(self.temp_dir), "--port", "8001"])
 
         # Fetch the content
-        content = self._fetch_url("http://127.0.0.1:8001/")
+        content = self._fetch_url("http://127.0.0.1:8001/test.md")
         html = content.decode("utf-8")
 
         assert "Test Document" in html
         assert "Features" in html
         assert "hello" in html
 
-    def test_serve_markdown_does_not_warn_about_attachment_mode(self):
-        """Serve forces base64 attachments; markdown has none, and that must not warn."""
-        md_file = self._create_test_markdown()
+    def test_view_folder_markdown_does_not_warn_about_attachment_mode(self):
+        """The server forces base64 attachments; markdown has none, and that must not warn."""
+        self._create_test_markdown()
 
-        self._start_server(["serve", str(md_file), "--port", "8034"])
-        assert "Test Document" in self._fetch_url("http://127.0.0.1:8034/").decode("utf-8")
+        self._start_server(["view", str(self.temp_dir), "--port", "8034"])
+        assert "Test Document" in self._fetch_url("http://127.0.0.1:8034/test.md").decode("utf-8")
 
         self.server_process.terminate()
         _, stderr = self.server_process.communicate(timeout=5)
@@ -187,9 +185,8 @@ def hello():
 
         assert "were ignored" not in stderr
 
-    def test_view_folder_lists_every_document_and_embeds_its_images(self, monkeypatch):
+    def test_view_folder_lists_every_document_and_embeds_its_images(self):
         """``view DIR`` serves the generated listing even beside a README, and the folder's images."""
-        monkeypatch.setenv("ALL2MD_TEST_NO_BROWSER", "1")
         png = bytes.fromhex(
             "89504e470d0a1a0a0000000d4948445200000001000000010806000000"
             "1f15c4890000000d49444154789c63f8cfc0f01f0005000201c2a6a9a60000000049454e44ae426082"
@@ -201,21 +198,21 @@ def hello():
         (docs / "README.md").write_text("# Only a few documents\n", encoding="utf-8")
         (docs / "a.md").write_text("# A\n\n![in](img/in.png)\n\n![out](../out.png)\n", encoding="utf-8")
 
-        self._start_server(["view", str(docs), "--no-config", "--port", "8035"])
+        self._start_server(["view", str(docs), "--port", "8035"])
         index = self._fetch_url("http://127.0.0.1:8035/").decode("utf-8")
         assert "href='/a.md'" in index and "href='/README.md'" in index
         page = self._fetch_url("http://127.0.0.1:8035/a.md").decode("utf-8")
         assert 'src="data:image/png;base64,' in page
         assert 'src="../out.png"' in page
 
-    def test_serve_directory(self):
+    def test_view_folder_directory(self):
         """Test serving a directory with multiple files."""
         # Create multiple markdown files
         self._create_test_markdown("file1.md", "# File 1\n\nThis is file 1.")
         self._create_test_markdown("file2.md", "# File 2\n\nThis is file 2.")
         self._create_test_markdown("file3.md", "# File 3\n\nThis is file 3.")
 
-        self._start_server(["serve", str(self.temp_dir), "--port", "8002"])
+        self._start_server(["view", str(self.temp_dir), "--port", "8002"])
 
         # Fetch the index page
         content = self._fetch_url("http://127.0.0.1:8002/")
@@ -226,11 +223,11 @@ def hello():
         assert "file2.md" in html
         assert "file3.md" in html
 
-    def test_serve_directory_file_access(self):
+    def test_view_folder_directory_file_access(self):
         """Test accessing individual files in a served directory."""
         self._create_test_markdown("test.md", "# Test File\n\nContent here.")
 
-        self._start_server(["serve", str(self.temp_dir), "--port", "8003"])
+        self._start_server(["view", str(self.temp_dir), "--port", "8003"])
 
         # Fetch specific file
         content = self._fetch_url("http://127.0.0.1:8003/test.md")
@@ -239,76 +236,76 @@ def hello():
         assert "Test File" in html
         assert "Content here" in html
 
-    def test_serve_injects_web_assets(self):
+    def test_view_folder_injects_web_assets(self):
         """Served documents include the mermaid + highlight.js CDN includes."""
-        md_file = self._create_test_markdown()
+        self._create_test_markdown()
 
-        self._start_server(["serve", str(md_file), "--port", "8031"])
+        self._start_server(["view", str(self.temp_dir), "--port", "8031"])
 
-        html = self._fetch_url("http://127.0.0.1:8031/").decode("utf-8")
+        html = self._fetch_url("http://127.0.0.1:8031/test.md").decode("utf-8")
         assert "mermaid@11" in html
         assert "highlight.min.js" in html
         # highlight.js hooks the language class the renderer already emits.
         assert "language-python" in html
 
-    def test_serve_no_mermaid_no_highlight_flags(self):
+    def test_view_folder_no_mermaid_no_highlight_flags(self):
         """The --no-* flags suppress the injected assets."""
-        md_file = self._create_test_markdown()
+        self._create_test_markdown()
 
-        self._start_server(["serve", str(md_file), "--no-mermaid", "--no-syntax-highlight", "--port", "8032"])
+        self._start_server(["view", str(self.temp_dir), "--no-mermaid", "--no-syntax-highlight", "--port", "8032"])
 
-        html = self._fetch_url("http://127.0.0.1:8032/").decode("utf-8")
+        html = self._fetch_url("http://127.0.0.1:8032/test.md").decode("utf-8")
         assert "mermaid@11" not in html
         assert "highlight.min.js" not in html
 
-    def test_serve_directory_uses_table_and_cards(self):
+    def test_view_folder_directory_uses_table_and_cards(self):
         """The auto-generated directory index is a toggleable table/card listing."""
         self._create_test_markdown("file1.md", "# File 1")
         self._create_test_markdown("file2.md", "# File 2")
 
-        self._start_server(["serve", str(self.temp_dir), "--port", "8033"])
+        self._start_server(["view", str(self.temp_dir), "--port", "8033"])
 
         html = self._fetch_url("http://127.0.0.1:8033/").decode("utf-8")
         assert "file-table" in html
         assert "file-cards" in html
         assert "a2m-view-btn" in html
 
-    def test_serve_with_custom_port(self):
+    def test_view_folder_with_custom_port(self):
         """Test serving on a custom port."""
-        md_file = self._create_test_markdown()
+        self._create_test_markdown()
 
-        self._start_server(["serve", str(md_file), "--port", "8888"])
+        self._start_server(["view", str(self.temp_dir), "--port", "8888"])
 
         # Fetch on custom port
-        content = self._fetch_url("http://127.0.0.1:8888/")
+        content = self._fetch_url("http://127.0.0.1:8888/test.md")
         html = content.decode("utf-8")
 
         assert "Test Document" in html
 
-    def test_serve_with_dark_theme(self):
+    def test_view_folder_with_dark_theme(self):
         """Test serving with dark theme."""
-        md_file = self._create_test_markdown()
+        self._create_test_markdown()
 
-        self._start_server(["serve", str(md_file), "--dark", "--port", "8004"])
+        self._start_server(["view", str(self.temp_dir), "--dark", "--port", "8004"])
 
-        content = self._fetch_url("http://127.0.0.1:8004/")
+        content = self._fetch_url("http://127.0.0.1:8004/test.md")
         html = content.decode("utf-8")
 
         assert "Test Document" in html
         # Dark theme should have dark background styles
 
-    def test_serve_with_custom_theme(self):
+    def test_view_folder_with_custom_theme(self):
         """Test serving with a custom theme."""
-        md_file = self._create_test_markdown()
+        self._create_test_markdown()
 
-        self._start_server(["serve", str(md_file), "--theme", "newspaper", "--port", "8005"])
+        self._start_server(["view", str(self.temp_dir), "--theme", "newspaper", "--port", "8005"])
 
-        content = self._fetch_url("http://127.0.0.1:8005/")
+        content = self._fetch_url("http://127.0.0.1:8005/test.md")
         html = content.decode("utf-8")
 
         assert "Test Document" in html
 
-    def test_serve_with_toc(self):
+    def test_view_folder_with_toc(self):
         """Test serving with table of contents enabled."""
         content = """# Main Title
 
@@ -324,20 +321,20 @@ Content for section 2.
 
 More content.
 """
-        md_file = self._create_test_markdown(content=content)
+        self._create_test_markdown(content=content)
 
-        self._start_server(["serve", str(md_file), "--toc", "--port", "8006"])
+        self._start_server(["view", str(self.temp_dir), "--toc", "--port", "8006"])
 
-        html_content = self._fetch_url("http://127.0.0.1:8006/")
+        html_content = self._fetch_url("http://127.0.0.1:8006/test.md")
         html = html_content.decode("utf-8")
 
         assert "Main Title" in html
 
-    def test_serve_nonexistent_file(self):
+    def test_view_folder_nonexistent_file(self):
         """Test serving a file that doesn't exist."""
         nonexistent = self.temp_dir / "nonexistent.md"
 
-        cmd = [sys.executable, "-m", "all2md", "serve", str(nonexistent)]
+        cmd = [sys.executable, "-m", "all2md", "view", str(nonexistent)]
         result = subprocess.run(
             cmd,
             cwd=self.cli_path.parent.parent.parent,
@@ -349,12 +346,12 @@ More content.
         assert result.returncode != 0
         assert "Error" in result.stderr or "not found" in result.stderr.lower()
 
-    def test_serve_empty_directory(self):
+    def test_view_folder_empty_directory(self):
         """Test serving an empty directory."""
         empty_dir = self.temp_dir / "empty"
         empty_dir.mkdir()
 
-        cmd = [sys.executable, "-m", "all2md", "serve", str(empty_dir)]
+        cmd = [sys.executable, "-m", "all2md", "view", str(empty_dir)]
         result = subprocess.run(
             cmd,
             cwd=self.cli_path.parent.parent.parent,
@@ -366,7 +363,7 @@ More content.
         # Should fail with no supported files
         assert result.returncode != 0
 
-    def test_serve_html_file(self):
+    def test_view_folder_html_file(self):
         """Test serving an HTML file."""
         html_content = """<!DOCTYPE html>
 <html>
@@ -379,18 +376,18 @@ More content.
         html_file = self.temp_dir / "test.html"
         html_file.write_text(html_content, encoding="utf-8")
 
-        self._start_server(["serve", str(html_file), "--port", "8007"])
+        self._start_server(["view", str(self.temp_dir), "--port", "8007"])
 
-        content = self._fetch_url("http://127.0.0.1:8007/")
+        content = self._fetch_url("http://127.0.0.1:8007/test.html")
         html = content.decode("utf-8")
 
         assert "HTML Document" in html
 
-    def test_serve_404_error(self):
+    def test_view_folder_404_error(self):
         """Test that requesting non-existent path returns 404."""
-        md_file = self._create_test_markdown()
+        self._create_test_markdown()
 
-        self._start_server(["serve", str(md_file), "--port", "8008"])
+        self._start_server(["view", str(self.temp_dir), "--port", "8008"])
 
         # Try to fetch a non-existent path
         try:
@@ -400,24 +397,7 @@ More content.
             # Expected 404 error
             assert "404" in str(e) or hasattr(e, "code") and e.code == 404
 
-    def test_serve_help_message(self):
-        """Test that serve --help displays usage information."""
-        cmd = [sys.executable, "-m", "all2md", "serve", "--help"]
-        result = subprocess.run(
-            cmd,
-            cwd=self.cli_path.parent.parent.parent,
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-
-        assert result.returncode == 0
-        assert "usage:" in result.stdout.lower() or "Usage:" in result.stdout
-        assert "serve" in result.stdout
-        assert "--port" in result.stdout
-        assert "--theme" in result.stdout
-
-    def test_serve_with_unicode_content(self):
+    def test_view_folder_with_unicode_content(self):
         """Test serving markdown with unicode characters."""
         unicode_content = """# Unicode Test Document
 
@@ -426,16 +406,16 @@ More content.
 - Chinese: \U00004e2d\U00006587
 - Russian: \U00000420\U0000043e\U00000441\U00000441\U00000438\U00000439\U00000441\U0000043a\U00000438\U00000439
 """
-        md_file = self._create_test_markdown(content=unicode_content)
+        self._create_test_markdown(content=unicode_content)
 
-        self._start_server(["serve", str(md_file), "--port", "8009"])
+        self._start_server(["view", str(self.temp_dir), "--port", "8009"])
 
-        content = self._fetch_url("http://127.0.0.1:8009/")
+        content = self._fetch_url("http://127.0.0.1:8009/test.md")
         html = content.decode("utf-8")
 
         assert "Unicode Test Document" in html
 
-    def test_serve_directory_non_recursive(self):
+    def test_view_folder_directory_non_recursive(self):
         """Test serving directory without recursive flag (default behavior)."""
         # Create nested directory structure
         subdir1 = self.temp_dir / "subdir1"
@@ -446,7 +426,7 @@ More content.
         (subdir1 / "sub1.md").write_text("# Subdir1 File", encoding="utf-8")
 
         # Serve without --recursive flag
-        self._start_server(["serve", str(self.temp_dir), "--port", "8010"])
+        self._start_server(["view", str(self.temp_dir), "--port", "8010"])
 
         # Fetch the index page
         content = self._fetch_url("http://127.0.0.1:8010/")
@@ -457,7 +437,7 @@ More content.
         # Should NOT show subdirectory files
         assert "sub1.md" not in html
 
-    def test_serve_recursive_subdirectories(self):
+    def test_view_folder_recursive_subdirectories(self):
         """Test serving directory with --recursive flag."""
         # Create nested directory structure
         subdir1 = self.temp_dir / "subdir1"
@@ -475,7 +455,7 @@ More content.
         (nested / "nested.md").write_text("# Nested File", encoding="utf-8")
 
         # Serve WITH --recursive flag
-        self._start_server(["serve", str(self.temp_dir), "--recursive", "--port", "8011"])
+        self._start_server(["view", str(self.temp_dir), "--recursive", "--port", "8011"])
 
         # Fetch the index page
         content = self._fetch_url("http://127.0.0.1:8011/")
@@ -502,57 +482,26 @@ More content.
         html = content.decode("utf-8")
         assert "Nested File" in html
 
-    def test_serve_has_no_upload_form(self):
-        """The upload form was removed with serve's deprecation."""
-        md_file = self._create_test_markdown()
+    @pytest.mark.parametrize("path", ["upload", "api/convert"])
+    def test_view_folder_has_no_upload_form_or_api(self, path):
+        """The upload form and the REST API were removed in 1.18 and stay gone."""
+        self._create_test_markdown()
 
-        self._start_server(["serve", str(md_file), "--port", "8013"])
+        self._start_server(["view", str(self.temp_dir), "--port", "8013"])
 
-        # Try to access upload page - should get 404
-        try:
-            self._fetch_url("http://127.0.0.1:8013/upload")
-            raise AssertionError("The upload page should not exist")
-        except Exception:
-            # Expected - either 404 or connection error
-            pass
+        with pytest.raises(HTTPError) as error:
+            self._fetch_url(f"http://127.0.0.1:8013/{path}")
+        assert error.value.code == 404
 
-    def test_serve_no_cache_single_file(self):
-        """Test that --no-cache causes file to be re-converted on each request."""
+    def test_view_folder_with_cache_single_file(self):
+        """A rendered page is cached, so it is not re-converted on each request."""
         # Create a markdown file
         md_file = self._create_test_markdown()
 
-        self._start_server(["serve", str(md_file), "--no-cache", "--port", "8015"])
-
-        # Fetch the content twice
-        content1 = self._fetch_url("http://127.0.0.1:8015/")
-        html1 = content1.decode("utf-8")
-
-        content2 = self._fetch_url("http://127.0.0.1:8015/")
-        html2 = content2.decode("utf-8")
-
-        # Both should contain the same content (file unchanged)
-        assert "Test Document" in html1
-        assert "Test Document" in html2
-
-        # Modify the file
-        md_file.write_text("# Updated Content\n\nThis has changed!", encoding="utf-8")
-
-        # Fetch again - should show new content due to --no-cache
-        content3 = self._fetch_url("http://127.0.0.1:8015/")
-        html3 = content3.decode("utf-8")
-
-        assert "Updated Content" in html3
-        assert "This has changed!" in html3
-
-    def test_serve_with_cache_single_file(self):
-        """Test that without --no-cache, file is cached and not re-converted."""
-        # Create a markdown file
-        md_file = self._create_test_markdown()
-
-        self._start_server(["serve", str(md_file), "--port", "8016"])
+        self._start_server(["view", str(self.temp_dir), "--port", "8016"])
 
         # Fetch the content once to populate cache
-        content1 = self._fetch_url("http://127.0.0.1:8016/")
+        content1 = self._fetch_url("http://127.0.0.1:8016/test.md")
         html1 = content1.decode("utf-8")
 
         assert "Test Document" in html1
@@ -561,54 +510,8 @@ More content.
         md_file.write_text("# Updated Content\n\nThis has changed!", encoding="utf-8")
 
         # Fetch again - should still show old content due to cache
-        content2 = self._fetch_url("http://127.0.0.1:8016/")
+        content2 = self._fetch_url("http://127.0.0.1:8016/test.md")
         html2 = content2.decode("utf-8")
 
         assert "Test Document" in html2
         assert "Updated Content" not in html2
-
-    def test_serve_no_cache_directory(self):
-        """Test that --no-cache re-scans directory on each request."""
-        # Create initial files
-        self._create_test_markdown("file1.md", "# File 1")
-
-        self._start_server(["serve", str(self.temp_dir), "--no-cache", "--port", "8017"])
-
-        # Fetch the index
-        content1 = self._fetch_url("http://127.0.0.1:8017/")
-        html1 = content1.decode("utf-8")
-
-        assert "file1.md" in html1
-
-        # Add another file
-        self._create_test_markdown("file2.md", "# File 2")
-
-        # Fetch again - should show new file due to --no-cache
-        content2 = self._fetch_url("http://127.0.0.1:8017/")
-        html2 = content2.decode("utf-8")
-
-        assert "file1.md" in html2
-        assert "file2.md" in html2
-
-    def test_serve_no_cache_file_in_directory(self):
-        """Test that --no-cache re-converts files in directory on each request."""
-        # Create a file
-        md_file = self._create_test_markdown("test.md", "# Original Content")
-
-        self._start_server(["serve", str(self.temp_dir), "--no-cache", "--port", "8018"])
-
-        # Fetch the file
-        content1 = self._fetch_url("http://127.0.0.1:8018/test.md")
-        html1 = content1.decode("utf-8")
-
-        assert "Original Content" in html1
-
-        # Modify the file
-        md_file.write_text("# Modified Content", encoding="utf-8")
-
-        # Fetch again - should show new content due to --no-cache
-        content2 = self._fetch_url("http://127.0.0.1:8018/test.md")
-        html2 = content2.decode("utf-8")
-
-        assert "Modified Content" in html2
-        assert "Original Content" not in html2

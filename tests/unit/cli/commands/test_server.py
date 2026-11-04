@@ -1,8 +1,4 @@
-"""Unit tests for all2md CLI serve command handlers.
-
-This module tests the serve command handler directly,
-providing coverage for argument parsing, setup, and helper functions.
-"""
+"""Unit tests for the local server behind ``all2md view`` on a folder."""
 
 import errno
 from datetime import datetime
@@ -12,38 +8,15 @@ import pytest
 
 from all2md.cli.commands import server as server_mod
 from all2md.cli.commands.server import (
+    ServeSettings,
     _bind_http_server,
     _format_file_size,
     _format_timestamp,
     _generate_breadcrumbs,
     _generate_directory_index,
-    _parse_address,
     _scan_directory_for_documents,
-    handle_serve_command,
+    run_server,
 )
-
-
-@pytest.mark.unit
-class TestParseAddress:
-    """Test the ``--address`` host:port splitter."""
-
-    @pytest.mark.parametrize(
-        "address,expected",
-        [
-            ("0.0.0.0:9000", ("0.0.0.0", 9000)),
-            ("localhost:8080", ("localhost", 8080)),
-            ("host:", ("host", None)),  # port omitted -> keep default
-            (":9000", (None, 9000)),  # host omitted -> keep default
-            ("example.com", ("example.com", None)),  # bare host, no colon
-            ("::1:8000", ("::1", 8000)),  # IPv6 literal, port from last segment
-        ],
-    )
-    def test_parse_address_variants(self, address, expected):
-        assert _parse_address(address) == expected
-
-    def test_parse_address_invalid_port_raises(self):
-        with pytest.raises(ValueError):
-            _parse_address("host:notaport")
 
 
 @pytest.mark.unit
@@ -271,103 +244,28 @@ class TestScanDirectoryForDocuments:
 
 
 @pytest.mark.unit
-class TestHandleServeCommand:
-    """Test handle_serve_command function."""
+class TestRunServerRefuses:
+    """What :func:`run_server` will not serve, reported before it binds a port."""
 
-    def test_serve_help(self, capsys):
-        """Test serve --help returns successfully."""
-        exit_code = handle_serve_command(["--help"])
-        assert exit_code == 0
-        captured = capsys.readouterr()
-        assert "usage:" in captured.out.lower() or "Usage:" in captured.out
-
-    def test_serve_prints_its_deprecation(self, capsys):
-        handle_serve_command(["nonexistent_path_xyz"])
-        assert "'all2md serve' is deprecated" in capsys.readouterr().err
-
-    @pytest.mark.parametrize("flag", [["--enable-upload"], ["--enable-api"], ["--max-upload-size", "10"]])
-    def test_removed_upload_and_api_flags_explain_themselves(self, tmp_path, flag, capsys):
-        (tmp_path / "a.md").write_text("# A")
-        assert handle_serve_command([str(tmp_path), *flag]) != 0
-        assert f"{flag[0]} was removed" in capsys.readouterr().err
-
-    def test_serve_nonexistent_input(self, capsys):
-        """Test serving nonexistent file/directory."""
-        exit_code = handle_serve_command(["nonexistent_path_xyz"])
-        assert exit_code != 0
-        captured = capsys.readouterr()
-        assert "not found" in captured.err.lower() or "Error" in captured.err
-
-    def test_serve_empty_directory(self, tmp_path, capsys):
-        """Test serving empty directory fails."""
-        empty_dir = tmp_path / "empty"
-        empty_dir.mkdir()
-
-        # Patch registry to reject all files
-        with patch("all2md.cli.commands.server.registry.detect_format", side_effect=ValueError("Unsupported")):
-            exit_code = handle_serve_command([str(empty_dir)])
-
-        assert exit_code != 0
-        captured = capsys.readouterr()
-        assert "No supported document files found" in captured.err or "Error" in captured.err
-
-    def test_serve_invalid_theme(self, tmp_path, capsys):
-        """Test serving with invalid theme."""
-        test_file = tmp_path / "test.md"
-        test_file.write_text("# Test")
-
-        exit_code = handle_serve_command([str(test_file), "--theme", "nonexistent_theme_xyz"])
-
-        assert exit_code != 0
-        captured = capsys.readouterr()
-        assert "not found" in captured.err.lower() or "Error" in captured.err
-
-    def test_serve_missing_args(self):
-        """Test serve without required input argument."""
-        exit_code = handle_serve_command([])
-        assert exit_code != 0
-
-    def test_serve_custom_port(self, capsys):
-        """Test serve --port argument parsing."""
-        exit_code = handle_serve_command(["--help"])
-        assert exit_code == 0
-        captured = capsys.readouterr()
-        assert "--port" in captured.out
-
-    def test_serve_custom_host(self, capsys):
-        """Test serve --host argument parsing."""
-        exit_code = handle_serve_command(["--help"])
-        assert exit_code == 0
-        captured = capsys.readouterr()
-        assert "--host" in captured.out
-
-    def test_serve_browse_flag_in_help(self, capsys):
-        """Test serve --browse flag is advertised in help."""
-        exit_code = handle_serve_command(["--help"])
-        assert exit_code == 0
-        captured = capsys.readouterr()
-        assert "--browse" in captured.out
-
-    @pytest.mark.parametrize("short_flag", ["-p", "-H", "-a", "-B", "-C"])
-    def test_serve_shorthand_flags_in_help(self, short_flag, capsys):
-        """Shorthand flags are advertised in help (host uses -H since -h is help)."""
-        exit_code = handle_serve_command(["--help"])
-        assert exit_code == 0
-        assert short_flag in capsys.readouterr().out
-
-    def test_serve_h_is_help_not_host(self, capsys):
-        """`-h` remains the help shortcut; host is reachable via -H."""
-        exit_code = handle_serve_command(["-h"])
-        assert exit_code == 0
-        assert "usage:" in capsys.readouterr().out.lower()
-
-    def test_serve_address_invalid_port_errors(self, tmp_path, capsys):
-        """An --address with a non-integer port fails cleanly before binding."""
+    def test_a_path_that_is_not_a_folder(self, tmp_path, capsys):
         test_file = tmp_path / "test.md"
         test_file.write_text("# Test", encoding="utf-8")
-        exit_code = handle_serve_command([str(test_file), "-a", "host:bad"])
+
+        assert run_server(ServeSettings(input=str(test_file), no_config=True)) != 0
+        assert "Not a folder" in capsys.readouterr().err
+
+    def test_a_folder_with_no_documents(self, tmp_path, capsys):
+        with patch("all2md.cli.commands.server.registry.detect_format", side_effect=ValueError("Unsupported")):
+            exit_code = run_server(ServeSettings(input=str(tmp_path), no_config=True))
+
         assert exit_code != 0
-        assert "Invalid port in --address" in capsys.readouterr().err
+        assert "No supported document files found" in capsys.readouterr().err
+
+    def test_an_unknown_theme(self, tmp_path, capsys):
+        (tmp_path / "test.md").write_text("# Test", encoding="utf-8")
+
+        assert run_server(ServeSettings(input=str(tmp_path), theme="nonexistent_theme_xyz", no_config=True)) != 0
+        assert "nonexistent_theme_xyz" in capsys.readouterr().err
 
 
 @pytest.mark.unit

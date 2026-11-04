@@ -2700,29 +2700,24 @@ on 1-based output lines and honor ``--line-numbers``:
 These are mutually exclusive with each other and with
 ``--extract``/``--outline``/``--split-by``/``--slice``.
 
-Document Serving (deprecated)
------------------------------
+Moving from ``all2md serve``
+----------------------------
 
-``all2md serve`` is deprecated: ``all2md view`` on a folder or a glob pattern does what it
-did (see :ref:`view-folders`). ``serve`` still works in 1.18 and prints a note saying so;
-it will be removed in the next release.
+``all2md serve`` was removed in 1.19: ``all2md view`` on a folder or a glob pattern does
+what it did (see :ref:`view-folders`). Running ``serve`` now prints an error that says so.
 
 Moving a ``serve`` command line to ``view``:
 
-* ``all2md serve ./docs --browse`` becomes ``all2md view ./docs``. ``view`` opens the
-  browser itself.
+* ``all2md serve ./docs`` becomes ``all2md view ./docs``. ``view`` opens the browser itself.
 * ``view`` lists every document by default. Where ``serve`` showed a folder's
-  ``index.html``, ``index.md`` or ``README.md``, pass ``--index-page``, and drop
-  ``--force-auto-index``.
+  ``index.html``, ``index.md`` or ``README.md``, pass ``--index-page``.
 * ``--recursive``, ``--include-hidden``, ``--port``, ``--host``, ``--poll-interval``,
   ``--theme``, ``--dark``, ``--toc``, ``--no-mermaid`` and ``--no-syntax-highlight`` carry
-  over unchanged. ``--address HOST:PORT`` becomes ``--host HOST --port PORT``.
-* A ``[serve]`` section in a configuration file becomes ``[view]``.
+  over unchanged. A combined ``HOST:PORT`` address becomes ``--host HOST --port PORT``.
+* A ``[serve]`` section in a configuration file becomes ``[view]``. A leftover one is
+  ignored.
 
-The upload form (``--enable-upload``), the ``/api/convert`` endpoint (``--enable-api``)
-and ``--max-upload-size`` were removed in 1.18; ``serve`` now refuses them with an
-explanation. To convert documents from another program, use the :doc:`python_api` or
-``all2md mcp``.
+To convert documents from another program, use the :doc:`python_api` or ``all2md mcp``.
 
 Document Editing
 ----------------
@@ -5782,8 +5777,8 @@ On Windows, ``all2md context-menu`` manages per-user right-click shell entries
 ``install`` registers the View entry by default. Add ``--edit`` and/or
 ``--serve`` (the folder entry; the flag keeps its name) to install those entries
 too, or ``--all`` for all three. (The Edit and folder entries require the
-``all2md`` console launcher on PATH. A folder entry installed before 1.18 runs the
-deprecated ``all2md serve``; install it again to switch it to ``view``.)
+``all2md`` console launcher on PATH. A folder entry installed before 1.18 runs
+``all2md serve``, which no longer exists; install it again to switch it to ``view``.)
 
 .. code-block:: bash
 

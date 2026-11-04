@@ -252,7 +252,7 @@ class TestCompletionCLI:
         output = result.stdout
 
         # Should include some main commands or subcommands
-        commands = ["view", "serve", "search", "diff", "config", "help"]
+        commands = ["view", "search", "diff", "config", "help"]
 
         # At least some commands should be mentioned
         commands_found = sum(1 for cmd in commands if cmd in output)

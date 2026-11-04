@@ -112,16 +112,20 @@ def _language_digests(languages: str) -> dict[str, str]:
     return digests
 
 
+#: The locked packages in the runtime identity, by their name there. A per-PR test holds these
+#: to `uv.lock`, so a bump that would turn the monthly gate red fails on its own pull request.
+LOCKED_DISTRIBUTIONS = {
+    "pymupdf": "PyMuPDF",
+    "pymupdf_layout": "pymupdf-layout",
+    "pytesseract": "pytesseract",
+    "pillow": "Pillow",
+}
+
+
 def _parser_runtime(ocr_languages: str) -> dict[str, str]:
     """Record the parser binaries, locked packages, and OCR models that affect the AST."""
-    distributions = {
-        "pymupdf": "PyMuPDF",
-        "pymupdf_layout": "pymupdf-layout",
-        "pytesseract": "pytesseract",
-        "pillow": "Pillow",
-    }
     try:
-        versions = {name: metadata.version(distribution) for name, distribution in distributions.items()}
+        versions = {name: metadata.version(distribution) for name, distribution in LOCKED_DISTRIBUTIONS.items()}
         completed = subprocess.run(
             ["tesseract", "--version"],
             check=True,

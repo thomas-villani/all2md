@@ -1,6 +1,6 @@
 #  Copyright (c) 2025 Tom Villani, Ph.D.
 
-"""Shared browser-viewing helpers for the ``view`` and ``serve`` commands.
+"""Shared browser-viewing helpers for the ``view`` command.
 
 Both commands render documents with ``HtmlRendererOptions(template_mode="replace")``,
 so the page ``<head>`` comes entirely from a theme file and the renderer never injects
