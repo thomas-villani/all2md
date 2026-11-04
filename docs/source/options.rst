@@ -1946,7 +1946,7 @@ including fonts, styles, and formatting preferences.
    Path to a .docx or .dotx template whose styles the output uses (None = blank document)
 
    :Type: ``str | None``
-   :CLI flag: ``--docx-renderer-template-path``
+   :CLI flag: ``--docx-renderer-template-path``, ``--template-docx``
    :Default: ``None``
    :Importance: core
 

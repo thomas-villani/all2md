@@ -432,3 +432,12 @@ class TestTemplateBodyFlags:
         result = self._convert(tmp_path, docx_with_caption, "--docx-renderer-clear-template-body")
         assert self._texts(tmp_path) == ["New", "Replacement text."]
         assert "keep_template_body" in result.stderr
+
+    def test_template_docx_is_the_same_flag(self, docx_with_caption: Path, tmp_path: Path) -> None:
+        source = tmp_path / "answer.md"
+        source.write_text("New", encoding="utf-8")
+        out = tmp_path / "out.docx"
+        command = [sys.executable, "-m", "all2md", str(source), "--out", str(out), "--no-config"]
+        subprocess.run(command + ["--template-docx", str(docx_with_caption)], check=True, capture_output=True)
+        assert CUSTOM_STYLE_NAME in {s.name for s in DocxDocument(str(out)).styles}
+        assert [p.text for p in DocxDocument(str(out)).paragraphs] == ["New"]

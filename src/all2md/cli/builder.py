@@ -830,7 +830,7 @@ class DynamicCLIBuilder:
 
         # Add the argument
         try:
-            group.add_argument(cli_name, **kwargs)
+            group.add_argument(cli_name, *field.metadata.get("cli_aliases", ()), **kwargs)
             # Track mapping from dest name to actual CLI flag for better suggestions
             if "dest" in kwargs:
                 self.dest_to_cli_flag[kwargs["dest"]] = cli_name

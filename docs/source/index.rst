@@ -29,8 +29,7 @@ What do you want to do?
 
    .. code-block:: bash
 
-      all2md answer.md --out answer.docx \
-        --docx-renderer-template-path house.docx --docx-renderer-clear-template-body
+      all2md answer.md --out answer.docx --template-docx house.docx
 
 **Look at a document**
    Open it in a browser with the :doc:`document viewer <viewer>`, or

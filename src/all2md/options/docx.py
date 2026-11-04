@@ -169,6 +169,7 @@ class DocxRendererOptions(BaseRendererOptions):
         default=None,
         metadata={
             "help": "Path to a .docx or .dotx template whose styles the output uses (None = blank document)",
+            "cli_aliases": ("--template-docx",),
             "importance": "core",
         },
     )
