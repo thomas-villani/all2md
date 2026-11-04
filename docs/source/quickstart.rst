@@ -58,6 +58,8 @@ Let's convert a document to Markdown:
 
 That's it! all2md automatically detects the file format and converts it to clean Markdown.
 
+.. _terminal-reading:
+
 Reading in the Terminal
 -----------------------
 

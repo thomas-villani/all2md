@@ -222,7 +222,7 @@ def handle_view_command(args: list[str] | None = None) -> int:
     print(f"Converting {input_display_name}...")
 
     # Converter options from the config file (e.g. [pdf], [html], top-level keys)
-    # so a single config drives `all2md`, `view`, and `serve` identically.
+    # so a single config drives `all2md` and `view` identically.
     from all2md.cli.processors import load_converter_config_options, prepare_options_for_execution
 
     converter_options = load_converter_config_options(explicit_path=parsed.config, no_config=parsed.no_config)

@@ -843,6 +843,8 @@ Best Practices
 4. **Disable Network**: Keep network disabled unless absolutely required
 5. **Monitor Logs**: Use appropriate log level to track operations
 
+.. _mcp-clients:
+
 Integration Examples
 --------------------
 

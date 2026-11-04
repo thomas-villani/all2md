@@ -10,6 +10,7 @@ and system diagnostics.
 
 import logging
 import sys
+from pathlib import Path
 
 # Note: Command handlers are imported lazily in dispatch_command to avoid
 # loading heavy modules (AST, transforms) during CLI startup for --help
@@ -36,6 +37,19 @@ def dispatch_command(args: list[str] | None = None) -> int | None:  # noqa: C901
 
     if not args:
         return None
+
+    # 'serve' was a command until 1.19. Left to the converter, 'serve ./docs' would warn about
+    # a missing file and convert the folder to stdout. A real file of that name still converts.
+    if args[0] == "serve" and not Path("serve").exists():
+        from all2md.cli.builder import EXIT_INPUT_ERROR
+
+        print(
+            "Error: 'all2md serve' was removed in all2md 1.19. Use 'all2md view' on the folder or glob: "
+            "it opens the browser itself and lists every document (add --index-page to show a "
+            "folder's README or index instead).",
+            file=sys.stderr,
+        )
+        return EXIT_INPUT_ERROR
 
     # Check for completion command
     if args[0] == "completion":
@@ -66,12 +80,6 @@ def dispatch_command(args: list[str] | None = None) -> int | None:  # noqa: C901
         from all2md.cli.commands.read import handle_read_command
 
         return handle_read_command(args[1:])
-
-    # Check for serve command
-    if args[0] == "serve":
-        from all2md.cli.commands.server import handle_serve_command
-
-        return handle_serve_command(args[1:])
 
     # Check for context-menu command (Windows shell integration)
     if args[0] == "context-menu":

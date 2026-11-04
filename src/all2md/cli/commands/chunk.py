@@ -308,7 +308,7 @@ def handle_chunk_command(args: list[str] | None = None) -> int:
         return EXIT_FILE_ERROR
 
     # Converter options from the config file (e.g. [pdf], [html], top-level keys),
-    # mirroring `view`/`serve`, with an explicit --attachment-mode override.
+    # mirroring `view`, with an explicit --attachment-mode override.
     from all2md.cli.processors import load_converter_config_options
 
     converter_options = load_converter_config_options(explicit_path=parsed.config, no_config=parsed.no_config)

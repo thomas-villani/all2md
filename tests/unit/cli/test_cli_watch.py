@@ -863,9 +863,9 @@ class TestWatchModeIntegration:
         (tmp_path / "test.tmp").write_text("Should be excluded")
         (tmp_path / "draft_doc.txt").write_text("Should be excluded")
 
+        # Only normal.txt should be converted. Once it has been, give an excluded file the
+        # same debounce to appear, so the checks below can fail if exclusion is broken.
+        assert "Should be converted" in _wait_for_content(output_dir / "normal.md", "Should be converted")
         time.sleep(1.0)
-
-        # Only normal.txt should be converted
-        assert (output_dir / "normal.md").exists()
         assert not (output_dir / "test.md").exists()
         assert not (output_dir / "draft_doc.md").exists()
