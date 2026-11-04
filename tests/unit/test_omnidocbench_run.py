@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import tomllib
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -147,6 +149,25 @@ def test_parser_runtime_records_every_pdf_and_ocr_implementation(
         "tessdata_chi_sim_sha256": hashlib.sha256(b"chinese-model").hexdigest(),
         "tessdata_eng_sha256": hashlib.sha256(b"english-model").hexdigest(),
     }
+
+
+def test_baseline_runtime_matches_the_lockfile() -> None:
+    """A locked bump must re-record on its own PR, not surface as drift at the next monthly run."""
+    root = Path(run.__file__).resolve().parents[2]
+    baseline = json.loads((root / "benchmarks" / "omnidocbench" / "baseline.json").read_text(encoding="utf-8"))
+    recorded = baseline["provenance"]["parser_runtime"]
+    packages = tomllib.loads((root / "uv.lock").read_text(encoding="utf-8"))["package"]
+
+    drifted = []
+    for name, distribution in run.LOCKED_DISTRIBUTIONS.items():
+        locked = sorted(package["version"] for package in packages if package["name"] == distribution.lower())
+        if locked != [recorded[name]]:
+            drifted.append(f"{distribution}: baseline.json has {recorded[name]}, uv.lock has {locked}")
+
+    assert not drifted, (
+        "the OmniDocBench gate will report IDENTITY_DRIFT; dispatch omnidocbench-gate.yml with "
+        "record_baseline from this branch and commit the candidate: " + "; ".join(drifted)
+    )
 
 
 def test_missing_ocr_language_data_fails_instead_of_scoring(
