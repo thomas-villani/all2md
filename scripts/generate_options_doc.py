@@ -403,7 +403,8 @@ class OptionsRenderer:
 
         cli_flag = compute_cli_flag(field, metadata, format_prefix, resolved_type) if emit_cli_flag else None
         if cli_flag:
-            lines.append(f"   :CLI flag: ``{cli_flag}``")
+            flags = (cli_flag, *metadata.get("cli_aliases", ()))
+            lines.append("   :CLI flag: " + ", ".join(f"``{flag}``" for flag in flags))
 
         default_value, factory_name = get_field_default(field)
         if default_value is UNSET:

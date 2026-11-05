@@ -1946,17 +1946,17 @@ including fonts, styles, and formatting preferences.
    Path to a .docx or .dotx template whose styles the output uses (None = blank document)
 
    :Type: ``str | None``
-   :CLI flag: ``--docx-renderer-template-path``
+   :CLI flag: ``--docx-renderer-template-path``, ``--template-docx``
    :Default: ``None``
    :Importance: core
 
 **clear_template_body**
 
-   When template_path is set, remove the template's existing body content (paragraphs, tables) before rendering the AST. Section properties (margins, page size), headers/footers, and style definitions are always preserved. Default False keeps the append behavior (useful for letterhead-style templates); set True for round-trip 'edit' workflows that want to replace the body while preserving the document's look.
+   Clear the template's own text before adding the new content; keeping it suits a letterhead or cover page
 
    :Type: ``bool``
-   :CLI flag: ``--docx-renderer-clear-template-body``
-   :Default: ``False``
+   :CLI flag: ``--docx-renderer-no-clear-template-body``
+   :Default: ``True``
    :Importance: core
 
 **comment_mode**
