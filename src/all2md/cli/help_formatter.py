@@ -315,6 +315,8 @@ def build_catalog(parser: argparse.ArgumentParser, builder: DynamicCLIBuilder) -
                 continue
             if isinstance(action, argparse._HelpAction):
                 continue
+            if action.help is argparse.SUPPRESS:
+                continue
 
             option_strings = tuple(action.option_strings)
             if not option_strings:

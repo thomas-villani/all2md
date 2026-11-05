@@ -68,7 +68,13 @@ class DocxRendererOptions(BaseRendererOptions):
         is powerful for corporate environments where documents must adopt specific style
         guidelines defined in a template. The styles used are Word's own names, plus
         pandoc's where Word has none (``Source Code``, ``Block Text``, ``Table``), so
-        a pandoc reference document works as a template too.
+        a pandoc reference document works as a template too. The template's own text
+        is left out unless ``clear_template_body`` is False; its page setup, headers and
+        footers are always used.
+    clear_template_body : bool, default True
+        Leave out the template's own text. Set False to keep it and add the new content
+        after it, for a template whose body belongs in every document, such as a
+        letterhead or a cover page.
     network : NetworkFetchOptions, default NetworkFetchOptions()
         Network security settings for fetching remote images. By default,
         remote image fetching is disabled (allow_remote_fetch=False).
@@ -160,21 +166,17 @@ class DocxRendererOptions(BaseRendererOptions):
         default=None,
         metadata={
             "help": "Path to a .docx or .dotx template whose styles the output uses (None = blank document)",
+            "cli_aliases": ("--template-docx",),
             "importance": "core",
         },
     )
     clear_template_body: bool = field(
-        default=False,
+        default=True,
         metadata={
-            "help": (
-                "When template_path is set, remove the template's existing body "
-                "content (paragraphs, tables) before rendering the AST. Section "
-                "properties (margins, page size), headers/footers, and style "
-                "definitions are always preserved. Default False keeps the "
-                "append behavior (useful for letterhead-style templates); set "
-                "True for round-trip 'edit' workflows that want to replace the "
-                "body while preserving the document's look."
-            ),
+            "help": "Clear the template's own text before adding the new content; "
+            "keeping it suits a letterhead or cover page",
+            "cli_name": "no-clear-template-body",
+            "cli_positive_flag": "--docx-renderer-clear-template-body",  # released, so scripts may still pass it
             "importance": "core",
         },
     )
