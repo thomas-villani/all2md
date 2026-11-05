@@ -1,0 +1,215 @@
+{
+ "schema_version": 1,
+ "case_id": "contract/lease-articles",
+ "family": "contract",
+ "description": "Heading numbering carried by the style (Article 1.), a borderless key-terms table, recitals, a numbered list of defaults, typed signature lines and an exhibit on a new page.",
+ "control": false,
+ "reading": {
+  "blocks": [
+   {
+    "text": "Commercial Lease",
+    "style": "Title",
+    "level": 0,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "WHEREAS, Landlord owns the building at 40 Copperline Road (the Building); and",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "WHEREAS, Tenant wishes to lease part of the Building on the terms below;",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "NOW, THEREFORE, the parties agree as follows.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Basic Terms",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": "Article 1.",
+    "list_level": 1
+   },
+   {
+    "text": "The following terms apply throughout this Lease.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "table": [
+     [
+      "Landlord",
+      "Copperline Estates LLC"
+     ],
+     [
+      "Tenant",
+      "Marrow & Finch Studio Inc."
+     ],
+     [
+      "Premises",
+      "Suite 310, third floor"
+     ],
+     [
+      "Term",
+      "Sixty months from July 1, 2026"
+     ],
+     [
+      "Base Rent",
+      "$8,450.00 per month"
+     ],
+     [
+      "Security Deposit",
+      "$16,900.00"
+     ]
+    ]
+   },
+   {
+    "text": "Rent",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": "Article 2.",
+    "list_level": 1
+   },
+   {
+    "text": "Tenant shall pay Base Rent in advance on the first day of each month, without demand, deduction or set-off.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "If Rent is more than five days late, Tenant shall pay a late charge of five percent of the overdue amount.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Use of Premises",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": "Article 3.",
+    "list_level": 1
+   },
+   {
+    "text": "Tenant shall use the Premises only for general office and design studio purposes, and shall comply with all laws that apply to its use.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Maintenance",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": "Article 4.",
+    "list_level": 1
+   },
+   {
+    "text": "Landlord shall keep the roof, structure and common areas in good repair. Tenant shall keep the interior of the Premises clean and in good condition.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Default",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": "Article 5.",
+    "list_level": 1
+   },
+   {
+    "text": "Each of the following is a default by Tenant:",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "failure to pay Rent within ten days of written notice;",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "1.",
+    "list_level": 1
+   },
+   {
+    "text": "failure to perform any other obligation within thirty days of written notice; and",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "2.",
+    "list_level": 1
+   },
+   {
+    "text": "abandonment of the Premises.",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "3.",
+    "list_level": 1
+   },
+   {
+    "text": "Landlord: ______________________ Date: __________",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Tenant: ______________________ Date: __________",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Exhibit A: Floor Plan Notes",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": "Article 6.",
+    "list_level": 1
+   },
+   {
+    "text": "Suite 310 comprises approximately 2,400 rentable square feet, measured using the current BOMA standard.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   }
+  ],
+  "footnotes": [],
+  "headers": [
+   "Suite 310 Lease"
+  ],
+  "footers": [
+   "Lease, page 1"
+  ],
+  "pictures": 0,
+  "pages": 3,
+  "page_width": 595.3,
+  "page_height": 842.0,
+  "margins": [
+   72.0,
+   72.0,
+   72.0,
+   72.0
+  ],
+  "columns": 1,
+  "body_font": "Garamond",
+  "body_size": 12.0,
+  "float_words": 0,
+  "extra": {}
+ }
+}

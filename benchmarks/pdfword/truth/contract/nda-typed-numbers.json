@@ -1,0 +1,166 @@
+{
+ "schema_version": 1,
+ "case_id": "contract/nda-typed-numbers",
+ "family": "contract",
+ "description": "Clause numbers typed by hand with tabs and hanging indents, justified text, and bold capitals instead of heading styles. Common in the wild, and there is no list or heading to find.",
+ "control": false,
+ "reading": {
+  "blocks": [
+   {
+    "text": "Mutual Non-Disclosure Agreement",
+    "style": "Title",
+    "level": 0,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "This Agreement is made on June 12, 2026 between Pellward Instruments Inc. and Tamsin Reed Consulting LLC, each a \"Party\".",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "1. PURPOSE",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "1.1 The Parties wish to explore a possible business relationship and may disclose confidential information to each other for that purpose.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "1.2 Nothing in this Agreement obliges either Party to enter into any further agreement.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "2. OBLIGATIONS",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "2.1 Each Party shall protect the other Party's Confidential Information using at least the degree of care it applies to its own.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "2.2 A receiving Party shall not:",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "(a) disclose Confidential Information to any third party without prior written consent;",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "(b) use Confidential Information for any purpose other than the stated purpose; or",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "(c) copy Confidential Information except as reasonably necessary.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "3. EXCLUSIONS",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "3.1 These obligations do not apply to information that is or becomes public through no fault of the receiving Party.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "3.2 A Party may disclose information when a court or regulator requires it, after giving prompt notice to the other Party where lawful.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "4. TERM",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "4.1 This Agreement lasts for three (3) years from the date above, and obligations for trade secrets continue for as long as they remain trade secrets.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Signed by the Parties' authorized representatives:",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Pellward Instruments Inc.: ______________________",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Tamsin Reed Consulting LLC: ______________________",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   }
+  ],
+  "footnotes": [],
+  "headers": [
+   "Mutual NDA"
+  ],
+  "footers": [
+   "Page 1"
+  ],
+  "pictures": 0,
+  "pages": 1,
+  "page_width": 612.0,
+  "page_height": 792.0,
+  "margins": [
+   72.0,
+   72.0,
+   72.0,
+   72.0
+  ],
+  "columns": 1,
+  "body_font": "Times New Roman",
+  "body_size": 12.0,
+  "float_words": 0,
+  "extra": {}
+ }
+}

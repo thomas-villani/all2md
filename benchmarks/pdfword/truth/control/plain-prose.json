@@ -1,0 +1,92 @@
+{
+ "schema_version": 1,
+ "case_id": "control/plain-prose",
+ "family": "control",
+ "description": "Title, headings and plain paragraphs in one column, with no numbering, tables, notes or page furniture. If this scores badly, the lane is wrong.",
+ "control": true,
+ "reading": {
+  "blocks": [
+   {
+    "text": "A Short History of the Canal",
+    "style": "Title",
+    "level": 0,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Construction",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Work on the canal began in the spring of 1794, when a company of local merchants raised enough money to cut the first three miles of the route. Progress was slow because the ground was wet and the money ran out twice.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "The engineers lined the channel with puddled clay to stop it leaking. By the summer of 1801 the first boats could reach the town wharf, carrying coal in one direction and grain in the other.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Decline",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Traffic held up well until the railway arrived in 1848. Within twenty years the company had cut its tolls by half, and by the end of the century only a few coal boats still used the upper reaches.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "The last commercial cargo passed through the locks in 1936, after which the water was kept in only to feed the mills further down the valley.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Restoration",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "A group of volunteers began clearing the towpath in 1971. They reopened the first restored lock nine years later, and the whole route has been navigable again since the summer of 2004.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   }
+  ],
+  "footnotes": [],
+  "headers": [],
+  "footers": [],
+  "pictures": 0,
+  "pages": 1,
+  "page_width": 612.0,
+  "page_height": 792.0,
+  "margins": [
+   72.0,
+   72.0,
+   72.0,
+   72.0
+  ],
+  "columns": 1,
+  "body_font": "Calibri",
+  "body_size": 12.0,
+  "float_words": 0,
+  "extra": {}
+ }
+}

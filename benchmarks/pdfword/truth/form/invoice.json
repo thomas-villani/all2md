@@ -1,0 +1,120 @@
+{
+ "schema_version": 1,
+ "case_id": "form/invoice",
+ "family": "form",
+ "description": "A borderless letterhead table, a line-item table with right-aligned numbers and a borderless totals table.",
+ "control": false,
+ "reading": {
+  "blocks": [
+   {
+    "table": [
+     [
+      "Fennimore Print Works",
+      "INVOICE"
+     ],
+     [
+      "12 Lantern Yard, Portland, OR 97205",
+      "No. 20648"
+     ],
+     [
+      "accounts@fennimore.example",
+      "October 2, 2026"
+     ]
+    ]
+   },
+   {
+    "text": "Bill to: Ostler & Wren Publishing, 88 Quarry Street, Eugene, OR 97401",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "table": [
+     [
+      "Description",
+      "Quantity",
+      "Unit price",
+      "Amount"
+     ],
+     [
+      "Offset printing, 48-page catalog",
+      "2,500",
+      "$1.84",
+      "$4,600.00"
+     ],
+     [
+      "Saddle-stitch binding",
+      "2,500",
+      "$0.22",
+      "$550.00"
+     ],
+     [
+      "Pre-press and proofs",
+      "1",
+      "$380.00",
+      "$380.00"
+     ],
+     [
+      "Freight to Eugene",
+      "1",
+      "$215.00",
+      "$215.00"
+     ]
+    ]
+   },
+   {
+    "text": "Thank you for your business.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "table": [
+     [
+      "Subtotal",
+      "$5,745.00"
+     ],
+     [
+      "Sales tax",
+      "$0.00"
+     ],
+     [
+      "Total due",
+      "$5,745.00"
+     ]
+    ]
+   },
+   {
+    "text": "Payment is due within thirty days of the invoice date. Please quote the invoice number on your payment.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   }
+  ],
+  "footnotes": [],
+  "headers": [
+   "Fennimore Print Works"
+  ],
+  "footers": [
+   "Invoice 20648, page 1"
+  ],
+  "pictures": 0,
+  "pages": 1,
+  "page_width": 612.0,
+  "page_height": 792.0,
+  "margins": [
+   72.0,
+   72.0,
+   72.0,
+   72.0
+  ],
+  "columns": 1,
+  "body_font": "Tahoma",
+  "body_size": 10.0,
+  "float_words": 0,
+  "extra": {}
+ }
+}

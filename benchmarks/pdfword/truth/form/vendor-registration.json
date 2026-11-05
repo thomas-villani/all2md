@@ -1,0 +1,160 @@
+{
+ "schema_version": 1,
+ "case_id": "form/vendor-registration",
+ "family": "form",
+ "description": "Grid tables of shaded labels and empty answer cells, typed checkboxes and underscore answer lines.",
+ "control": false,
+ "reading": {
+  "blocks": [
+   {
+    "text": "Vendor Registration Form",
+    "style": "Title",
+    "level": 0,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Complete all sections in ink or electronically. Return to the procurement office within ten business days.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Section A: Company Details",
+    "style": "Heading 2",
+    "level": 2,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "table": [
+     [
+      "Legal name",
+      "",
+      "Trading name",
+      ""
+     ],
+     [
+      "Registered address",
+      "",
+      "City",
+      ""
+     ],
+     [
+      "State or province",
+      "",
+      "Postal code",
+      ""
+     ],
+     [
+      "Tax ID",
+      "",
+      "Phone",
+      ""
+     ]
+    ]
+   },
+   {
+    "text": "Section B: Bank Details",
+    "style": "Heading 2",
+    "level": 2,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "table": [
+     [
+      "Bank name",
+      "",
+      "Branch",
+      ""
+     ],
+     [
+      "Account name",
+      "",
+      "Account number",
+      ""
+     ],
+     [
+      "Routing number",
+      "",
+      "SWIFT code",
+      ""
+     ]
+    ]
+   },
+   {
+    "text": "Section C: Business Type",
+    "style": "Heading 2",
+    "level": 2,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "☐ Corporation ☐ Partnership ☐ Sole proprietor ☐ Non-profit",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Do you hold a current certificate of insurance? ☐ Yes ☐ No",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "If yes, insurer: ______________________ Expiry date: ____ / ____ / ______",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Section D: Declaration",
+    "style": "Heading 2",
+    "level": 2,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "I declare that the information given on this form is true and complete to the best of my knowledge.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Signature: ______________________ Date: ______________",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   }
+  ],
+  "footnotes": [],
+  "headers": [
+   "Form PR-104 (Rev. 03/2026)"
+  ],
+  "footers": [
+   "For office use only. Page 1"
+  ],
+  "pictures": 0,
+  "pages": 1,
+  "page_width": 612.0,
+  "page_height": 792.0,
+  "margins": [
+   72.0,
+   72.0,
+   72.0,
+   72.0
+  ],
+  "columns": 1,
+  "body_font": "Arial",
+  "body_size": 10.0,
+  "float_words": 0,
+  "extra": {}
+ }
+}
