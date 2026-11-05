@@ -1,14 +1,13 @@
 """Round-trip tests for the docx → markdown → docx preservation workflow.
 
 These tests verify that the template-as-source pathway (``template_path`` +
-``keep_template_body``) and the ``preserve_formatting`` ergonomic kwarg
+``clear_template_body``) and the ``preserve_formatting`` ergonomic kwarg
 restore page setup, theme, and custom paragraph styles when round-tripping
 a docx through the markdown AST.
 """
 
 from __future__ import annotations
 
-import dataclasses
 import io
 import subprocess
 import sys
@@ -118,7 +117,7 @@ def test_template_body_is_replaced_but_section_properties_stay(docx_with_caption
 @pytest.mark.integration
 @pytest.mark.docx
 def test_letterhead_append_mode_preserves_template_body(docx_with_caption: Path, tmp_path: Path) -> None:
-    """keep_template_body=True keeps the existing template body."""
+    """clear_template_body=False keeps the existing template body."""
     doc = to_ast(str(docx_with_caption))
     out_path = tmp_path / "out.docx"
 
@@ -127,7 +126,7 @@ def test_letterhead_append_mode_preserves_template_body(docx_with_caption: Path,
         "docx",
         output=out_path,
         template_path=str(docx_with_caption),
-        keep_template_body=True,
+        clear_template_body=False,
     )
 
     rendered = DocxDocument(str(out_path))
@@ -337,8 +336,8 @@ def test_a_template_gives_its_styles_not_its_text_by_default(docx_with_caption: 
 
 @pytest.mark.integration
 @pytest.mark.docx
-def test_keep_template_body_appends_after_the_template_text(docx_with_caption: Path, tmp_path: Path) -> None:
-    """keep_template_body=True is the letterhead use: the template's text stays first."""
+def test_clear_template_body_false_appends_after_the_template_text(docx_with_caption: Path, tmp_path: Path) -> None:
+    """clear_template_body=False is the letterhead use: the template's text stays first."""
     out_path = tmp_path / "out.docx"
 
     from_markdown(
@@ -346,7 +345,7 @@ def test_keep_template_body_appends_after_the_template_text(docx_with_caption: P
         "docx",
         output=out_path,
         template_path=str(docx_with_caption),
-        keep_template_body=True,
+        clear_template_body=False,
     )
 
     texts = [p.text for p in DocxDocument(str(out_path)).paragraphs]
@@ -356,7 +355,9 @@ def test_keep_template_body_appends_after_the_template_text(docx_with_caption: P
 
 @pytest.mark.integration
 @pytest.mark.docx
-def test_preserve_formatting_replaces_the_body_even_with_keep_set(docx_with_caption: Path, tmp_path: Path) -> None:
+def test_preserve_formatting_replaces_the_body_even_when_told_to_keep_it(
+    docx_with_caption: Path, tmp_path: Path
+) -> None:
     """A round trip must not duplicate the document, whatever the renderer options say."""
     doc = to_ast(str(docx_with_caption))
     out_path = tmp_path / "out.docx"
@@ -366,38 +367,10 @@ def test_preserve_formatting_replaces_the_body_even_with_keep_set(docx_with_capt
         "docx",
         output=out_path,
         preserve_formatting=True,
-        renderer_options=DocxRendererOptions(keep_template_body=True),
+        renderer_options=DocxRendererOptions(clear_template_body=False),
     )
 
     assert len(DocxDocument(str(out_path)).paragraphs) == 3
-
-
-@pytest.mark.unit
-@pytest.mark.docx
-class TestDeprecatedClearTemplateBody:
-    """The old option warns for one release and never reverses an explicit choice."""
-
-    def test_true_warns_and_is_already_the_default(self) -> None:
-        with pytest.warns(FutureWarning, match="keep_template_body"):
-            options = DocxRendererOptions(clear_template_body=True)
-        assert options.keep_template_body is False
-
-    def test_false_warns_and_still_keeps_the_body(self) -> None:
-        with pytest.warns(FutureWarning, match="keep_template_body"):
-            options = DocxRendererOptions(clear_template_body=False)
-        assert options.keep_template_body is True
-
-    def test_copying_options_does_not_warn_again(self, recwarn: pytest.WarningsRecorder) -> None:
-        with pytest.warns(FutureWarning):
-            options = DocxRendererOptions(clear_template_body=False)
-        recwarn.clear()
-        copied = dataclasses.replace(options, default_font="Arial")
-        assert copied.keep_template_body is True
-        assert not [w for w in recwarn if issubclass(w.category, FutureWarning)]
-
-    def test_asking_for_both_is_an_error(self) -> None:
-        with pytest.warns(FutureWarning), pytest.raises(ValueError, match="keep_template_body"):
-            DocxRendererOptions(clear_template_body=True, keep_template_body=True)
 
 
 @pytest.mark.integration
@@ -424,14 +397,24 @@ class TestTemplateBodyFlags:
         assert self._texts(tmp_path) == ["New", "Replacement text."]
         assert "clear_template_body" not in result.stderr
 
-    def test_the_keep_flag_keeps_it(self, docx_with_caption: Path, tmp_path: Path) -> None:
-        self._convert(tmp_path, docx_with_caption, "--docx-renderer-keep-template-body")
+    def test_the_no_clear_flag_keeps_it(self, docx_with_caption: Path, tmp_path: Path) -> None:
+        self._convert(tmp_path, docx_with_caption, "--docx-renderer-no-clear-template-body")
         assert self._texts(tmp_path)[0] == "Chapter One"
 
-    def test_the_old_flag_still_works_without_a_value_and_warns(self, docx_with_caption: Path, tmp_path: Path) -> None:
+    def test_the_released_positive_flag_still_works_and_says_nothing(
+        self, docx_with_caption: Path, tmp_path: Path
+    ) -> None:
         result = self._convert(tmp_path, docx_with_caption, "--docx-renderer-clear-template-body")
         assert self._texts(tmp_path) == ["New", "Replacement text."]
-        assert "keep_template_body" in result.stderr
+        assert "clear_template_body" not in result.stderr
+        assert "clear-template-body" not in result.stderr
+
+    def test_help_shows_the_no_clear_flag_and_hides_the_positive_one(self) -> None:
+        command = [sys.executable, "-m", "all2md", "--help", "docx"]
+        result = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", check=True)
+        assert "--docx-renderer-no-clear-template-body" in result.stdout
+        assert "--docx-renderer-clear-template-body" not in result.stdout
+        assert "SUPPRESS" not in result.stdout
 
     def test_template_docx_is_the_same_flag(self, docx_with_caption: Path, tmp_path: Path) -> None:
         source = tmp_path / "answer.md"

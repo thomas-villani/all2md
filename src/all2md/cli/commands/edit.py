@@ -149,6 +149,7 @@ def _convert_md_to_target(
     kwargs: dict[str, Any] = {}
     if source_path is not None and target_format == "docx" and source_path.suffix.lower() == ".docx":
         kwargs["template_path"] = str(source_path)
+        kwargs["clear_template_body"] = True
     from_ast(ast, cast(DocumentFormat, target_format), output=output_path, **kwargs)
 
 

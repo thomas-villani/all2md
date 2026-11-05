@@ -281,7 +281,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             # Create new Word document (with template if specified)
             if self.options.template_path:
                 self.document = self._Document(_open_word_template(self.options.template_path))
-                if not self.options.keep_template_body:
+                if self.options.clear_template_body:
                     self._clear_template_body()
             else:
                 self.document = self._Document()

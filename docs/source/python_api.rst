@@ -264,7 +264,7 @@ preserve formatting via *template-based rendering*:
 * The renderer option ``template_path`` uses the template's styles, theme,
   headers/footers, and section properties (margins, page size), and replaces
   its text with your content.
-* The ``keep_template_body`` option keeps the template's text and adds your
+* Setting ``clear_template_body=False`` keeps the template's text and adds your
   content after it, for a letterhead or a cover page.
 * A ``preserve_formatting`` kwarg on :func:`from_ast`, :func:`from_markdown`,
   and :func:`convert` is a one-flag shortcut that picks up the source path
@@ -312,14 +312,14 @@ explicitly instead:
    )
    from_ast(doc, "docx", output="report.docx", renderer_options=options)
 
-Set ``keep_template_body=True`` to keep the template's text and add the new
+Set ``clear_template_body=False`` to keep the template's text and add the new
 content after it, for a letterhead, a cover page, or standard opening text:
 
 .. code-block:: python
 
    options = DocxRendererOptions(
        template_path="letterhead.docx",
-       keep_template_body=True,
+       clear_template_body=False,
    )
    from_ast(doc, "docx", output="letter.docx", renderer_options=options)
 

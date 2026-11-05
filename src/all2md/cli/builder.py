@@ -274,11 +274,6 @@ class DynamicCLIBuilder:
         kwargs: dict[str, Any] = {}
         default_value: Any = MISSING
 
-        # An Optional[bool] can still be a plain switch; without this it would demand a value.
-        if metadata.get("action") == "store_true":
-            kwargs["action"] = "store_true"
-            return kwargs
-
         if self._has_default(field):
             candidate_default = self._get_default(field)
             if isinstance(candidate_default, bool):
@@ -831,6 +826,15 @@ class DynamicCLIBuilder:
         # Add the argument
         try:
             group.add_argument(cli_name, *field.metadata.get("cli_aliases", ()), **kwargs)
+            # A --no-* option can also accept the flag that states its default, hidden from --help
+            if "cli_positive_flag" in field.metadata:
+                group.add_argument(
+                    field.metadata["cli_positive_flag"],
+                    action=TrackingStoreTrueAction,
+                    dest=kwargs["dest"],
+                    default=True,
+                    help=argparse.SUPPRESS,
+                )
             # Track mapping from dest name to actual CLI flag for better suggestions
             if "dest" in kwargs:
                 self.dest_to_cli_flag[kwargs["dest"]] = cli_name
