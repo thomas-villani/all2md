@@ -324,6 +324,7 @@ def main(args: list[str] | None = None) -> int:
     from all2md.cli.processors import (
         process_multi_file,
         setup_and_validate_options,
+        warn_if_docx_template_unused,
     )
 
     # Check for config from environment (skip if --no-config is set)
@@ -381,6 +382,8 @@ def main(args: list[str] | None = None) -> int:
     except argparse.ArgumentTypeError as e:
         print(f"Error: {e}", file=sys.stderr)
         return EXIT_VALIDATION_ERROR
+
+    warn_if_docx_template_unused(parsed_args)
 
     # Handle watch mode if requested
     if parsed_args.watch:

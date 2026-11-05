@@ -424,3 +424,51 @@ class TestTemplateBodyFlags:
         subprocess.run(command + ["--template-docx", str(docx_with_caption)], check=True, capture_output=True)
         assert CUSTOM_STYLE_NAME in {s.name for s in DocxDocument(str(out)).styles}
         assert [p.text for p in DocxDocument(str(out)).paragraphs] == ["New"]
+
+
+@pytest.mark.integration
+@pytest.mark.docx
+class TestTemplateFlagWithoutWordOutput:
+    """A template flag typed for non-Word output is ignored, and the user should hear about it."""
+
+    @staticmethod
+    def _run(tmp_path: Path, *flags: str) -> subprocess.CompletedProcess[str]:
+        source = tmp_path / "answer.md"
+        source.write_text("# New\n", encoding="utf-8")
+        command = [sys.executable, "-m", "all2md", str(source), *flags]
+        return subprocess.run(
+            command, capture_output=True, text=True, encoding="utf-8", errors="replace", check=True, cwd=tmp_path
+        )
+
+    @pytest.mark.parametrize(
+        "flags",
+        [
+            pytest.param([], id="stdout"),
+            pytest.param(["--out", "answer.html"], id="out-html"),
+            pytest.param(["--to", "html"], id="to-html"),
+        ],
+    )
+    def test_warns_and_still_converts(self, docx_with_caption: Path, tmp_path: Path, flags: list[str]) -> None:
+        result = self._run(tmp_path, "--no-config", "--template-docx", str(docx_with_caption), *flags)
+        assert "--template-docx only applies to Word output" in result.stderr
+        assert ".docx" in result.stderr
+        assert "New" in result.stdout or (tmp_path / "answer.html").exists()
+
+    def test_the_long_flag_warns_too(self, docx_with_caption: Path, tmp_path: Path) -> None:
+        result = self._run(tmp_path, "--no-config", "--docx-renderer-template-path", str(docx_with_caption))
+        assert "only applies to Word output" in result.stderr
+
+    @pytest.mark.parametrize(
+        "flags",
+        [pytest.param(["--out", "answer.docx"], id="out-docx"), pytest.param(["--to", "docx"], id="to-docx")],
+    )
+    def test_silent_for_word_output(self, docx_with_caption: Path, tmp_path: Path, flags: list[str]) -> None:
+        result = self._run(tmp_path, "--no-config", "--template-docx", str(docx_with_caption), *flags)
+        assert "only applies to Word output" not in result.stderr
+
+    def test_silent_for_a_template_set_in_a_config_file(self, docx_with_caption: Path, tmp_path: Path) -> None:
+        """A config file's template is a standing setting, so Markdown conversions must not nag about it."""
+        config = tmp_path / "all2md.toml"
+        config.write_text(f"[docx]\ntemplate_path = '{docx_with_caption.as_posix()}'\n", encoding="utf-8")
+        result = self._run(tmp_path, "--config", str(config))
+        assert "only applies to Word output" not in result.stderr
