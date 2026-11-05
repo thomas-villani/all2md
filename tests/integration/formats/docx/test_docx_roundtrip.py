@@ -9,6 +9,8 @@ a docx through the markdown AST.
 from __future__ import annotations
 
 import io
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -19,7 +21,7 @@ from docx import Document as DocxDocument
 from docx.enum.style import WD_STYLE_TYPE
 from docx.shared import Pt
 
-from all2md.api import from_ast, to_ast
+from all2md.api import from_ast, from_markdown, to_ast
 from all2md.options.docx import DocxRendererOptions
 from all2md.renderers.docx import DocxRenderer
 
@@ -91,10 +93,8 @@ def test_source_style_metadata_captured_for_custom_paragraph_style(docx_with_cap
 
 @pytest.mark.integration
 @pytest.mark.docx
-def test_clear_template_body_replaces_body_but_keeps_section_properties(
-    docx_with_caption: Path, tmp_path: Path
-) -> None:
-    """clear_template_body=True wipes paragraphs/tables from the template."""
+def test_template_body_is_replaced_but_section_properties_stay(docx_with_caption: Path, tmp_path: Path) -> None:
+    """The default wipes paragraphs/tables from the template."""
     doc = to_ast(str(docx_with_caption))
     out_path = tmp_path / "out.docx"
 
@@ -103,7 +103,6 @@ def test_clear_template_body_replaces_body_but_keeps_section_properties(
         "docx",
         output=out_path,
         template_path=str(docx_with_caption),
-        clear_template_body=True,
     )
 
     rendered = DocxDocument(str(out_path))
@@ -118,7 +117,7 @@ def test_clear_template_body_replaces_body_but_keeps_section_properties(
 @pytest.mark.integration
 @pytest.mark.docx
 def test_letterhead_append_mode_preserves_template_body(docx_with_caption: Path, tmp_path: Path) -> None:
-    """Default (clear_template_body=False) keeps existing template body."""
+    """clear_template_body=False keeps the existing template body."""
     doc = to_ast(str(docx_with_caption))
     out_path = tmp_path / "out.docx"
 
@@ -127,6 +126,7 @@ def test_letterhead_append_mode_preserves_template_body(docx_with_caption: Path,
         "docx",
         output=out_path,
         template_path=str(docx_with_caption),
+        clear_template_body=False,
     )
 
     rendered = DocxDocument(str(out_path))
@@ -147,7 +147,6 @@ def test_custom_style_applied_in_rendered_output(docx_with_caption: Path, tmp_pa
         "docx",
         output=out_path,
         template_path=str(docx_with_caption),
-        clear_template_body=True,
     )
 
     rendered = DocxDocument(str(out_path))
@@ -159,7 +158,7 @@ def test_custom_style_applied_in_rendered_output(docx_with_caption: Path, tmp_pa
 @pytest.mark.integration
 @pytest.mark.docx
 def test_preserve_formatting_kwarg_matches_explicit_options(docx_with_caption: Path, tmp_path: Path) -> None:
-    """preserve_formatting=True is equivalent to passing template_path + clear_template_body=True."""
+    """preserve_formatting=True is equivalent to passing the source as template_path."""
     doc_a = to_ast(str(docx_with_caption))
     out_a = tmp_path / "a.docx"
     from_ast(doc_a, "docx", output=out_a, preserve_formatting=True)
@@ -171,7 +170,6 @@ def test_preserve_formatting_kwarg_matches_explicit_options(docx_with_caption: P
         "docx",
         output=out_b,
         template_path=str(docx_with_caption),
-        clear_template_body=True,
     )
 
     rendered_a = DocxDocument(str(out_a))
@@ -217,7 +215,7 @@ def test_default_render_unchanged_without_template_path(docx_with_caption: Path,
 @pytest.mark.docx
 def test_clear_template_body_helper_preserves_sectpr(docx_with_caption: Path) -> None:
     """The body-clearing helper must keep the trailing sectPr intact."""
-    options = DocxRendererOptions(template_path=str(docx_with_caption), clear_template_body=True)
+    options = DocxRendererOptions(template_path=str(docx_with_caption))
     renderer = DocxRenderer(options=options)
     # Drive only the document load + clear path by mimicking render() preamble.
     from docx import Document as _Document
@@ -292,7 +290,6 @@ def test_run_character_style_round_trips_through_template(docx_with_run_styles: 
         "docx",
         output=out_path,
         template_path=str(docx_with_run_styles),
-        clear_template_body=True,
     )
 
     rendered = DocxDocument(str(out_path))
@@ -323,3 +320,107 @@ def test_run_character_style_no_op_without_template(docx_with_run_styles: Path, 
         if run.style and run.style.name == CUSTOM_RUN_STYLE_NAME
     ]
     assert not styled, "Custom character style must not appear without a template that defines it"
+
+
+@pytest.mark.integration
+@pytest.mark.docx
+def test_a_template_gives_its_styles_not_its_text_by_default(docx_with_caption: Path, tmp_path: Path) -> None:
+    """The template's body is left out unless the caller asks to keep it."""
+    out_path = tmp_path / "out.docx"
+
+    from_markdown("# New\n\nReplacement text.\n", "docx", output=out_path, template_path=str(docx_with_caption))
+
+    texts = [p.text for p in DocxDocument(str(out_path)).paragraphs]
+    assert texts == ["New", "Replacement text."]
+
+
+@pytest.mark.integration
+@pytest.mark.docx
+def test_clear_template_body_false_appends_after_the_template_text(docx_with_caption: Path, tmp_path: Path) -> None:
+    """clear_template_body=False is the letterhead use: the template's text stays first."""
+    out_path = tmp_path / "out.docx"
+
+    from_markdown(
+        "# New\n\nReplacement text.\n",
+        "docx",
+        output=out_path,
+        template_path=str(docx_with_caption),
+        clear_template_body=False,
+    )
+
+    texts = [p.text for p in DocxDocument(str(out_path)).paragraphs]
+    assert texts[0] == "Chapter One"
+    assert texts[-2:] == ["New", "Replacement text."]
+
+
+@pytest.mark.integration
+@pytest.mark.docx
+def test_preserve_formatting_replaces_the_body_even_when_told_to_keep_it(
+    docx_with_caption: Path, tmp_path: Path
+) -> None:
+    """A round trip must not duplicate the document, whatever the renderer options say."""
+    doc = to_ast(str(docx_with_caption))
+    out_path = tmp_path / "out.docx"
+
+    from_ast(
+        doc,
+        "docx",
+        output=out_path,
+        preserve_formatting=True,
+        renderer_options=DocxRendererOptions(clear_template_body=False),
+    )
+
+    assert len(DocxDocument(str(out_path)).paragraphs) == 3
+
+
+@pytest.mark.integration
+@pytest.mark.docx
+class TestTemplateBodyFlags:
+    """The flags as a user types them; argparse decides these, so the options tests cannot see them."""
+
+    @staticmethod
+    def _convert(tmp_path: Path, template: Path, *flags: str) -> subprocess.CompletedProcess[str]:
+        source = tmp_path / "answer.md"
+        source.write_text("# New\n\nReplacement text.\n", encoding="utf-8")
+        command = [sys.executable, "-m", "all2md", str(source), "--out", str(tmp_path / "out.docx"), "--no-config"]
+        command += ["--docx-renderer-template-path", str(template), *flags]
+        return subprocess.run(command, capture_output=True, text=True, encoding="utf-8", check=True)
+
+    @staticmethod
+    def _texts(tmp_path: Path) -> list[str]:
+        return [p.text for p in DocxDocument(str(tmp_path / "out.docx")).paragraphs]
+
+    def test_the_template_flag_alone_leaves_out_its_text_without_warning(
+        self, docx_with_caption: Path, tmp_path: Path
+    ) -> None:
+        result = self._convert(tmp_path, docx_with_caption)
+        assert self._texts(tmp_path) == ["New", "Replacement text."]
+        assert "clear_template_body" not in result.stderr
+
+    def test_the_no_clear_flag_keeps_it(self, docx_with_caption: Path, tmp_path: Path) -> None:
+        self._convert(tmp_path, docx_with_caption, "--docx-renderer-no-clear-template-body")
+        assert self._texts(tmp_path)[0] == "Chapter One"
+
+    def test_the_released_positive_flag_still_works_and_says_nothing(
+        self, docx_with_caption: Path, tmp_path: Path
+    ) -> None:
+        result = self._convert(tmp_path, docx_with_caption, "--docx-renderer-clear-template-body")
+        assert self._texts(tmp_path) == ["New", "Replacement text."]
+        assert "clear_template_body" not in result.stderr
+        assert "clear-template-body" not in result.stderr
+
+    def test_help_shows_the_no_clear_flag_and_hides_the_positive_one(self) -> None:
+        command = [sys.executable, "-m", "all2md", "--help", "docx"]
+        result = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", check=True)
+        assert "--docx-renderer-no-clear-template-body" in result.stdout
+        assert "--docx-renderer-clear-template-body" not in result.stdout
+        assert "SUPPRESS" not in result.stdout
+
+    def test_template_docx_is_the_same_flag(self, docx_with_caption: Path, tmp_path: Path) -> None:
+        source = tmp_path / "answer.md"
+        source.write_text("New", encoding="utf-8")
+        out = tmp_path / "out.docx"
+        command = [sys.executable, "-m", "all2md", str(source), "--out", str(out), "--no-config"]
+        subprocess.run(command + ["--template-docx", str(docx_with_caption)], check=True, capture_output=True)
+        assert CUSTOM_STYLE_NAME in {s.name for s in DocxDocument(str(out)).styles}
+        assert [p.text for p in DocxDocument(str(out)).paragraphs] == ["New"]
