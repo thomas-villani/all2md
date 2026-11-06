@@ -1192,6 +1192,9 @@ DEFAULT_RST_HARD_LINE_BREAK_MODE: RstLineBreakMode = "line_block"
 DEFAULT_RST_HARD_LINE_BREAK_FALLBACK_IN_CONTAINERS = True
 DEFAULT_RST_STRICT_MODE = False
 DEFAULT_RST_STRIP_COMMENTS = False
+# Off by default: `.. include::` and the :file: / :url: options of `raw` and `csv-table`
+# would otherwise let an RST file you did not write read any file or fetch any URL.
+DEFAULT_RST_PARSE_INCLUDES = False
 DEFAULT_RST_PARSE_ADMONITIONS = True
 
 # =============================================================================

@@ -2084,6 +2084,29 @@ def _determine_output_format(args: argparse.Namespace, output_path: Path | None)
     return "markdown"
 
 
+def warn_if_docx_template_unused(args: argparse.Namespace) -> None:
+    """Tell the user a typed --template-docx does nothing because the output is not Word.
+
+    Only a flag typed on the command line counts: a template in a config file is a standing
+    setting, so it must not produce a warning on every conversion to another format.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Command-line arguments
+
+    """
+    if "renderer_docx.template_path" not in getattr(args, "_provided_args", set()):
+        return
+    target_format = _determine_output_format(args, Path(args.out) if args.out else None)
+    if target_format != "docx":
+        print(
+            f"Warning: --template-docx only applies to Word output, and this conversion writes {target_format}. "
+            "To write Word, add --out with a .docx file name.",
+            file=sys.stderr,
+        )
+
+
 def _write_merged_output(
     merged_doc: Document,
     target_format: str,

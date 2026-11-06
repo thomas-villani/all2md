@@ -173,6 +173,16 @@ Documents may reference local files via ``file://`` URLs, attempting to read sen
    <!-- Malicious HTML with file:// URL -->
    <img src="file:///etc/passwd" alt="system password file">
 
+The same goes for output formats that embed pictures. A plain path works as well
+as a ``file://`` URL there, and it comes from any input format:
+
+.. code-block:: markdown
+
+   ![chart](/app/uploads/another-customer/passport.png)
+
+Rendered to DOCX, PPTX, PDF, ODT, ODP, EPUB or an arXiv bundle, that would copy the
+file into the output, which goes back to whoever supplied the document.
+
 Defense Mechanisms
 ^^^^^^^^^^^^^^^^^^
 
@@ -221,6 +231,12 @@ all2md provides ``LocalFileAccessOptions`` to control file:// URL access:
 
 * ``utils/security.py``: ``validate_local_file_access()`` checks file:// URLs
 * ``parsers/html.py``: Validates file:// URLs before processing images
+* ``utils/security.py``: ``read_local_image()`` is the only way a renderer reads an image
+  from disk. Each embedding renderer has its own ``local_files`` option, off by default;
+  when on, the file must also be an image under ``max_asset_size_bytes``
+  (see :ref:`security-local-images`)
+* Network paths (``\\host\share``, ``file://host/share``) are refused before they are
+  resolved, so no connection is made
 * Returns empty URL with alt text when access denied (prevents path leakage)
 * Denylist takes precedence over allowlist
 * Path traversal attempts (``../``) are resolved before validation
@@ -228,6 +244,22 @@ all2md provides ``LocalFileAccessOptions`` to control file:// URL access:
 **Risk Level:** High (without protections)
 
 **Mitigation Effectiveness:** High (when configured properly)
+
+**RST directives:** reStructuredText needs no URL to read a file. A directive does it:
+
+.. code-block:: rst
+
+   .. include:: /home/user/.ssh/id_rsa
+
+   .. csv-table:: Data
+      :file: /app/.env
+
+   .. raw:: html
+      :url: http://169.254.169.254/latest/meta-data/
+
+``parsers/rst.py`` sets docutils' ``file_insertion_enabled`` from
+``RstParserOptions.parse_includes``, which is off by default, so each of these is
+dropped with a warning. See :ref:`security-rst-includes`.
 
 ---
 

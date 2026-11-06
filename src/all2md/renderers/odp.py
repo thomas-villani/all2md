@@ -146,6 +146,7 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
             If ODP generation fails
 
         """
+        self._remember_source_dir(doc)
         from odf.opendocument import OpenDocumentPresentation
         from odf.style import MasterPage, PageLayout, PageLayoutProperties
 
@@ -220,6 +221,7 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
             ODP file content as bytes
 
         """
+        self._remember_source_dir(doc)
         buffer = BytesIO()
         self.render(doc, buffer)
         return buffer.getvalue()
@@ -480,7 +482,9 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
 
         try:
             # Handle different image sources
-            image_file = None
+            image_file: str | None = None
+            image_data: bytes | None = None
+            ext = ".png"
 
             if image.url.startswith("data:"):
                 # Base64 encoded image
@@ -489,23 +493,25 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
                 # Remote URL - use secure fetching if enabled
                 image_file = self._fetch_remote_image(image.url)
             else:
-                # Local file path
-                image_file = image.url
+                # Local file: only under the local_files policy, which is off by default
+                local_image = self._read_local_image(image.url)
+                if local_image:
+                    image_data = local_image.data
+                    ext = f".{local_image.format}"
 
-            # Add image to page if we have a valid file
-            if image_file and self._presentation:
-                # Generate unique name for image
+            if image_file:
+                # Temp file written by the data: or http(s) branch
+                with open(image_file, "rb") as f:
+                    image_data = f.read()
+                ext = os.path.splitext(image_file)[1] or ".png"
 
+            # Add image to page if we have its bytes
+            if image_data is not None and self._presentation:
                 from odf.draw import Frame
                 from odf.draw import Image as OdfImage
 
                 from all2md.utils.images import detect_image_format_from_bytes
 
-                # Read image data
-                with open(image_file, "rb") as f:
-                    image_data = f.read()
-
-                ext = os.path.splitext(image_file)[1] or ".png"
                 image_name = f"Pictures/image_{id(image)}{ext}"
 
                 # Detect actual image format for correct MIME type

@@ -20,6 +20,34 @@ from all2md.utils.static_site import (
     generate_output_filename,
 )
 
+# A 1x1 PNG: site assets are checked to be images before they are copied.
+PNG_1X1 = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
+    b"\x00\x00\x05\x00\x01\r\n-\xdb\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
+# A 1x1 PNG: site assets are checked to be images before they are copied.
+PNG_1X1 = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
+    b"\x00\x00\x05\x00\x01\r\n-\xdb\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
+# A 1x1 PNG: site assets are checked to be images before they are copied.
+PNG_1X1 = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
+    b"\x00\x00\x05\x00\x01\r\n-\xdb\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
+# A 1x1 PNG: site assets are checked to be images before they are copied.
+PNG_1X1 = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
+    b"\x00\x00\x05\x00\x01\r\n-\xdb\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
 
 def _parse_toml_frontmatter(text: str) -> dict:
     assert text.startswith("+++\n")
@@ -542,7 +570,7 @@ class TestCopyDocumentAssets:
         source_dir = tmp_path / "source"
         source_dir.mkdir()
         image_file = source_dir / "test-image.png"
-        image_file.write_bytes(b"fake image data")
+        image_file.write_bytes(PNG_1X1)
 
         # Create document with image reference
         doc = Document(children=[Paragraph(content=[Image(url=str(image_file), alt_text="Test")])])
@@ -559,7 +587,7 @@ class TestCopyDocumentAssets:
         assert len(assets) == 1
         copied_file = Path(assets[0])
         assert copied_file.exists()
-        assert copied_file.read_bytes() == b"fake image data"
+        assert copied_file.read_bytes() == PNG_1X1
 
         # Check image URL was updated
         collector = ImageCollector()
@@ -595,7 +623,7 @@ class TestCopyDocumentAssets:
         source_dir = tmp_path / "source"
         source_dir.mkdir()
         image_file = source_dir / "test.jpg"
-        image_file.write_bytes(b"test")
+        image_file.write_bytes(PNG_1X1)
 
         # Create document
         doc = Document(children=[Paragraph(content=[Image(url=str(image_file), alt_text="Test")])])
@@ -620,7 +648,7 @@ class TestCopyDocumentAssets:
         source_dir = tmp_path / "source"
         source_dir.mkdir()
         image_file = source_dir / "diagram.png"
-        image_file.write_bytes(b"test")
+        image_file.write_bytes(PNG_1X1)
 
         # Create document
         doc = Document(children=[Paragraph(content=[Image(url=str(image_file), alt_text="Test")])])
@@ -644,7 +672,7 @@ class TestCopyDocumentAssets:
         source_dir = tmp_path / "source"
         source_dir.mkdir()
         image_file = source_dir / "diagram.png"
-        image_file.write_bytes(b"test")
+        image_file.write_bytes(PNG_1X1)
 
         doc = Document(children=[Paragraph(content=[Image(url=str(image_file), alt_text="Test")])])
 
@@ -661,7 +689,7 @@ class TestCopyDocumentAssets:
         source_dir = tmp_path / "source"
         source_dir.mkdir()
         image_file = source_dir / "diagram.png"
-        image_file.write_bytes(b"test")
+        image_file.write_bytes(PNG_1X1)
 
         doc = Document(children=[Paragraph(content=[Image(url=str(image_file), alt_text="Test")])])
 

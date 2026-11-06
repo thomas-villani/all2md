@@ -27,7 +27,7 @@ from all2md.constants import (
     DocxRevisionPolicy,
 )
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
-from all2md.options.common import AttachmentOptionsMixin, NetworkFetchOptions
+from all2md.options.common import AttachmentOptionsMixin, LocalFileAccessOptions, NetworkFetchOptions
 
 
 # src/all2md/options/docx.py
@@ -98,6 +98,10 @@ class DocxRendererOptions(BaseRendererOptions):
         ``docx`` extra installs; without it, and for a formula that does not
         parse, the LaTeX is written as text. ``latex`` always writes the LaTeX
         source as text, between ``$`` signs.
+    local_files : LocalFileAccessOptions, default LocalFileAccessOptions()
+        Policy for images the document references by local path. Off by default:
+        set ``local_files.allow_local_files=True`` (optionally with an allowlist)
+        to embed them. Relative paths resolve against the source document's folder.
 
     """
 
@@ -213,6 +217,15 @@ class DocxRendererOptions(BaseRendererOptions):
         metadata={
             "help": "Network security settings for remote image fetching",
             "cli_flatten": True,  # Nested, handled separately
+        },
+    )
+    local_files: LocalFileAccessOptions = field(
+        default_factory=LocalFileAccessOptions,
+        metadata={
+            "help": "Reading images the document points at on this machine's disk. Off by default, "
+            "because an untrusted document could otherwise copy local files into the output",
+            "cli_flatten": True,
+            "importance": "security",
         },
     )
 

@@ -305,12 +305,12 @@ class TestValidateLocalFileAccess:
         )
 
     def test_windows_unc_path_urls(self):
-        """Test Windows UNC path URLs like file://server/share."""
-        # Test basic UNC path
-        assert validate_local_file_access("file://server/share/file.txt", allow_local_files=False) is False
+        """Network paths like file://server/share are refused even with local files allowed.
 
-        # Test with master switch enabled
-        assert validate_local_file_access("file://server/share/file.txt", allow_local_files=True) is True
+        Opening one makes Windows connect to the server, which can send it the user's credentials.
+        """
+        assert validate_local_file_access("file://server/share/file.txt", allow_local_files=False) is False
+        assert validate_local_file_access("file://server/share/file.txt", allow_local_files=True) is False
 
     def test_mixed_windows_and_unix_paths(self):
         """Test that both Windows and Unix-style paths work correctly."""

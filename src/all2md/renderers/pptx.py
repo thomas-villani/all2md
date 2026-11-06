@@ -153,6 +153,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             If PPTX generation fails
 
         """
+        self._remember_source_dir(doc)
         from pptx import Presentation
         from pptx.util import Inches, Pt
 
@@ -219,6 +220,7 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
             PPTX file content as bytes
 
         """
+        self._remember_source_dir(doc)
         buffer = BytesIO()
         self.render(doc, buffer)
         return buffer.getvalue()
@@ -590,13 +592,14 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
 
         return height_inches
 
-    def _resolve_image_file(self, image: Image) -> str | None:
-        """Resolve an Image node to a local file path (or temp file).
+    def _resolve_image_file(self, image: Image) -> str | IO[bytes] | None:
+        """Resolve an Image node to a temp file path or the bytes of a local image.
 
         Returns
         -------
-        str or None
-            Path to the image file, or None if unresolvable.
+        str, IO[bytes] or None
+            Path to a temp file, the local image's bytes, or None if unresolvable.
+            A local path is read only under the ``local_files`` policy, which is off by default.
 
         """
         if not image.url:
@@ -607,7 +610,8 @@ class PptxRenderer(NodeVisitor, BaseRenderer):
         elif urlparse(image.url).scheme in ("http", "https"):
             return self._fetch_remote_image(image.url)
         else:
-            return image.url
+            local_image = self._read_local_image(image.url)
+            return BytesIO(local_image.data) if local_image else None
 
     def _render_image_at(
         self, slide: Slide, image: Image, left_inches: float, top_inches: float, max_width_inches: float

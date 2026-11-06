@@ -2079,6 +2079,50 @@ to prevent SSRF attacks.
    :Default: ``5``
    :Importance: security
 
+Local Files Options
++++++++++++++++++++
+
+Local file access security options.
+
+This dataclass contains settings that control access to local files
+via file:// URLs and similar mechanisms.
+
+**allow_local_files**
+
+   Allow access to local files via file:// URLs (security setting)
+
+   :Type: ``bool``
+   :CLI flag: ``--docx-renderer-local-files-allow-local-files``
+   :Default: ``False``
+   :Importance: security
+
+**local_file_allowlist**
+
+   List of directories allowed for local file access (when allow_local_files=True)
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--docx-renderer-local-files-local-file-allowlist``
+   :Default: ``None``
+   :Importance: security
+
+**local_file_denylist**
+
+   List of directories denied for local file access
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--docx-renderer-local-files-local-file-denylist``
+   :Default: ``None``
+   :Importance: security
+
+**allow_cwd_files**
+
+   Allow local files from current working directory and subdirectories
+
+   :Type: ``bool``
+   :CLI flag: ``--docx-renderer-local-files-allow-cwd-files``
+   :Default: ``False``
+   :Importance: security
+
 DOKUWIKI Options
 ~~~~~~~~~~~~~~~~
 
@@ -3384,6 +3428,50 @@ including chapter splitting strategies, metadata, and EPUB structure.
    :Type: ``NetworkFetchOptions``
    :CLI flag: ``--epub-renderer-network``
    :Default factory: ``NetworkFetchOptions``
+   :Importance: security
+
+Local Files Options
++++++++++++++++++++
+
+Local file access security options.
+
+This dataclass contains settings that control access to local files
+via file:// URLs and similar mechanisms.
+
+**allow_local_files**
+
+   Allow access to local files via file:// URLs (security setting)
+
+   :Type: ``bool``
+   :CLI flag: ``--epub-renderer-local-files-allow-local-files``
+   :Default: ``False``
+   :Importance: security
+
+**local_file_allowlist**
+
+   List of directories allowed for local file access (when allow_local_files=True)
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--epub-renderer-local-files-local-file-allowlist``
+   :Default: ``None``
+   :Importance: security
+
+**local_file_denylist**
+
+   List of directories denied for local file access
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--epub-renderer-local-files-local-file-denylist``
+   :Default: ``None``
+   :Importance: security
+
+**allow_cwd_files**
+
+   Allow local files from current working directory and subdirectories
+
+   :Type: ``bool``
+   :CLI flag: ``--epub-renderer-local-files-allow-cwd-files``
+   :Default: ``False``
    :Importance: security
 
 FB2 Options
@@ -6861,6 +6949,50 @@ generation from AST, including slide splitting strategies and layout.
    :CLI flag: ``--odp-renderer-network``
    :Default factory: ``NetworkFetchOptions``
 
+Local Files Options
++++++++++++++++++++
+
+Local file access security options.
+
+This dataclass contains settings that control access to local files
+via file:// URLs and similar mechanisms.
+
+**allow_local_files**
+
+   Allow access to local files via file:// URLs (security setting)
+
+   :Type: ``bool``
+   :CLI flag: ``--odp-renderer-local-files-allow-local-files``
+   :Default: ``False``
+   :Importance: security
+
+**local_file_allowlist**
+
+   List of directories allowed for local file access (when allow_local_files=True)
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--odp-renderer-local-files-local-file-allowlist``
+   :Default: ``None``
+   :Importance: security
+
+**local_file_denylist**
+
+   List of directories denied for local file access
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--odp-renderer-local-files-local-file-denylist``
+   :Default: ``None``
+   :Importance: security
+
+**allow_cwd_files**
+
+   Allow local files from current working directory and subdirectories
+
+   :Type: ``bool``
+   :CLI flag: ``--odp-renderer-local-files-allow-cwd-files``
+   :Default: ``False``
+   :Importance: security
+
 **include_notes**
 
    Include speaker notes in rendered slides
@@ -7398,6 +7530,50 @@ to prevent SSRF attacks.
    :Type: ``int``
    :CLI flag: ``--odt-renderer-network-max-concurrent-requests``
    :Default: ``5``
+   :Importance: security
+
+Local Files Options
++++++++++++++++++++
+
+Local file access security options.
+
+This dataclass contains settings that control access to local files
+via file:// URLs and similar mechanisms.
+
+**allow_local_files**
+
+   Allow access to local files via file:// URLs (security setting)
+
+   :Type: ``bool``
+   :CLI flag: ``--odt-renderer-local-files-allow-local-files``
+   :Default: ``False``
+   :Importance: security
+
+**local_file_allowlist**
+
+   List of directories allowed for local file access (when allow_local_files=True)
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--odt-renderer-local-files-local-file-allowlist``
+   :Default: ``None``
+   :Importance: security
+
+**local_file_denylist**
+
+   List of directories denied for local file access
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--odt-renderer-local-files-local-file-denylist``
+   :Default: ``None``
+   :Importance: security
+
+**allow_cwd_files**
+
+   Allow local files from current working directory and subdirectories
+
+   :Type: ``bool``
+   :CLI flag: ``--odt-renderer-local-files-allow-cwd-files``
+   :Default: ``False``
    :Importance: security
 
 **comment_mode**
@@ -8992,6 +9168,50 @@ to prevent SSRF attacks.
    :Default: ``5``
    :Importance: security
 
+Local Files Options
++++++++++++++++++++
+
+Local file access security options.
+
+This dataclass contains settings that control access to local files
+via file:// URLs and similar mechanisms.
+
+**allow_local_files**
+
+   Allow access to local files via file:// URLs (security setting)
+
+   :Type: ``bool``
+   :CLI flag: ``--pdf-renderer-local-files-allow-local-files``
+   :Default: ``False``
+   :Importance: security
+
+**local_file_allowlist**
+
+   List of directories allowed for local file access (when allow_local_files=True)
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--pdf-renderer-local-files-local-file-allowlist``
+   :Default: ``None``
+   :Importance: security
+
+**local_file_denylist**
+
+   List of directories denied for local file access
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--pdf-renderer-local-files-local-file-denylist``
+   :Default: ``None``
+   :Importance: security
+
+**allow_cwd_files**
+
+   Allow local files from current working directory and subdirectories
+
+   :Type: ``bool``
+   :CLI flag: ``--pdf-renderer-local-files-allow-cwd-files``
+   :Default: ``False``
+   :Importance: security
+
 **comment_mode**
 
    Comment rendering mode: visible or ignore
@@ -9578,6 +9798,50 @@ generation from AST, including slide splitting strategies and layout.
    :CLI flag: ``--pptx-renderer-network``
    :Default factory: ``NetworkFetchOptions``
 
+Local Files Options
++++++++++++++++++++
+
+Local file access security options.
+
+This dataclass contains settings that control access to local files
+via file:// URLs and similar mechanisms.
+
+**allow_local_files**
+
+   Allow access to local files via file:// URLs (security setting)
+
+   :Type: ``bool``
+   :CLI flag: ``--pptx-renderer-local-files-allow-local-files``
+   :Default: ``False``
+   :Importance: security
+
+**local_file_allowlist**
+
+   List of directories allowed for local file access (when allow_local_files=True)
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--pptx-renderer-local-files-local-file-allowlist``
+   :Default: ``None``
+   :Importance: security
+
+**local_file_denylist**
+
+   List of directories denied for local file access
+
+   :Type: ``list[str] | None``
+   :CLI flag: ``--pptx-renderer-local-files-local-file-denylist``
+   :Default: ``None``
+   :Importance: security
+
+**allow_cwd_files**
+
+   Allow local files from current working directory and subdirectories
+
+   :Type: ``bool``
+   :CLI flag: ``--pptx-renderer-local-files-allow-cwd-files``
+   :Default: ``False``
+   :Importance: security
+
 **include_notes**
 
    Include speaker notes in rendered slides
@@ -9716,6 +9980,15 @@ into AST representation using docutils.
    :CLI flag: ``--rst-no-strip-comments``
    :Default: ``False``
    :Importance: core
+
+**parse_includes**
+
+   Let include, and the :file:/:url: options of raw and csv-table, read files and URLs (SECURITY: off by default; only for documents you trust)
+
+   :Type: ``bool``
+   :CLI flag: ``--rst-parse-includes``
+   :Default: ``False``
+   :Importance: security
 
 RST Renderer Options
 ^^^^^^^^^^^^^^^^^^^^
