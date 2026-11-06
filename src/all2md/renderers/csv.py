@@ -291,20 +291,35 @@ class CsvRenderer(BaseRenderer):
 
         writer = csv.writer(output, **writer_kwargs)  # type: ignore[arg-type]
 
-        # Process header if present
-        if table.header:
-            header_row = self._process_row(table.header)
-            writer.writerow(header_row)
-
-        # Process body rows
-        for row in table.rows:
-            csv_row = self._process_row(row)
-            writer.writerow(csv_row)
+        rows = ([table.header] if table.header else []) + table.rows
+        if any(cell.rowspan > 1 for row in rows for cell in row.cells):
+            # Resolve header and body together so later cells step over rowspans.
+            # Keep the shared layout's effective spans when declared spans collide.
+            grid = self._layout_table_grid(rows)
+            csv_rows: list[list[str]] = [[] for _ in rows]
+            for placement in grid.placements:
+                cell_text = self._extract_text_content(placement.cell.content)
+                merged_text = {
+                    "repeat": cell_text,
+                    "blank": "",
+                    "placeholder": "[merged]",
+                }[self.options.handle_merged_cells]
+                end_col = placement.col + placement.colspan
+                for row_idx in range(placement.row, placement.row + placement.rowspan):
+                    csv_row = csv_rows[row_idx]
+                    # Fill holes, but preserve ragged rows' existing lengths.
+                    csv_row.extend([""] * (max(0, end_col - len(csv_row))))
+                    csv_row[placement.col : end_col] = [merged_text] * placement.colspan
+                csv_rows[placement.row][placement.col] = cell_text
+            writer.writerows(csv_rows)
+        else:
+            # Avoid a full grid for the usual unmerged/colspan-only case.
+            writer.writerows(self._process_row(row) for row in rows)
 
         return output.getvalue()
 
     def _process_row(self, row: TableRow) -> list[str]:
-        """Process a table row, handling merged cells.
+        """Process a table row that has no vertical merges.
 
         Parameters
         ----------
@@ -335,10 +350,6 @@ class CsvRenderer(BaseRenderer):
                         result.append("")
                     else:  # placeholder
                         result.append("[merged]")
-
-        # Note: rowspan is more complex and would require tracking state across rows
-        # For now, we handle it simply by treating each row independently
-        # A full implementation would need to track which cells span down
 
         return result
 
