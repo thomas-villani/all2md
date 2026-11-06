@@ -1,0 +1,173 @@
+{
+ "schema_version": 1,
+ "case_id": "form/application-controls",
+ "family": "form",
+ "description": "Answer lines drawn with tab leaders, real checkbox content controls and an empty comment box.",
+ "control": false,
+ "reading": {
+  "blocks": [
+   {
+    "text": "Membership Application",
+    "style": "Title",
+    "level": 0,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Thornbury Community Rowing Club. Please answer every question. Fields marked with an asterisk are required.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Your Details",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Full name*:",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Date of birth*:",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Street address*:",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Email address:",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Emergency contact*:",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Membership Type",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Choose one of the following:",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "☐ Junior (under 18)",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "☐ Adult",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "☐ Family",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "☐ Coach or volunteer",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Experience",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Describe any rowing experience you have, including the clubs you rowed with and any qualifications you hold.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "table": [
+     [
+      ""
+     ]
+    ]
+   },
+   {
+    "text": "Declaration",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "I agree to follow the club's safety rules and confirm that I can swim at least fifty meters in light clothing.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Signature:",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   }
+  ],
+  "footnotes": [],
+  "headers": [
+   "Thornbury Community Rowing Club"
+  ],
+  "footers": [
+   "Membership application, page 1"
+  ],
+  "pictures": 0,
+  "pages": 1,
+  "page_width": 612.0,
+  "page_height": 792.0,
+  "margins": [
+   72.0,
+   72.0,
+   72.0,
+   72.0
+  ],
+  "columns": 1,
+  "body_font": "Verdana",
+  "body_size": 10.0,
+  "float_words": 0,
+  "extra": {}
+ }
+}

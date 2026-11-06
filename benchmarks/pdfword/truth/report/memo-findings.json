@@ -1,0 +1,195 @@
+{
+ "schema_version": 1,
+ "case_id": "report/memo-findings",
+ "family": "report",
+ "description": "A borderless memo header, nested bullets, a table with a merged header cell, a numbered list and two footnotes.",
+ "control": false,
+ "reading": {
+  "blocks": [
+   {
+    "text": "Internal Audit Memorandum",
+    "style": "Title",
+    "level": 0,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "table": [
+     [
+      "To:",
+      "Audit Committee"
+     ],
+     [
+      "From:",
+      "Priya Holloway, Head of Internal Audit"
+     ],
+     [
+      "Date:",
+      "September 18, 2026"
+     ],
+     [
+      "Re:",
+      "Accounts payable controls review"
+     ]
+    ]
+   },
+   {
+    "text": "Summary",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "We reviewed accounts payable controls for the twelve months to June 30, 2026. Controls were generally effective, but we found three weaknesses that need action this quarter.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Findings",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Duplicate vendor records: 212 of 4,180 active vendors appear more than once.",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "",
+    "list_level": 1
+   },
+   {
+    "text": "Approval limits are not enforced in the invoice workflow.",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "",
+    "list_level": 1
+   },
+   {
+    "text": "Payment runs lack a second reviewer at two sites:",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "",
+    "list_level": 1
+   },
+   {
+    "text": "Dundee, since the departure of the deputy controller",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "o",
+    "list_level": 2
+   },
+   {
+    "text": "Swansea, where no second reviewer was ever appointed",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "o",
+    "list_level": 2
+   },
+   {
+    "text": "Exceptions by Quarter",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "The table below shows the exceptions we recorded in each quarter.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "table": [
+     [
+      "Exception type",
+      "2026",
+      "",
+      ""
+     ],
+     [
+      "",
+      "Q1",
+      "Q2",
+      "Q3"
+     ],
+     [
+      "Duplicate payment",
+      "4",
+      "7",
+      "2"
+     ],
+     [
+      "Missing approval",
+      "11",
+      "9",
+      "13"
+     ],
+     [
+      "Late posting",
+      "23",
+      "18",
+      "16"
+     ]
+    ]
+   },
+   {
+    "text": "Recommendations",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Merge duplicate vendor records and block new duplicates at entry.",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "1.",
+    "list_level": 1
+   },
+   {
+    "text": "Enforce approval limits in the workflow system by December 31.",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "2.",
+    "list_level": 1
+   },
+   {
+    "text": "Appoint second reviewers at Dundee and Swansea within thirty days.",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "3.",
+    "list_level": 1
+   }
+  ],
+  "footnotes": [
+   "Our scope excluded the newly acquired Dublin subsidiary.",
+   "Matched on tax identifier and bank account number."
+  ],
+  "headers": [
+   "Internal Audit: Confidential"
+  ],
+  "footers": [
+   "Accounts payable review, page 1"
+  ],
+  "pictures": 0,
+  "pages": 1,
+  "page_width": 595.3,
+  "page_height": 842.0,
+  "margins": [
+   72.0,
+   72.0,
+   72.0,
+   72.0
+  ],
+  "columns": 1,
+  "body_font": "Cambria",
+  "body_size": 11.0,
+  "float_words": 0,
+  "extra": {}
+ }
+}

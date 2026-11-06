@@ -1,0 +1,294 @@
+{
+ "schema_version": 1,
+ "case_id": "contract/msa-auto-numbered",
+ "family": "contract",
+ "description": "Real multilevel Word numbering (1. / 1.1 / (a)) with numbered headings, a fee table, a borderless signature block, a footnote and a page header and footer.",
+ "control": false,
+ "reading": {
+  "blocks": [
+   {
+    "text": "Master Services Agreement",
+    "style": "Title",
+    "level": 0,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "This Master Services Agreement (the \"Agreement\") is entered into as of March 1, 2026 (the \"Effective Date\") between Alder Street Hosting LLC, a Delaware limited liability company (the \"Provider\"), and Quillfeather Books Inc., a New York corporation (the \"Customer\").",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "The parties agree as follows:",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Definitions",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": "1.",
+    "list_level": 1
+   },
+   {
+    "text": "In this Agreement, \"Services\" means the managed hosting and support services described in Schedule 1, and \"Fees\" means the amounts payable under Clause 3.",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "1.1",
+    "list_level": 2
+   },
+   {
+    "text": "\"Confidential Information\" means all non-public information disclosed by one party to the other, including:",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "1.2",
+    "list_level": 2
+   },
+   {
+    "text": "business plans, pricing and customer lists;",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "(a)",
+    "list_level": 3
+   },
+   {
+    "text": "software, specifications and technical data; and",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "(b)",
+    "list_level": 3
+   },
+   {
+    "text": "the terms of this Agreement.",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "(c)",
+    "list_level": 3
+   },
+   {
+    "text": "Term and Termination",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": "2.",
+    "list_level": 1
+   },
+   {
+    "text": "This Agreement starts on the Effective Date and continues for an initial term of thirty-six (36) months, unless terminated earlier under this Clause 2.",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "2.1",
+    "list_level": 2
+   },
+   {
+    "text": "Either party may terminate this Agreement on thirty (30) days' written notice if the other party:",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "2.2",
+    "list_level": 2
+   },
+   {
+    "text": "commits a material breach that it fails to remedy within that period; or",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "(a)",
+    "list_level": 3
+   },
+   {
+    "text": "becomes insolvent or enters into administration.",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "(b)",
+    "list_level": 3
+   },
+   {
+    "text": "Termination does not affect any rights that accrued before the date of termination.",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "2.3",
+    "list_level": 2
+   },
+   {
+    "text": "Fees and Payment",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": "3.",
+    "list_level": 1
+   },
+   {
+    "text": "The Customer shall pay the Fees set out in Schedule 1 within forty-five (45) days of the date of each invoice.",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "3.1",
+    "list_level": 2
+   },
+   {
+    "text": "Overdue amounts bear interest at one and one half percent (1.5%) per month, or the highest rate permitted by law if lower.",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "3.2",
+    "list_level": 2
+   },
+   {
+    "text": "All Fees exclude value added, sales and similar taxes, which the Customer shall pay in addition.",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "3.3",
+    "list_level": 2
+   },
+   {
+    "text": "Limitation of Liability",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": "4.",
+    "list_level": 1
+   },
+   {
+    "text": "Neither party excludes liability for death or personal injury caused by negligence, for fraud, or for any other liability that cannot be excluded by law.",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "4.1",
+    "list_level": 2
+   },
+   {
+    "text": "Subject to Clause 4.1, each party's total liability in any contract year shall not exceed the Fees paid or payable in that contract year.",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "4.2",
+    "list_level": 2
+   },
+   {
+    "text": "Confidentiality",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": "5.",
+    "list_level": 1
+   },
+   {
+    "text": "Each party shall keep the other party's Confidential Information secret and shall use it only to perform or exercise its rights under this Agreement.",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "5.1",
+    "list_level": 2
+   },
+   {
+    "text": "This Clause 5 survives termination of this Agreement for a period of five (5) years.",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "5.2",
+    "list_level": 2
+   },
+   {
+    "text": "Governing Law",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": "6.",
+    "list_level": 1
+   },
+   {
+    "text": "This Agreement is governed by the laws of the State of Delaware, and the parties submit to the exclusive jurisdiction of its courts.",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "6.1",
+    "list_level": 2
+   },
+   {
+    "text": "Schedule 1: Services and Fees",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "The Provider shall supply the following Services for the monthly Fees shown.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "table": [
+     [
+      "Service",
+      "Description",
+      "Monthly Fee"
+     ],
+     [
+      "Managed hosting",
+      "Dedicated servers with 99.9% uptime",
+      "$4,200.00"
+     ],
+     [
+      "Support",
+      "Twenty-four hour support by telephone and email",
+      "$1,150.00"
+     ],
+     [
+      "Backups",
+      "Nightly off-site backups, retained for 90 days",
+      "$375.00"
+     ],
+     [
+      "Total",
+      "",
+      "$5,725.00"
+     ]
+    ]
+   },
+   {
+    "text": "IN WITNESS WHEREOF, the parties have executed this Agreement as of the Effective Date.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "table": [
+     [
+      "ALDER STREET HOSTING LLC",
+      "QUILLFEATHER BOOKS INC."
+     ],
+     [
+      "By: ____________________",
+      "By: ____________________"
+     ],
+     [
+      "Name: Dana Whitlock",
+      "Name: Morgan Ashby"
+     ],
+     [
+      "Title: Chief Executive Officer",
+      "Title: President"
+     ]
+    ]
+   }
+  ],
+  "footnotes": [
+   "Interest accrues daily from the due date until payment in full."
+  ],
+  "headers": [
+   "CONFIDENTIAL"
+  ],
+  "footers": [
+   "Master Services Agreement, page 1"
+  ],
+  "pictures": 0,
+  "pages": 2,
+  "page_width": 612.0,
+  "page_height": 792.0,
+  "margins": [
+   72.0,
+   72.0,
+   72.0,
+   72.0
+  ],
+  "columns": 1,
+  "body_font": "Times New Roman",
+  "body_size": 11.0,
+  "float_words": 0,
+  "extra": {}
+ }
+}
