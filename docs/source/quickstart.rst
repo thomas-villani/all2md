@@ -96,6 +96,9 @@ Generate Word documents, PDFs, and more from your Markdown files:
    # Convert Markdown to Word document
    all2md report.md --out report.docx
 
+   # ... using your own styles
+   all2md report.md --out report.docx --template-docx house.docx
+
    # Convert Markdown to PDF
    all2md notes.md --out notes.pdf
 

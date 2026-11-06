@@ -160,183 +160,14 @@ Specialized helpers remain available when you need more control.
 Markdown to Word (DOCX)
 ------------------------
 
-Basic Conversion
-~~~~~~~~~~~~~~~~
-
-.. code-block:: python
-
-   from all2md import convert
-   from all2md.renderers.docx import DocxRendererOptions
-
-   # Simple conversion
-   convert('report.md', target_format='docx', output='report.docx')
-
-   # With options
-   options = DocxRendererOptions(
-       default_font='Arial',
-       default_font_size=12,
-       use_styles=True
-   )
-   convert('report.md', target_format='docx', output='report.docx', renderer_options=options)
-
-Preserving Markdown Features
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The DOCX renderer supports:
-
-- **Headings** (H1-H6) → Word heading styles
-- **Bold/Italic/Strikethrough** → Character formatting
-- **Lists** (ordered, unordered, nested) → Word list styles
-- **Tables** → Word tables with borders
-- **Code blocks** → Monospace font with background
-- **Links** → Hyperlinks
-- **Images** → Embedded images (if paths are accessible)
-- **Block quotes** → Indented paragraphs
-
 .. code-block:: python
 
    from all2md import convert
 
-   markdown_content = """
-   # Annual Report 2024
+   convert("report.md", "report.docx")
 
-   ## Executive Summary
-
-   This report covers **fiscal year 2024** with the following highlights:
-
-   - Revenue increased by *15%*
-   - Customer base grew to **10,000 users**
-   - New product launch successful
-
-   ### Key Metrics
-
-   | Metric | 2023 | 2024 | Change |
-   |--------|------|------|--------|
-   | Revenue | $1M | $1.15M | +15% |
-   | Users | 8,500 | 10,000 | +17.6% |
-
-   > "Our best year yet!" - CEO
-   """
-
-   convert(
-       markdown_content,
-       target_format='docx',
-       output='annual_report.docx'
-   )
-
-Advanced DOCX Customization
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. code-block:: python
-
-   from all2md import convert
-   from all2md.renderers.docx import DocxRendererOptions
-
-   # Customize rendering
-   options = DocxRendererOptions(
-       default_font='Calibri',
-       default_font_size=11,
-       code_font='Courier New',
-       code_font_size=10,
-       table_style='Light Grid Accent 1',
-       use_styles=True
-   )
-
-   # Render to DOCX (returns bytes directly)
-   docx_bytes = convert('document.md', target_format='docx', renderer_options=options)
-
-   # Write to file
-   with open('output.docx', 'wb') as f:
-       f.write(docx_bytes)
-
-.. _round-trip-editing-with-template-preservation:
-
-Round-Trip Editing with Template Preservation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-A frequent use case — especially for LLM-driven editing — is parsing an
-existing ``.docx``, transforming it via the AST or its Markdown projection,
-and writing it back to a ``.docx`` that still looks like the original
-document. The plain round-trip is lossy (page setup, theme, custom styles
-all collapse to defaults), so all2md exposes two related mechanisms to
-preserve formatting via *template-based rendering*:
-
-* The renderer option ``template_path`` uses the template's styles, theme,
-  headers/footers, and section properties (margins, page size), and replaces
-  its text with your content.
-* Setting ``clear_template_body=False`` keeps the template's text and adds your
-  content after it, for a letterhead or a cover page.
-* A ``preserve_formatting`` kwarg on :func:`from_ast`, :func:`from_markdown`,
-  and :func:`convert` is a one-flag shortcut that picks up the source path
-  ``to_ast`` automatically stashes on ``Document.metadata['source_path']``
-  and uses it as ``template_path``.
-
-The simplest LLM-edit workflow:
-
-.. code-block:: python
-
-   from all2md import to_ast, from_ast
-
-   # Parse the original document. to_ast stashes the absolute file path on
-   # the AST when given a file path (skipped for streams or bytes).
-   doc = to_ast("report.docx")
-   assert doc.metadata["source_path"].endswith("report.docx")
-
-   # ... apply transforms, hand the markdown form to an LLM and replace
-   # the AST, run a NodeTransformer, etc. ...
-
-   # Render back. preserve_formatting=True means the original is used as
-   # the rendering template and its body is replaced by the new AST.
-   from_ast(doc, "docx", output="report.docx", preserve_formatting=True)
-
-The same flag works on ``convert`` for a direct ``.docx`` → ``.docx`` pass
-that has to round-trip through the AST:
-
-.. code-block:: python
-
-   from all2md import convert
-
-   convert("input.docx", "output.docx", preserve_formatting=True)
-
-If you need finer control — for example, you parsed from a stream and want
-to use a *different* docx as the template — pass the renderer options
-explicitly instead:
-
-.. code-block:: python
-
-   from all2md import from_ast
-   from all2md.options.docx import DocxRendererOptions
-
-   options = DocxRendererOptions(
-       template_path="corporate_template.docx",
-   )
-   from_ast(doc, "docx", output="report.docx", renderer_options=options)
-
-Set ``clear_template_body=False`` to keep the template's text and add the new
-content after it, for a letterhead, a cover page, or standard opening text:
-
-.. code-block:: python
-
-   options = DocxRendererOptions(
-       template_path="letterhead.docx",
-       clear_template_body=False,
-   )
-   from_ast(doc, "docx", output="letter.docx", renderer_options=options)
-
-The template may be a ``.docx`` or a Word template (``.dotx``). Its body font
-and size are kept: ``default_font`` and ``default_font_size`` replace them only
-when you set them, and without a template they default to Calibri 11.
-
-**What round-trips and what doesn't.** When ``preserve_formatting=True``
-or ``template_path`` is set, the parser also stashes the originating Word
-style name on AST nodes via ``metadata['source_style']``. The renderer
-re-applies that style on output if the template defines it, so a
-paragraph with style ``"Chapter Title"`` round-trips as ``"Chapter
-Title"`` rather than collapsing to ``"Heading 1"``. Run-level character
-styles (e.g. ``"Quote Char"``) are *not* yet preserved; only paragraph-
-level styles. Direct/manual run formatting outside named styles, content
-controls, drawings/SmartArt, and run-anchored comments are likewise lost
-on round-trip.
+:doc:`guides/markdown-to-docx` covers house styles and templates, renderer options, and editing an
+existing Word document through Markdown.
 
 Markdown to HTML
 ----------------
@@ -928,8 +759,8 @@ Best Practices
 
    For lossless ``.docx`` → ``.docx`` round-trips (page setup, theme, and
    named paragraph styles preserved), use ``preserve_formatting=True`` —
-   see :ref:`Round-Trip Editing with Template Preservation
-   <round-trip-editing-with-template-preservation>` below.
+   see :ref:`Edit an existing Word document through Markdown
+   <round-trip-editing-with-template-preservation>`.
 
 Markdown to EPUB
 -----------------

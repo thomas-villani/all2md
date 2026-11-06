@@ -1,0 +1,135 @@
+{
+ "schema_version": 1,
+ "case_id": "form/survey-matrix",
+ "family": "form",
+ "description": "A matrix of checkbox columns under a merged header cell.",
+ "control": false,
+ "reading": {
+  "blocks": [
+   {
+    "text": "Staff Engagement Survey",
+    "style": "Title",
+    "level": 0,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Your answers are anonymous. For each statement, mark one box to show how much you agree.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "About Your Work",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "table": [
+     [
+      "Statement",
+      "Agreement",
+      "",
+      "",
+      ""
+     ],
+     [
+      "",
+      "Strongly agree",
+      "Agree",
+      "Disagree",
+      "Strongly disagree"
+     ],
+     [
+      "I have the tools I need to do my job",
+      "☐",
+      "☐",
+      "☐",
+      "☐"
+     ],
+     [
+      "My workload is manageable",
+      "☐",
+      "☐",
+      "☐",
+      "☐"
+     ],
+     [
+      "I understand how my work contributes",
+      "☐",
+      "☐",
+      "☐",
+      "☐"
+     ],
+     [
+      "I get useful feedback from my manager",
+      "☐",
+      "☐",
+      "☐",
+      "☐"
+     ],
+     [
+      "I would recommend this company to a friend",
+      "☐",
+      "☐",
+      "☐",
+      "☐"
+     ]
+    ]
+   },
+   {
+    "text": "About You",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Department: ______________________ Years of service: ______",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Anything Else",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Please tell us anything else you would like us to know about working here.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   }
+  ],
+  "footnotes": [],
+  "headers": [
+   "People Team"
+  ],
+  "footers": [
+   "Survey, page 1"
+  ],
+  "pictures": 0,
+  "pages": 1,
+  "page_width": 612.0,
+  "page_height": 792.0,
+  "margins": [
+   72.0,
+   72.0,
+   72.0,
+   72.0
+  ],
+  "columns": 1,
+  "body_font": "Calibri",
+  "body_size": 12.0,
+  "float_words": 0,
+  "extra": {}
+ }
+}

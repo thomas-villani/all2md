@@ -175,6 +175,15 @@ Instruments, cheapest first. Each is a step; the first two are the batch's spine
    is drivable over the same COM channel. Score Word's own import on instruments 1–3 on the
    comparison lane's terms: defaults, dated readings, prepared to lose a column.
 
+5. ✅ **Contracts, reports and forms** (`benchmarks/pdfword`). Most people converting a PDF to Word
+   don't have journal articles, and the PMC instruments measured layout analysis and extracted
+   images, which a default install doesn't have. Word builds 13 scripted documents and exports
+   them to PDF, so the source is the truth; ours and Word's importer are scored on it. This also
+   covers instrument 4's structure half. The first reading (2026-11-04) kept the words and lost
+   the structure. **Next, in order:** clause and paragraph boundaries, ruled tables, page
+   headers and footers, footnotes, then page size, fonts and sizes. Then test reading PDF
+   structure tags, and a vision model for borderless tables, against this lane.
+
 Known gaps to state before the first reading rather than discover after it:
 
 - The DOCX renderer's section, column and floating-figure support is unprobed. A

@@ -24,8 +24,7 @@ What do you want to do?
       all2md report.pdf > report.md
 
 **Turn Markdown into a styled Word document**
-   Use your own ``.docx`` as the source of the styles. See
-   :ref:`round-trip-editing-with-template-preservation`.
+   Use your own ``.docx`` as the source of the styles. See :doc:`guides/markdown-to-docx`.
 
    .. code-block:: bash
 
@@ -98,6 +97,7 @@ About this project
    :maxdepth: 1
    :caption: Guides
 
+   guides/markdown-to-docx
    viewer
    mcp
    agent_skills
