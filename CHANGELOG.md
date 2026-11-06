@@ -7,6 +7,93 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.19.0] - 2026-11-06
+
+### Added
+
+- A new benchmark lane, `benchmarks/pdfword`, measures PDF to Word conversion on scripted contracts, reports
+  and forms. Word builds each document and exports it to PDF, so the source document is the truth, and Word's
+  own PDF import is scored beside ours.
+- `--template-docx` now warns on stderr when the output isn't Word, for example with no `--out` or with
+  `--out answer.pdf`, instead of silently ignoring the template. The conversion still runs. A template set
+  in a config file doesn't trigger the warning.
+
+### Changed
+
+- **The documentation now opens on what you want to do.** The landing page leads with six everyday
+  tasks, each with a working command and a link to where it is explained, instead of a feature list
+  and more than 350 links. The sidebar is grouped into Get started, Guides, Formats, Reference,
+  Explanation, Extending all2md and Engineering notes. No page has moved, so existing links keep
+  working.
+- **Breaking: a DOCX template now gives you its styles, not its text.** With `--template-docx`, the new
+  short name for `--docx-renderer-template-path` (`template_path`), the output uses the template's styles,
+  page setup, headers and footers, and leaves out its body text: `clear_template_body` now defaults to
+  `True`. If your template's text belongs in every document, such as a letterhead or a cover page, add the
+  new `--docx-renderer-no-clear-template-body` (`clear_template_body=False`), or that text will silently
+  disappear from your output. `--docx-renderer-clear-template-body` still works but is no longer needed.
+
+### Removed
+
+- **`all2md serve` is gone, as announced in 1.18.** `all2md view` on a folder or a glob
+  does what it did, so the command, its flags and its `[serve]` config section are
+  removed, along with the server's single-document mode, which only `serve` could reach.
+  Running `all2md serve` now prints an error pointing to `view`, rather than treating
+  `serve` as a file name and converting the folder to stdout; a real file named `serve`
+  still converts. A leftover `[serve]` section is ignored, and a Windows folder entry
+  installed before 1.18 needs `all2md context-menu install` again.
+
+### Fixed
+
+- **ODP templates load successfully and retain their existing slides.**
+  Use odfpy's document loader and style namespace when loading a template and
+  selecting its first master page. Existing slides, masters, layouts and styles
+  are retained, and new slides are appended as before. Template-content policy
+  for PPTX, ODT and ODP remains undecided.
+  ([#671](https://github.com/thomas-villani/all2md/issues/671))
+- **CSV exports keep values in their columns after a merged cell spans rows.**
+  Header and body rowspans now use the shared table layout, including effective
+  spans when merges collide. The existing `repeat`, `blank` and `placeholder`
+  modes apply to every covered position. Ordinary ragged rows and colspan-only
+  output keep their existing lengths and values.
+- Tables in a Word file made with a DOCX template no longer lose their borders when the template defines no
+  table style. Word only saves a table style once a document uses it, so templates made in Word usually have
+  none; the output now gets `Table Grid` instead. `table_style=None` still gives a plain table.
+- **The OmniDocBench gate is green again, and a locked dependency bump can no longer
+  turn it red unannounced.** Pillow 13 (#634) changed the baseline's recorded runtime, so
+  the 2026-11-01 run reported identity drift with every score unchanged to the last digit.
+  The baseline now records that run, and a per-PR test compares its PyMuPDF,
+  pymupdf-layout, pytesseract and Pillow versions with `uv.lock`, so a bump fails on its
+  own pull request rather than at the next monthly run. Tesseract and its language data
+  come from the runner image, so only the gate itself can see them move.
+- `all2md view DIR` shows an edited document on the next refresh. A page stayed as it was first converted
+  until the server was restarted, and a deleted document kept being served until the next folder scan; it now
+  gives a 404 straight away.
+
+### Security
+
+- **Breaking: a document can no longer copy files from your machine into its output
+  (GHSA-r22j-w6gv-233x).** Rendering to DOCX, PPTX, PDF, ODT, ODP, EPUB or an arXiv
+  bundle used to read any local path an image pointed at, from any input format and
+  even under `--safe-mode`. ODT, ODP, EPUB and arXiv took any file, not only images,
+  so a Markdown or HTML file you did not write could embed your secrets in a document
+  you then shared. Local images now follow the same `local_files` policy as HTML
+  input: off by default, with a warning naming the flag when one is left out. To embed
+  the images of a document you trust, add `--<format>-renderer-local-files-allow-local-files`
+  (`local_files=LocalFileAccessOptions(allow_local_files=True)`), optionally with an
+  allowlist. Even then, the file must be an image under `max_asset_size_bytes`, and a
+  relative path resolves against the source document's folder. Network paths such as
+  `\\host\share` are now always refused, here and for HTML `file://` URLs, because
+  opening one makes Windows connect to the host. `generate-site` copies images from
+  each source file's own folder only. Thanks to santhreal for the report.
+- **Breaking: an RST file can no longer read other files or fetch URLs into its output
+  (GHSA-q9p2-g3hh-xx9c).** `.. include::`, and the `:file:` and `:url:` options of
+  `raw` and `csv-table`, used to copy any local file (or a URL's response) into the
+  Markdown, even under `--safe-mode`, so an RST file you did not write could leak your
+  secrets or reach internal addresses. They are now refused by default, the rest of
+  the document converts as before, and each skipped directive logs a warning. To
+  convert a document you trust that relies on includes, add `--rst-parse-includes`
+  (`RstParserOptions(parse_includes=True)`). Thanks to santhreal for the report.
+
 ## [1.18.1] - 2026-10-30
 
 ### Security
@@ -5240,7 +5327,8 @@ surfaced one real conversion bug, which is the reason to take the release.
 - NumPy-style docstrings
 - Modular architecture with clear separation of concerns
 
-[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.18.1...HEAD
+[Unreleased]: https://github.com/thomas-villani/all2md/compare/v1.19.0...HEAD
+[1.19.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.19.0
 [1.18.1]: https://github.com/thomas-villani/all2md/releases/tag/v1.18.1
 [1.18.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.18.0
 [1.17.0]: https://github.com/thomas-villani/all2md/releases/tag/v1.17.0
