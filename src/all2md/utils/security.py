@@ -242,7 +242,7 @@ def validate_local_file_access(
         return True  # Not a local file URL, validation doesn't apply
 
     # Decide before resolving: resolving a network path reaches out to its host.
-    if not allow_local_files or _is_network_path(file_url[7:]):
+    if not allow_local_files or _is_network_file_url(file_url):
         return False
 
     # Resolve the file URL to a canonical path
@@ -264,6 +264,22 @@ def _is_network_path(path: str) -> bool:
     credentials, so callers reject it before resolving or opening anything.
     """
     return path.startswith(("\\\\", "//", "\\/", "/\\"))
+
+
+def _is_network_file_url(file_url: str) -> bool:
+    r"""Return whether a ``file://`` URL names a file on another machine.
+
+    Besides ``file:////host/share``, this catches ``file://host/share/x``: a host right
+    after ``file://``, which ``resolve_file_url_to_path`` turns into ``\\host\share\x``.
+    Only ``file:///path``, ``file://./x``, ``file://../x``, ``file://C:/x`` and a bare
+    ``file://name`` (no separator) stay on this machine.
+    """
+    rest = file_url[7:]
+    if _is_network_path(rest):
+        return True
+    if rest.startswith(("/", "\\", "./", "../", ".\\", "..\\")) or (len(rest) >= 2 and rest[1] == ":"):
+        return False
+    return "/" in rest or "\\" in rest
 
 
 def validate_local_path(
@@ -398,7 +414,7 @@ def read_local_image(
         logger.warning(f"Skipped local image {url!r}: reading local files is off. To embed it, set {enable_hint}.")
         return None
 
-    if _is_network_path(url) or (url.startswith("file://") and _is_network_path(url[7:])):
+    if _is_network_path(url) or (url.startswith("file://") and _is_network_file_url(url)):
         logger.warning(f"Skipped image {url!r}: network paths are never read.")
         return None
 
