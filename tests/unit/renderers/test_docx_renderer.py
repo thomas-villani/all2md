@@ -2228,6 +2228,31 @@ class TestTemplateStyles:
         docx_doc = _render(DocxRendererOptions(table_style="No Such Style"))
         assert docx_doc.tables[0].style.name == "Table Grid"
 
+    @staticmethod
+    def _word_like_template(path):
+        """Word saves a table style only once a document uses it, so a new Word file has none with borders."""
+        from docx.enum.style import WD_STYLE_TYPE
+
+        template = DocxDocument()
+        styles = template.styles.element
+        for style in list(template.styles):
+            if style.type == WD_STYLE_TYPE.TABLE and style.name != "Normal Table":
+                styles.remove(style.element)
+        template.save(str(path))
+        return str(path)
+
+    def test_a_template_with_no_table_style_still_gets_borders(self, tmp_path):
+        options = DocxRendererOptions(template_path=self._word_like_template(tmp_path / "word.docx"))
+        docx_doc = _render(options)
+        assert docx_doc.tables[0].style.name == "Table Grid"
+        assert docx_doc.tables[0].style.element.find(qn("w:tblPr")).find(qn("w:tblBorders")) is not None
+
+    def test_asking_for_no_table_style_stays_plain_with_such_a_template(self, tmp_path):
+        options = DocxRendererOptions(template_path=self._word_like_template(tmp_path / "word.docx"), table_style=None)
+        docx_doc = _render(options)
+        assert docx_doc.tables[0].style.name != "Table Grid"
+        assert "Table Grid" not in {style.name for style in docx_doc.styles}
+
     def test_the_pandoc_template_round_trips(self, tmp_path):
         from all2md import to_markdown
 

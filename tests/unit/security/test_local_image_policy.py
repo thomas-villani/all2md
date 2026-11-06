@@ -186,9 +186,34 @@ def test_svg_needs_an_svg_root(tmp_path: Path) -> None:
     assert image is not None and image.format == "svg"
 
 
-def test_html_guard_refuses_network_paths_before_resolving() -> None:
-    assert not validate_local_file_access("file://attacker/share/x.png", allow_local_files=True)
-    assert not validate_local_file_access("file:///etc/passwd", allow_local_files=False)
+@pytest.mark.parametrize(
+    "url",
+    [
+        "file://attacker/share/x.png",
+        "file://attacker\\share\\x.png",
+        "file:////attacker/share/x.png",
+        "file://\\\\attacker\\share\\x.png",
+        "file://localhost/etc/passwd",
+    ],
+)
+def test_html_guard_refuses_network_paths_before_resolving(url: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Resolving a network path is what reaches the host, so it must never happen.
+    import all2md.utils.security as security
+
+    def no_resolve(_url: str) -> Path:
+        raise AssertionError(f"resolved {_url!r}")
+
+    monkeypatch.setattr(security, "resolve_file_url_to_path", no_resolve)
+    assert not validate_local_file_access(url, allow_local_files=True)
+    assert security.read_local_image(url, ALLOW) is None
+
+
+@pytest.mark.parametrize("url", ["file:///etc/passwd", "file://./x.png", "file://../x.png", "file://x.png"])
+def test_local_file_urls_are_not_mistaken_for_network_paths(url: str) -> None:
+    from all2md.utils.security import _is_network_file_url
+
+    assert not _is_network_file_url(url)
+    assert not validate_local_file_access(url, allow_local_files=False)
 
 
 def test_arxiv_bundle_reads_local_images_only_when_allowed(files: dict[str, Path]) -> None:

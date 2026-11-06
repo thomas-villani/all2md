@@ -1,0 +1,264 @@
+{
+ "schema_version": 1,
+ "case_id": "report/annual-report",
+ "family": "report",
+ "description": "A cover page, a table of contents, heading levels, a vector chart, a styled table with a caption, bullets, a numbered list and a footnote.",
+ "control": false,
+ "reading": {
+  "blocks": [
+   {
+    "text": "Annual Sustainability Report",
+    "style": "Title",
+    "level": 0,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Fiscal Year 2025, Harrow & Vane Logistics",
+    "style": "Subtitle",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Contents",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Executive Summary 2",
+    "style": "TOC 1",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Emissions Performance 2",
+    "style": "TOC 1",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Direct Emissions 2",
+    "style": "TOC 2",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Energy Use by Site 2",
+    "style": "TOC 2",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Outlook 3",
+    "style": "TOC 1",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Executive Summary",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Harrow & Vane cut its direct emissions by twelve percent in fiscal 2025, the third consecutive year of reduction. This report sets out what changed, what it cost and what comes next.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Three programs produced most of the reduction:",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Replacing diesel vans in six urban depots with electric vehicles",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "",
+    "list_level": 1
+   },
+   {
+    "text": "Installing rooftop solar at the Tilbury and Hull warehouses",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "",
+    "list_level": 1
+   },
+   {
+    "text": "Rerouting night freight to reduce empty running",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "",
+    "list_level": 1
+   },
+   {
+    "text": "Emissions Performance",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Direct Emissions",
+    "style": "Heading 2",
+    "level": 2,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Direct emissions fell from 48,200 tonnes to 42,400 tonnes of carbon dioxide equivalent. Fleet electrification accounted for roughly two thirds of the fall.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "/",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "The chart above shows the direct emissions recorded in each of the last three fiscal years.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Energy Use by Site",
+    "style": "Heading 2",
+    "level": 2,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Electricity use varied widely by site. The table below shows the five largest sites, which together account for most of the total.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Table 1: Electricity use at the five largest sites",
+    "style": "Caption",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "table": [
+     [
+      "Site",
+      "Electricity (MWh)",
+      "Change",
+      "Renewable share"
+     ],
+     [
+      "Tilbury",
+      "18,450",
+      "-6.2%",
+      "41%"
+     ],
+     [
+      "Hull",
+      "12,310",
+      "-3.8%",
+      "37%"
+     ],
+     [
+      "Leeds",
+      "9,875",
+      "+1.4%",
+      "12%"
+     ],
+     [
+      "Bristol",
+      "7,640",
+      "-0.9%",
+      "18%"
+     ],
+     [
+      "Glasgow",
+      "6,205",
+      "-2.1%",
+      "22%"
+     ]
+    ]
+   },
+   {
+    "text": "Outlook",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "The company has committed to the following steps for fiscal 2026:",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Electrify a further four depots",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "1.",
+    "list_level": 1
+   },
+   {
+    "text": "Complete an independent audit of supply chain emissions",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "2.",
+    "list_level": 1
+   },
+   {
+    "text": "Publish quarterly progress figures",
+    "style": "List Paragraph",
+    "level": null,
+    "marker": "3.",
+    "list_level": 1
+   }
+  ],
+  "footnotes": [
+   "Figures follow the GHG Protocol Corporate Standard, using market-based factors."
+  ],
+  "headers": [
+   "Harrow & Vane Logistics"
+  ],
+  "footers": [
+   "Annual Sustainability Report, page 1"
+  ],
+  "pictures": 1,
+  "pages": 3,
+  "page_width": 612.0,
+  "page_height": 792.0,
+  "margins": [
+   72.0,
+   72.0,
+   72.0,
+   72.0
+  ],
+  "columns": 1,
+  "body_font": "Georgia",
+  "body_size": 10.5,
+  "float_words": 0,
+  "extra": {}
+ }
+}

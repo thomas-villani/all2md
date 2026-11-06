@@ -1,0 +1,150 @@
+{
+ "schema_version": 1,
+ "case_id": "report/figures-captions",
+ "family": "report",
+ "description": "An inline picture with a numbered caption, a floating picture with text wrapped around it, and a table with a caption.",
+ "control": false,
+ "reading": {
+  "blocks": [
+   {
+    "text": "Warehouse Automation Pilot",
+    "style": "Title",
+    "level": 0,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Background",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "The pilot ran for six months at the Corby distribution center, using autonomous carts on two picking aisles.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Results",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Pick rates rose steadily through the pilot, as the chart below shows.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "/",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Figure 1: Picks per hour during the pilot",
+    "style": "Caption",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Error rates fell by a third. Staff reported less walking and fewer strains, although the first month was disruptive while routes were being mapped out.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Cost",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Running costs came in below the estimate, as the next chart shows. The carts needed less charging infrastructure than the vendor had predicted, and there were no major repairs during the six months of the pilot.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "We recommend extending the pilot to the remaining aisles at Corby in the first quarter, and reviewing the results before committing to any other site. The vendor has agreed to hold its current price until the end of the year, which gives us time to complete that review without any added cost.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Next Steps",
+    "style": "Heading 1",
+    "level": 1,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "The following table shows the planned rollout.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Table 1: Planned rollout",
+    "style": "Caption",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "table": [
+     [
+      "Phase",
+      "Scope",
+      "Start"
+     ],
+     [
+      "Two",
+      "Remaining Corby aisles",
+      "January"
+     ],
+     [
+      "Three",
+      "Review and decision",
+      "April"
+     ]
+    ]
+   }
+  ],
+  "footnotes": [],
+  "headers": [
+   "Corby Pilot Report"
+  ],
+  "footers": [
+   "Page 1"
+  ],
+  "pictures": 2,
+  "pages": 2,
+  "page_width": 612.0,
+  "page_height": 792.0,
+  "margins": [
+   72.0,
+   72.0,
+   72.0,
+   72.0
+  ],
+  "columns": 1,
+  "body_font": "Calibri",
+  "body_size": 12.0,
+  "float_words": 0,
+  "extra": {}
+ }
+}

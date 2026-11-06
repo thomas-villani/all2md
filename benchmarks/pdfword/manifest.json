@@ -1,0 +1,141 @@
+{
+ "schema_version": 1,
+ "provenance": {
+  "word_build": "16.0.20527",
+  "word_version": "16.0",
+  "wordlive_version": "wordlive 0.19.0",
+  "generated_utc": "2026-11-05T02:58:10+00:00"
+ },
+ "cases": [
+  {
+   "case_id": "contract/lease-articles",
+   "family": "contract",
+   "name": "lease-articles",
+   "control": false,
+   "source_sha256": "9e1929b7de071720509b90e592ed7399de14ba55d43771e5ee1436c32d9e56f5",
+   "tagged_sha256": "ae42b6ad6c5f7a4df6197660b5a0eb1ff5b2085296bba89f639ccf9cd92dbf86",
+   "untagged_sha256": "bc04324fa9b1a6eb674aa0a6351056981a00269039f03a624aa8414070e02e0d",
+   "truth_sha256": "6c32cf2e7c08b8287395747728584ebfaaec920130527037e284bbacf9d06ac9"
+  },
+  {
+   "case_id": "contract/msa-auto-numbered",
+   "family": "contract",
+   "name": "msa-auto-numbered",
+   "control": false,
+   "source_sha256": "823aa1149986510f3d415a8df15c9f02b99b6e0b60179fb3b4ffbc21c485a8d9",
+   "tagged_sha256": "9c3fbed965ed540e04df30fcfb02336e13939bb131176f698fd5c4159e13c0fe",
+   "untagged_sha256": "5e60c433b2a7dc07065638a876174446933a08dfbb4f3b1f8d8bc9fa005a3b02",
+   "truth_sha256": "b49dfd53b21c5a8b254071ba4d388c427433465e3a57ce9bbac91012d440c269"
+  },
+  {
+   "case_id": "contract/nda-typed-numbers",
+   "family": "contract",
+   "name": "nda-typed-numbers",
+   "control": false,
+   "source_sha256": "a2bdfc8f8788a9eccb063d17d63aadc4b73f6e75257046e2027ed89a20b178bd",
+   "tagged_sha256": "8ec779fd2266fb34147f3eabdd121891ff95b5832e75276e3fa4c1093a1f47c5",
+   "untagged_sha256": "ebf68c756d027af56d0c6467c23af70171f1bd2ee7940eefaada4ab4dd499328",
+   "truth_sha256": "55eea2182d77886a2d4f327e279afdb98839fe9bc42abe56f5f1d4faaef733cd"
+  },
+  {
+   "case_id": "contract/terms-two-column",
+   "family": "contract",
+   "name": "terms-two-column",
+   "control": false,
+   "source_sha256": "af3d96246890d7a669172721b1b63e1ab006f663192e3dec4c4fa816933410ad",
+   "tagged_sha256": "8e433af20540b137c5b44bba493752138162b36602b21e61490282f30a8163c4",
+   "untagged_sha256": "1f8fe5b53afcceb3096edf15a54eb73c08a66efcd2caa25672e2c84eb749141f",
+   "truth_sha256": "9c1d2c3b64b9a8e0348852a9e06888471e7d5b4fe2029c502a92ac303f139597"
+  },
+  {
+   "case_id": "control/plain-prose",
+   "family": "control",
+   "name": "plain-prose",
+   "control": true,
+   "source_sha256": "9237d0b8657ea61f8b239d3672c549205af945af437226bd2f83acdc4eb3dc73",
+   "tagged_sha256": "87f0b95c27457f8891881deae1d9df7397cf199339722fab773807c8951ca953",
+   "untagged_sha256": "8fd9a970895317bb47d8a78c205ef9b7f31539dd66cd4668867fc0f72d048995",
+   "truth_sha256": "afd2ab4b2a22700b25e0e8d0d2bfaad04504ed7c854ff3d482290a6d4915cdd5"
+  },
+  {
+   "case_id": "form/application-controls",
+   "family": "form",
+   "name": "application-controls",
+   "control": false,
+   "source_sha256": "eb8113314ee1340d04d082649d96a6d5feb1628527c87d40e3ac42e7a07f9a8d",
+   "tagged_sha256": "b5c18dec459f227ca93b552c94596c62bb7104bcf98dd8a1e9407ddd91bd8a8c",
+   "untagged_sha256": "b75a3841b0a0cb9815f05128eef5ed86cf947d7cc5699c05aa85a629c292f33c",
+   "truth_sha256": "21f3fe35139718f6e7a02b7b94b5e5fff690044b5c8c3eb6f303afdbdc5aacb4"
+  },
+  {
+   "case_id": "form/invoice",
+   "family": "form",
+   "name": "invoice",
+   "control": false,
+   "source_sha256": "e1b9c629c285f1961a6373d71dd2718f368ecf525d7d086b4cfcd8e13e5a9320",
+   "tagged_sha256": "ce7831f74ca127f131c36b49b11908c89a92eb98de9d0c7dcae59fd36325e33f",
+   "untagged_sha256": "b9796ecb00f1d7a4c103ac61dbedec1c3ce395d4966e00ec92a760d8798abc4b",
+   "truth_sha256": "2f86022d2a9ea8b9799eeaae34cc884f12be4d65d526dda0524f448e97a5dd58"
+  },
+  {
+   "case_id": "form/survey-matrix",
+   "family": "form",
+   "name": "survey-matrix",
+   "control": false,
+   "source_sha256": "3fb078f4effc5a07fe9f3b292c60c0f23d2bb260ac81a3dd563196c118444129",
+   "tagged_sha256": "c4520037485155982274934ff97182ba4cfbb71dc82b97bd1ae626488b9eb2a1",
+   "untagged_sha256": "e4957c3abd7aded274b91195ba06467d42c078b232cf723171d965756b6ec93e",
+   "truth_sha256": "beebcc4ab9de61afd2c1ad73e2ea869b9f6465d76bf0b92cfac82418101296bd"
+  },
+  {
+   "case_id": "form/vendor-registration",
+   "family": "form",
+   "name": "vendor-registration",
+   "control": false,
+   "source_sha256": "ec00ea0835e3fdf258fbda71fc421fb5748b696c165de812ffb1a6a255bbc2ea",
+   "tagged_sha256": "db7f6480c90e93d60ec4463f9effb0999560c751dbf6240f86a0d24364834191",
+   "untagged_sha256": "2cacff34a239dab7c40646236e4ac33f3597ffe74b0daa5c10f96ade3dbaece9",
+   "truth_sha256": "381ef1f4d794ad8da7fe4695ad1a15476b61a8c7dcdfa0847235724d61878ea4"
+  },
+  {
+   "case_id": "report/annual-report",
+   "family": "report",
+   "name": "annual-report",
+   "control": false,
+   "source_sha256": "1dbc33078630dc3188adae8657e587e84313128485a4129cd5e4e6fba9b4e630",
+   "tagged_sha256": "b4b1512c192a6a7a4d2659d607cb23afe04ff49f561a08684ae7b65defe5b393",
+   "untagged_sha256": "68e240343a8964ad8e225da28042b680224efc07e58e320316954fc550d52f22",
+   "truth_sha256": "4ec3c51459aa30c14b4ca1aa626bad053a3acb90d1dfdff1f30bf7b5785c65f4"
+  },
+  {
+   "case_id": "report/figures-captions",
+   "family": "report",
+   "name": "figures-captions",
+   "control": false,
+   "source_sha256": "5f81402800d8956faf6884b34b02c2c9e05dd4cf70b9e48818a6a0f708f1985a",
+   "tagged_sha256": "56c58ceec220749f4749818e2833b28f5a8b1ca396827d316f3ac097c5dea999",
+   "untagged_sha256": "fbafd2738f9d0c065ad6dfc5791a640284b883d1e6e2f25cb4076888a7ffebe7",
+   "truth_sha256": "24bf8261245382881f5f82e110719ab872348c2d8ddfcdba5b9a2d6a621f76c8"
+  },
+  {
+   "case_id": "report/financial-landscape",
+   "family": "report",
+   "name": "financial-landscape",
+   "control": false,
+   "source_sha256": "2a128af278ed206816be4917945be471774045d8e06131f75e9b53aa40144e71",
+   "tagged_sha256": "123b1f0f7095b34beab33553c45a79f0e98ca420a2108e2fe412233a6879f509",
+   "untagged_sha256": "941a91387423b95169eadfb424c7f20980624606cac6f628e0891218d950d596",
+   "truth_sha256": "ede3016342167c9da8e93533553f8546180c98bbb3d0f2de14f891ee4ed045b2"
+  },
+  {
+   "case_id": "report/memo-findings",
+   "family": "report",
+   "name": "memo-findings",
+   "control": false,
+   "source_sha256": "0dd358d4a71c85ad5d26f2c335e28a02a67fd281ba4bd6a79365c56d07998413",
+   "tagged_sha256": "c88404344bc61b3ea08fb84cb8c427b8327bead1d5c12a62bf829a09a7198feb",
+   "untagged_sha256": "99b16a0a88e17fcd068fb956083d1eccf98e0d2cf0423af4d576b5cd71ab04fa",
+   "truth_sha256": "e2c23009e25afc9e44cd08dec02c3869a0d353730b7a3c126497317af7c74f58"
+  }
+ ]
+}

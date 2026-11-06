@@ -1,0 +1,391 @@
+{
+ "schema_version": 1,
+ "case_id": "report/financial-landscape",
+ "family": "report",
+ "description": "A wide numeric table on landscape pages, running across pages with a repeating header row.",
+ "control": false,
+ "reading": {
+  "blocks": [
+   {
+    "text": "Five-Year Financial Summary",
+    "style": "Title",
+    "level": 0,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "All amounts are in thousands of US dollars. Fiscal years end on March 31. Figures for 2026 are unaudited.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "table": [
+     [
+      "Line item",
+      "2022",
+      "2023",
+      "2024",
+      "2025",
+      "2026",
+      "Change"
+     ],
+     [
+      "Product revenue",
+      "18,240",
+      "19,334",
+      "20,428",
+      "21,523",
+      "22,617",
+      "24.0%"
+     ],
+     [
+      "Service revenue",
+      "6,115",
+      "6,481",
+      "6,848",
+      "7,215",
+      "7,582",
+      "24.0%"
+     ],
+     [
+      "Licensing revenue",
+      "2,410",
+      "2,554",
+      "2,699",
+      "2,843",
+      "2,988",
+      "24.0%"
+     ],
+     [
+      "Total revenue",
+      "26,765",
+      "28,370",
+      "29,976",
+      "31,582",
+      "33,188",
+      "24.0%"
+     ],
+     [
+      "Cost of goods sold",
+      "11,850",
+      "12,561",
+      "13,272",
+      "13,983",
+      "14,694",
+      "24.0%"
+     ],
+     [
+      "Gross profit",
+      "14,915",
+      "15,809",
+      "16,704",
+      "17,599",
+      "18,494",
+      "24.0%"
+     ],
+     [
+      "Research and development",
+      "3,920",
+      "4,155",
+      "4,390",
+      "4,625",
+      "4,860",
+      "24.0%"
+     ],
+     [
+      "Sales and marketing",
+      "4,310",
+      "4,568",
+      "4,827",
+      "5,085",
+      "5,344",
+      "24.0%"
+     ],
+     [
+      "General and administrative",
+      "2,285",
+      "2,422",
+      "2,559",
+      "2,696",
+      "2,833",
+      "24.0%"
+     ],
+     [
+      "Depreciation",
+      "1,140",
+      "1,208",
+      "1,276",
+      "1,345",
+      "1,413",
+      "23.9%"
+     ],
+     [
+      "Operating income",
+      "3,260",
+      "3,455",
+      "3,651",
+      "3,846",
+      "4,042",
+      "24.0%"
+     ],
+     [
+      "Interest expense",
+      "415",
+      "439",
+      "464",
+      "489",
+      "514",
+      "23.9%"
+     ],
+     [
+      "Other income",
+      "92",
+      "97",
+      "103",
+      "108",
+      "114",
+      "23.9%"
+     ],
+     [
+      "Income before tax",
+      "2,937",
+      "3,113",
+      "3,289",
+      "3,465",
+      "3,641",
+      "24.0%"
+     ],
+     [
+      "Income tax",
+      "705",
+      "747",
+      "789",
+      "831",
+      "874",
+      "24.0%"
+     ],
+     [
+      "Net income",
+      "2,232",
+      "2,365",
+      "2,499",
+      "2,633",
+      "2,767",
+      "24.0%"
+     ],
+     [
+      "Cash and equivalents",
+      "5,120",
+      "5,427",
+      "5,734",
+      "6,041",
+      "6,348",
+      "24.0%"
+     ],
+     [
+      "Accounts receivable",
+      "4,385",
+      "4,648",
+      "4,911",
+      "5,174",
+      "5,437",
+      "24.0%"
+     ],
+     [
+      "Inventory",
+      "3,190",
+      "3,381",
+      "3,572",
+      "3,764",
+      "3,955",
+      "24.0%"
+     ],
+     [
+      "Total current assets",
+      "12,695",
+      "13,456",
+      "14,218",
+      "14,980",
+      "15,741",
+      "24.0%"
+     ],
+     [
+      "Property and equipment",
+      "8,740",
+      "9,264",
+      "9,788",
+      "10,313",
+      "10,837",
+      "24.0%"
+     ],
+     [
+      "Goodwill",
+      "2,100",
+      "2,226",
+      "2,352",
+      "2,478",
+      "2,604",
+      "24.0%"
+     ],
+     [
+      "Total assets",
+      "23,535",
+      "24,947",
+      "26,359",
+      "27,771",
+      "29,183",
+      "24.0%"
+     ],
+     [
+      "Accounts payable",
+      "2,910",
+      "3,084",
+      "3,259",
+      "3,433",
+      "3,608",
+      "24.0%"
+     ],
+     [
+      "Accrued liabilities",
+      "1,675",
+      "1,775",
+      "1,876",
+      "1,976",
+      "2,077",
+      "24.0%"
+     ],
+     [
+      "Long-term debt",
+      "6,200",
+      "6,572",
+      "6,944",
+      "7,316",
+      "7,688",
+      "24.0%"
+     ],
+     [
+      "Total liabilities",
+      "10,785",
+      "11,432",
+      "12,079",
+      "12,726",
+      "13,373",
+      "24.0%"
+     ],
+     [
+      "Share capital",
+      "4,000",
+      "4,240",
+      "4,480",
+      "4,720",
+      "4,960",
+      "24.0%"
+     ],
+     [
+      "Retained earnings",
+      "8,750",
+      "9,275",
+      "9,800",
+      "10,325",
+      "10,850",
+      "24.0%"
+     ],
+     [
+      "Total equity",
+      "12,750",
+      "13,515",
+      "14,280",
+      "15,045",
+      "15,810",
+      "24.0%"
+     ],
+     [
+      "Operating cash flow",
+      "3,380",
+      "3,582",
+      "3,785",
+      "3,988",
+      "4,191",
+      "24.0%"
+     ],
+     [
+      "Capital expenditure",
+      "1,425",
+      "1,510",
+      "1,596",
+      "1,681",
+      "1,767",
+      "24.0%"
+     ],
+     [
+      "Free cash flow",
+      "1,955",
+      "2,072",
+      "2,189",
+      "2,306",
+      "2,424",
+      "24.0%"
+     ],
+     [
+      "Dividends paid",
+      "600",
+      "636",
+      "672",
+      "708",
+      "744",
+      "24.0%"
+     ],
+     [
+      "Employees at year end",
+      "214",
+      "226",
+      "239",
+      "252",
+      "265",
+      "23.8%"
+     ],
+     [
+      "Sites",
+      "7",
+      "7",
+      "7",
+      "8",
+      "8",
+      "14.3%"
+     ]
+    ]
+   },
+   {
+    "text": "Total revenue includes the licensing business acquired in fiscal 2023 on a pro forma basis for all years shown.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   }
+  ],
+  "footnotes": [],
+  "headers": [
+   "Kestrel Ridge Manufacturing Inc."
+  ],
+  "footers": [
+   "Financial summary, page 1"
+  ],
+  "pictures": 0,
+  "pages": 2,
+  "page_width": 792.0,
+  "page_height": 612.0,
+  "margins": [
+   72.0,
+   72.0,
+   72.0,
+   72.0
+  ],
+  "columns": 1,
+  "body_font": "Arial",
+  "body_size": 10.0,
+  "float_words": 0,
+  "extra": {}
+ }
+}
