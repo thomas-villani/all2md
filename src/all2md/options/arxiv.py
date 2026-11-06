@@ -24,6 +24,7 @@ from all2md.constants import (
     ArxivOutputFormat,
 )
 from all2md.options.base import CloneFrozenMixin
+from all2md.options.common import LocalFileAccessOptions
 
 
 @dataclass(frozen=True)
@@ -55,6 +56,10 @@ class ArxivPackagerOptions(CloneFrozenMixin):
         Filename for the main LaTeX file in the archive.
     packages : list[str], default ["amsmath", "graphicx", "hyperref", "natbib"]
         LaTeX packages to include in the preamble.
+    local_files : LocalFileAccessOptions, default LocalFileAccessOptions()
+        Policy for images the document references by local path. Off by default:
+        set ``local_files.allow_local_files=True`` (optionally with an allowlist)
+        to embed them. Relative paths resolve against the source document's folder.
 
     """
 
@@ -101,6 +106,15 @@ class ArxivPackagerOptions(CloneFrozenMixin):
     packages: list[str] = field(
         default_factory=lambda: DEFAULT_ARXIV_PACKAGES.copy(),
         metadata={"help": "LaTeX packages to include in preamble", "importance": "advanced"},
+    )
+    local_files: LocalFileAccessOptions = field(
+        default_factory=LocalFileAccessOptions,
+        metadata={
+            "help": "Reading images the document points at on this machine's disk. Off by default, "
+            "because an untrusted document could otherwise copy local files into the output",
+            "cli_flatten": True,
+            "importance": "security",
+        },
     )
 
     def __post_init__(self) -> None:

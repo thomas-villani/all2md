@@ -112,6 +112,7 @@ class EpubRenderer(BaseRenderer):
         the input AST can be safely reused for multiple renderings.
 
         """
+        self._remember_source_dir(doc)
         from ebooklib import epub
 
         # Clone document to avoid mutating the original AST during image URL rewriting.
@@ -225,6 +226,7 @@ class EpubRenderer(BaseRenderer):
             EPUB file content as bytes
 
         """
+        self._remember_source_dir(doc)
         buffer = BytesIO()
         self.render(doc, buffer)
         return buffer.getvalue()
@@ -508,41 +510,23 @@ class EpubRenderer(BaseRenderer):
 
                 return internal_path
 
-            # Handle local file paths
+            # Handle local file paths: only under the local_files policy, which is off by default
             else:
-                # Try to read local file
-                image_path = Path(image_url)
-                if image_path.exists() and image_path.is_file():
-                    image_data = image_path.read_bytes()
+                local_image = self._read_local_image(image_url)
+                if local_image is None:
+                    return None
 
-                    # Detect format from file content (more reliable than extension)
-                    detected_format = detect_image_format_from_bytes(image_data[:32])
+                internal_path = f"images/img_{index:03d}.{local_image.format}"
 
-                    # Fall back to extension if content detection fails
-                    if detected_format:
-                        image_format = detected_format
-                    else:
-                        image_format = image_path.suffix.lstrip(".")
-                        if not image_format:
-                            logger.debug("Could not detect format from content or extension")
-                            return None
-                        logger.debug(f"Could not detect format from content, using extension: {image_format}")
+                # Create EPUB image item
+                epub_image = epub.EpubImage()
+                epub_image.file_name = internal_path
+                epub_image.content = local_image.data
 
-                    internal_path = f"images/img_{index:03d}.{image_format}"
+                # Add to book
+                book.add_item(epub_image)
 
-                    # Create EPUB image item
-                    epub_image = epub.EpubImage()
-                    epub_image.file_name = internal_path
-                    epub_image.content = image_data
-
-                    # Add to book
-                    book.add_item(epub_image)
-
-                    return internal_path
-
-                # Local file not found
-                logger.debug(f"Local file not found: {image_url}")
-                return None
+                return internal_path
 
         except Exception as e:
             # If anything fails, log and optionally raise

@@ -529,10 +529,58 @@ Documents may reference local files using ``file://`` URLs. This can expose sens
    # Allow current working directory only
    cwd_only_config = HtmlOptions(
        local_files=LocalFileAccessOptions(
-           allow_local_files=False,
-           allow_cwd_files=True  # Only files in CWD
+           allow_local_files=True,
+           allow_cwd_files=True,  # Only files in CWD
+           local_file_allowlist=[],  # And nowhere else
        )
    )
+
+.. _security-local-images:
+
+Local Images in Word, PDF and Other Output
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The renderers that embed pictures (DOCX, PPTX, PDF, ODT, ODP, EPUB and the arXiv
+bundle) follow the same policy for an image the document points at on disk, such as
+``![chart](chart.png)`` in Markdown or ``<img src="/srv/photo.jpg">`` in HTML.
+Each has its own ``local_files`` option, and it is **off by default**. Without it, a
+document you did not write could copy files from your machine into the output.
+
+When it is off, the picture is left out, its alt text is kept, and a warning names
+the flag that turns it on. To embed the images of a document you trust:
+
+.. code-block:: bash
+
+   all2md report.md -o report.docx --docx-renderer-local-files-allow-local-files
+
+.. code-block:: python
+
+   from all2md import convert
+   from all2md.options import DocxRendererOptions, LocalFileAccessOptions
+
+   convert(
+       "report.md",
+       output="report.docx",
+       renderer_options=DocxRendererOptions(
+           local_files=LocalFileAccessOptions(
+               allow_local_files=True,
+               local_file_allowlist=["./images"],  # optional: confine reads to one folder
+           )
+       ),
+   )
+
+Even when it is on:
+
+* A relative path resolves against the source document's folder, or the current
+  directory when the document did not come from a file
+* The allowlist and denylist apply after the path is resolved, so ``../`` and links
+  cannot step outside them
+* Network paths (``\\host\share\...``, ``//host/...``, ``file://host/...``) are always
+  refused, because opening one makes Windows connect to the host
+* The file must be an image (PNG, JPEG, GIF, WebP, BMP, TIFF, ICO or SVG, checked from
+  its bytes rather than its name), and no larger than ``max_asset_size_bytes``
+
+``generate-site`` copies images from each source file's own folder only.
 
 Directory Allowlist/Denylist
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -562,6 +610,34 @@ Control which directories can be accessed:
 1. Denylist is checked first - if path matches, access is denied
 2. If allowlist is provided, path must match an allowed directory
 3. If no allowlist and not denied, access is granted (when ``allow_local_files=True``)
+
+.. _security-rst-includes:
+
+RST Directives That Read Files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+reStructuredText can pull in other files itself: ``.. include::`` inserts a file, and
+the ``:file:`` and ``:url:`` options of ``raw`` and ``csv-table`` read a file or fetch
+a URL. An RST file you did not write could use them to copy ``~/.ssh/id_rsa`` or a
+cloud metadata URL into your Markdown. all2md therefore refuses all of them by default,
+leaves the rest of the document intact, and logs a warning for each one it skips.
+
+To convert a document you trust that relies on includes, opt in:
+
+.. code-block:: bash
+
+   all2md docs/index.rst --rst-parse-includes
+
+.. code-block:: python
+
+   from all2md import to_markdown
+   from all2md.options.rst import RstParserOptions
+
+   to_markdown("docs/index.rst", parser_options=RstParserOptions(parse_includes=True))
+
+With ``parse_includes=True``, docutils reads whatever path or URL the directive names.
+The local file allowlist and the network options above do not apply to it, so keep it
+off for anything from outside.
 
 Archive Security
 ----------------

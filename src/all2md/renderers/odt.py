@@ -136,6 +136,7 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
             If ODT generation fails
 
         """
+        self._remember_source_dir(doc)
         from odf import opendocument
 
         try:
@@ -186,6 +187,7 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
             If ODT generation fails
 
         """
+        self._remember_source_dir(doc)
         # Create a BytesIO buffer and render to it
         buffer = BytesIO()
         self.render(doc, buffer)
@@ -893,6 +895,9 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
 
         try:
             # Handle different image sources
+            image_file: str | None = None
+            image_data: bytes | None = None
+            ext = ".png"
             if node.url.startswith("data:"):
                 # Base64 encoded image
                 image_file = self._decode_base64_image(node.url)
@@ -900,19 +905,21 @@ class OdtRenderer(NodeVisitor, BaseRenderer):
                 # Remote URL - use secure fetching if enabled
                 image_file = self._fetch_remote_image(node.url)
             else:
-                # Local file
-                image_file = node.url
+                # Local file: only under the local_files policy, which is off by default
+                local_image = self._read_local_image(node.url)
+                if local_image:
+                    image_data = local_image.data
+                    ext = f".{local_image.format}"
 
-            # Add image to document
             if image_file:
-                # Read image data
+                # Temp file written by the data: or http(s) branch
                 with open(image_file, "rb") as f:
                     image_data = f.read()
-
-                # Add picture to document's manifest
-
-                # Generate unique name for image
                 ext = os.path.splitext(image_file)[1] or ".png"
+
+            # Add image to document
+            if image_data is not None:
+                # Generate unique name for image
                 image_name = f"Pictures/image_{id(node)}{ext}"
 
                 # Detect actual image format for correct MIME type

@@ -18,6 +18,7 @@ from all2md.constants import (
     DEFAULT_RST_HEADING_CHARS,
     DEFAULT_RST_LINE_LENGTH,
     DEFAULT_RST_PARSE_ADMONITIONS,
+    DEFAULT_RST_PARSE_INCLUDES,
     DEFAULT_RST_STRICT_MODE,
     DEFAULT_RST_STRIP_COMMENTS,
     DEFAULT_RST_TABLE_STYLE,
@@ -49,6 +50,12 @@ class RstParserOptions(BaseParserOptions):
         Whether to strip comments from the output.
         When True, RST comments are removed completely.
         When False, comments are preserved as Comment AST nodes with metadata.
+    parse_includes : bool, default False
+        Whether directives may read other files or URLs: ``.. include::`` and the
+        ``:file:`` and ``:url:`` options of ``raw`` and ``csv-table``. Off by default,
+        because an RST file you did not write could otherwise copy any file it names
+        (or anything a URL returns) into the output. Each skipped directive logs a
+        warning. Turn it on only for documents you trust; paths are not confined.
 
     Notes
     -----
@@ -77,6 +84,15 @@ class RstParserOptions(BaseParserOptions):
             "help": "Strip comments from output",
             "cli_name": "no-strip-comments",
             "importance": "core",
+        },
+    )
+    parse_includes: bool = field(
+        default=DEFAULT_RST_PARSE_INCLUDES,
+        metadata={
+            "help": "Let include, and the :file:/:url: options of raw and csv-table, read files and URLs "
+            "(SECURITY: off by default; only for documents you trust)",
+            "cli_name": "parse-includes",
+            "importance": "security",
         },
     )
 

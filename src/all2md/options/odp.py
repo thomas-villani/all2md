@@ -26,7 +26,7 @@ from all2md.constants import (
     SlideSplitMode,
 )
 from all2md.options.base import BaseRendererOptions
-from all2md.options.common import NetworkFetchOptions, PaginatedParserOptions
+from all2md.options.common import LocalFileAccessOptions, NetworkFetchOptions, PaginatedParserOptions
 
 
 @dataclass(frozen=True)
@@ -119,6 +119,10 @@ class OdpRendererOptions(BaseRendererOptions):
         - "native": Use ODF annotation elements (default)
         - "visible": Render as visible text in slide content
         - "ignore": Skip comments entirely
+    local_files : LocalFileAccessOptions, default LocalFileAccessOptions()
+        Policy for images the document references by local path. Off by default:
+        set ``local_files.allow_local_files=True`` (optionally with an allowlist)
+        to embed them. Relative paths resolve against the source document's folder.
 
     """
 
@@ -167,6 +171,15 @@ class OdpRendererOptions(BaseRendererOptions):
     )
     network: NetworkFetchOptions = field(
         default_factory=NetworkFetchOptions, metadata={"help": "Network security options for fetching remote images"}
+    )
+    local_files: LocalFileAccessOptions = field(
+        default_factory=LocalFileAccessOptions,
+        metadata={
+            "help": "Reading images the document points at on this machine's disk. Off by default, "
+            "because an untrusted document could otherwise copy local files into the output",
+            "cli_flatten": True,
+            "importance": "security",
+        },
     )
     include_notes: bool = field(
         default=True,

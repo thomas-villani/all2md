@@ -22,8 +22,10 @@ from all2md.ast import Document
 from all2md.ast.nodes import Node, TableCell, TableRow
 from all2md.exceptions import InvalidOptionsError
 from all2md.options.base import BaseRendererOptions
+from all2md.options.common import LocalFileAccessOptions
 from all2md.utils.io_utils import write_content
 from all2md.utils.metadata import DocumentMetadata, MetadataRenderPolicy, prepare_metadata_for_render
+from all2md.utils.security import LocalImage, read_local_image
 
 
 @dataclass(frozen=True)
@@ -131,6 +133,54 @@ class BaseRenderer(ABC):
         """
         self.options = options
         self.metadata_policy: MetadataRenderPolicy = options.metadata_policy if options else MetadataRenderPolicy()
+        self._local_asset_base_dir: Path | None = None
+
+    def _remember_source_dir(self, doc: Document) -> None:
+        """Note the source document's folder, which relative local image paths resolve against.
+
+        Parameters
+        ----------
+        doc : Document
+            Document about to be rendered; ``metadata['source_path']`` is set for file inputs
+
+        """
+        source = doc.metadata.get("source_path") if doc.metadata else None
+        self._local_asset_base_dir = Path(source).parent if source else None
+
+    def _local_files_hint(self) -> str:
+        """Name the option that turns local images on, for the warning when one is skipped."""
+        fmt = type(self).__name__.removesuffix("Renderer").lower()
+        return (
+            f"--{fmt}-renderer-local-files-allow-local-files, or "
+            "local_files=LocalFileAccessOptions(allow_local_files=True) in the renderer options"
+        )
+
+    def _read_local_image(self, url: str, local_files: LocalFileAccessOptions | None = None) -> LocalImage | None:
+        """Read an image the document references by local path, under the renderer's policy.
+
+        Parameters
+        ----------
+        url : str
+            Local path or ``file://`` URL from the document
+        local_files : LocalFileAccessOptions, optional
+            Policy to apply; defaults to ``self.options.local_files``
+
+        Returns
+        -------
+        LocalImage or None
+            The image, or None if the policy refused it or it could not be read
+
+        """
+        if local_files is None:
+            local_files = getattr(self.options, "local_files", None)
+        max_bytes = self.options.max_asset_size_bytes if self.options else None
+        return read_local_image(
+            url,
+            local_files,
+            base_dir=getattr(self, "_local_asset_base_dir", None),
+            max_bytes=max_bytes,
+            enable_hint=self._local_files_hint(),
+        )
 
     @abstractmethod
     def render(self, doc: Document, output: str | Path | IO[bytes]) -> None:

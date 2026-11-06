@@ -236,6 +236,56 @@ def hello():
         assert "Test File" in html
         assert "Content here" in html
 
+    def _serve_one_document(self, port: int, content: str) -> tuple[Path, str]:
+        """Serve a folder holding one document, fetch it once so it is cached, return its path and URL."""
+        document = self.temp_dir / "doc.md"
+        document.write_text(content, encoding="utf-8")
+        # The tests fetch straight after each change: the page must not wait for the poller.
+        self._start_server(["view", str(self.temp_dir), "--port", str(port)])
+        url = f"http://127.0.0.1:{port}/doc.md"
+        assert content.encode("utf-8") in self._fetch_url(url)
+        return document, url
+
+    def test_view_folder_shows_an_edit_on_the_next_refresh(self):
+        """An edited document is converted again, immediately."""
+        document, url = self._serve_one_document(8147, "first version")
+
+        document.write_text("second version, longer", encoding="utf-8")
+
+        page = self._fetch_url(url)
+        assert b"second version, longer" in page
+        assert b"first version" not in page
+
+    def test_view_folder_notices_an_edit_that_keeps_the_size(self):
+        """The modification time counts too, for an edit of the same length."""
+        document, url = self._serve_one_document(8148, "first version")
+        before = document.stat()
+
+        document.write_text("other version", encoding="utf-8")
+        os.utime(document, ns=(before.st_atime_ns, before.st_mtime_ns + 5_000_000_000))
+
+        assert b"other version" in self._fetch_url(url)
+
+    def test_view_folder_reuses_the_page_of_an_unchanged_document(self):
+        """With size and time unchanged the cached page is served, so caching still works."""
+        document, url = self._serve_one_document(8149, "first version")
+        before = document.stat()
+
+        document.write_text("other version", encoding="utf-8")
+        os.utime(document, ns=(before.st_atime_ns, before.st_mtime_ns))
+
+        assert b"first version" in self._fetch_url(url)
+
+    def test_view_folder_gives_404_for_a_document_just_deleted(self):
+        """A deleted document stops being served at once, not at the next poll."""
+        document, url = self._serve_one_document(8150, "first version")
+
+        document.unlink()
+
+        with pytest.raises(HTTPError) as error:
+            self._fetch_url(url)
+        assert error.value.code == 404
+
     def test_view_folder_injects_web_assets(self):
         """Served documents include the mermaid + highlight.js CDN includes."""
         self._create_test_markdown()
@@ -492,26 +542,3 @@ More content.
         with pytest.raises(HTTPError) as error:
             self._fetch_url(f"http://127.0.0.1:8013/{path}")
         assert error.value.code == 404
-
-    def test_view_folder_with_cache_single_file(self):
-        """A rendered page is cached, so it is not re-converted on each request."""
-        # Create a markdown file
-        md_file = self._create_test_markdown()
-
-        self._start_server(["view", str(self.temp_dir), "--port", "8016"])
-
-        # Fetch the content once to populate cache
-        content1 = self._fetch_url("http://127.0.0.1:8016/test.md")
-        html1 = content1.decode("utf-8")
-
-        assert "Test Document" in html1
-
-        # Modify the file
-        md_file.write_text("# Updated Content\n\nThis has changed!", encoding="utf-8")
-
-        # Fetch again - should still show old content due to cache
-        content2 = self._fetch_url("http://127.0.0.1:8016/test.md")
-        html2 = content2.decode("utf-8")
-
-        assert "Test Document" in html2
-        assert "Updated Content" not in html2

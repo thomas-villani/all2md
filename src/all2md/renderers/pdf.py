@@ -141,6 +141,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
             If PDF generation fails
 
         """
+        self._remember_source_dir(doc)
         from reportlab.lib import colors
         from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
         from reportlab.lib.pagesizes import A4, LEGAL, LETTER
@@ -275,6 +276,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
             If PDF generation fails
 
         """
+        self._remember_source_dir(doc)
         # Create a BytesIO buffer and render to it
         buffer = io.BytesIO()
         self.render(doc, buffer)
@@ -854,6 +856,7 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
 
         try:
             # Handle different image sources
+            image_file: str | IO[bytes] | None
             if node.url.startswith("data:"):
                 # Base64 encoded image
                 image_file = self._decode_base64_image(node.url)
@@ -861,8 +864,9 @@ class PdfRenderer(NodeVisitor, BaseRenderer):
                 # Remote URL - use secure fetching if enabled
                 image_file = self._fetch_remote_image(node.url)
             else:
-                # Local file
-                image_file = node.url
+                # Local file: only under the local_files policy, which is off by default
+                local_image = self._read_local_image(node.url)
+                image_file = io.BytesIO(local_image.data) if local_image else None
 
             if image_file:
                 # Add image

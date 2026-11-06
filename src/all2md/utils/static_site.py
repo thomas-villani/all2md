@@ -19,7 +19,6 @@ Functions
 from __future__ import annotations
 
 import logging
-import shutil
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -29,7 +28,9 @@ import tomli_w
 import yaml
 
 from all2md.ast.nodes import Document, Image, Node
+from all2md.options.common import LocalFileAccessOptions
 from all2md.utils.attachments import ensure_unique_attachment_path, sanitize_attachment_filename
+from all2md.utils.security import read_local_image
 from all2md.utils.text import slugify
 
 logger = logging.getLogger(__name__)
@@ -915,22 +916,22 @@ def copy_document_assets(
 
     copied_assets: list[str] = []
 
+    base_dir = source_file.parent.resolve() if source_file else Path.cwd().resolve()
+    policy = LocalFileAccessOptions(allow_local_files=True, local_file_allowlist=[str(base_dir)])
+    hint = f"the image under {base_dir}"
+
     for image in collector.images:
         # Skip data URIs and remote URLs
         if image.url.startswith(("data:", "http:", "https:")):
             continue
 
-        # Resolve image path
-        image_path = Path(image.url)
-
-        # If relative path and we have source file, resolve relative to source
-        if not image_path.is_absolute() and source_file:
-            image_path = source_file.parent / image_path
-
-        # Check if image file exists
-        if not image_path.exists():
-            logger.warning(f"Image file not found: {image_path}")
+        # A site is built from the author's own files, so images are read from the source
+        # file's folder (or the working directory without one), never from anywhere else:
+        # a document must not be able to publish arbitrary files from the building machine.
+        local_image = read_local_image(image.url, policy, base_dir=base_dir, enable_hint=hint)
+        if local_image is None:
             continue
+        image_path = local_image.path
 
         try:
             # Sanitize filename for safe storage
@@ -942,8 +943,8 @@ def copy_document_assets(
             # Handle collisions by ensuring unique path
             dest_path = ensure_unique_attachment_path(dest_path)
 
-            # Copy the image file
-            shutil.copy2(image_path, dest_path)
+            # Write the bytes that were checked, not whatever is at the path now
+            dest_path.write_bytes(local_image.data)
             logger.debug(f"Copied asset: {image_path} -> {dest_path}")
 
             # Update image URL in AST to reference static location
