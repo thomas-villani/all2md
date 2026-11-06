@@ -229,6 +229,22 @@ all2md provides ``LocalFileAccessOptions`` to control file:// URL access:
 
 **Mitigation Effectiveness:** High (when configured properly)
 
+**RST directives:** reStructuredText needs no URL to read a file. A directive does it:
+
+.. code-block:: rst
+
+   .. include:: /home/user/.ssh/id_rsa
+
+   .. csv-table:: Data
+      :file: /app/.env
+
+   .. raw:: html
+      :url: http://169.254.169.254/latest/meta-data/
+
+``parsers/rst.py`` sets docutils' ``file_insertion_enabled`` from
+``RstParserOptions.parse_includes``, which is off by default, so each of these is
+dropped with a warning. See :ref:`security-rst-includes`.
+
 ---
 
 3. ZIP Bomb / Archive Exhaustion

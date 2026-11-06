@@ -9717,6 +9717,15 @@ into AST representation using docutils.
    :Default: ``False``
    :Importance: core
 
+**parse_includes**
+
+   Let include, and the :file:/:url: options of raw and csv-table, read files and URLs (SECURITY: off by default; only for documents you trust)
+
+   :Type: ``bool``
+   :CLI flag: ``--rst-parse-includes``
+   :Default: ``False``
+   :Importance: security
+
 RST Renderer Options
 ^^^^^^^^^^^^^^^^^^^^
 

@@ -141,6 +141,12 @@ class RestructuredTextParser(BaseParser):
                 # metadata; it is taken from the first section's title either way.
                 "doctitle_xform": False,
                 "sectsubtitle_xform": False,
+                # Reading other files is off unless asked for: `.. include::` and the
+                # :file: / :url: options of `raw` and `csv-table` would otherwise let
+                # an RST file copy any local file, or any URL's response, into the
+                # output (GHSA-q9p2-g3hh-xx9c). docutils leaves a system message in
+                # place of each refused directive; _process_node warns about it.
+                "file_insertion_enabled": self.options.parse_includes,
             }
             doctree = publish_doctree(rst_content, settings_overrides=settings_overrides)
         except Exception as e:
@@ -214,7 +220,9 @@ class RestructuredTextParser(BaseParser):
             content = self._process_inline_nodes(node.children)
             return Heading(level=2, content=content)
         elif isinstance(node, docutils_nodes.system_message):
-            # Skip system messages (warnings/errors)
+            # Skip system messages (warnings/errors), but say so when one stands in
+            # for a directive refused because reading files is off.
+            self._warn_if_file_insertion_refused(node)
             return None
         elif isinstance(node, docutils_nodes.comment):
             # Handle RST comments - either skip or preserve as Comment nodes
@@ -241,6 +249,26 @@ class RestructuredTextParser(BaseParser):
             # Unknown node type - log and skip
             logger.debug(f"Skipping unknown docutils node type: {node_type}")
             return None
+
+    def _warn_if_file_insertion_refused(self, node: Any) -> None:
+        """Log a warning when a system message marks a directive refused for reading files.
+
+        With ``file_insertion_enabled`` off, docutils replaces ``.. include::`` (and
+        ``raw`` with :file:/:url:) by '"include" directive disabled.', and a
+        ``csv-table`` with :file:/:url: by 'File and URL access deactivated; ...'.
+        """
+        if self.options.parse_includes:
+            return
+        message = node.children[0].astext() if node.children else ""
+        if not (message.endswith("directive disabled.") or message.startswith("File and URL access deactivated")):
+            return
+        line = node.get("line")
+        where = f" on line {line}" if line else ""
+        logger.warning(
+            f"Skipped a directive{where} that reads another file or URL ({message}). "
+            "To allow it for a document you trust, set --rst-parse-includes "
+            "(RstParserOptions(parse_includes=True))."
+        )
 
     def _process_line_block(self, node: Any) -> Paragraph | None:
         """Process a line block (``| `` verse lines) into a hard-broken paragraph.

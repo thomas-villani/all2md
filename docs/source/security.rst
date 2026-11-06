@@ -563,6 +563,34 @@ Control which directories can be accessed:
 2. If allowlist is provided, path must match an allowed directory
 3. If no allowlist and not denied, access is granted (when ``allow_local_files=True``)
 
+.. _security-rst-includes:
+
+RST Directives That Read Files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+reStructuredText can pull in other files itself: ``.. include::`` inserts a file, and
+the ``:file:`` and ``:url:`` options of ``raw`` and ``csv-table`` read a file or fetch
+a URL. An RST file you did not write could use them to copy ``~/.ssh/id_rsa`` or a
+cloud metadata URL into your Markdown. all2md therefore refuses all of them by default,
+leaves the rest of the document intact, and logs a warning for each one it skips.
+
+To convert a document you trust that relies on includes, opt in:
+
+.. code-block:: bash
+
+   all2md docs/index.rst --rst-parse-includes
+
+.. code-block:: python
+
+   from all2md import to_markdown
+   from all2md.options.rst import RstParserOptions
+
+   to_markdown("docs/index.rst", parser_options=RstParserOptions(parse_includes=True))
+
+With ``parse_includes=True``, docutils reads whatever path or URL the directive names.
+The local file allowlist and the network options above do not apply to it, so keep it
+off for anything from outside.
+
 Archive Security
 ----------------
 
