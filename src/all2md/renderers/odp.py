@@ -147,17 +147,18 @@ class OdpRenderer(NodeVisitor, BaseRenderer):
 
         """
         self._remember_source_dir(doc)
-        from odf.opendocument import OpenDocumentPresentation
+        from odf.namespaces import STYLENS
+        from odf.opendocument import OpenDocumentPresentation, load
         from odf.style import MasterPage, PageLayout, PageLayoutProperties
 
         try:
             # Create presentation
             if self.options.template_path:
-                prs = OpenDocumentPresentation.load(self.options.template_path)
+                prs = load(self.options.template_path)
                 # Find existing master page
                 master_page = None
                 for mp in prs.masterstyles.childNodes:
-                    if mp.qname == (prs.STYLENS, "master-page"):
+                    if mp.qname == (STYLENS, "master-page"):
                         master_page = mp
                         break
             else:
