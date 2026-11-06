@@ -1,0 +1,117 @@
+{
+ "schema_version": 1,
+ "case_id": "contract/terms-two-column",
+ "family": "contract",
+ "description": "Small print in two justified columns below a one-column title, in a continuous section.",
+ "control": false,
+ "reading": {
+  "blocks": [
+   {
+    "text": "Terms and Conditions of Sale",
+    "style": "Title",
+    "level": 0,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "These terms apply to every order placed with Brindlewood Supply Co. Please read them carefully.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "1. Orders. An order is accepted only when we confirm it in writing or ship the goods. We may decline any order for any reason.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "2. Prices. Prices are those in effect on the date of shipment and exclude tax, freight and insurance, which we will add to the invoice.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "3. Payment. Payment is due within thirty days of the invoice date. We may suspend shipments while any amount is overdue.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "4. Delivery. Delivery dates are estimates only. Risk of loss passes to you when the goods leave our warehouse.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "5. Returns. You may return unused goods within fourteen days with our prior authorization. A restocking fee of ten percent applies.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "6. Warranty. We warrant that goods will conform to their published specifications for twelve months from the date of delivery.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "7. Liability. Our total liability for any claim will not exceed the price paid for the goods that gave rise to that claim.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "8. Force Majeure. Neither party is liable for delay caused by events beyond its reasonable control, including strikes, fire and flood.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "9. Governing Law. These terms are governed by the laws of the State of Ohio, excluding its conflict of laws rules.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   },
+   {
+    "text": "Questions about these terms? Contact your account manager or the sales office.",
+    "style": "Normal",
+    "level": null,
+    "marker": null,
+    "list_level": null
+   }
+  ],
+  "footnotes": [],
+  "headers": [
+   "Brindlewood Supply Co."
+  ],
+  "footers": [
+   "Terms of Sale, page 1"
+  ],
+  "pictures": 0,
+  "pages": 1,
+  "page_width": 612.0,
+  "page_height": 792.0,
+  "margins": [
+   72.0,
+   72.0,
+   72.0,
+   72.0
+  ],
+  "columns": 2,
+  "body_font": "Arial",
+  "body_size": 8.5,
+  "float_words": 0,
+  "extra": {}
+ }
+}

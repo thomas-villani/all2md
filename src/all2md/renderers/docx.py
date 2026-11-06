@@ -18,6 +18,7 @@ import logging
 import re
 import tempfile
 import zipfile
+from copy import deepcopy
 from io import BytesIO
 from pathlib import Path
 from typing import IO, TYPE_CHECKING, Any, cast
@@ -778,7 +779,21 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         requested = self.options.table_style
         if not requested:
             return None
-        return next((name for name in (requested, "Table", "Table Grid") if self._has_style(name)), None)
+        available = next((name for name in (requested, "Table", "Table Grid") if self._has_style(name)), None)
+        return available or self._add_table_grid_style()
+
+    def _add_table_grid_style(self) -> str:
+        """Copy ``Table Grid`` from python-docx's default template and return its name.
+
+        Word saves a table style only once a document uses it, so a template made in Word
+        usually has none, and its tables would otherwise have no borders.
+        """
+        from docx import Document as DocxDocument
+
+        name = "Table Grid"
+        self.document.styles.element.append(deepcopy(DocxDocument().styles[name].element))
+        self._available_styles.add(name)
+        return name
 
     def _set_document_properties(self, metadata: dict) -> None:
         """Set document properties from metadata.
