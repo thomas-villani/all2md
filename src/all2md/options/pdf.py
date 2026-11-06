@@ -61,7 +61,7 @@ from all2md.constants import (
     TableDetectionMode,
 )
 from all2md.options.base import BaseRendererOptions
-from all2md.options.common import NetworkFetchOptions, OCROptions, PaginatedParserOptions
+from all2md.options.common import LocalFileAccessOptions, NetworkFetchOptions, OCROptions, PaginatedParserOptions
 
 
 # src/all2md/options/pdf.py
@@ -704,6 +704,10 @@ class PdfRendererOptions(BaseRendererOptions):
         How to render Comment and CommentInline AST nodes:
         - "visible": Render as visible text/box
         - "ignore": Skip comments entirely (default)
+    local_files : LocalFileAccessOptions, default LocalFileAccessOptions()
+        Policy for images the document references by local path. Off by default:
+        set ``local_files.allow_local_files=True`` (optionally with an allowlist)
+        to embed them. Relative paths resolve against the source document's folder.
 
     """
 
@@ -762,6 +766,15 @@ class PdfRendererOptions(BaseRendererOptions):
         metadata={
             "help": "Network security settings for remote image fetching",
             "cli_flatten": True,  # Handled via flattened fields
+        },
+    )
+    local_files: LocalFileAccessOptions = field(
+        default_factory=LocalFileAccessOptions,
+        metadata={
+            "help": "Reading images the document points at on this machine's disk. Off by default, "
+            "because an untrusted document could otherwise copy local files into the output",
+            "cli_flatten": True,
+            "importance": "security",
         },
     )
     comment_mode: PdfCommentMode = field(

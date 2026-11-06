@@ -12,10 +12,14 @@ Functions
 - sanitize_language_identifier: Sanitize code fence language identifiers
 """
 
+from __future__ import annotations
+
 import logging
 import re
 import zipfile
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
+from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
 from all2md.constants import (
@@ -27,6 +31,9 @@ from all2md.constants import (
     SAFE_LANGUAGE_IDENTIFIER_PATTERN,
 )
 from all2md.exceptions import MalformedFileError, ZipFileSecurityError
+
+if TYPE_CHECKING:
+    from all2md.options.common import LocalFileAccessOptions
 
 logger = logging.getLogger(__name__)
 
@@ -234,9 +241,65 @@ def validate_local_file_access(
     if not file_url.startswith("file://"):
         return True  # Not a local file URL, validation doesn't apply
 
+    # Decide before resolving: resolving a network path reaches out to its host.
+    if not allow_local_files or _is_network_path(file_url[7:]):
+        return False
+
     # Resolve the file URL to a canonical path
     # This uses centralized path resolution to prevent TOCTOU vulnerabilities
     file_path = resolve_file_url_to_path(file_url)
+    return validate_local_path(
+        file_path,
+        allow_local_files=allow_local_files,
+        local_file_allowlist=local_file_allowlist,
+        local_file_denylist=local_file_denylist,
+        allow_cwd_files=allow_cwd_files,
+    )
+
+
+def _is_network_path(path: str) -> bool:
+    r"""Return whether ``path`` names a file on another machine (``\\host\share`` or ``//host/share``).
+
+    Touching such a path makes Windows connect to the host, which can send it the user's
+    credentials, so callers reject it before resolving or opening anything.
+    """
+    return path.startswith(("\\\\", "//", "\\/", "/\\"))
+
+
+def validate_local_path(
+    file_path: Path,
+    allow_local_files: bool = False,
+    local_file_allowlist: list[str] | None = None,
+    local_file_denylist: list[str] | None = None,
+    allow_cwd_files: bool = True,
+) -> bool:
+    """Validate access to an already resolved local path.
+
+    The same policy as :func:`validate_local_file_access`, for callers that hold a path
+    rather than a ``file://`` URL.
+
+    Parameters
+    ----------
+    file_path : Path
+        Resolved, absolute path to check
+    allow_local_files : bool, default False
+        Master switch for local file access. If False, no local files are allowed.
+    local_file_allowlist : list[str] | None, default None
+        Directories allowed for local file access (when allow_local_files=True)
+    local_file_denylist : list[str] | None, default None
+        Directories denied for local file access
+    allow_cwd_files : bool, default True
+        Allow files under the current working directory (when allow_local_files=True)
+
+    Returns
+    -------
+    bool
+        True if access is allowed, False otherwise
+
+    """
+    if not allow_local_files or _is_network_path(str(file_path)):
+        return False
+
     cwd = Path.cwd().resolve()
 
     # Check denylist first (highest priority)
@@ -248,10 +311,6 @@ def validate_local_file_access(
                 return False  # File is in a denied directory
             except ValueError:
                 continue  # File is not under this denied directory
-
-    # Check master switch for local files first
-    if not allow_local_files:
-        return False
 
     # Check if CWD files are allowed and file is under CWD
     if allow_cwd_files:
@@ -273,6 +332,139 @@ def validate_local_file_access(
         return False  # Not in any allowed directory (or empty allowlist)
 
     # If allow_local_files=True and no allowlist, allow access
+    return True
+
+
+_WINDOWS_DRIVE_PATH = re.compile(r"^[A-Za-z]:[\\/]")
+
+
+@dataclass(frozen=True)
+class LocalImage:
+    """An image read from the local disk under a :class:`LocalFileAccessOptions` policy.
+
+    Parameters
+    ----------
+    data : bytes
+        The file's bytes
+    format : str
+        Format detected from the bytes (``png``, ``jpg``, ``gif``, ...)
+    path : Path
+        Resolved path the bytes came from
+
+    """
+
+    data: bytes
+    format: str
+    path: Path
+
+
+def read_local_image(
+    url: str,
+    local_files: LocalFileAccessOptions | None,
+    *,
+    base_dir: Path | None = None,
+    max_bytes: int | None = None,
+    enable_hint: str = "allow_local_files",
+) -> LocalImage | None:
+    """Read an image a document points at on the local disk, if policy allows it.
+
+    A document is untrusted input, so this is off unless ``local_files.allow_local_files``
+    is set: an image path in a Markdown or HTML file would otherwise copy files from
+    the converting machine into the output. When allowed, the file must still pass the
+    allowlist and denylist, stay under ``max_bytes``, and read as an image.
+
+    Parameters
+    ----------
+    url : str
+        Image reference from the document: a relative or absolute path, or a ``file://`` URL.
+        Other URL schemes are refused; callers handle ``data:`` and ``http(s)`` themselves.
+    local_files : LocalFileAccessOptions or None
+        Policy to apply. None means the default, which refuses every local file.
+    base_dir : Path, optional
+        Directory a relative path is resolved against, normally the source document's
+        folder. Defaults to the current working directory.
+    max_bytes : int, optional
+        Largest file to read
+    enable_hint : str, default "allow_local_files"
+        How to turn local images on, named in the warning when one is skipped
+
+    Returns
+    -------
+    LocalImage or None
+        The image, or None if it was refused or could not be read (a warning is logged)
+
+    """
+    if local_files is None or not local_files.allow_local_files:
+        logger.warning(f"Skipped local image {url!r}: reading local files is off. To embed it, set {enable_hint}.")
+        return None
+
+    if _is_network_path(url) or (url.startswith("file://") and _is_network_path(url[7:])):
+        logger.warning(f"Skipped image {url!r}: network paths are never read.")
+        return None
+
+    if url.startswith("file://"):
+        path = resolve_file_url_to_path(url)
+    else:
+        scheme = urlparse(url).scheme
+        if scheme and not _WINDOWS_DRIVE_PATH.match(url):
+            logger.warning(f"Skipped image {url!r}: unsupported URL scheme {scheme!r}.")
+            return None
+        path = Path(url)
+        if not path.is_absolute():
+            path = (base_dir or Path.cwd()) / path
+        path = path.resolve()
+
+    if not validate_local_path(
+        path,
+        allow_local_files=True,
+        local_file_allowlist=local_files.local_file_allowlist,
+        local_file_denylist=local_files.local_file_denylist,
+        allow_cwd_files=local_files.allow_cwd_files,
+    ):
+        logger.warning(f"Skipped local image {url!r}: {path} is outside the allowed directories.")
+        return None
+
+    try:
+        if not path.is_file():
+            logger.warning(f"Skipped local image {url!r}: {path} is not a file.")
+            return None
+        size = path.stat().st_size
+        if max_bytes is not None and size > max_bytes:
+            logger.warning(f"Skipped local image {url!r}: {size} bytes is over the {max_bytes}-byte limit.")
+            return None
+        data = path.read_bytes()
+    except OSError as e:
+        logger.warning(f"Skipped local image {url!r}: {e}")
+        return None
+
+    from all2md.utils.images import detect_image_format_from_bytes
+
+    image_format = detect_image_format_from_bytes(data)
+    if image_format is None or not _has_image_structure(data, image_format):
+        logger.warning(f"Skipped local image {url!r}: {path} is not an image.")
+        return None
+    return LocalImage(data=data, format=image_format, path=path)
+
+
+# Sizes of the BMP info headers that follow the 14-byte file header.
+_BMP_INFO_HEADER_SIZES = frozenset({12, 16, 40, 52, 56, 64, 108, 124})
+
+
+def _has_image_structure(data: bytes, image_format: str) -> bool:
+    """Check past the magic bytes where they are too weak to tell an image from text.
+
+    ``BM`` starts plenty of text files and ``<?xml`` starts every XML file, so a file
+    passes as BMP only with a valid info header, and as SVG only with an ``svg`` root.
+    """
+    if image_format == "bmp":
+        return len(data) >= 18 and int.from_bytes(data[14:18], "little") in _BMP_INFO_HEADER_SIZES
+    if image_format == "svg":
+        head = data[:4096].lstrip()
+        if head.startswith(b"<svg"):
+            return True
+        # After a prolog, comments or a doctype, the first element must be <svg.
+        first_element = re.search(rb"<(?![?!])([A-Za-z_][\w:.-]*)", head)
+        return bool(first_element and first_element.group(1).split(b":")[-1] == b"svg")
     return True
 
 

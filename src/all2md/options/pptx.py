@@ -45,7 +45,7 @@ from all2md.constants import (
     SlideSplitMode,
 )
 from all2md.options.base import BaseRendererOptions
-from all2md.options.common import NetworkFetchOptions, PaginatedParserOptions
+from all2md.options.common import LocalFileAccessOptions, NetworkFetchOptions, PaginatedParserOptions
 
 
 @dataclass(frozen=True)
@@ -135,6 +135,10 @@ class PptxRendererOptions(BaseRendererOptions):
         Enable the flow layout engine that positions text, tables, and images
         sequentially to avoid overlap. When False, uses the legacy fixed-position
         behavior where all text shares one frame and tables/images use fixed positions.
+    local_files : LocalFileAccessOptions, default LocalFileAccessOptions()
+        Policy for images the document references by local path. Off by default:
+        set ``local_files.allow_local_files=True`` (optionally with an allowlist)
+        to embed them. Relative paths resolve against the source document's folder.
 
     Notes
     -----
@@ -248,6 +252,15 @@ class PptxRendererOptions(BaseRendererOptions):
     )
     network: NetworkFetchOptions = field(
         default_factory=NetworkFetchOptions, metadata={"help": "Network security options for fetching remote images"}
+    )
+    local_files: LocalFileAccessOptions = field(
+        default_factory=LocalFileAccessOptions,
+        metadata={
+            "help": "Reading images the document points at on this machine's disk. Off by default, "
+            "because an untrusted document could otherwise copy local files into the output",
+            "cli_flatten": True,
+            "importance": "security",
+        },
     )
     include_notes: bool = field(
         default=DEFAULT_PPTX_INCLUDE_NOTES,

@@ -84,7 +84,12 @@ class ArxivLatexRenderer(LatexRenderer):
         """Render document, resetting extracted figures first."""
         self._extracted_figures = []
         self._figure_counter = 0
+        self._remember_source_dir(document)
         return super().render_to_string(document)
+
+    def _local_files_hint(self) -> str:
+        """Name the option that turns local images on in an arXiv bundle."""
+        return "local_files=LocalFileAccessOptions(allow_local_files=True) in ArxivPackagerOptions"
 
     def _render_preamble(self, metadata: dict[str, Any]) -> None:
         """Render LaTeX preamble with document class options and ArXiv packages."""
@@ -142,15 +147,17 @@ class ArxivLatexRenderer(LatexRenderer):
             filename = f"{figure_dir}/fig{fig_num}.{ext}"
         else:
             # Local file path or remote URL — use original extension or default
-            from pathlib import Path, PurePosixPath
+            from pathlib import PurePosixPath
 
             orig_ext = PurePosixPath(node.url).suffix.lstrip(".")
             ext = orig_ext if orig_ext else figure_format
+            # A local file is read only under the local_files policy, which is off by default
+            if not node.url.startswith(("http://", "https://")):
+                local_image = self._read_local_image(node.url, self._arxiv_options.local_files)
+                if local_image:
+                    image_data = local_image.data
+                    ext = local_image.format
             filename = f"{figure_dir}/fig{fig_num}.{ext}"
-            # Try to read local file
-            local_path = Path(node.url)
-            if local_path.is_file():
-                image_data = local_path.read_bytes()
 
         # Store extracted figure
         caption = node.alt_text or ""

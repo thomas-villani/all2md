@@ -22,7 +22,7 @@ from all2md.constants import (
     OdtCommentMode,
 )
 from all2md.options.base import BaseParserOptions, BaseRendererOptions
-from all2md.options.common import AttachmentOptionsMixin, NetworkFetchOptions
+from all2md.options.common import AttachmentOptionsMixin, LocalFileAccessOptions, NetworkFetchOptions
 
 
 @dataclass(frozen=True)
@@ -88,6 +88,10 @@ class OdtRendererOptions(BaseRendererOptions):
         - "visible": Render as regular text paragraphs with attribution
         - "ignore": Skip comment nodes entirely
         This controls presentation of comments from ODT source files and other formats.
+    local_files : LocalFileAccessOptions, default LocalFileAccessOptions()
+        Policy for images the document references by local path. Off by default:
+        set ``local_files.allow_local_files=True`` (optionally with an allowlist)
+        to embed them. Relative paths resolve against the source document's folder.
 
     """
 
@@ -141,6 +145,15 @@ class OdtRendererOptions(BaseRendererOptions):
         metadata={
             "help": "Network security settings for remote image fetching",
             "cli_flatten": True,
+        },
+    )
+    local_files: LocalFileAccessOptions = field(
+        default_factory=LocalFileAccessOptions,
+        metadata={
+            "help": "Reading images the document points at on this machine's disk. Off by default, "
+            "because an untrusted document could otherwise copy local files into the output",
+            "cli_flatten": True,
+            "importance": "security",
         },
     )
     comment_mode: OdtCommentMode = field(

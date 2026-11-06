@@ -40,7 +40,7 @@ from all2md.ast import (
     Text,
     ThematicBreak,
 )
-from all2md.options import EpubRendererOptions, NetworkFetchOptions
+from all2md.options import EpubRendererOptions, LocalFileAccessOptions, NetworkFetchOptions
 
 if EBOOKLIB_AVAILABLE:
     from all2md.renderers.epub import EpubRenderer
@@ -504,7 +504,8 @@ class TestImageEmbedding:
             ]
         )
 
-        renderer = EpubRenderer()
+        # Local images are off by default; this document is trusted
+        renderer = EpubRenderer(EpubRendererOptions(local_files=LocalFileAccessOptions(allow_local_files=True)))
         output_file = tmp_path / "with_local_image.epub"
         renderer.render(doc, output_file)
 
@@ -536,7 +537,7 @@ class TestImageEmbedding:
             ]
         )
 
-        renderer = EpubRenderer()
+        renderer = EpubRenderer(EpubRendererOptions(local_files=LocalFileAccessOptions(allow_local_files=True)))
         output_file = tmp_path / "with_multiple_images.epub"
         renderer.render(doc, output_file)
 
@@ -765,7 +766,9 @@ class TestRemoteImageFetching:
                 )
 
                 network = NetworkFetchOptions(allow_remote_fetch=True)
-                options = EpubRendererOptions(network=network)
+                options = EpubRendererOptions(
+                    network=network, local_files=LocalFileAccessOptions(allow_local_files=True)
+                )
                 renderer = EpubRenderer(options)
                 output_file = tmp_path / "mixed_images.epub"
                 renderer.render(doc, output_file)

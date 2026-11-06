@@ -41,7 +41,7 @@ from all2md.ast import (
     Text,
     ThematicBreak,
 )
-from all2md.options import PptxRendererOptions
+from all2md.options import LocalFileAccessOptions, PptxRendererOptions
 
 if PPTX_AVAILABLE:
     from all2md.renderers.pptx import PptxRenderer
@@ -1551,7 +1551,7 @@ class TestFlowLayout:
                 img_node,
             ]
         )
-        renderer = PptxRenderer()
+        renderer = PptxRenderer(PptxRendererOptions(local_files=LocalFileAccessOptions(allow_local_files=True)))
         out = tmp_path / "t.pptx"
         renderer.render(doc, out)
 

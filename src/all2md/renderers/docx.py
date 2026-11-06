@@ -260,6 +260,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             If DOCX generation fails
 
         """
+        self._remember_source_dir(doc)
         from docx import Document
         from docx.enum.style import WD_STYLE_TYPE
         from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -350,6 +351,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             If DOCX generation fails
 
         """
+        self._remember_source_dir(doc)
         # Create a BytesIO buffer and render to it
         buffer = BytesIO()
         self.render(doc, buffer)
@@ -1830,6 +1832,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             return
         try:
             # Handle different image sources
+            image_file: str | IO[bytes] | None
             if node.url.startswith("data:"):
                 # Base64 encoded image
                 image_file = self._decode_base64_image(node.url)
@@ -1837,8 +1840,9 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 # Remote URL - use secure fetching if enabled
                 image_file = self._fetch_remote_image(node.url)
             else:
-                # Local file
-                image_file = node.url
+                # Local file: only under the local_files policy, which is off by default
+                local_image = self._read_local_image(node.url)
+                image_file = BytesIO(local_image.data) if local_image else None
 
             if image_file:
                 picture = self.document.add_paragraph().add_run().add_picture(image_file, width=self._Inches(4))
