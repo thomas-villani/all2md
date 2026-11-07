@@ -252,6 +252,75 @@ _SPLIT_NUMBER_MAX_INDENT = 120.0
 #: became a list starting at 2001, and no document numbers a list past 999.
 _ORDERED_MARKER = re.compile(r"^\s*(\d{1,3})[.)]\s")
 
+#: Glyphs that are only ever bullets. ``-`` and the dashes are not here: a wrapped line of
+#: prose can open with one ("- 12 patients in each -"), and ``_process_text_spans_to_inline``
+#: rewrites these to ``-`` too, so the test has to read the raw spans.
+_BULLET_GLYPHS = frozenset("•◦▪▫●")
+
+#: A bare integer is a hanging marker only with its period or parenthesis ("4." or "4)").
+#: Alone, "4" and "2023" are table cells and chart labels, which sit on one baseline with
+#: more numbers to their right exactly as a clause number sits beside its text.
+_BARE_INTEGER = re.compile(r"^\d+$")
+
+
+def _is_hanging_token(text: str) -> bool:
+    """Whether ``text`` alone is a list or clause marker: ``1.``, ``1.1``, ``(a)``, ``•``, ``o``."""
+    token = text.strip()
+    if not token or _BARE_INTEGER.match(token):
+        return False
+    return token == "o" or token in _BULLET_GLYPHS or parse_numbering_prefix(token) is not None
+
+
+def _hanging_marker_lines(lines: list[dict]) -> set[int]:
+    """Return the indices of a block's lines that open with a marker set off by a hanging indent.
+
+    A list item or a numbered clause is set with its marker at one position and its text at a
+    tab stop past it. That gap is what tells a marker from a line of prose that happens to open
+    with ``-`` or ``1.``, which is set with an ordinary space. Word draws it in one of two ways,
+    and both are read here:
+
+    - The marker is a line of its own and the text is the next line, on the same baseline and
+      to its right: ``1.1`` at x=72, then ``In this Agreement ...`` at x=108.
+    - The marker is a span of its own, followed by a space span, and the text span starts a tab
+      stop later: ``1.`` ending at 98.4, then the text at 108. A word space is a quarter of an
+      em; the stops measured on Word's output sit 0.6-0.75em past the space, so the bar is
+      0.3em.
+
+    Only the geometry is read, so this finds where a new paragraph starts, never whether it is
+    a list. A bibliography entry is a hanging number too, and making a list of one renumbers the
+    references from 1 (see :func:`_opening_line_text`).
+    """
+    hanging: set[int] = set()
+    for index, line in enumerate(lines):
+        spans = [span for span in line.get("spans", []) if span.get("text")]
+        if not spans:
+            continue
+        size = float(spans[0].get("size") or 0.0) or 10.0
+        text = "".join(span["text"] for span in spans)
+
+        if _is_hanging_token(text) and index + 1 < len(lines):
+            follower = lines[index + 1]
+            follower_text = "".join(span.get("text", "") for span in follower.get("spans", [])).lstrip()
+            same_baseline = abs(follower["bbox"][3] - line["bbox"][3]) <= max(1.0, 0.2 * size)
+            to_the_right = follower["bbox"][0] >= line["bbox"][2] - 0.5
+            # Text, not another number: a row of figures in a table or on a chart axis shares a
+            # baseline too.
+            opens_text = follower_text[:1].isalpha() or follower_text[:1] in "\"'“‘("
+            if same_baseline and to_the_right and opens_text:
+                hanging.add(index)
+            continue
+
+        if not _is_hanging_token(spans[0]["text"]):
+            continue
+        rest = spans[1:]
+        previous_end = spans[0]["bbox"][2]
+        while rest and not rest[0]["text"].strip():
+            previous_end = rest[0]["bbox"][2]
+            rest = rest[1:]
+        if rest and rest[0]["bbox"][0] - previous_end >= 0.3 * size:
+            hanging.add(index)
+    return hanging
+
 
 def _translate_text(nodes: list[Node], table: dict[int, str]) -> None:
     """Translate every Text node under ``nodes`` in place."""
@@ -413,6 +482,10 @@ def _consume_leading_chars(content: list[Node], count: int) -> tuple[list[Node],
     return out, remaining
 
 
+#: U+00AD, built from its code point so the source never holds an invisible character.
+_SOFT_HYPHEN = chr(0xAD)
+
+
 def _caption_comparison_key(text: str) -> str:
     """Reduce text to the glyphs both extraction routes agree on, for caption dedup.
 
@@ -422,9 +495,53 @@ def _caption_comparison_key(text: str) -> str:
     insert or keep *between* glyphs: ligature expansion ("ﬁrst" vs "first"),
     spacing split mid-word ("enrich ment"), and wrap hyphens kept by one route and
     consumed by the other ("knock- down" vs "knockdown"). NFKC plus dropping
-    whitespace and hyphens leaves what they agree on (#410).
+    whitespace and hyphens leaves what they agree on (#410). A soft hyphen is a wrap
+    hyphen too, and one route keeps it where the other drops it ("in" U+00AD "tensity"
+    vs "intensity"); NFKC leaves it in place, so it is dropped with the rest.
     """
-    return "".join(unicodedata.normalize("NFKC", text).replace("-", "").split())
+    return "".join(unicodedata.normalize("NFKC", text).replace("-", "").replace(_SOFT_HYPHEN, "").split())
+
+
+#: How much of a cut-off caption a body paragraph must open with before it is read as that
+#: caption's continuation, in caption-key characters (no spaces or hyphens). About five
+#: words: enough that two passages cannot share it by chance.
+_CAPTION_OVERLAP_MIN_CHARS = 30
+
+
+def _caption_overlap_start(bound: str, key: str) -> int | None:
+    """Where in caption key ``bound`` the paragraph keyed ``key`` begins, if it continues it.
+
+    The paragraph continues the caption when the caption's tail from some offset is the
+    paragraph's opening, at least ``_CAPTION_OVERLAP_MIN_CHARS`` long, and the paragraph
+    runs on past the caption's end.
+    """
+    probe = key[:_CAPTION_OVERLAP_MIN_CHARS]
+    if len(probe) < _CAPTION_OVERLAP_MIN_CHARS:
+        return None
+    start = bound.find(probe)
+    while start != -1:
+        tail = bound[start:]
+        if key.startswith(tail) and len(key) > len(tail):
+            return start
+        start = bound.find(probe, start + 1)
+    return None
+
+
+def _text_before_key_offset(text: str, offset: int) -> str | None:
+    """Return the part of ``text`` whose caption key is the first ``offset`` key characters.
+
+    Walks ``text`` one character at a time through the same reduction
+    :func:`_caption_comparison_key` applies. None when no character boundary lands exactly
+    on ``offset``, which can only happen inside a ligature NFKC expands.
+    """
+    consumed = 0
+    for index, char in enumerate(text):
+        if consumed == offset:
+            return text[:index].rstrip()
+        consumed += len(_caption_comparison_key(char))
+        if consumed > offset:
+            return None
+    return text.rstrip() if consumed == offset else None
 
 
 def _running_text_key(text: str) -> str:
@@ -701,6 +818,9 @@ class _BlockProcessingState:
     paragraph_bbox: tuple[float, float, float, float] | None = None
     paragraph_is_list: bool = False
     paragraph_list_type: str | None = None
+    # The paragraph opened on a marker set off by a hanging indent (_hanging_marker_lines).
+    # Carried to the paragraph's metadata so the merge keeps it apart from the one above.
+    paragraph_hangs: bool = False
     previous_y: float = 0.0
     pending_rotated_text: list[str] = field(default_factory=list)
     pending_rotated_key: str | None = None
@@ -729,6 +849,7 @@ class _BlockProcessingState:
         self.paragraph_bbox = None
         self.paragraph_is_list = False
         self.paragraph_list_type = None
+        self.paragraph_hangs = False
 
     def reset_code_block(self) -> None:
         """Reset code block state."""
@@ -2151,6 +2272,8 @@ class PdfToAstConverter(BaseParser):
                         key = _caption_comparison_key(text)
                         if any(key in bound for bound in bound_keys):
                             continue
+                        if self._complete_cut_caption(key, text, figure_plan, nodes):
+                            continue
                 kept.append(candidate)
             nodes = kept
 
@@ -2167,6 +2290,57 @@ class PdfToAstConverter(BaseParser):
                 nodes.extend(self._figure_nodes(item, page_num))
 
         return nodes
+
+    @staticmethod
+    def _complete_cut_caption(key: str, text: str, figure_plan: list[dict], nodes: list[Node]) -> bool:
+        """Give a figure the whole of a caption its search band cut short; True if it did.
+
+        ``detect_image_caption`` reads a caption from a band of ``PDF_CAPTION_BAND_HEIGHT``
+        under the figure, so a long caption arrives cut off mid-sentence, and the paragraph
+        that holds all of it is in the body with its opening words duplicated. When a body
+        paragraph *opens with* a bound caption, the paragraph is the caption: it moves onto
+        the figure and leaves the body.
+
+        A paragraph that opens *partway into* a caption is the other way round: the caption
+        ends with that paragraph's opening words. The band can stop inside the second
+        paragraph of a caption, or reach past the caption into the body text below it, and
+        the two look the same as text. So that paragraph is not moved onto the figure, which
+        put 200 words of body prose into a caption on the PMC dev corpus. The caption is
+        trimmed back to where the paragraph starts instead, and the paragraph stays where it
+        is. Either way every word is printed once. Returns False then, because the paragraph
+        is kept.
+
+        This used to be hidden. Every line was its own paragraph until the paragraph merge,
+        so the lines inside the band matched the caption and were dropped one at a time,
+        and the lines past it were left in the body as a stranded tail.
+        """
+        for item in figure_plan:
+            caption = item["caption"]
+            if not caption:
+                continue
+            bound = _caption_comparison_key(caption)
+            if len(bound) < PDF_CAPTION_DEDUP_MIN_CHARS or key == bound:
+                continue
+            if key.startswith(bound):
+                PdfToAstConverter._replace_caption(item, caption, " ".join(text.split()), nodes)
+                return True
+            # The overlap must be long, so a phrase the two happen to share cannot trim one.
+            start = _caption_overlap_start(bound, key)
+            if start is None:
+                continue
+            kept = _text_before_key_offset(caption, start)
+            if kept and len(_caption_comparison_key(kept)) >= PDF_CAPTION_DEDUP_MIN_CHARS:
+                PdfToAstConverter._replace_caption(item, caption, " ".join(kept.split()), nodes)
+            return False
+        return False
+
+    @staticmethod
+    def _replace_caption(item: dict, caption: str, replacement: str, nodes: list[Node]) -> None:
+        """Set a figure plan item's caption, and the caption of the figure already built from it."""
+        for node in nodes:
+            if isinstance(node, AstFigure) and node.caption == caption:
+                node.caption = replacement
+        item["caption"] = replacement
 
     def _figure_nodes(self, item: dict, page_num: int) -> list[Node]:
         """Render one figure plan item.
@@ -2729,6 +2903,7 @@ class PdfToAstConverter(BaseParser):
         paragraph_bbox: tuple[float, float, float, float] | None,
         paragraph_is_list: bool,
         paragraph_list_type: str | None,
+        paragraph_hangs: bool = False,
     ) -> dict:
         """Build metadata dict including bbox and list marker info.
 
@@ -2740,6 +2915,8 @@ class PdfToAstConverter(BaseParser):
             Whether paragraph is a list item
         paragraph_list_type : str or None
             Type of list marker
+        paragraph_hangs : bool, default False
+            Whether the paragraph opened on a marker set off by a hanging indent
 
         Returns
         -------
@@ -2753,6 +2930,8 @@ class PdfToAstConverter(BaseParser):
             metadata["list_type"] = paragraph_list_type
             if paragraph_bbox:
                 metadata["marker_x"] = paragraph_bbox[0]
+        if paragraph_hangs:
+            metadata["opens_hanging_marker"] = True
         return metadata
 
     def _flush_paragraph(
@@ -2763,6 +2942,7 @@ class PdfToAstConverter(BaseParser):
         paragraph_list_type: str | None,
         page_num: int,
         nodes: list[Node],
+        paragraph_hangs: bool = False,
     ) -> None:
         """Flush accumulated paragraph content to nodes list.
 
@@ -2780,10 +2960,14 @@ class PdfToAstConverter(BaseParser):
             Page number for source tracking
         nodes : list of Node
             Output nodes list to append to
+        paragraph_hangs : bool, default False
+            Whether the paragraph opened on a marker set off by a hanging indent
 
         """
         if paragraph_content:
-            metadata = self._build_paragraph_metadata(paragraph_bbox, paragraph_is_list, paragraph_list_type)
+            metadata = self._build_paragraph_metadata(
+                paragraph_bbox, paragraph_is_list, paragraph_list_type, paragraph_hangs
+            )
             source_loc = SourceLocation(format="pdf", page=page_num + 1, metadata=metadata)
             nodes.append(AstParagraph(content=paragraph_content, source_location=source_loc))
 
@@ -2805,6 +2989,7 @@ class PdfToAstConverter(BaseParser):
             state.paragraph_list_type,
             page_num,
             state.nodes,
+            state.paragraph_hangs,
         )
         state.reset_paragraph()
 
@@ -3159,8 +3344,13 @@ class PdfToAstConverter(BaseParser):
         page_num: int,
         average_line_height: float | None,
         in_equation_block: bool = False,
+        opens_hanging_marker: bool = False,
     ) -> None:
-        """Accumulate regular text line into paragraph state."""
+        """Accumulate regular text line into paragraph state.
+
+        ``opens_hanging_marker`` says the line opens with a marker set off by a hanging indent
+        (see :func:`_hanging_marker_lines`); such a line always starts a new paragraph.
+        """
         # Converted before the split test below rather than after it, because the conversion
         # is what turns a symbol-font bullet into a recognisable marker -- see
         # _leading_inline_text. The flush still has to happen before the empty-content
@@ -3182,8 +3372,20 @@ class PdfToAstConverter(BaseParser):
         # single item, because "2." is a span of its own and stops that reader dead.
         opens_with_marker = self._is_valid_list_marker(_opening_line_text(inline_content))[0]
         starts_new_item = state.paragraph_is_list and opens_with_marker
+        # Under prose, the marker has to show that it is one. Word sets a list item or a
+        # numbered clause on a hanging indent, and nothing else about it differs from the
+        # line above: clause 1.2 sits 2.3pt under the end of 1.1, ordinary leading. A bullet
+        # glyph is a marker wherever it stands. A dash or a number set with a plain space
+        # is not, because a wrapped line of prose can open with either.
+        #
+        # This used to happen by accident. The gap below was measured bottom to bottom, a
+        # whole line pitch, against half a line height, so every line ended a paragraph and
+        # `_merge_adjacent_paragraphs` glued them back; the paragraph-level list test there
+        # kept items apart. A paragraph boundary is now decided here, on purpose.
+        raw_text = "".join(span.get("text", "") for span in spans).lstrip()
+        starts_new_block = opens_hanging_marker or (opens_with_marker and raw_text[:1] in _BULLET_GLYPHS)
         breaks_paragraph = vertical_gap > paragraph_break_threshold and not state.paragraph_is_list
-        if state.paragraph_content and (starts_new_item or breaks_paragraph):
+        if state.paragraph_content and (starts_new_item or starts_new_block or breaks_paragraph):
             self._flush_state_paragraph(state, page_num)
 
         if not inline_content:
@@ -3198,6 +3400,7 @@ class PdfToAstConverter(BaseParser):
         else:
             # Starting new paragraph
             state.paragraph_bbox = line["bbox"]
+            state.paragraph_hangs = opens_hanging_marker
             state.paragraph_is_list, state.paragraph_list_type = self._is_valid_list_marker(
                 _leading_inline_text(inline_content)
             )
@@ -3262,7 +3465,8 @@ class PdfToAstConverter(BaseParser):
             state.paragraph_is_list = True
             state.paragraph_list_type = "unordered"
 
-        for line in block["lines"]:
+        hanging_lines = _hanging_marker_lines(block["lines"])
+        for line_index, line in enumerate(block["lines"]):
             # Handle rotated text (skip further processing if rotated)
             if self._handle_rotated_line(line, state, page_num):
                 continue
@@ -3271,8 +3475,15 @@ class PdfToAstConverter(BaseParser):
             if not spans:
                 continue
 
+            # The white space between this line and the one above it: its top less the
+            # previous line's bottom. This was the distance between the two bottoms, a whole
+            # line pitch, so it exceeded the half-line threshold on every line, every line
+            # ended a paragraph, and _merge_adjacent_paragraphs glued them back -- except
+            # where the leading happened to reach its 5pt bar, which split a paragraph after
+            # any line followed by 5.1pt instead of 4.9pt. A marker and its text on one
+            # baseline give a negative gap, which never breaks.
             this_y = line["bbox"][3]
-            vertical_gap = abs(this_y - state.previous_y) if state.previous_y > 0 else 0
+            vertical_gap = line["bbox"][1] - state.previous_y if state.previous_y > 0 else 0
             text = "".join([s["text"] for s in spans])
             state.previous_y = this_y
 
@@ -3306,6 +3517,7 @@ class PdfToAstConverter(BaseParser):
                 page_num,
                 average_line_height,
                 in_equation_block,
+                opens_hanging_marker=line_index in hanging_lines,
             )
 
         # Finalize remaining content
@@ -4528,6 +4740,11 @@ class PdfToAstConverter(BaseParser):
         # A list item never merges into what came before it: two items are two items,
         # and an item opening under a paragraph starts its own block.
         if current_is_list:
+            return False
+
+        # Nor does a paragraph that opened on a hanging marker: a numbered clause is set with
+        # the leading of a wrapped line, so the gap below cannot tell it from one.
+        if current_metadata and current_metadata.get("opens_hanging_marker"):
             return False
 
         # If bbox information is missing, don't merge to be safe -- and a continuation
