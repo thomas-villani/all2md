@@ -88,6 +88,24 @@ they run ``uvx all2md@<version> mcp``.
 
 The server will start and listen on stdio, ready to accept MCP requests from AI clients.
 
+Docker
+~~~~~~
+
+The repository's ``Dockerfile`` builds the server from the checkout with the locked
+dependency set (the ``mcp`` extra). The server's working directory inside the
+container is ``/workspace``, so mount the folder it should see there:
+
+.. code-block:: bash
+
+   docker build -t all2md-mcp .
+   docker run -i --rm -v "$PWD:/workspace" all2md-mcp
+
+   # Options and ALL2MD_MCP_* variables pass through as usual
+   docker run -i --rm -v "$PWD:/workspace" -e ALL2MD_MCP_ENABLE_FROM_MD=true all2md-mcp --no-search
+
+``-i`` is required: the server speaks MCP over stdin and stdout. The image is also what
+the `Glama <https://glama.ai/mcp/servers>`_ directory runs to inspect the server.
+
 Temporary Workspace
 ~~~~~~~~~~~~~~~~~~~
 
