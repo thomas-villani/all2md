@@ -1,4 +1,7 @@
 name: OmniDocBench PDF Fidelity Gate
+# A dispatch that does not gate says so in its title, so the release guard in ci.yml
+# can tell a real reading from a baseline recording.
+run-name: OmniDocBench PDF Fidelity Gate${{ inputs.record_baseline && ' [not a gate]' || '' }}
 
 # Runs independent 981-page PDF fidelity scoring against pinned external ground
 # truth. This is intentionally separate from per-PR and release workflows.
