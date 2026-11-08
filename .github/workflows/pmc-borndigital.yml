@@ -1,4 +1,7 @@
 name: PMC Born-Digital Fidelity
+# A dispatch that scores a subset or another layout mode says so in its title, so the
+# release guard in ci.yml can tell a reading of the lane's policy from an experiment.
+run-name: PMC Born-Digital Fidelity${{ (inputs.limit || inputs.layout_mode == 'disabled' || inputs.layout_mode == 'auto') && ' [not a gate]' || '' }}
 
 # Scores all2md against publisher PDFs with JATS ground truth, page by page. This is the
 # born-digital counterpart to the OmniDocBench lane: that corpus is 981 rasters, so it

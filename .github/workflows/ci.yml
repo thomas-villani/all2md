@@ -790,24 +790,33 @@ jobs:
           fi
 
       # The fidelity lanes are too slow for a PR, so they run on a schedule, and a tag
-      # could ship while the latest of them was red. A lane that has never run on a
-      # schedule (or was cancelled) does not block. PMC is reported but not enforced
-      # until its exit criterion -- two clean scheduled runs -- is met.
-      - name: Check the scheduled fidelity lanes
+      # could ship while the latest of them was red. The reading that counts is the
+      # newest finished run on main, scheduled or dispatched, so re-running a lane
+      # after a fix clears a stale scheduled failure instead of blocking until the next
+      # cron (v1.19.0 waited on a monthly lane). Runs on other branches, cancelled runs
+      # and dispatches titled "[not a gate]" (baseline recordings, PMC subsets or other
+      # layout modes) are not readings. A lane with no reading does not block. PMC is
+      # reported but not enforced until its exit criterion -- two clean scheduled
+      # runs -- is met.
+      - name: Check the fidelity lanes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           failed=0
           for lane in corpus-gate.yml docx-ledger.yml omnidocbench-gate.yml pmc-borndigital.yml; do
-            latest=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$lane" --event schedule \
-              --status completed --limit 1 --json conclusion,createdAt,url \
-              --jq '.[0] // {} | "\(.conclusion // "none") \(.createdAt // "-") \(.url // "-")"')
+            latest=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$lane" --branch main \
+              --status completed --limit 50 --json conclusion,createdAt,event,displayTitle,headSha,url \
+              --jq '[.[] | select(.event == "schedule" or .event == "workflow_dispatch")
+                         | select(.conclusion == "success" or .conclusion == "failure")
+                         | select(.displayTitle | contains("[not a gate]") | not)]
+                    | sort_by(.createdAt) | last // {}
+                    | "\(.conclusion // "none") \(.event // "-") \(.createdAt // "-") \(.headSha // "-" | .[0:8]) \(.url // "-")"')
             echo "$lane: $latest"
             if [ "${latest%% *}" = "failure" ]; then
               if [ "$lane" = "pmc-borndigital.yml" ]; then
-                echo "::warning::$lane: latest scheduled run failed (advisory until its exit criterion is met)"
+                echo "::warning::$lane: latest run on main failed (advisory until its exit criterion is met)"
               else
-                echo "::error::$lane: latest scheduled run failed; fix or re-run it before releasing"
+                echo "::error::$lane: latest run on main failed; fix it, then dispatch the lane on main before releasing"
                 failed=1
               fi
             fi

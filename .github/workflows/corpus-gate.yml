@@ -1,4 +1,7 @@
 name: Corpus Fidelity Gate
+# A dispatch that does not gate says so in its title, so the release guard in ci.yml
+# can tell a real reading from a baseline recording.
+run-name: Corpus Fidelity Gate${{ inputs.record_baseline && ' [not a gate]' || '' }}
 
 # Converts ~100 real-world documents and fails if any of them starts or stops
 # failing without that being recorded. See benchmarks/corpus/gate.py for what is
