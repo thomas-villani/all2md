@@ -125,3 +125,40 @@ class TestTokenChunker:
         chunks = TokenChunker(max_tokens=32, overlap=4, counter=counter).chunk(text)
         assert chunks
         assert all(c.tokens <= 32 for c in chunks)
+
+
+@pytest.mark.skipif(not tiktoken_available(), reason="tiktoken not installed")
+class TestPackingToTheBudgetDoesNotOvershoot:
+    """A chunk packed to exactly ``max_tokens`` stays within it under a BPE counter (#686).
+
+    The packing loops summed each unit's own count, but the chunk is the span between units,
+    separators included; ``TokenChunker`` re-encoded a re-sliced span, which BPE does not
+    round-trip at a cut. Either came out a token over, and CharChunker then cut the chunk
+    mid-word, leaving a fragment behind.
+    """
+
+    @staticmethod
+    def _text() -> str:
+        import random
+
+        rng = random.Random(0)
+        words = "the quick brown fox jumps over a lazy dog's back, 1,234.5 times; naïve café co-operation e.g. U.S.A. --- 🙂".split()
+        paragraphs = (" ".join(rng.choice(words) for _ in range(rng.randint(20, 90))) + "." for _ in range(150))
+        return "\n\n".join(paragraphs)
+
+    @pytest.mark.parametrize("method", ["tokens", "sentences", "paragraphs", "lines", "sections"])
+    def test_no_chunk_needs_the_char_fallback(self, method: str, caplog: pytest.LogCaptureFixture) -> None:
+        counter = get_counter("tiktoken")
+        with caplog.at_level("WARNING", logger="all2md.chunking.primitives"):
+            chunks = ChunkerFactory.create_chunker(method, 256, 0, counter=counter).chunk(self._text())
+        assert not [r for r in caplog.records if "exceeds max_tokens" in r.getMessage()]
+        assert all(chunk.tokens <= 256 for chunk in chunks)
+
+    def test_token_windows_leave_no_gap(self) -> None:
+        """A window shrunk to fit is followed by one starting where it ended."""
+        text = self._text()
+        chunks = ChunkerFactory.create_chunker("tokens", 256, 0, counter=get_counter("tiktoken")).chunk(text)
+        assert chunks[0].position.start == 0
+        assert chunks[-1].position.end == len(text)
+        for before, after in zip(chunks, chunks[1:], strict=False):
+            assert after.position.start <= before.position.end

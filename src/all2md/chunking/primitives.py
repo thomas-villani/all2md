@@ -119,6 +119,17 @@ class PositionTrackingChunker(ABC):
         )
         return TextChunk(content=content, position=position, tokens=self.count_tokens(content), index=index)
 
+    def _span_exceeds(self, text: str, start: int, end: int) -> bool:
+        """Report whether ``text[start:end]`` counts over the budget.
+
+        Packing loops ask this of the whole candidate span, not of a running sum of each
+        unit's own count: the chunk emitted is the span, separators included, and with a
+        BPE counter the blank line between two paragraphs costs a token of its own. A sum
+        packed exactly to the budget came out one over and was re-split by CharChunker
+        mid-sentence (#686).
+        """
+        return self.count_tokens(text[start:end]) > self.max_tokens
+
     def _ensure_chunks_within_limit(self, chunks: list[TextChunk], text: str) -> list[TextChunk]:
         """Split any oversized chunk with :class:`CharChunker`, then renumber."""
         result: list[TextChunk] = []
@@ -182,7 +193,6 @@ class SentenceChunker(PositionTrackingChunker):
 
         while i < len(sentences):
             chunk_sentences: list[tuple[int, int, str]] = []
-            chunk_tokens = 0
             start_idx = i
 
             while i < len(sentences):
@@ -196,11 +206,10 @@ class SentenceChunker(PositionTrackingChunker):
                     i += 1
                     break
 
-                if chunk_tokens + sentence_tokens > self.max_tokens and chunk_sentences:
+                if chunk_sentences and self._span_exceeds(text, chunk_sentences[0][0], sentence_end):
                     break
 
                 chunk_sentences.append((sentence_start, sentence_end, sentence_text))
-                chunk_tokens += sentence_tokens
                 i += 1
 
             if chunk_sentences:
@@ -293,17 +302,24 @@ class TokenChunker(PositionTrackingChunker):
 
         chunks: list[TextChunk] = []
         chunk_index = 0
-        stride = max(1, self.max_tokens - self.overlap)
-
-        for i in range(0, len(tokens), stride):
-            chunk_tokens = tokens[i : i + self.max_tokens]
-            chunk_text = self.encoding.decode(chunk_tokens)
+        i = 0
+        while i < len(tokens):
+            # A window of exactly max_tokens can count one or two over once its span is
+            # re-encoded on its own: BPE merges differently at a cut. Shrink the window
+            # until the span fits, rather than letting CharChunker cut it mid-word (#686).
+            size = min(self.max_tokens, len(tokens) - i)
             start_pos = self._estimate_position(text, tokens, i)
-            end_pos = min(start_pos + len(chunk_text), len(text))
+            while True:
+                chunk_text = self.encoding.decode(tokens[i : i + size])
+                end_pos = min(start_pos + len(chunk_text), len(text))
+                if size == 1 or self.count_tokens(text[start_pos:end_pos]) <= self.max_tokens:
+                    break
+                size -= 1
             chunks.append(self._create_chunk(text, start_pos, end_pos, chunk_index))
             chunk_index += 1
             if end_pos >= len(text):
                 break
+            i += max(1, size - self.overlap)
 
         return self._ensure_chunks_within_limit(chunks, text)
 
@@ -377,7 +393,6 @@ class LineChunker(PositionTrackingChunker):
         i = 0
         while i < len(line_positions):
             chunk_lines: list[tuple[int, int, str]] = []
-            chunk_tokens = 0
             start_idx = i
             while i < len(line_positions):
                 line_start, line_end, line_text = line_positions[i]
@@ -388,10 +403,9 @@ class LineChunker(PositionTrackingChunker):
                     chunk_index += len(word_chunks)
                     i += 1
                     break
-                if chunk_tokens + line_tokens > self.max_tokens and chunk_lines:
+                if chunk_lines and self._span_exceeds(text, chunk_lines[0][0], line_end):
                     break
                 chunk_lines.append((line_start, line_end, line_text))
-                chunk_tokens += line_tokens
                 i += 1
             if chunk_lines:
                 start_pos = chunk_lines[0][0]
@@ -469,7 +483,6 @@ class ParagraphChunker(PositionTrackingChunker):
         i = 0
         while i < len(paragraphs):
             chunk_paragraphs: list[tuple[int, int, str]] = []
-            chunk_tokens = 0
             start_idx = i
             while i < len(paragraphs):
                 para_start, para_end, para_text = paragraphs[i]
@@ -480,10 +493,9 @@ class ParagraphChunker(PositionTrackingChunker):
                     chunk_index += len(sentence_chunks)
                     i += 1
                     break
-                if chunk_tokens + para_tokens > self.max_tokens and chunk_paragraphs:
+                if chunk_paragraphs and self._span_exceeds(text, chunk_paragraphs[0][0], para_end):
                     break
                 chunk_paragraphs.append((para_start, para_end, para_text))
-                chunk_tokens += para_tokens
                 i += 1
             if chunk_paragraphs:
                 start_pos = chunk_paragraphs[0][0]
@@ -584,8 +596,7 @@ class SectionChunker(PositionTrackingChunker):
 
                 if chunk_end in header_positions:
                     next_header_pos = next((h.start() for h in headers if h.start() > chunk_end), len(text))
-                    section_text = text[chunk_end:next_header_pos]
-                    if chunk_tokens + self.count_tokens(section_text) <= self.max_tokens:
+                    if not self._span_exceeds(text, chunk_start, next_header_pos):
                         chunk_end = next_header_pos
                         chunk_tokens = self.count_tokens(text[chunk_start:chunk_end])
                     else:
