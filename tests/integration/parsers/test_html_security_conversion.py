@@ -376,8 +376,8 @@ class TestLinkSchemeSecurityIntegration:
         # XSS link should still be blocked
         assert "[XSS link]()" in result
 
-    def test_require_https_blocks_http_links(self):
-        """Test that require_https setting blocks HTTP links."""
+    def test_require_https_keeps_output_links(self):
+        """require_https governs fetching, so it leaves output links alone (#685)."""
         html_content = """
         <p>
             <a href="http://insecure.com">HTTP Link</a>
@@ -390,9 +390,9 @@ class TestLinkSchemeSecurityIntegration:
         options = HtmlOptions(network=NetworkFetchOptions(require_https=True))
         result = html_to_markdown(html_content, source_format="html", parser_options=options)
 
-        # HTTP and FTP should be blocked
-        assert "[HTTP Link]()" in result
-        assert "[FTP Link]()" in result
+        # A link in the output is not fetched, so require_https does not blank it
+        assert "[HTTP Link](http://insecure.com)" in result
+        assert "[FTP Link](ftp://files.com)" in result
 
         # HTTPS should be allowed
         assert "[HTTPS Link](https://secure.com)" in result
