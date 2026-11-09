@@ -2422,6 +2422,8 @@ class HtmlToAstConverter(BaseParser):
         javascript:, data:, vbscript:, and other dangerous URL schemes.
         Link scheme validation is performed regardless of the
         strip_dangerous_elements setting to ensure defense-in-depth.
+        ``network.require_https`` does not apply: links are written to the
+        output, not fetched, so ``http:`` and ``ftp:`` links are kept.
 
         Parameters
         ----------
@@ -2491,14 +2493,9 @@ class HtmlToAstConverter(BaseParser):
             )
             return ""
 
-        # If require_https is enabled, block non-https schemes (except mailto, tel, sms)
-        if self.options.network.require_https and scheme not in ("https", "mailto", "tel", "sms", ""):
-            logger.warning(
-                f"Blocked link with non-HTTPS scheme '{scheme}:' due to require_https setting "
-                f"(URL: {url[:100]}{'...' if len(url) > 100 else ''})"
-            )
-            return ""
-
+        # ``network.require_https`` is not applied here: it governs what the converter
+        # *fetches*, and a link written to the output fetches nothing. Applying it blanked
+        # every ``http:`` link on older pages (#685).
         return url
 
 
