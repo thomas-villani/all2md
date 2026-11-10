@@ -608,6 +608,64 @@ def _normalize_heading_for_dedup(text: str) -> str:
     return " ".join(text.lower().split())
 
 
+#: A heading's first word in lowercase letters only, the way a sentence's middle opens. A
+#: word with a capital or digit after its first letters is a name (``mRNA``, ``iPhone``) and
+#: is not caught.
+_LOWERCASE_OPENING = re.compile(r"[a-z][a-z'\u2019-]*\b(?![A-Z0-9])")
+
+#: How many words a heading ending in a full stop may have. Headings do not end in a full
+#: stop, but run-in labels and short ones (``Introduction.``, ``Methods and data.``) do; a
+#: full stop after eight or more words is a sentence. Of PMC's 1,235 section titles, the
+#: seven this catches are all supplementary-file captions (``An example of ...``).
+PROSE_HEADING_MIN_WORDS = 8
+
+
+def _reads_as_prose(text: str) -> bool:
+    """Report whether a finished heading's text is a line of prose or a number, not a heading.
+
+    Font size admits a heading, and a document can set prose at a heading size: a sidebar,
+    a pull quote, a second text face. Four things a heading never is, and each was checked
+    against PMC's 1,235 JATS section titles: it has a letter (none lacks one; table
+    figures, years and page numbers do); it does not stop at a comma, semicolon or hyphen
+    (none does; a wrapped sentence does); it does not open in the middle of a sentence
+    with a lowercase word (two do, both gene names; a label such as ``a.`` or ``iv.`` is
+    exempt); and it is not a sentence ending in a full stop (seven do, all
+    supplementary-file captions). The heading is judged whole, after its wrapped lines
+    were joined, because a wrap's second line can open lowercase (``... Issues for`` /
+    ``and Options``).
+    """
+    if not any(character.isalpha() for character in text):
+        return True
+    if text.endswith((",", ";", "-", "\u2013")):
+        return True
+    first = text.split(" ", 1)[0]
+    is_label = parse_numbering_prefix(first) is not None or (len(first) == 2 and first[1] in ".)")
+    if not is_label and _LOWERCASE_OPENING.match(text):
+        return True
+    return text.endswith(".") and len(re.findall(r"\w+", text)) >= PROSE_HEADING_MIN_WORDS
+
+
+def _demote_prose_headings(doc: Document) -> int:
+    """Convert headings whose text reads as prose or a bare number into paragraphs.
+
+    Returns
+    -------
+    int
+        The number of heading nodes demoted.
+
+    """
+    demoted = 0
+    for index, child in enumerate(doc.children):
+        if isinstance(child, Heading) and _reads_as_prose(_heading_text(child)):
+            doc.children[index] = AstParagraph(
+                content=child.content,
+                metadata=child.metadata.copy(),
+                source_location=child.source_location,
+            )
+            demoted += 1
+    return demoted
+
+
 def _demote_running_headings(doc: Document, total_pages: int) -> int:
     """Convert headings that recur on >50% of pages into paragraphs.
 
@@ -1469,9 +1527,9 @@ class PdfToAstConverter(BaseParser):
         # Demote headings that recur on more than half the document pages —
         # those are running titles or per-page form labels masquerading as
         # section headings, not real document structure.
-        headings_demoted = 0
+        headings_demoted = _demote_prose_headings(ast_doc)
         if self.options.dedup_running_headings and total_pages >= 3:
-            headings_demoted = _demote_running_headings(ast_doc, total_pages)
+            headings_demoted += _demote_running_headings(ast_doc, total_pages)
 
         self._record_pdf_quality_signals(ast_doc, total_pages, headings_demoted)
 

@@ -8440,11 +8440,11 @@ including page selection, image handling, and formatting preferences.
 
 **header_percentile_threshold**
 
-   Percentile threshold for header detection
+   Keep only header sizes in this percentile of distinct font sizes (0 = off)
 
    :Type: ``float``
    :CLI flag: ``--pdf-header-percentile-threshold``
-   :Default: ``75``
+   :Default: ``0``
    :Importance: advanced
 
 **header_min_occurrences**
@@ -8453,7 +8453,7 @@ including page selection, image handling, and formatting preferences.
 
    :Type: ``int``
    :CLI flag: ``--pdf-header-min-occurrences``
-   :Default: ``5``
+   :Default: ``3``
    :Importance: advanced
 
 **header_size_allowlist**

@@ -3977,14 +3977,16 @@ PDF Options
       all2md document.pdf --pdf-no-detect-columns
 
 ``--pdf-header-percentile-threshold``
-   Percentile threshold for header detection (e.g., 75 = top 25% of font sizes).
+   Keep only header sizes in this percentile of the document's distinct font sizes
+   (e.g., 75 = the top 25%). 0 turns the filter off. On a document with few font sizes,
+   such as a Word export, it keeps only the largest, so it is off by default.
 
-   **Default:** 75
+   **Default:** 0
 
    .. code-block:: bash
 
-      # Use stricter header detection (top 10% of font sizes)
-      all2md document.pdf --pdf-header-percentile-threshold 90
+      # Only treat the largest distinct font sizes as headers
+      all2md document.pdf --pdf-header-percentile-threshold 75
 
 ``--pdf-no-enable-table-fallback-detection``
    Disable heuristic fallback when PyMuPDF table detection fails.
