@@ -96,7 +96,9 @@ class PdfOptions(PaginatedParserOptions):
     header_size_denylist : list[float] | None, default None
         Font sizes to never treat as headers.
     header_use_font_weight : bool, default True
-        Consider bold/font weight when detecting headers.
+        Consider bold/font weight when detecting headers. This also makes a short
+        paragraph set all in bold at the body size a heading, the way contracts set
+        their section headings.
     header_use_all_caps : bool, default True
         Consider all-caps text as potential headers.
     header_font_size_ratio : float, default 1.05
@@ -290,7 +292,7 @@ class PdfOptions(PaginatedParserOptions):
     header_use_font_weight: bool = field(
         default=DEFAULT_HEADER_USE_FONT_WEIGHT,
         metadata={
-            "help": "Consider bold/font weight when detecting headers",
+            "help": "Consider bold/font weight when detecting headers, including bold titles at body size",
             "cli_name": "no-header-use-font-weight",  # default=True, use --no-*
             "importance": "advanced",
         },

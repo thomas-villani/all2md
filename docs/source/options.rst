@@ -8476,7 +8476,7 @@ including page selection, image handling, and formatting preferences.
 
 **header_use_font_weight**
 
-   Consider bold/font weight when detecting headers
+   Consider bold/font weight when detecting headers, including bold titles at body size
 
    :Type: ``bool``
    :CLI flag: ``--pdf-no-header-use-font-weight``
