@@ -15,6 +15,7 @@ import string
 from dataclasses import dataclass
 from typing import Any
 
+from all2md.constants import HEADER_MAX_TEXT_SHARE, HEADER_STYLE_FREE_RATIO
 from all2md.options.pdf import PdfOptions
 
 __all__ = ["IdentifyHeaders", "LineStyle", "SPACES", "compute_line_style"]
@@ -112,6 +113,7 @@ class IdentifyHeaders:
         body_limit = self._determine_body_limit(fontsizes, body_limit)
 
         # Step 5: Apply the minimum-occurrences filter to the header candidate pool.
+        size_totals = dict(fontsizes)
         fontsizes = self._apply_min_occurrences(fontsizes, fontsize_occurrences)
 
         # Step 6: Calculate header sizes based on font size analysis
@@ -119,6 +121,10 @@ class IdentifyHeaders:
 
         # Step 7: Add style-based headers (bold, all-caps)
         sizes = self._add_style_based_headers(sizes, fontweight_sizes, allcaps_sizes, body_limit, fontsizes)
+
+        # Step 7b: A size that sets a large share of the text is body text: only its bold
+        # lines can still be headings.
+        sizes = self._drop_body_share_sizes(sizes, size_totals, fontweight_sizes)
 
         # Step 8: Build the header level mapping
         self._build_header_mapping(sizes)
@@ -352,6 +358,58 @@ class IdentifyHeaders:
             if k == largest or fontsize_occurrences.get(k, 0) >= self.options.header_min_occurrences
         }
 
+    def _drop_body_share_sizes(
+        self,
+        sizes: list[int],
+        size_totals: dict[int, int],
+        fontweight_sizes: dict[int, int],
+    ) -> list[int]:
+        """Stop a size that sets a large share of the text from being a heading size by size alone.
+
+        Body text is chosen as the size with the most characters, and a document can set
+        two sizes in near-equal amounts: an article whose references and tables are set at
+        7pt and whose prose is set at 9pt picks 7pt by a few thousand characters, and its
+        prose then clears every size test above "body". Headings are a sliver of any
+        document -- the largest share any heading size takes on the PDF to Word lane is
+        12%, on a one-page form -- while a misread body size sets 40% or more.
+
+        Such a size is text, but its bold lines can still be headings: a journal setting
+        its abstract and its section headings both at 10pt, the headings in bold, lost
+        every section heading when the size was dropped outright. So a size over
+        ``HEADER_MAX_TEXT_SHARE`` stays a heading size for its bold lines only, and is
+        dropped when it has no bold text. All caps is not enough here: at a text size it
+        is acronyms and gene names, not headings.
+
+        Parameters
+        ----------
+        sizes : list[int]
+            Header sizes admitted so far
+        size_totals : dict[int, int]
+            Character count per size, before any header filter
+        fontweight_sizes : dict[int, int]
+            Bold character count per size
+
+        Returns
+        -------
+        list[int]
+            ``sizes`` without the text sizes that have no bold text
+
+        """
+        total = sum(size_totals.values())
+        if not total:
+            return sizes
+        kept = []
+        for size in sizes:
+            if size_totals.get(size, 0) / total <= HEADER_MAX_TEXT_SHARE:
+                kept.append(size)
+                continue
+            if not (self.options.header_use_font_weight and fontweight_sizes.get(size, 0) > 0):
+                continue
+            self.bold_header_sizes.add(size)
+            self.allcaps_header_sizes.discard(size)
+            kept.append(size)
+        return kept
+
     @staticmethod
     def _determine_body_limit(fontsizes: dict[int, int], body_limit: float | None) -> float:
         """Determine the body text font size.
@@ -489,7 +547,7 @@ class IdentifyHeaders:
         # likely shared between body labels and bold subheadings, so we
         # demand a style hint to disambiguate. Sizes well above body
         # (>=1.2x) are confidently heading-like and qualify on size alone.
-        ambiguous_size_ceiling = body_limit * 1.2
+        ambiguous_size_ceiling = body_limit * HEADER_STYLE_FREE_RATIO
 
         if self.options.header_use_font_weight:
             # Case 1: size only passes via bold

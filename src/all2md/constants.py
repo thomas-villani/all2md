@@ -758,14 +758,27 @@ DANGEROUS_REGEX_PATTERNS = [
 # Version requirements: PDF_MIN_PYMUPDF_VERSION is defined with DEPS_PDF above.
 
 # Header detection
-DEFAULT_HEADER_MIN_OCCURRENCES = 5  # Increased from 3 to reduce false positives
+# Lines a font size needs before it can be a heading size. Three, not five: a short report or
+# contract has three or four sections, and five kept every section heading of the PDF to Word
+# lane's documents out. The largest size is exempt (a title renders once).
+DEFAULT_HEADER_MIN_OCCURRENCES = 3
 DEFAULT_HEADER_USE_FONT_WEIGHT = True
 DEFAULT_HEADER_USE_ALL_CAPS = True
-DEFAULT_HEADER_PERCENTILE_THRESHOLD = 75  # Top 25% of font sizes considered headers
+# Off by default. The filter ranks a document's *distinct* sizes, so on a Word document with
+# three to five sizes it kept only the largest -- the title -- and dropped every section
+# heading (12 of 52 kept on the PDF to Word lane). The cases it was guarding against are
+# handled directly: HEADER_MAX_TEXT_SHARE (a misread body size) and the prose-heading check
+# in the PDF parser. Set a value (e.g. 75) to restore it.
+DEFAULT_HEADER_PERCENTILE_THRESHOLD = 0
 DEFAULT_HEADER_FONT_SIZE_RATIO = 1.05  # Minimum ratio between header and body text font size.
 # 1.05 catches the common publishing convention of body=11pt / header=12pt
 # (ratio ≈ 1.09). The previous 1.2 default missed the bottom rung of heading
 # sizes on documents that don't use a big jump for sections.
+# A font size that sets more than this share of a document's sampled characters is body
+# text, never a heading size, even when body detection picked a near-tied other size.
+HEADER_MAX_TEXT_SHARE = 0.25
+# Below this multiple of body size a heading size needs a style hint (bold or all caps).
+HEADER_STYLE_FREE_RATIO = 1.2
 DEFAULT_HEADER_MAX_LINE_LENGTH = 100  # Maximum character length for text to be considered a header
 DEFAULT_HEADER_DEBUG_OUTPUT = False  # Enable debug output for header detection analysis
 # Demote headings whose normalized text recurs on >50% of document pages,

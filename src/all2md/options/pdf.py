@@ -84,9 +84,11 @@ class PdfOptions(PaginatedParserOptions):
     # Header detection parameters
     header_sample_pages : int | list[int] | None, default None
         Pages to sample for header font size analysis. If None, samples all pages.
-    header_percentile_threshold : float, default 75
-        Percentile threshold for header detection (e.g., 75 = top 25% of font sizes).
-    header_min_occurrences : int, default 5
+    header_percentile_threshold : float, default 0
+        Keep only font sizes in this percentile of the document's distinct sizes as header
+        sizes (e.g., 75 = the top 25% of distinct sizes). 0 turns the filter off. On a
+        document with few sizes it keeps only the largest.
+    header_min_occurrences : int, default 3
         Minimum number of lines rendered at a font size for that size to be considered
         for headers.
     header_size_allowlist : list[float] | None, default None
@@ -97,7 +99,7 @@ class PdfOptions(PaginatedParserOptions):
         Consider bold/font weight when detecting headers.
     header_use_all_caps : bool, default True
         Consider all-caps text as potential headers.
-    header_font_size_ratio : float, default 1.2
+    header_font_size_ratio : float, default 1.05
         Minimum ratio between header and body text font size.
     header_max_line_length : int, default 100
         Maximum character length for text to be considered a header.
@@ -264,7 +266,11 @@ class PdfOptions(PaginatedParserOptions):
     )
     header_percentile_threshold: float = field(
         default=DEFAULT_HEADER_PERCENTILE_THRESHOLD,
-        metadata={"help": "Percentile threshold for header detection", "type": float, "importance": "advanced"},
+        metadata={
+            "help": "Keep only header sizes in this percentile of distinct font sizes (0 = off)",
+            "type": float,
+            "importance": "advanced",
+        },
     )
     header_min_occurrences: int = field(
         default=DEFAULT_HEADER_MIN_OCCURRENCES,
