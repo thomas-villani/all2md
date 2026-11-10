@@ -645,6 +645,116 @@ def _reads_as_prose(text: str) -> bool:
     return text.endswith(".") and len(re.findall(r"\w+", text)) >= PROSE_HEADING_MIN_WORDS
 
 
+#: How many printed lines a bold title may run to. A bold run longer than this is a bold
+#: paragraph (a disclaimer set in bold capitals), not a heading.
+BOLD_TITLE_MAX_LINES = 2
+
+#: How many words a bold title may have. Contract headings run to eight or nine words
+#: (``ARTICLE 6 - REPORTS AND ADDITIONAL OBLIGATIONS OF THE PARTIES``); a bold run of
+#: more is a sentence set in bold.
+BOLD_TITLE_MAX_WORDS = 12
+
+#: How many letters a bold title needs.
+BOLD_TITLE_MIN_LETTERS = 3
+
+#: Bold lines that label something rather than head a section: a figure or table caption's
+#: label ("Table 1"), a table-of-contents column ("Page", "(continued)") or entry (a dot
+#: leader), a running head that carries its page number ("Page 12 GAO-07-375 ...",
+#: "... Page 7 of 15"), and a table header cut at its wrap ("Country/").
+_BOLD_TITLE_NOT_A_HEADING = re.compile(
+    r"(?:(?:fig(?:ure)?|table)\.?\s*[A-Z]?\d+[A-Za-z]?\.?:?$|pages?$|\(.*\)$|.*/$"
+    r"|.*(?:\.\s?){4}|.*\u2026|page\s+\d+\b|.*\bpage\s+\d+(?:\s+of\s+\d+)?$)",
+    re.IGNORECASE,
+)
+
+#: Layout labels for text outside the body: a bold line in one of these is no bold title.
+_NOT_BODY_LAYOUT_LABELS = frozenset(
+    {"picture", "list-item", "page-header", "page-footer", "caption", "table", "footnote", "formula"}
+)
+
+#: Placeholder level for a bold title until the whole document's heading levels are known.
+_BOLD_TITLE_PENDING_LEVEL = 6
+
+
+def _line_is_bold(spans: list[dict]) -> bool:
+    """Report whether every visible character on a line is set bold."""
+    visible = [span for span in spans if span.get("text", "").strip()]
+    return bool(visible) and all(span.get("flags", 0) & 16 for span in visible)
+
+
+def _ends_sentence(content: list[Node]) -> bool:
+    """Report whether accumulated paragraph content ends a sentence or introduces a list."""
+    text = extract_node_text(AstParagraph(content=content)).rstrip()
+    return text.endswith((".", ":", ";", "!", "?"))
+
+
+def _unwrap_strong(content: list[Node]) -> list[Node]:
+    """Return ``content`` without its Strong wrappers, through emphasis; a heading is bold already."""
+    unwrapped: list[Node] = []
+    for node in content:
+        if isinstance(node, Strong):
+            unwrapped.extend(_unwrap_strong(node.content))
+        elif isinstance(node, Emphasis):
+            unwrapped.append(replace(node, content=_unwrap_strong(node.content)))
+        else:
+            unwrapped.append(node)
+    return unwrapped
+
+
+def _bold_title_heading(paragraph: AstParagraph) -> Heading | None:
+    """Return the heading a paragraph marked as a bold title stands for, or None.
+
+    A contract sets its section headings in bold at the body size, so font size cannot
+    admit them (#688). The paragraph was cut at the change of weight when its lines were
+    read, and marked when it was all bold and at most ``BOLD_TITLE_MAX_LINES`` long; here
+    its words are judged: at most ``BOLD_TITLE_MAX_WORDS`` of them, and nothing
+    :func:`_reads_as_prose` rejects.
+    """
+    location = paragraph.source_location
+    if location is None or not (location.metadata or {}).get("bold_title"):
+        return None
+    text = " ".join(extract_node_text(paragraph).split())
+    if not text or len(re.findall(r"\w+", text)) > BOLD_TITLE_MAX_WORDS:
+        return None
+    # A heading names something in a word: a bare label ("a.") or a superscript ("TH")
+    # set bold on its own line does not.
+    if sum(character.isalpha() for character in text) < BOLD_TITLE_MIN_LETTERS:
+        return None
+    if _BOLD_TITLE_NOT_A_HEADING.match(text):
+        return None
+    # Labels set in a figure repeat ("E E E E", "miR-21 miR-21"); a heading's words do not.
+    words = text.lower().split()
+    if len(words) > 1 and len(set(words)) * 2 <= len(words):
+        return None
+    if text[:1] in _BULLET_GLYPHS or text.startswith(("- ", "\u2013 ", "\u2014 ")):
+        return None
+    if _reads_as_prose(text):
+        return None
+    content = _unwrap_strong(paragraph.content)
+    _strip_leading_whitespace_in_place(content)
+    return Heading(
+        level=_BOLD_TITLE_PENDING_LEVEL,
+        content=content,
+        metadata={"bold_title": True},
+        source_location=SourceLocation(format="pdf", page=location.page),
+    )
+
+
+def _settle_bold_title_levels(doc: Document) -> None:
+    """Rank bold titles one level below the deepest heading font size admitted.
+
+    A bold title is set at the body size, so it is the smallest heading a document has:
+    under a title alone it is a section (h2), under size-ranked sections a subsection.
+    """
+    sized = [
+        child.level for child in doc.children if isinstance(child, Heading) and not child.metadata.get("bold_title")
+    ]
+    level = min(max(sized) + 1, 6) if sized else 2
+    for child in doc.children:
+        if isinstance(child, Heading) and child.metadata.get("bold_title"):
+            child.level = level
+
+
 def _demote_prose_headings(doc: Document) -> int:
     """Convert headings whose text reads as prose or a bare number into paragraphs.
 
@@ -879,6 +989,10 @@ class _BlockProcessingState:
     # The paragraph opened on a marker set off by a hanging indent (_hanging_marker_lines).
     # Carried to the paragraph's metadata so the merge keeps it apart from the one above.
     paragraph_hangs: bool = False
+    # Every line of the paragraph so far is set bold, and how many lines it has: a short
+    # all-bold paragraph is a bold title (see _bold_title_heading).
+    paragraph_all_bold: bool = False
+    paragraph_lines: int = 0
     previous_y: float = 0.0
     pending_rotated_text: list[str] = field(default_factory=list)
     pending_rotated_key: str | None = None
@@ -908,6 +1022,8 @@ class _BlockProcessingState:
         self.paragraph_is_list = False
         self.paragraph_list_type = None
         self.paragraph_hangs = False
+        self.paragraph_all_bold = False
+        self.paragraph_lines = 0
 
     def reset_code_block(self) -> None:
         """Reset code block state."""
@@ -1527,6 +1643,7 @@ class PdfToAstConverter(BaseParser):
         # Demote headings that recur on more than half the document pages —
         # those are running titles or per-page form labels masquerading as
         # section headings, not real document structure.
+        _settle_bold_title_levels(ast_doc)
         headings_demoted = _demote_prose_headings(ast_doc)
         if self.options.dedup_running_headings and total_pages >= 3:
             headings_demoted += _demote_running_headings(ast_doc, total_pages)
@@ -2338,6 +2455,7 @@ class PdfToAstConverter(BaseParser):
         # Post-processing
         nodes = self._merge_rotated_paragraphs(nodes)
         nodes = self._merge_adjacent_paragraphs(nodes)
+        nodes = [(_bold_title_heading(node) or node) if isinstance(node, AstParagraph) else node for node in nodes]
         nodes = self._convert_paragraphs_to_lists(nodes)
 
         # Figures the column pass could not place -- a page with no text columns at
@@ -2962,6 +3080,7 @@ class PdfToAstConverter(BaseParser):
         paragraph_is_list: bool,
         paragraph_list_type: str | None,
         paragraph_hangs: bool = False,
+        bold_title: bool = False,
     ) -> dict:
         """Build metadata dict including bbox and list marker info.
 
@@ -2975,6 +3094,8 @@ class PdfToAstConverter(BaseParser):
             Type of list marker
         paragraph_hangs : bool, default False
             Whether the paragraph opened on a marker set off by a hanging indent
+        bold_title : bool, default False
+            Whether the paragraph is short and set all in bold (see :func:`_bold_title_heading`)
 
         Returns
         -------
@@ -2990,6 +3111,8 @@ class PdfToAstConverter(BaseParser):
                 metadata["marker_x"] = paragraph_bbox[0]
         if paragraph_hangs:
             metadata["opens_hanging_marker"] = True
+        if bold_title:
+            metadata["bold_title"] = True
         return metadata
 
     def _flush_paragraph(
@@ -3001,6 +3124,7 @@ class PdfToAstConverter(BaseParser):
         page_num: int,
         nodes: list[Node],
         paragraph_hangs: bool = False,
+        bold_title: bool = False,
     ) -> None:
         """Flush accumulated paragraph content to nodes list.
 
@@ -3020,11 +3144,13 @@ class PdfToAstConverter(BaseParser):
             Output nodes list to append to
         paragraph_hangs : bool, default False
             Whether the paragraph opened on a marker set off by a hanging indent
+        bold_title : bool, default False
+            Whether the paragraph is short and set all in bold (see :func:`_bold_title_heading`)
 
         """
         if paragraph_content:
             metadata = self._build_paragraph_metadata(
-                paragraph_bbox, paragraph_is_list, paragraph_list_type, paragraph_hangs
+                paragraph_bbox, paragraph_is_list, paragraph_list_type, paragraph_hangs, bold_title
             )
             source_loc = SourceLocation(format="pdf", page=page_num + 1, metadata=metadata)
             nodes.append(AstParagraph(content=paragraph_content, source_location=source_loc))
@@ -3048,6 +3174,11 @@ class PdfToAstConverter(BaseParser):
             page_num,
             state.nodes,
             state.paragraph_hangs,
+            bold_title=(
+                self.options.header_use_font_weight
+                and state.paragraph_all_bold
+                and state.paragraph_lines <= BOLD_TITLE_MAX_LINES
+            ),
         )
         state.reset_paragraph()
 
@@ -3403,6 +3534,7 @@ class PdfToAstConverter(BaseParser):
         average_line_height: float | None,
         in_equation_block: bool = False,
         opens_hanging_marker: bool = False,
+        layout_label: str | None = None,
     ) -> None:
         """Accumulate regular text line into paragraph state.
 
@@ -3443,7 +3575,19 @@ class PdfToAstConverter(BaseParser):
         raw_text = "".join(span.get("text", "") for span in spans).lstrip()
         starts_new_block = opens_hanging_marker or (opens_with_marker and raw_text[:1] in _BULLET_GLYPHS)
         breaks_paragraph = vertical_gap > paragraph_break_threshold and not state.paragraph_is_list
-        if state.paragraph_content and (starts_new_item or starts_new_block or breaks_paragraph):
+        # A bold title set at the body size sits as close to its text as one line of a
+        # paragraph to the next, so only the change of weight shows where it ends: an all-bold
+        # run followed by a line that is not, or a bold line after a sentence ends.
+        # Where the layout model placed the line outside the body text (inside a figure, in
+        # a list, in the page's running head) its weight says nothing about sections.
+        line_bold = _line_is_bold(spans) and layout_label not in _NOT_BODY_LAYOUT_LABELS
+        changes_weight = False
+        if state.paragraph_content and self.options.header_use_font_weight:
+            if state.paragraph_all_bold:
+                changes_weight = not line_bold
+            else:
+                changes_weight = line_bold and _ends_sentence(state.paragraph_content)
+        if state.paragraph_content and (starts_new_item or starts_new_block or breaks_paragraph or changes_weight):
             self._flush_state_paragraph(state, page_num)
 
         if not inline_content:
@@ -3462,7 +3606,10 @@ class PdfToAstConverter(BaseParser):
             state.paragraph_is_list, state.paragraph_list_type = self._is_valid_list_marker(
                 _leading_inline_text(inline_content)
             )
+            state.paragraph_all_bold = line_bold
 
+        state.paragraph_all_bold = state.paragraph_all_bold and line_bold
+        state.paragraph_lines += 1
         state.paragraph_content.extend(inline_content)
 
         # Expand bbox to include this line
@@ -3576,6 +3723,7 @@ class PdfToAstConverter(BaseParser):
                 average_line_height,
                 in_equation_block,
                 opens_hanging_marker=line_index in hanging_lines,
+                layout_label=line_label,
             )
 
         # Finalize remaining content
@@ -4803,6 +4951,13 @@ class PdfToAstConverter(BaseParser):
         # Nor does a paragraph that opened on a hanging marker: a numbered clause is set with
         # the leading of a wrapped line, so the gap below cannot tell it from one.
         if current_metadata and current_metadata.get("opens_hanging_marker"):
+            return False
+
+        # A bold title stands apart from the text below it however close it is set: the
+        # change of weight is what ended it (see _bold_title_heading).
+        if bool(current_metadata and current_metadata.get("bold_title")) != bool(
+            last_metadata and last_metadata.get("bold_title")
+        ):
             return False
 
         # If bbox information is missing, don't merge to be safe -- and a continuation
