@@ -160,3 +160,113 @@ class TestBoldThatIsNotATitle:
         ]
         blocks = _blocks(_pdf(tmp_path, lines))
         assert [kind for kind, _ in blocks] == ["Paragraph"]
+
+
+def _mixed_pdf(tmp_path: Path, lines: list[list[tuple[str, bool]]], fontsize: float = 11.0) -> str:
+    """A one-page PDF whose lines are runs of ``(text, bold)`` set one after another."""
+    pymupdf = pytest.importorskip("pymupdf")
+    doc = pymupdf.open()
+    page = doc.new_page(width=612, height=792)
+    regular, bold = pymupdf.Font("helv"), pymupdf.Font("hebo")
+    writer = pymupdf.TextWriter(page.rect)
+    y = 60.0
+    for runs in lines:
+        x = 72.0
+        for text, is_bold in runs:
+            font = bold if is_bold else regular
+            writer.append((x, y), text, font=font, fontsize=fontsize)
+            x += font.text_length(text, fontsize=fontsize)
+        y += PITCH
+    writer.write_text(page)
+    path = tmp_path / "run_in.pdf"
+    doc.save(str(path))
+    doc.close()
+    return str(path)
+
+
+REST = [("losses, claims and damages arising out of a breach of this Agreement.", False)]
+
+
+def _clause(*head: tuple[str, bool]) -> list[list[tuple[str, bool]]]:
+    return [[*head, ("The Company shall indemnify the Purchaser from any and all", False)], REST]
+
+
+class TestARunInTitleIsSplitFromItsText:
+    @pytest.mark.parametrize(
+        ("head", "title"),
+        [
+            ([("5. Indemnification.", True), (" ", False)], "5. Indemnification"),
+            ([("Section 5. Indemnification", True), (". ", False)], "Section 5. Indemnification"),
+            ([("8.1 ", False), ("Term", True), (". ", False)], "8.1 Term"),
+            ([("(b) ", False), ("Territory:", True), (" ", False)], "(b) Territory"),
+            ([("9.6 Expiration of Agreement", True), (" ", False)], "9.6 Expiration of Agreement"),
+            ([("1. GRANT OF RIGHTS. ", True)], "1. GRANT OF RIGHTS"),
+            ([("8.2 ", False), ("Notices", True), (".", False), (" ", False)], "8.2 Notices"),
+            ([("Section 6.2", True), (" ", False), ("Use of EDI", False)], None),
+        ],
+    )
+    def test_the_title_becomes_a_heading(self, tmp_path: Path, head: list[tuple[str, bool]], title: str | None) -> None:
+        blocks = _blocks(_mixed_pdf(tmp_path, _clause(*head)))
+        if title is None:
+            assert [kind for kind, _ in blocks] == ["Paragraph"]
+            return
+        assert blocks[0] == ("Heading", title)
+        assert blocks[1][0] == "Paragraph"
+        assert blocks[1][1].startswith("The Company shall") and blocks[1][1].endswith("this Agreement.")
+
+    def test_a_run_in_title_ranks_with_a_title_on_its_own_line(self, tmp_path: Path) -> None:
+        """One contract sets its clauses both ways; they are siblings, and neither keeps its stop."""
+        lines = [
+            [("3. COMPENSATION.", True)],
+            *BODY_RUNS,
+            *_clause(("4. TERM.", True), (" ", False)),
+        ]
+        parsed = to_ast(_mixed_pdf(tmp_path, lines), parser_options=PdfOptions(layout_analysis_mode="disabled"))
+        levels = [(extract_text(h), h.level) for h in parsed.children if isinstance(h, Heading)]
+        assert levels == [("3. COMPENSATION", 2), ("4. TERM", 2)]
+
+    def test_font_weight_off_turns_it_off(self, tmp_path: Path) -> None:
+        path = _mixed_pdf(tmp_path, _clause(("5. Indemnification.", True), (" ", False)))
+        assert _headings(path, header_use_font_weight=False) == []
+
+
+class TestABoldOpeningThatIsNoTitle:
+    @pytest.mark.parametrize(
+        "head",
+        [
+            [("“Affiliate”", True), (" means any person that", False)],
+            [("Note:", True), (" ", False)],
+            [("IN WITNESS WHEREOF,", True), (" ", False)],
+            [("THIS AGREEMENT", True), (" is made by and between", False)],
+            [("Licensee", True), (" shall pay ", False)],
+            [("Section 2.1", True), (" ", False)],
+            [("Table 2.", True), (" ", False)],
+            [("E", True), ("XCLUSIVE ", False)],
+            [("The parties agree as follows.", True), (" ", False)],
+            [("Received:", True), (" ", False)],
+            [("Conceptualization:", True), (" ", False)],
+            [("Figura 3.", True), (" ", False)],
+            [("Figure 2-1.", True), (" General recovery curve for beach habitats", False)],
+            [("McAlpine, J. F.", True), (" 1987. Manual of Nearctic Diptera", False)],
+        ],
+    )
+    def test_it_stays_one_paragraph(self, tmp_path: Path, head: list[tuple[str, bool]]) -> None:
+        blocks = _blocks(_mixed_pdf(tmp_path, _clause(*head)))
+        assert [kind for kind, _ in blocks] == ["Paragraph"]
+
+    def test_a_title_needs_text_after_it(self, tmp_path: Path) -> None:
+        lines = [*BODY_RUNS, [("Total:", True), (" $1,200", False)], *BODY_RUNS]
+        assert _headings(_mixed_pdf(tmp_path, lines)) == []
+
+
+BODY_RUNS = [[(text, bold)] for text, bold in BODY]
+
+
+def test_a_blank_line_above_a_title_leaves_it_a_title(tmp_path: Path) -> None:
+    """Word sets an empty paragraph as a lone no-break space in the regular weight."""
+    lines = [
+        [(" ", False)],
+        [("Product Development and Commercialization", True)],
+        *_clause(("2.1 Governance.", True), (" ", False)),
+    ]
+    assert _headings(_mixed_pdf(tmp_path, lines)) == ["Product Development and Commercialization", "2.1 Governance"]
