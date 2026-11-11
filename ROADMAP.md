@@ -180,9 +180,14 @@ Instruments, cheapest first. Each is a step; the first two are the batch's spine
    images, which a default install doesn't have. Word builds 13 scripted documents and exports
    them to PDF, so the source is the truth; ours and Word's importer are scored on it. This also
    covers instrument 4's structure half. The first reading (2026-11-04) kept the words and lost
-   the structure. **Next, in order:** clause and paragraph boundaries, ruled tables, page
-   headers and footers, footnotes, then page size, fonts and sizes. Then test reading PDF
-   structure tags, and a vision model for borderless tables, against this lane.
+   the structure. Done since, after v1.19.0: clause and paragraph boundaries (#683), and
+   headings, from documents with few font sizes (#691; the lane's headings 12 → 38 of 52)
+   to section titles set in bold at the body size (#692) and run in at the head of a
+   clause (#695), measured on 120 CUAD contracts as well (11 → 1,229 headings).
+   **Next, in order:** ruled tables, page headers and footers, footnotes, then page size,
+   fonts and sizes. Then test reading PDF structure tags, and a vision model for borderless
+   tables, against this lane. Smaller heading follow-ups: rank bold titles by numbering
+   depth (all share one level), titles set in capitals without bold (`ARTICLE I`).
 
 Known gaps to state before the first reading rather than discover after it:
 
@@ -329,10 +334,12 @@ oracle audit, the heading measure and the table diagnosis (v1.15.0).
   Arabic. Until a non-Latin corpus exists (M6Doc is the candidate), write cross-script
   tests rather than reading the benchmarks as coverage.
 - 🌱 **Heading recovery** — all three tools lose about a fifth of section headings to
-  prose. The triage on our side: 74 run-in headings at 0% recovery and 47 whose bold run
-  stops short of the heading text. #296 was closed at a 1.3% class; the heading measure
-  says 6.2%; reconcile the two and measure precision *first*, because every run-in gate
-  tried so far invented more headings than it recovered.
+  prose. The triage on our side found 74 run-in headings at 0% recovery and 47 whose bold
+  run stops short of the heading text. Bold titles at the body size (#692) and run-in
+  titles (#695) took the PMC development corpus's heading recall, layout analysis off,
+  from 23.4% to 41.5% with precision held (51.9% → 54.2%) and no heading lost, measured
+  precision first. What remains is mostly headings that differ from prose in nothing but
+  position, and front-matter labels the JATS truth does not count.
 - 🌱 **"Omni-flavor" viewer** — make `view` render the union of Markdown
   dialects. Verified gaps, each currently shown as literal text: raw HTML blocks escaped
   in the viewer (the HTML renderer's default is `escape` and `view` never overrides it;
