@@ -10,6 +10,7 @@ using ruling lines (horizontal and vertical lines that form table borders).
 
 from __future__ import annotations
 
+import itertools
 import re
 from typing import TYPE_CHECKING
 
@@ -902,6 +903,98 @@ def rebuild_cells_from_words(
             row_texts.append("\n".join(" ".join(parts) for _key, parts in sorted(lines.items())))
         rebuilt.append(row_texts)
     return rebuilt
+
+
+#: How wide a column may be and still be the strip a shaded cell's padding leaves. Word
+#: shades a cell twice, over the whole cell and again inset by its padding (5.4pt by
+#: default), and ``find_tables()`` takes both rectangles' edges as boundaries: the vendor
+#: form's 4x4 grid arrived as 4x8 and the annual report's 6x4 as 6x12, every other column
+#: an empty sliver. A real column is wider than any padding; an empty one this narrow is
+#: a strip or a spacer, and a spacer is not a column either.
+MAX_PHANTOM_COLUMN_WIDTH = 10.0
+
+#: A table's cells share one padding, so its strips share one width (5.0-5.4pt across the
+#: Word tables seen); slivers of mixed widths (5, 7.2 and 9.1pt) are a page laid out in a
+#: grid of boxes, which ``find_tables()`` reads as a table the empty-cell guard rejects, and
+#: folding them would let it through.
+PHANTOM_WIDTH_SPREAD = 1.0
+
+#: Fewest strips that make the pattern: a shaded cell leaves one on each side, and a
+#: single empty sliver is as likely a spacer in a layout grid.
+MIN_PHANTOM_COLUMNS = 2
+
+
+def collapse_phantom_columns(table: object, table_data: list[list[str | None]]) -> list[list[str | None]] | None:
+    """Return ``table_data`` with the padding strips of shaded cells folded away, or None.
+
+    A strip is a column at most ``MAX_PHANTOM_COLUMN_WIDTH`` wide in which every cell
+    that starts there is empty or runs past it: a row without shading draws one cell
+    across the whole printed column, strips and all, and its text arrives in the leftmost
+    strip. Each cell's text moves to the wide column it overlaps most; a wide column a
+    cell spans without holding its text stays ``None``, as ``extract()`` marks spans.
+    A row whose cells overlap (one cell read as both its full and its inset rectangle)
+    leaves the grid alone, since folding them would print the cell's words twice.
+
+    Read against the table's own cell geometry, so ``table_data`` must still have the
+    table's columns; a grid whose columns were rebuilt or extended is left alone. None
+    when the grid has no strips.
+    """
+    rows = getattr(table, "rows", None) or []
+    n_cols = max((len(getattr(row, "cells", None) or []) for row in rows), default=0)
+    if n_cols < 2 or len(rows) != len(table_data) or any(len(row) != n_cols for row in table_data):
+        return None
+    starts: list[float | None] = [None] * n_cols
+    right_edge = 0.0
+    for row in rows:
+        for col, cell in enumerate(row.cells):
+            if cell is not None:
+                starts[col] = cell[0] if starts[col] is None else min(starts[col], cell[0])
+                right_edge = max(right_edge, cell[2])
+    if any(start is None for start in starts):
+        return None
+    edges = [float(start) for start in starts if start is not None] + [right_edge]
+    narrow = []
+    for col in range(n_cols):
+        if edges[col + 1] - edges[col] > MAX_PHANTOM_COLUMN_WIDTH:
+            continue
+        cells = [(row.cells[col], data[col]) for row, data in zip(rows, table_data, strict=True)]
+        if all(
+            cell is None or not (text or "").strip() or cell[2] - cell[0] > MAX_PHANTOM_COLUMN_WIDTH
+            for cell, text in cells
+        ):
+            narrow.append(col)
+    wide = [col for col in range(n_cols) if col not in narrow]
+    if len(narrow) < MIN_PHANTOM_COLUMNS or len(wide) < 2:
+        return None
+    widths = [edges[col + 1] - edges[col] for col in narrow]
+    if max(widths) - min(widths) > PHANTOM_WIDTH_SPREAD:
+        return None  # one padding leaves strips of one width; mixed slivers are a layout grid
+    for row in rows:
+        spans = sorted((cell[0], cell[2]) for cell in row.cells if cell is not None)
+        if any(later[0] < earlier[1] - 0.5 for earlier, later in itertools.pairwise(spans)):
+            # Overlapping cells: the full and inset rectangles of one cell, each read on its
+            # own, and their texts cannot be folded together without doubling words.
+            return None
+    collapsed: list[list[str | None]] = []
+    for row, data in zip(rows, table_data, strict=True):
+        out: list[str | None] = [None] * len(wide)
+        covered = [False] * len(wide)
+        for col, cell in enumerate(row.cells):
+            if cell is None:
+                continue
+            overlaps = [min(cell[2], edges[w + 1]) - max(cell[0], edges[w]) for w in wide]
+            for index, overlap in enumerate(overlaps):
+                if overlap > 0:
+                    covered[index] = True
+            best = max(range(len(wide)), key=lambda index: overlaps[index])
+            text = data[col] or ""
+            if overlaps[best] <= 0:
+                if text.strip():
+                    return None  # text with no wide column to go to: not a padding strip
+                continue
+            out[best] = f"{out[best]} {text}".strip() if out[best] else text
+        collapsed.append([cell if cell is not None or covered[index] else "" for index, cell in enumerate(out)])
+    return collapsed
 
 
 def is_dot_leader_cell(text: str) -> bool:
