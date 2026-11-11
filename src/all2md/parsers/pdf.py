@@ -662,7 +662,7 @@ BOLD_TITLE_MIN_LETTERS = 3
 #: leader), a running head that carries its page number ("Page 12 GAO-07-375 ...",
 #: "... Page 7 of 15"), and a table header cut at its wrap ("Country/").
 _BOLD_TITLE_NOT_A_HEADING = re.compile(
-    r"(?:(?:fig(?:ure)?|table)\.?\s*[A-Z]?\d+[A-Za-z]?\.?:?$|pages?$|\(.*\)$|.*/$"
+    r"(?:(?:fig(?:ure|ura)?|tab(?:le|la))\.?\s*[A-Z]?\d+[A-Za-z]?\.?:?$|pages?$|\(.*\)$|.*/$"
     r"|.*(?:\.\s?){4}|.*\u2026|page\s+\d+\b|.*\bpage\s+\d+(?:\s+of\s+\d+)?$)",
     re.IGNORECASE,
 )
@@ -680,6 +680,14 @@ def _line_is_bold(spans: list[dict]) -> bool:
     """Report whether every visible character on a line is set bold."""
     visible = [span for span in spans if span.get("text", "").strip()]
     return bool(visible) and all(span.get("flags", 0) & 16 for span in visible)
+
+
+def _line_opens_bold(spans: list[dict]) -> bool:
+    """Report whether a line's first word is bold, after a numbering label in any weight."""
+    visible = [span for span in spans if span.get("text", "").strip()]
+    if visible and parse_numbering_prefix(visible[0].get("text", "")) is not None and len(visible) > 1:
+        visible = visible[1:]
+    return bool(visible) and bool(visible[0].get("flags", 0) & 16)
 
 
 def _ends_sentence(content: list[Node]) -> bool:
@@ -701,6 +709,183 @@ def _unwrap_strong(content: list[Node]) -> list[Node]:
     return unwrapped
 
 
+def _could_be_bold_title(text: str) -> bool:
+    """Report whether a bold run's text, whitespace collapsed, could be a section title.
+
+    At most ``BOLD_TITLE_MAX_WORDS`` words, at least ``BOLD_TITLE_MIN_LETTERS`` letters,
+    no caption or contents label, no repeated figure labels, no bullet, nothing
+    :func:`_reads_as_prose` rejects.
+    """
+    if not text or len(re.findall(r"\w+", text)) > BOLD_TITLE_MAX_WORDS:
+        return False
+    # A heading names something in a word: a bare label ("a.") or a superscript ("TH")
+    # set bold on its own line does not.
+    if sum(character.isalpha() for character in text) < BOLD_TITLE_MIN_LETTERS:
+        return False
+    if _BOLD_TITLE_NOT_A_HEADING.match(text):
+        return False
+    # Labels set in a figure repeat ("E E E E", "miR-21 miR-21"); a heading's words do not.
+    words = text.lower().split()
+    if len(words) > 1 and len(set(words)) * 2 <= len(words):
+        return False
+    if text[:1] in _BULLET_GLYPHS or text.startswith(("- ", "\u2013 ", "\u2014 ")):
+        return False
+    return not _reads_as_prose(text)
+
+
+#: A numbering label set in the regular weight before a bold run-in title: ``8.1``,
+#: ``(b)``, ``Section 5.``.
+_RUN_IN_NUMBER = re.compile(r"(?:(?:section|article|clause)\s+)?(\S+)", re.IGNORECASE)
+
+#: Bold labels that open a note, a letter, an attestation or a field of an article's
+#: front matter rather than a section: ``**Note:** The ...``, ``**Re:** ...``,
+#: ``**IN WITNESS WHEREOF,** ...``, ``**Received:** 3 May 2021``, ``**Citation:** Smith
+#: J ...``, and the CRediT contributor roles (``**Conceptualization:** A.B.``).
+_RUN_IN_NOT_A_TITLE = re.compile(
+    r"(?:notes?|nb|n[.]b|warning|caution|important|attention|example|tip|sources?|re|subject"
+    r"|date|to|from|cc|in witness (?:where|here)of|this agreement"
+    r"|received|revised|accepted|published(?: online)?|available online|citation|cite this article(?: as)?"
+    r"|(?:academic |handling )?editors?|reviewers?|copyright|license|correspondence|address for correspondence"
+    r"|corresponding authors?|e-?mail|key ?words|categories|abbreviations|source of support"
+    r"|conceptuali[sz]ation|methodology|software|validation|formal analysis|investigation|resources"
+    r"|data curation|writing.*|visuali[sz]ation|supervision|project administration|funding acquisition)$",
+    re.IGNORECASE,
+)
+
+#: Bold openings that are a caption's label (``**Figure 2-1.** General ...``) or a
+#: reference entry's author (``**McAlpine, J. F.** 1987. ...``), not a title.
+_RUN_IN_LABEL_OR_NAME = re.compile(r"(?i:fig(?:ure|ura)?|tab(?:le|la))[.]?\s*\d|.*,\s*(?:[A-Z][.]?\s*){1,3}$")
+
+#: How many words the text after a run-in title needs: a bold label before a figure
+#: (``**Total:** $``) is a table row or a form, not a section.
+RUN_IN_MIN_BODY_WORDS = 3
+
+#: Words that make a bold opening a sentence rather than a title: a title names its
+#: subject (``Term of Agreement``), a bold sentence asserts something about it
+#: (``The parties agree as follows.``).
+_RUN_IN_SENTENCE_WORDS = frozenset(
+    {"is", "are", "was", "were", "be", "shall", "will", "may", "must", "has", "have", "agree", "agrees", "does"}
+)
+
+_OPENING_QUOTES = frozenset((chr(0x22), chr(0x27), chr(0x201C), chr(0x2018)))
+_CLOSING_QUOTES = frozenset((chr(0x22), chr(0x27), chr(0x201D), chr(0x2019)))
+
+
+def _strip_trailing_terminator(nodes: list[Node]) -> None:
+    """Remove a trailing ``.`` or ``:`` (and whitespace) from the last text leaf of ``nodes``."""
+    for node in reversed(nodes):
+        if isinstance(node, Text):
+            stripped = node.content.rstrip()
+            if not stripped:
+                continue
+            node.content = stripped[:-1].rstrip() if stripped[-1] in ".:" else stripped
+            return
+        if isinstance(node, (Strong, Emphasis)):
+            _strip_trailing_terminator(node.content)
+        return
+
+
+def _split_run_in_heading(paragraph: AstParagraph) -> tuple[Heading, AstParagraph] | None:
+    """Split a paragraph that opens with a bold run-in title into the title and its text.
+
+    Contracts set a clause's title in bold at the head of its first line and run the text
+    on after it (``**5. Indemnification.** The Company shall ...``, ``8.1 **Term**. This
+    Agreement ...``), so no line is all bold and :func:`_bold_title_heading` never sees
+    it (#688). The paragraph opens, after an optional numbering label set in the regular
+    weight, with a bold run (an italic title may follow a bold number:
+    ``**Section 6.2** *Use of EDI*.``) that ends in ``.`` or ``:`` and is followed by a
+    sentence opening in a capital, a digit, a parenthesis or a quote. A bold run with no
+    stop counts only when it carries its own number (``**9.6 Expiration** Upon ...``).
+    The title must pass :func:`_could_be_bold_title`, and it is not a defined term
+    (quoted), a note's label (``**Note:**``) or a contract's attestation
+    (``**IN WITNESS WHEREOF,**``).
+    """
+    # Spans arrive as separate text runs ("4.1", a no-break space, the title) until the
+    # document's inline formatting is consolidated, after the page is read.
+    content: list[Node] = []
+    for node in paragraph.content:
+        if isinstance(node, Text) and content and isinstance(content[-1], Text):
+            content[-1] = Text(content=content[-1].content + node.content)
+        else:
+            content.append(node)
+
+    def text_at(position: int) -> str | None:
+        node = content[position] if position < len(content) else None
+        return node.content if isinstance(node, Text) else None
+
+    index = 0
+    while (leading := text_at(index)) is not None and not leading.strip():
+        index += 1
+    number: str | None = None
+    label = text_at(index)
+    if label is not None:
+        match = _RUN_IN_NUMBER.fullmatch(label.strip())
+        if match is None or not label[-1:].isspace() or parse_numbering_prefix(match.group(1)) is None:
+            return None
+        number = label.strip()
+        index += 1
+    head: list[Node] = []
+    while index < len(content):
+        node = content[index]
+        if isinstance(node, Strong) or (isinstance(node, Emphasis) and head):
+            head.append(node)
+        elif isinstance(node, Text) and not node.content.strip() and head:
+            head.append(node)
+        else:
+            break
+        index += 1
+    while head and isinstance(head[-1], Text):
+        head.pop()
+        index -= 1
+    if not any(isinstance(node, Strong) for node in head):
+        return None
+    after = text_at(index)
+    if after is None:
+        return None
+    head_raw = extract_node_text(AstParagraph(content=head))
+    head_text = " ".join(head_raw.split())
+    stops_inside = head_text.endswith((".", ":"))
+    if not stops_inside and after[:1] in ".:":
+        after = after[1:]
+    elif not stops_inside:
+        first = head_text.split(" ", 1)
+        if number is not None or len(first) < 2 or parse_numbering_prefix(first[0]) is None:
+            return None
+    # The space after the title may be set in either weight.
+    if not after[:1].isspace() and not (stops_inside and head_raw[-1:].isspace()):
+        return None
+    body = after.lstrip()
+    if not body or not (body[0].isupper() or body[0].isdigit() or body[0] == "(" or body[0] in _OPENING_QUOTES):
+        return None
+    rest = [Text(content=body), *content[index + 1 :]]
+    if len(extract_node_text(AstParagraph(content=rest)).split()) < RUN_IN_MIN_BODY_WORDS:
+        return None
+    title = head_text.rstrip(".:").rstrip()
+    if title[:1] in _OPENING_QUOTES or title[-1:] in _CLOSING_QUOTES:
+        return None
+    if _RUN_IN_LABEL_OR_NAME.match(title):
+        return None
+    if _RUN_IN_SENTENCE_WORDS.intersection(re.findall(r"[a-z]+", title.lower())) or _RUN_IN_NOT_A_TITLE.match(title):
+        return None
+    if not _could_be_bold_title(f"{number} {title}" if number else title):
+        return None
+    heading_content = _unwrap_strong(head)
+    _strip_trailing_terminator(heading_content)
+    _strip_leading_whitespace_in_place(heading_content)
+    # A stop set in its own italic run (``**Notices**_._``) leaves an empty wrapper behind.
+    heading_content = [node for node in heading_content if extract_node_text(node)]
+    if number:
+        heading_content.insert(0, Text(content=number + " "))
+    location = paragraph.source_location
+    heading = Heading(
+        level=_BOLD_TITLE_PENDING_LEVEL,
+        content=heading_content,
+        metadata={"bold_title": True, "run_in": True},
+        source_location=SourceLocation(format="pdf", page=location.page) if location else None,
+    )
+    return heading, replace(paragraph, content=rest)
+
+
 def _bold_title_heading(paragraph: AstParagraph) -> Heading | None:
     """Return the heading a paragraph marked as a bold title stands for, or None.
 
@@ -714,24 +899,13 @@ def _bold_title_heading(paragraph: AstParagraph) -> Heading | None:
     if location is None or not (location.metadata or {}).get("bold_title"):
         return None
     text = " ".join(extract_node_text(paragraph).split())
-    if not text or len(re.findall(r"\w+", text)) > BOLD_TITLE_MAX_WORDS:
-        return None
-    # A heading names something in a word: a bare label ("a.") or a superscript ("TH")
-    # set bold on its own line does not.
-    if sum(character.isalpha() for character in text) < BOLD_TITLE_MIN_LETTERS:
-        return None
-    if _BOLD_TITLE_NOT_A_HEADING.match(text):
-        return None
-    # Labels set in a figure repeat ("E E E E", "miR-21 miR-21"); a heading's words do not.
-    words = text.lower().split()
-    if len(words) > 1 and len(set(words)) * 2 <= len(words):
-        return None
-    if text[:1] in _BULLET_GLYPHS or text.startswith(("- ", "\u2013 ", "\u2014 ")):
-        return None
-    if _reads_as_prose(text):
+    if not _could_be_bold_title(text):
         return None
     content = _unwrap_strong(paragraph.content)
     _strip_leading_whitespace_in_place(content)
+    # A title that stops (``3. COMPENSATION.``, ``WITNESSETH:``) reads as one that does not:
+    # the heading's own line ends it.
+    _strip_trailing_terminator(content)
     return Heading(
         level=_BOLD_TITLE_PENDING_LEVEL,
         content=content,
@@ -750,6 +924,8 @@ def _settle_bold_title_levels(doc: Document) -> None:
         child.level for child in doc.children if isinstance(child, Heading) and not child.metadata.get("bold_title")
     ]
     level = min(max(sized) + 1, 6) if sized else 2
+    # A run-in title ranks with the titles set on their own line: one contract sets its
+    # clauses both ways (``3. COMPENSATION.`` on its own line, ``**2. TERM.** Unless ...``).
     for child in doc.children:
         if isinstance(child, Heading) and child.metadata.get("bold_title"):
             child.level = level
@@ -2455,7 +2631,7 @@ class PdfToAstConverter(BaseParser):
         # Post-processing
         nodes = self._merge_rotated_paragraphs(nodes)
         nodes = self._merge_adjacent_paragraphs(nodes)
-        nodes = [(_bold_title_heading(node) or node) if isinstance(node, AstParagraph) else node for node in nodes]
+        nodes = self._promote_bold_titles(nodes)
         nodes = self._convert_paragraphs_to_lists(nodes)
 
         # Figures the column pass could not place -- a page with no text columns at
@@ -3581,12 +3757,17 @@ class PdfToAstConverter(BaseParser):
         # Where the layout model placed the line outside the body text (inside a figure, in
         # a list, in the page's running head) its weight says nothing about sections.
         line_bold = _line_is_bold(spans) and layout_label not in _NOT_BODY_LAYOUT_LABELS
+        # A line of nothing but spaces (Word sets an empty paragraph as one no-break space,
+        # in the regular weight) has no weight to change to.
+        blank = not raw_text.strip()
         changes_weight = False
-        if state.paragraph_content and self.options.header_use_font_weight:
+        if state.paragraph_content and self.options.header_use_font_weight and not blank:
             if state.paragraph_all_bold:
                 changes_weight = not line_bold
             else:
-                changes_weight = line_bold and _ends_sentence(state.paragraph_content)
+                # A run-in title (``**(c) Products.** The ...``) opens its line in bold.
+                opens_bold = _line_opens_bold(spans) and layout_label not in _NOT_BODY_LAYOUT_LABELS
+                changes_weight = (line_bold or opens_bold) and _ends_sentence(state.paragraph_content)
         if state.paragraph_content and (starts_new_item or starts_new_block or breaks_paragraph or changes_weight):
             self._flush_state_paragraph(state, page_num)
 
@@ -3606,10 +3787,10 @@ class PdfToAstConverter(BaseParser):
             state.paragraph_is_list, state.paragraph_list_type = self._is_valid_list_marker(
                 _leading_inline_text(inline_content)
             )
-            state.paragraph_all_bold = line_bold
+            state.paragraph_all_bold = line_bold or blank
 
-        state.paragraph_all_bold = state.paragraph_all_bold and line_bold
-        state.paragraph_lines += 1
+        state.paragraph_all_bold = state.paragraph_all_bold and (line_bold or blank)
+        state.paragraph_lines += 0 if blank else 1
         state.paragraph_content.extend(inline_content)
 
         # Expand bbox to include this line
@@ -5041,6 +5222,23 @@ class PdfToAstConverter(BaseParser):
                 merged.append(node)
         flush()
         return merged
+
+    def _promote_bold_titles(self, nodes: list[Node]) -> list[Node]:
+        """Turn bold titles into headings and split run-in titles from their text (#688)."""
+        if not self.options.header_use_font_weight:
+            return nodes
+        promoted: list[Node] = []
+        for node in nodes:
+            if not isinstance(node, AstParagraph):
+                promoted.append(node)
+                continue
+            heading = _bold_title_heading(node)
+            if heading is not None:
+                promoted.append(heading)
+                continue
+            split = _split_run_in_heading(node)
+            promoted.extend(split if split is not None else (node,))
+        return promoted
 
     def _merge_adjacent_paragraphs(self, nodes: list[Node]) -> list[Node]:
         """Merge consecutive paragraph nodes that should be combined.
