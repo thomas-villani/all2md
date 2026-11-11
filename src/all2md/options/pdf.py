@@ -33,6 +33,7 @@ from all2md.constants import (
     DEFAULT_IMAGE_QUALITY,
     DEFAULT_INCLUDE_IMAGE_CAPTIONS,
     DEFAULT_INCLUDE_PAGE_NUMBERS,
+    DEFAULT_JOIN_SPLIT_TABLES,
     DEFAULT_LAYOUT_ANALYSIS_MODE,
     DEFAULT_LAYOUT_FEATURE_SET,
     DEFAULT_LAYOUT_IOU_THRESHOLD,
@@ -140,6 +141,11 @@ class PdfOptions(PaginatedParserOptions):
         Use heuristic fallback if PyMuPDF table detection fails.
     detect_merged_cells : bool, default True
         Attempt to identify merged cells in tables.
+    join_split_tables : bool, default True
+        Join a table that a page break split in two: the last block of one page and the
+        first block of the next are tables with the same columns at the same edges, with
+        only margin text between them. A header row repeated at the top of the next page
+        is dropped, and the margin text moves after the joined table.
     table_ruling_line_threshold : float, default 0.5
         Threshold for detecting table ruling lines (0.0-1.0, ratio of line length to page size).
     table_fallback_extraction_mode : str, default "grid"
@@ -418,6 +424,14 @@ class PdfOptions(PaginatedParserOptions):
         metadata={
             "help": "Attempt to identify merged cells in tables",
             "cli_name": "no-detect-merged-cells",  # default=True, use --no-*
+            "importance": "advanced",
+        },
+    )
+    join_split_tables: bool = field(
+        default=DEFAULT_JOIN_SPLIT_TABLES,
+        metadata={
+            "help": "Join a table split across a page break, dropping its repeated header row",
+            "cli_name": "no-join-split-tables",  # default=True, use --no-*
             "importance": "advanced",
         },
     )

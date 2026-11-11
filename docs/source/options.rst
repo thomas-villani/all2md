@@ -8619,6 +8619,15 @@ including page selection, image handling, and formatting preferences.
    :Default: ``True``
    :Importance: advanced
 
+**join_split_tables**
+
+   Join a table split across a page break, dropping its repeated header row
+
+   :Type: ``bool``
+   :CLI flag: ``--pdf-no-join-split-tables``
+   :Default: ``True``
+   :Importance: advanced
+
 **table_ruling_line_threshold**
 
    Threshold for detecting table ruling lines (0.0-1.0)
