@@ -119,6 +119,7 @@ from all2md.parsers._pdf_tables import (
     adjacent_clipped_column,
     bbox_clipped_rows,
     boundaries_to_dissolve,
+    collapse_phantom_columns,
     contradicted_column_boundaries,
     detect_tables_by_ruling_lines,
     extract_loss_share,
@@ -4150,6 +4151,16 @@ class PdfToAstConverter(BaseParser):
                     )
                     table_data = rebuilt
                     repaired = True
+
+            # Shaded cells add a padding strip on each side of their text (see
+            # MAX_PHANTOM_COLUMN_WIDTH); the strips hold nothing and are not columns. Only
+            # a grid that holds all of its region's words is folded: text no cell holds (a
+            # chart's column of values) reaches the page only while the empty-cell guard
+            # rejects the grid, and folding the strips would let it through without that text.
+            collapsed = collapse_phantom_columns(table, table_data) if lost == 0 else None
+            if collapsed is not None:
+                table_data = collapsed
+                repaired = True
 
             # A clipped column admitted at detection time joins the grid here: its
             # words, grouped by the grid's own row bands, become one more cell per
