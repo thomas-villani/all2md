@@ -102,6 +102,7 @@ from all2md.parsers._pdf_ocr import (
 from all2md.parsers._pdf_ocr import (
     should_use_ocr as _should_use_ocr,
 )
+from all2md.parsers._pdf_page_setup import measure_page_setup
 from all2md.parsers._pdf_tables import (
     MAX_DOT_LEADER_CELL_RATIO,
     MAX_EXTRACT_LOSS_SHARE,
@@ -1443,6 +1444,7 @@ class PdfToAstConverter(BaseParser):
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
         self._ocr_pages_applied: int = 0  # pages OCR was applied to in the current parse
         self._running_furniture: RunningFurniture | None = None
+        self._page_setup: dict[str, Any] | None = None
         self._use_layout: bool = False
         # Most recent heading level emitted (any path). Used by
         # `_handle_header_line_with_layout` to pick a sibling-or-deeper level
@@ -1572,13 +1574,20 @@ class PdfToAstConverter(BaseParser):
         if self.options.auto_trim_headers_footers:
             self._auto_detect_header_footer_zones(doc, pages_to_use)
 
-        self._running_furniture = None
-        if (
-            self.options.extract_running_headers_footers
+        # Running lines are found whenever the pages can show repetition: the page
+        # setup needs them to tell the body's edges from the header and footer, even
+        # when they are left in the body.
+        furniture, sample = self._detect_running_furniture(doc, pages_to_use)
+        self._running_furniture = (
+            furniture
+            if self.options.extract_running_headers_footers
             and not self.options.trim_headers_footers
             and not self.options.auto_trim_headers_footers
-        ):
-            self._running_furniture = self._detect_running_furniture(doc, pages_to_use)
+            else None
+        )
+        self._page_setup = measure_page_setup(
+            [(doc[n].rect.width, doc[n].rect.height) for n in pages_to_use], sample, furniture
+        )
 
         return self.convert_to_ast(doc, pages_to_use, base_filename)
 
@@ -1697,23 +1706,31 @@ class PdfToAstConverter(BaseParser):
 
     def _detect_running_furniture(
         self, doc: pymupdf.Document, pages_to_use: range | list[int]
-    ) -> RunningFurniture | None:
+    ) -> tuple[RunningFurniture | None, list[tuple[list[dict], float, float]]]:
         """Find the running header and footer lines on a sample of the pages.
 
         See :mod:`all2md.parsers._pdf_furniture`. The same sample and occurrence floor as
         ``auto_trim_headers_footers`` is used, but the result names lines, not zones: only
-        the matching lines leave the body, and their text is kept.
+        the matching lines leave the body, and their text is kept. The sampled pages'
+        blocks are returned too, as (blocks, width, height), for the page setup.
         """
         import pymupdf
 
         sample_pages = self._get_sample_pages(pages_to_use)
         if not sample_pages:
-            return None
-        pages = [
-            (doc[n].get_text("dict", flags=pymupdf.TEXTFLAGS_TEXT, sort=False)["blocks"], doc[n].rect.height)
+            return None, []
+        sample = [
+            (
+                doc[n].get_text("dict", flags=pymupdf.TEXTFLAGS_TEXT, sort=False)["blocks"],
+                doc[n].rect.width,
+                doc[n].rect.height,
+            )
             for n in sample_pages
         ]
-        return detect_running_furniture(pages, min_occurrences=max(2, len(sample_pages) // 2))
+        furniture = detect_running_furniture(
+            [(blocks, height) for blocks, _, height in sample], min_occurrences=max(2, len(sample_pages) // 2)
+        )
+        return furniture, sample
 
     def _auto_detect_header_footer_zones(self, doc: pymupdf.Document, pages_to_use: range | list[int]) -> None:
         """Automatically detect and set header/footer zones by analyzing repeating text patterns.
@@ -1949,6 +1966,8 @@ class PdfToAstConverter(BaseParser):
 
         if self._running_furniture is not None:
             metadata.custom.update(self._running_furniture.metadata(doc.page_count))
+        if self._page_setup:
+            metadata.custom["page_setup"] = self._page_setup
 
         # Attach header detection debug info if enabled
         if self.options.header_debug_output and self._hdr_identifier:
