@@ -10,8 +10,10 @@ updates:
       - "dependencies"
       - "github-actions"
 
-  # Monitor Python dependencies
-  - package-ecosystem: "pip"
+  # Monitor Python dependencies. The "uv" ecosystem updates pyproject.toml and
+  # uv.lock in one PR; "pip" edited pyproject.toml alone, so a pin bump (#694)
+  # left the lock behind and every `uv run` re-locked it.
+  - package-ecosystem: "uv"
     directory: "/"
     schedule:
       interval: "weekly"
