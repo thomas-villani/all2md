@@ -92,6 +92,17 @@ jobs:
         run: |
           python scripts/compile_changelog.py --check
 
+      # uv.lock pins the benchmark lanes (`uv sync --frozen`), so it must agree with
+      # pyproject.toml. A pin changed without re-locking used to surface later, as a
+      # pre-commit hook rewriting the lock on someone else's branch; this puts the
+      # failure on the PR that changed the pin.
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Check uv.lock is up to date
+        run: |
+          uv lock --check
+
   docs:
     name: Build Documentation
     runs-on: ubuntu-latest
