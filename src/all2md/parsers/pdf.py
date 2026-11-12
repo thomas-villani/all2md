@@ -915,6 +915,91 @@ def _bold_title_heading(paragraph: AstParagraph) -> Heading | None:
     )
 
 
+#: How far apart the left and right edges of two tables may sit and still be one table
+#: carried over a page break. Word repeats a split table at the same x positions on the next
+#: page; a different table set in the same place at the head of the page is rare, and one
+#: that also has the previous table's column count rarer still.
+TABLE_CONTINUATION_EDGE_TOLERANCE = 3.0
+
+#: The share of the page at its top and bottom that holds running headers and footers for
+#: the join. Word sets them in the margin, half an inch from the edge, and the body starts at
+#: the inch; a tenth of a Letter page is 79pt. The general header zone (a fifth) reaches
+#: well into the body, where a line between the two tables is a caption or a sentence and
+#: means they are two tables.
+TABLE_CONTINUATION_MARGIN_FRACTION = 0.1
+
+
+def _table_bbox(node: Node) -> tuple[float, float, float, float] | None:
+    location = node.source_location
+    bbox = location.metadata.get("bbox") if location is not None and location.metadata else None
+    return tuple(bbox) if bbox is not None and len(bbox) == 4 else None
+
+
+def _is_page_furniture(node: Node, zone: str, page_height: float) -> bool:
+    """Whether *node* is a page separator, or a paragraph set in the page's top or bottom margin."""
+    if isinstance(node, Comment):
+        return True
+    if not isinstance(node, AstParagraph):
+        return False
+    location = node.source_location
+    bbox = location.metadata.get("bbox") if location is not None and location.metadata else None
+    if not bbox:
+        return False
+    if zone == "footer":
+        return bbox[1] >= page_height * (1 - TABLE_CONTINUATION_MARGIN_FRACTION)
+    return bbox[3] <= page_height * TABLE_CONTINUATION_MARGIN_FRACTION
+
+
+def _row_text(row: TableRow | None) -> list[str]:
+    return [" ".join(extract_node_text(cell).split()) for cell in row.cells] if row is not None else []
+
+
+def _join_table_across_page_break(
+    children: list[Node], page_nodes: list[Node], previous_height: float, page_height: float
+) -> list[Node]:
+    """Join a table the page break split, returning the page's nodes still to append.
+
+    Word carries a long table over to the next page at the same x positions, often
+    repeating its header row there; read page by page it became two tables with the page's
+    footer and the next page's running header between them. When the last block of the
+    page already in *children* is a table, the first block of *page_nodes* is a table, the
+    two have the same columns at the same edges, and only margin text and page separators
+    sit between them, the second table's rows join the first (less a repeated header) and
+    the margin text moves after the joined table.
+    """
+    tail = len(children)
+    while tail > 0 and _is_page_furniture(children[tail - 1], "footer", previous_height):
+        tail -= 1
+    head = 0
+    while head < len(page_nodes) and _is_page_furniture(page_nodes[head], "header", page_height):
+        head += 1
+    if tail == 0 or head == len(page_nodes):
+        return page_nodes
+    upper, lower = children[tail - 1], page_nodes[head]
+    if not isinstance(upper, AstTable) or not isinstance(lower, AstTable):
+        return page_nodes
+    upper_box, lower_box = _table_bbox(upper), _table_bbox(lower)
+    if upper_box is None or lower_box is None:
+        return page_nodes
+    if (
+        abs(upper_box[0] - lower_box[0]) > TABLE_CONTINUATION_EDGE_TOLERANCE
+        or abs(upper_box[2] - lower_box[2]) > TABLE_CONTINUATION_EDGE_TOLERANCE
+    ):
+        return page_nodes
+    width = len(upper.header.cells) if upper.header is not None else len(upper.rows[0].cells) if upper.rows else 0
+    lower_rows = ([lower.header] if lower.header is not None else []) + list(lower.rows)
+    if width == 0 or not lower_rows or any(len(row.cells) != width for row in lower_rows):
+        return page_nodes
+    if lower.header is not None and _row_text(lower.header) == _row_text(upper.header):
+        lower_rows = lower_rows[1:]  # the header row Word repeats at the top of each page
+    joined = replace(upper, rows=list(upper.rows) + [replace(row, is_header=False) for row in lower_rows])
+    furniture = children[tail:] + page_nodes[:head]
+    del children[tail - 1 :]
+    children.append(joined)
+    children.extend(furniture)
+    return page_nodes[head + 1 :]
+
+
 def _settle_bold_title_levels(doc: Document) -> None:
     """Rank bold titles one level below the deepest heading font size admitted.
 
@@ -1070,6 +1155,59 @@ def _trailing_text_is_whitespace(nodes: list[Node]) -> bool:
     redundant whitespace run.
     """
     return _trailing_whitespace_verdict(nodes) is True
+
+
+def _trailing_blank_trimmed_rect(block: dict) -> Any | None:
+    """Return ``block``'s box without the blank lines Word sets just below it, or None.
+
+    Word follows a table with an empty paragraph, and PyMuPDF can put that blank line in
+    one block with the table's last row: the row lies inside the table, the blank line
+    below it, and the pair split the block's area about evenly -- the last row of a
+    financial table missed the 50% bar at 49.8% and was printed twice, in the table and
+    again as a paragraph after it. The trimmed box is offered only for that shape: every
+    blank line starts at or below the printed lines and within a line's height of them.
+    A blank line above or beside the text, or far below it (a rotated page's page number
+    sharing a block with a blank line at the far margin), leaves the block whole.
+    """
+    import pymupdf
+
+    inked: list[Any] = []
+    blank: list[Any] = []
+    for line in block.get("lines") or []:
+        if not line.get("bbox"):
+            continue
+        text = "".join(span.get("text", "") for span in line.get("spans") or [])
+        (inked if text.strip() else blank).append(pymupdf.Rect(line["bbox"]))
+    if not inked or not blank:
+        return None
+    rect = pymupdf.Rect(inked[0])
+    for other in inked[1:]:
+        rect |= other
+    line_height = max(r.height for r in inked)
+    if all(rect.y1 - 1.0 <= r.y0 <= rect.y1 + line_height for r in blank):
+        return rect
+    return None
+
+
+INKED_INSIDE_TABLE_SHARE = 0.9
+
+
+def _block_in_table_region(block: dict, regions: list[Any]) -> bool:
+    """Return whether ``block`` belongs to one of the table ``regions``.
+
+    A block belongs when more than half its area lies in a region, or when, trimmed of
+    the empty paragraph Word sets below a table (``_trailing_blank_trimmed_rect``), its
+    printed lines lie (nearly) wholly inside one. The second test only adds to the first.
+    """
+    import pymupdf
+
+    full = pymupdf.Rect(block["bbox"])
+    trimmed = _trailing_blank_trimmed_rect(block)
+    return any(
+        abs(full & region) > 0.5 * abs(full)
+        or (trimmed is not None and abs(trimmed & region) >= INKED_INSIDE_TABLE_SHARE * abs(trimmed))
+        for region in regions
+    )
 
 
 def _block_outside_table_regions(block: dict, regions: list[Any]) -> dict | None:
@@ -1878,6 +2016,10 @@ class PdfToAstConverter(BaseParser):
                 try:
                     page = doc[pno]
                     page_nodes = self._process_page_to_ast(page, pno, base_filename, attachment_sequencer, total_pages)
+                    if page_nodes and idx > 0 and self.options.join_split_tables:
+                        page_nodes = _join_table_across_page_break(
+                            children, page_nodes, doc[pages_list[idx - 1]].rect.height, page.rect.height
+                        )
                     if page_nodes:
                         children.extend(page_nodes)
 
@@ -3034,8 +3176,7 @@ class PdfToAstConverter(BaseParser):
                 text_blocks.append(block)
                 continue
 
-            block_rect = pymupdf.Rect(block["bbox"])
-            is_in_table = any(abs(block_rect & table["bbox"]) > 0.5 * abs(block_rect) for table in table_info)
+            is_in_table = _block_in_table_region(block, [table["bbox"] for table in table_info])
             if not is_in_table:
                 text_blocks.append(block)
                 continue
@@ -4299,7 +4440,11 @@ class PdfToAstConverter(BaseParser):
             data_rows = [TableRow(cells=[make_cell(cell_text) for cell_text in row]) for row in merged[1:]]
 
             return AstTable(
-                header=header_row, rows=data_rows, source_location=SourceLocation(format="pdf", page=page_num + 1)
+                header=header_row,
+                rows=data_rows,
+                source_location=SourceLocation(
+                    format="pdf", page=page_num + 1, metadata={"bbox": tuple(float(v) for v in table.bbox)}
+                ),
             )
 
         except (AttributeError, Exception) as e:
@@ -4512,7 +4657,11 @@ class PdfToAstConverter(BaseParser):
         data_rows = rows[1:] if len(rows) > 1 else []
 
         return AstTable(
-            header=header_row, rows=data_rows, source_location=SourceLocation(format="pdf", page=page_num + 1)
+            header=header_row,
+            rows=data_rows,
+            source_location=SourceLocation(
+                format="pdf", page=page_num + 1, metadata={"bbox": tuple(float(v) for v in table_rect)}
+            ),
         )
 
     def _extract_table_from_layout_region(
