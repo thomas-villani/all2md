@@ -17,6 +17,7 @@ from all2md.constants import (
     DEFAULT_DEDUP_RUNNING_HEADINGS,
     DEFAULT_DETECT_COLUMNS,
     DEFAULT_DETECT_MERGED_CELLS,
+    DEFAULT_EXTRACT_RUNNING_HEADERS_FOOTERS,
     DEFAULT_FILTER_HEADER_FOOTER_IMAGES,
     DEFAULT_FOOTER_HEIGHT,
     DEFAULT_HANDLE_ROTATED_TEXT,
@@ -184,6 +185,14 @@ class PdfOptions(PaginatedParserOptions):
 
     trim_headers_footers : bool, default False
         Remove repeated headers and footers from pages.
+    extract_running_headers_footers : bool, default True
+        Move running headers and footers out of the body. A line the document repeats at
+        the same place in its top or bottom margin on at least two pages is taken out of
+        the page text and kept in the document metadata as ``page_header`` /
+        ``page_footer``, with the page number as ``{page}`` and the page count as
+        ``{pages}``; the DOCX renderer writes them back as a real Word header and footer.
+        A single page is never searched. ``trim_headers_footers`` and
+        ``auto_trim_headers_footers`` take precedence: they delete margin text outright.
     auto_trim_headers_footers : bool, default False
         Automatically detect and remove repeating headers/footers. When enabled,
         analyzes content across pages to identify repeating header/footer patterns
@@ -541,6 +550,17 @@ class PdfOptions(PaginatedParserOptions):
     trim_headers_footers: bool = field(
         default=DEFAULT_TRIM_HEADERS_FOOTERS,
         metadata={"help": "Remove repeated headers and footers from pages", "importance": "core"},
+    )
+    extract_running_headers_footers: bool = field(
+        default=DEFAULT_EXTRACT_RUNNING_HEADERS_FOOTERS,
+        metadata={
+            "help": (
+                "Move running headers/footers (repeated in the page margins) out of the body "
+                "into document metadata (page_header/page_footer)"
+            ),
+            "cli_name": "no-extract-running-headers-footers",  # default=True, use --no-*
+            "importance": "advanced",
+        },
     )
     auto_trim_headers_footers: bool = field(
         default=DEFAULT_AUTO_TRIM_HEADERS_FOOTERS,
