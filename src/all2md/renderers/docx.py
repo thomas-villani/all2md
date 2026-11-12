@@ -629,7 +629,45 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             child.accept(self)
 
         if node.metadata:
+            self._apply_page_setup(node.metadata)
             self._write_running_furniture(node.metadata)
+
+    def _apply_page_setup(self, metadata: dict) -> None:
+        """Set each section's paper, orientation and margins from ``page_setup`` metadata.
+
+        The PDF parser measures them (see ``all2md.parsers._pdf_page_setup``); without
+        them a converted A4 or landscape document came out on portrait US Letter. A
+        reference template's own page setup wins: choosing a template is choosing its
+        layout.
+        """
+        setup = metadata.get("page_setup")
+        if not self.document or not isinstance(setup, dict) or self.options.template_path:
+            return
+        from docx.enum.section import WD_ORIENT
+        from docx.shared import Pt
+
+        def points(key: str) -> Any:
+            value = setup.get(key)
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
+                return None
+            return Pt(float(value))
+
+        width, height = points("width"), points("height")
+        for section in self.document.sections:
+            if width is not None and height is not None and width > 0 and height > 0:
+                section.orientation = WD_ORIENT.LANDSCAPE if width > height else WD_ORIENT.PORTRAIT
+                section.page_width, section.page_height = width, height
+            for key, attribute in (
+                ("margin_top", "top_margin"),
+                ("margin_bottom", "bottom_margin"),
+                ("margin_left", "left_margin"),
+                ("margin_right", "right_margin"),
+                ("header_distance", "header_distance"),
+                ("footer_distance", "footer_distance"),
+            ):
+                value = points(key)
+                if value is not None:
+                    setattr(section, attribute, value)
 
     #: Placeholders a ``page_header`` / ``page_footer`` template uses, and the Word field
     #: each becomes. The PDF parser writes them (see ``all2md.parsers._pdf_furniture``).
