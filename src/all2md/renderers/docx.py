@@ -629,11 +629,34 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
         # Render children
         for child in node.children:
-            child.accept(self)
+            if child.metadata.get("page_break_before") and self.document is not None:
+                # python-docx inserts each new block before the body's closing sectPr.
+                body = self.document.element.body
+                start = len(body) - (1 if len(body) and body[-1].tag == self._qn("w:sectPr") else 0)
+                child.accept(self)
+                end = len(body) - (1 if len(body) and body[-1].tag == self._qn("w:sectPr") else 0)
+                self._set_page_break_before(list(body)[start:end])
+            else:
+                child.accept(self)
 
         if node.metadata:
             self._apply_page_setup(node.metadata)
             self._write_running_furniture(node.metadata)
+
+    def _set_page_break_before(self, elements: list[Any]) -> None:
+        """Start a new page at the first paragraph among ``elements`` (one in a table's first cell).
+
+        A block whose metadata says ``page_break_before`` opened a page its source's
+        author started on purpose; Word's own paragraph setting keeps that, and stays
+        editable, where an inserted break character would not move with the text.
+        """
+        qn = self._qn
+        for element in elements:
+            paragraph = element if element.tag == qn("w:p") else next(element.iter(qn("w:p")), None)
+            if paragraph is None:
+                continue
+            paragraph.get_or_add_pPr().pageBreakBefore_val = True
+            return
 
     def _apply_body_style(self, metadata: dict) -> None:
         """Set the body font, size, line spacing and paragraph spacing from ``body_style`` metadata.
