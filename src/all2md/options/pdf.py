@@ -35,6 +35,7 @@ from all2md.constants import (
     DEFAULT_INCLUDE_IMAGE_CAPTIONS,
     DEFAULT_INCLUDE_PAGE_NUMBERS,
     DEFAULT_JOIN_SPLIT_TABLES,
+    DEFAULT_KEEP_PAGE_BREAKS,
     DEFAULT_LAYOUT_ANALYSIS_MODE,
     DEFAULT_LAYOUT_FEATURE_SET,
     DEFAULT_LAYOUT_IOU_THRESHOLD,
@@ -147,6 +148,10 @@ class PdfOptions(PaginatedParserOptions):
         first block of the next are tables with the same columns at the same edges, with
         only margin text between them. A header row repeated at the top of the next page
         is dropped, and the margin text moves after the joined table.
+    keep_page_breaks : bool, default True
+        Mark where the author started a new page: a page that ended with room for what
+        opens the next. The block that opens the new page gets ``page_break_before`` in
+        its metadata, which the DOCX renderer sets as Word's "Page break before".
     table_ruling_line_threshold : float, default 0.5
         Threshold for detecting table ruling lines (0.0-1.0, ratio of line length to page size).
     table_fallback_extraction_mode : str, default "grid"
@@ -441,6 +446,14 @@ class PdfOptions(PaginatedParserOptions):
         metadata={
             "help": "Join a table split across a page break, dropping its repeated header row",
             "cli_name": "no-join-split-tables",  # default=True, use --no-*
+            "importance": "advanced",
+        },
+    )
+    keep_page_breaks: bool = field(
+        default=DEFAULT_KEEP_PAGE_BREAKS,
+        metadata={
+            "help": "Mark pages the author ended on purpose, so Word starts a new page there",
+            "cli_name": "no-keep-page-breaks",  # default=True, use --no-*
             "importance": "advanced",
         },
     )
