@@ -47,6 +47,7 @@ PROSE = "The plant ran three shifts through the winter and met every delivery da
         ("MS-Gothic", "MS Gothic"),
         ("Helvetica-BoldOblique", "Arial"),
         ("Times-Roman", "Times New Roman"),
+        ("FreeMonoBold", "Free Mono"),
     ],
 )
 def test_a_postscript_name_reads_as_its_family(postscript: str, family: str) -> None:

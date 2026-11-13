@@ -626,6 +626,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
         if node.metadata:
             self._apply_body_style(node.metadata)
+            self._apply_heading_styles(node)
 
         # Render children
         for child in node.children:
@@ -642,6 +643,52 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         if node.metadata:
             self._apply_page_setup(node.metadata)
             self._write_running_furniture(node.metadata)
+
+    def _apply_heading_styles(self, node: ASTDocument) -> None:
+        """Set each heading style's size, font, weight and color from ``heading_styles`` metadata.
+
+        The PDF parser reads them level by level (see ``all2md.parsers._pdf_heading_styles``);
+        without them a lease headed in 20pt Calibri Light came out with Word's 14pt
+        headings and ran a page short. A leading title promoted to Word's Title style
+        moves every heading up a level, and the styles move with them. Sizes named in
+        ``heading_font_sizes`` win, and a reference template keeps its own.
+        """
+        styles = node.metadata.get("heading_styles")
+        if not self.document or not isinstance(styles, dict) or self.options.template_path:
+            return
+        if not self.options.use_styles:
+            return
+        from docx.shared import Pt, RGBColor
+
+        promoted = any(isinstance(child, Heading) and child.metadata.get("is_title") for child in node.children)
+        qn = self._qn
+        for key, look in styles.items():
+            if not isinstance(look, dict) or not str(key).isdigit():
+                continue
+            level = int(key)
+            name = ("Title" if level == 1 else f"Heading {level - 1}") if promoted else f"Heading {level}"
+            if not 1 <= level <= 9 or not self._has_style(name):
+                continue
+            font = self.document.styles[name].font
+            size = look.get("size")
+            requested = (self.options.heading_font_sizes or {}).get(level - 1 if promoted else level)
+            if isinstance(size, (int, float)) and not isinstance(size, bool) and 1 <= size <= 400 and not requested:
+                font.size = Pt(float(size))
+            if isinstance(look.get("bold"), bool):
+                font.bold = look["bold"]
+            color = look.get("color")
+            if isinstance(color, str) and re.fullmatch(r"[0-9A-Fa-f]{6}", color):
+                font.color.rgb = RGBColor.from_string(color.upper())
+            else:
+                font.color.rgb = RGBColor(0, 0, 0)
+            family = look.get("font")
+            if isinstance(family, str) and family.strip():
+                font.name = family.strip()
+                # A theme font named on the style outranks the font named beside it.
+                fonts = self.document.styles[name].element.rPr.find(qn("w:rFonts"))
+                if fonts is not None:
+                    for attribute in ("w:asciiTheme", "w:hAnsiTheme"):
+                        fonts.attrib.pop(qn(attribute), None)
 
     def _set_page_break_before(self, elements: list[Any]) -> None:
         """Start a new page at the first paragraph among ``elements`` (one in a table's first cell).

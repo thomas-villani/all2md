@@ -80,6 +80,7 @@ from all2md.parsers._pdf_body_style import BodyStyleSampler
 from all2md.parsers._pdf_columns import detect_columns, split_gutter_merged_blocks
 from all2md.parsers._pdf_furniture import RunningFurniture, detect_running_furniture
 from all2md.parsers._pdf_headers import IdentifyHeaders, compute_line_style
+from all2md.parsers._pdf_heading_styles import heading_font, measure_heading_styles
 from all2md.parsers._pdf_images import detect_image_caption, extract_page_images
 from all2md.parsers._pdf_layout import (
     PageLayoutPredictions,
@@ -887,7 +888,9 @@ def _split_run_in_heading(paragraph: AstParagraph) -> tuple[Heading, AstParagrap
         level=_BOLD_TITLE_PENDING_LEVEL,
         content=heading_content,
         metadata={"bold_title": True, "run_in": True},
-        source_location=SourceLocation(format="pdf", page=location.page) if location else None,
+        source_location=SourceLocation(format="pdf", page=location.page, metadata={"font": {"bold": True}})
+        if location
+        else None,
     )
     return heading, replace(paragraph, content=rest)
 
@@ -916,7 +919,7 @@ def _bold_title_heading(paragraph: AstParagraph) -> Heading | None:
         level=_BOLD_TITLE_PENDING_LEVEL,
         content=content,
         metadata={"bold_title": True},
-        source_location=SourceLocation(format="pdf", page=location.page),
+        source_location=SourceLocation(format="pdf", page=location.page, metadata={"font": {"bold": True}}),
     )
 
 
@@ -2023,6 +2026,21 @@ class PdfToAstConverter(BaseParser):
         headings_demoted = _demote_prose_headings(ast_doc)
         if self.options.dedup_running_headings and total_pages >= 3:
             headings_demoted += _demote_running_headings(ast_doc, total_pages)
+
+        # Read once every heading has its final level.
+        heading_styles = measure_heading_styles(
+            (
+                (node.level, node.source_location.metadata["font"])
+                for node in ast_doc.children
+                if isinstance(node, Heading)
+                and node.source_location is not None
+                and isinstance(node.source_location.metadata.get("font"), dict)
+            ),
+            ast_doc.metadata.get("body_style"),
+            lambda font: self._body_style.family(doc, font),
+        )
+        if heading_styles:
+            ast_doc.metadata["heading_styles"] = heading_styles
 
         self._record_pdf_quality_signals(ast_doc, total_pages, headings_demoted)
 
@@ -3648,6 +3666,7 @@ class PdfToAstConverter(BaseParser):
         inline_content: list[Node],
         page_num: int,
         line_bbox: tuple[float, float, float, float] | None = None,
+        font: dict[str, Any] | None = None,
     ) -> None:
         """Emit a heading or buffer a numbering-only prefix for merging.
 
@@ -3696,7 +3715,9 @@ class PdfToAstConverter(BaseParser):
                 Heading(
                     level=merged_level,
                     content=merged,
-                    source_location=SourceLocation(format="pdf", page=page + 1),
+                    source_location=SourceLocation(
+                        format="pdf", page=page + 1, metadata={"font": font} if font else {}
+                    ),
                 )
             )
             self._last_heading_level = merged_level
@@ -3708,7 +3729,9 @@ class PdfToAstConverter(BaseParser):
             Heading(
                 level=level,
                 content=inline_content,
-                source_location=SourceLocation(format="pdf", page=page_num + 1),
+                source_location=SourceLocation(
+                    format="pdf", page=page_num + 1, metadata={"font": font} if font else {}
+                ),
             )
         )
         self._last_heading_level = level
@@ -3886,7 +3909,9 @@ class PdfToAstConverter(BaseParser):
 
         self._flush_state_paragraph(state, page_num)
         line_text = "".join(s.get("text", "") for s in spans).strip()
-        self._emit_heading(state, header_level, line_text, inline_content, page_num, _span_union_bbox(spans))
+        self._emit_heading(
+            state, header_level, line_text, inline_content, page_num, _span_union_bbox(spans), heading_font(spans)
+        )
         return True
 
     def _handle_header_line_with_layout(
@@ -3977,7 +4002,9 @@ class PdfToAstConverter(BaseParser):
             return True
 
         self._flush_state_paragraph(state, page_num)
-        self._emit_heading(state, level, line_style.text, inline_content, page_num, _span_union_bbox(spans))
+        self._emit_heading(
+            state, level, line_style.text, inline_content, page_num, _span_union_bbox(spans), heading_font(spans)
+        )
         return True
 
     def _accumulate_paragraph_line(
