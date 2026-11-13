@@ -120,11 +120,22 @@ class TestAutoTrim:
         md = to_markdown(_make_pdf(tmp_path, 1), parser_options=PdfOptions(auto_trim_headers_footers=True))
         assert "INTERNAL USE ONLY" in md
 
-    def test_defaults_keep_everything(self, tmp_path):
-        """Trimming is opt-in: the default conversion is unchanged."""
-        md = to_markdown(_make_pdf(tmp_path, 3))
+    def test_trimming_is_opt_in(self, tmp_path):
+        """With running-line extraction off, nothing is removed unless trimming is asked for."""
+        md = to_markdown(_make_pdf(tmp_path, 3), parser_options=PdfOptions(extract_running_headers_footers=False))
         assert "INTERNAL USE ONLY" in md
         assert "Page 1 of 3" in md
+
+    def test_defaults_move_running_lines_to_the_metadata(self, tmp_path):
+        """By default the running lines leave the body but are kept, not deleted."""
+        from all2md import to_ast
+
+        doc = to_ast(_make_pdf(tmp_path, 3))
+        md = to_markdown(_make_pdf(tmp_path, 3))
+        assert "INTERNAL USE ONLY" not in md
+        assert "Page 1 of 3" not in md
+        assert doc.metadata["page_header"] == HEADER
+        assert doc.metadata["page_footer"] == "Page {page} of {pages}"
 
 
 class TestNonFurnitureIsSafe:

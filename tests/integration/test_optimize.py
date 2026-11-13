@@ -13,6 +13,11 @@ That agreement was hard-won. The first objective scored text as "more words is
 better", which made *keeping* the running header strictly better than trimming it.
 Measured here it was anti-correlated with the truth (Pearson r = -0.88): it reliably
 recommended the worst settings available.
+
+The fixture's defect is its running header and footer, which the PDF parser now moves
+out of the body by default (``extract_running_headers_footers``). So the suite starts
+every search and every conversion from that option turned off (:data:`BASE`): the
+document the defaults used to get wrong, and the optimizer still has to find the trim.
 """
 
 import pymupdf
@@ -20,6 +25,21 @@ import pytest
 
 from all2md import optimizable_formats, optimize_options, to_markdown
 from all2md.options.pdf import PdfOptions
+
+#: Where every search and conversion here starts: running headers and footers left in
+#: the body, as the defaults did before they learned to move them out.
+BASE = PdfOptions(extract_running_headers_footers=False)
+#: The CLI flag that sets :data:`BASE` on a conversion.
+BASE_FLAG = "--pdf-no-extract-running-headers-footers"
+
+
+def _optimize(source, **kwargs):
+    return optimize_options(source, parser_options=BASE, **kwargs)
+
+
+def _md(source, **options) -> str:
+    return to_markdown(source, parser_options=BASE.create_updated(**options))
+
 
 # Each page gets its own prose. If the pages shared sentences, the body text itself
 # would repeat and a repetition detector would rightly call it furniture -- which
@@ -115,23 +135,23 @@ class TestOptimizerAgainstGroundTruth:
 
     def test_the_fixture_is_actually_hard(self, gnarly_pdf):
         """If the defaults already nailed it there would be nothing to optimize."""
-        assert _truth(to_markdown(gnarly_pdf)) < 100
+        assert _truth(_md(gnarly_pdf)) < 100
 
     def test_recommended_settings_beat_the_defaults_on_ground_truth(self, gnarly_pdf):
         """The headline property. The optimizer never sees ``_truth``."""
-        report = optimize_options(gnarly_pdf)
+        report = _optimize(gnarly_pdf)
 
         assert report.improved, "optimizer found nothing on a document the defaults get wrong"
 
-        baseline = _truth(to_markdown(gnarly_pdf))
-        tuned = _truth(to_markdown(gnarly_pdf, parser_options=PdfOptions(**report.best_options)))
+        baseline = _truth(_md(gnarly_pdf))
+        tuned = _truth(_md(gnarly_pdf, **report.best_options))
 
         assert tuned > baseline
         assert tuned == 100
 
     def test_it_recovers_the_header_footer_trimming(self, gnarly_pdf):
         """The one thing wrong with the default conversion of this document."""
-        report = optimize_options(gnarly_pdf)
+        report = _optimize(gnarly_pdf)
 
         trims = {"trim_headers_footers", "auto_trim_headers_footers"}
         assert trims & set(report.best_options), f"expected a trim setting, got {report.best_options}"
@@ -142,12 +162,9 @@ class TestOptimizerAgainstGroundTruth:
         A winner that is right by luck is indistinguishable from an objective that
         works, until the day it is not. This pins the correlation.
         """
-        report = optimize_options(gnarly_pdf)
+        report = _optimize(gnarly_pdf)
 
-        scored = [
-            (c.fitness, _truth(to_markdown(gnarly_pdf, parser_options=PdfOptions(**c.options))))
-            for c in report.candidates
-        ]
+        scored = [(c.fitness, _truth(_md(gnarly_pdf, **c.options))) for c in report.candidates]
         best_fit_truth = max(scored, key=lambda pair: pair[0])[1]
         worst_fit_truth = min(scored, key=lambda pair: pair[0])[1]
 
@@ -156,7 +173,7 @@ class TestOptimizerAgainstGroundTruth:
 
     def test_reported_options_are_real_changes(self, gnarly_pdf):
         """Never recommend a setting that already holds; that is noise, not advice."""
-        report = optimize_options(gnarly_pdf)
+        report = _optimize(gnarly_pdf)
         defaults = PdfOptions()
 
         for name, value in report.best_options.items():
@@ -169,7 +186,7 @@ class TestOptimizeApi:
     """Surface behaviour of ``optimize_options``."""
 
     def test_baseline_is_the_stock_defaults(self, gnarly_pdf):
-        report = optimize_options(gnarly_pdf)
+        report = _optimize(gnarly_pdf)
 
         default_candidates = [c for c in report.candidates if c.origin == "default"]
         assert len(default_candidates) == 1
@@ -177,7 +194,7 @@ class TestOptimizeApi:
         assert report.baseline_fitness == default_candidates[0].fitness
 
     def test_every_candidate_is_distinct(self, gnarly_pdf):
-        report = optimize_options(gnarly_pdf)
+        report = _optimize(gnarly_pdf)
 
         signatures = [tuple(sorted(c.options.items())) for c in report.candidates]
         assert len(signatures) == len(set(signatures))
@@ -185,7 +202,7 @@ class TestOptimizeApi:
 
     def test_sample_pages_limits_the_work(self, gnarly_pdf):
         """Tuning a slice must still produce a usable report."""
-        report = optimize_options(gnarly_pdf, sample_pages=2)
+        report = _optimize(gnarly_pdf, sample_pages=2)
 
         assert report.source_format == "pdf"
         assert report.evaluated > 0
@@ -209,6 +226,13 @@ class TestOptimizeApi:
 class TestOptimizeCli:
     """The command line, including the settings it tells you to run."""
 
+    @pytest.fixture(autouse=True)
+    def _start_from_base(self, monkeypatch):
+        """Run the command's searches from :data:`BASE`, as the API tests do."""
+        import all2md
+
+        monkeypatch.setattr(all2md, "optimize_options", _optimize)
+
     def test_emits_a_runnable_command_and_a_toml_snippet(self, gnarly_pdf, capsys):
         from all2md.cli.commands.optimize import handle_optimize_command
 
@@ -230,7 +254,7 @@ class TestOptimizeCli:
         from all2md.cli import main
         from all2md.cli.commands.optimize import _cli_command
 
-        report = optimize_options(gnarly_pdf)
+        report = _optimize(gnarly_pdf)
         command = _cli_command(gnarly_pdf, report)
         assert command, "optimizer improved the document but emitted no command"
 
@@ -238,10 +262,10 @@ class TestOptimizeCli:
         assert flags
 
         out = tmp_path / "tuned.md"
-        assert main([gnarly_pdf, "--out", str(out), *flags]) == 0
+        assert main([gnarly_pdf, "--out", str(out), BASE_FLAG, *flags]) == 0
 
         tuned = out.read_text(encoding="utf-8")
-        assert _truth(tuned) > _truth(to_markdown(gnarly_pdf))
+        assert _truth(tuned) > _truth(_md(gnarly_pdf))
         assert _truth(tuned) == 100
 
     def test_json_output_carries_the_command_and_toml(self, gnarly_pdf, capsys):

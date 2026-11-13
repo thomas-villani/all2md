@@ -628,6 +628,129 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         for child in node.children:
             child.accept(self)
 
+        if node.metadata:
+            self._apply_page_setup(node.metadata)
+            self._write_running_furniture(node.metadata)
+
+    def _apply_page_setup(self, metadata: dict) -> None:
+        """Set each section's paper, orientation and margins from ``page_setup`` metadata.
+
+        The PDF parser measures them (see ``all2md.parsers._pdf_page_setup``); without
+        them a converted A4 or landscape document came out on portrait US Letter. A
+        reference template's own page setup wins: choosing a template is choosing its
+        layout.
+        """
+        setup = metadata.get("page_setup")
+        if not self.document or not isinstance(setup, dict) or self.options.template_path:
+            return
+        from docx.enum.section import WD_ORIENT
+        from docx.shared import Pt
+
+        def points(key: str) -> Any:
+            value = setup.get(key)
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
+                return None
+            return Pt(float(value))
+
+        width, height = points("width"), points("height")
+        for section in self.document.sections:
+            if width is not None and height is not None and width > 0 and height > 0:
+                section.orientation = WD_ORIENT.LANDSCAPE if width > height else WD_ORIENT.PORTRAIT
+                section.page_width, section.page_height = width, height
+            for key, attribute in (
+                ("margin_top", "top_margin"),
+                ("margin_bottom", "bottom_margin"),
+                ("margin_left", "left_margin"),
+                ("margin_right", "right_margin"),
+                ("header_distance", "header_distance"),
+                ("footer_distance", "footer_distance"),
+            ):
+                value = points(key)
+                if value is not None:
+                    setattr(section, attribute, value)
+
+    #: Placeholders a ``page_header`` / ``page_footer`` template uses, and the Word field
+    #: each becomes. The PDF parser writes them (see ``all2md.parsers._pdf_furniture``).
+    _RUNNING_FIELDS = {"{page}": "PAGE", "{pages}": "NUMPAGES"}
+
+    #: The ``w:sectPr`` children the schema places after ``w:pgNumType``.
+    _SECTPR_AFTER_PGNUMTYPE = (
+        "cols",
+        "formProt",
+        "vAlign",
+        "noEndnote",
+        "titlePg",
+        "textDirection",
+        "bidi",
+        "rtlGutter",
+        "docGrid",
+        "printerSettings",
+        "sectPrChange",
+    )
+
+    def _write_running_furniture(self, metadata: dict) -> None:
+        """Write ``page_header`` / ``page_footer`` metadata as the Word header and footer.
+
+        A PDF's running header and footer leave its body and arrive here as metadata
+        templates; ``{page}`` and ``{pages}`` become live ``PAGE`` and ``NUMPAGES``
+        fields, so the numbers stay right as the document is edited, and
+        ``page_number_start`` sets the number the first page gets. Each part's own
+        paragraph is reused (a reference template keeps its header style), and its text
+        replaced.
+        """
+        if not self.document:
+            return
+        start = metadata.get("page_number_start")
+        if isinstance(start, int) and not isinstance(start, bool) and start >= 0 and start != 1:
+            for section in self.document.sections:
+                number_type = section._sectPr.find(self._qn("w:pgNumType"))
+                if number_type is None:
+                    number_type = self._OxmlElement("w:pgNumType")
+                    # CT_SectPr is a sequence: pgNumType goes before cols and what follows.
+                    later = {self._qn(f"w:{tag}") for tag in self._SECTPR_AFTER_PGNUMTYPE}
+                    successor = next((child for child in section._sectPr if child.tag in later), None)
+                    if successor is None:
+                        section._sectPr.append(number_type)
+                    else:
+                        successor.addprevious(number_type)
+                number_type.set(self._qn("w:start"), str(start))
+        for zone, style in (("header", "Header"), ("footer", "Footer")):
+            template = metadata.get(f"page_{zone}")
+            if not isinstance(template, str) or not template.strip():
+                continue
+            for section in self.document.sections:
+                part = section.header if zone == "header" else section.footer
+                part.is_linked_to_previous = False
+                paragraphs = part.paragraphs
+                paragraph = paragraphs[0] if paragraphs else part.add_paragraph()
+                for extra in paragraphs[1:]:
+                    extra._element.getparent().remove(extra._element)
+                for child in list(paragraph._element):
+                    if child.tag != self._qn("w:pPr"):
+                        paragraph._element.remove(child)
+                if self._has_style(style):
+                    paragraph.style = style
+                self._fill_running_paragraph(paragraph, template)
+
+    def _fill_running_paragraph(self, paragraph: Any, template: str) -> None:
+        """Fill ``paragraph`` with ``template``'s text, its placeholders as Word fields."""
+        from docx.oxml.parser import parse_xml
+
+        pattern = "(" + "|".join(re.escape(token) for token in self._RUNNING_FIELDS) + ")"
+        for piece in re.split(pattern, template):
+            if not piece:
+                continue
+            field = self._RUNNING_FIELDS.get(piece)
+            if field is None:
+                paragraph.add_run(piece)
+                continue
+            paragraph._element.append(
+                parse_xml(
+                    f'<w:fldSimple xmlns:w="{self._W_NS}" w:instr=" {field} \\* MERGEFORMAT ">'
+                    "<w:r><w:t>1</w:t></w:r></w:fldSimple>"
+                )
+            )
+
     def _ast_contains_code_blocks(self, node: Node) -> bool:
         """Check if the AST contains any CodeBlock nodes.
 

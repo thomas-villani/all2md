@@ -8739,6 +8739,15 @@ including page selection, image handling, and formatting preferences.
    :Default: ``False``
    :Importance: core
 
+**extract_running_headers_footers**
+
+   Move running headers/footers (repeated in the page margins) out of the body into document metadata (page_header/page_footer)
+
+   :Type: ``bool``
+   :CLI flag: ``--pdf-no-extract-running-headers-footers``
+   :Default: ``True``
+   :Importance: advanced
+
 **auto_trim_headers_footers**
 
    Automatically detect and remove repeating headers/footers (overrides manual header_height/footer_height)
