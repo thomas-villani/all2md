@@ -107,6 +107,9 @@ def family_from_postscript(name: str) -> str:
     base, _, suffix = name.replace(",", "-").partition("-")
     base = re.sub(r"(?:PSMT|PS|MT)$", "", base) or base
     words = re.sub(r"(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", " ", base).split()
+    # A style run into the name itself (``FreeMonoBold``) is not part of the family.
+    while len(words) > 1 and words[-1] in _STYLE_WORDS - {"Roman", "Book", "Normal"}:
+        words.pop()
     family = " ".join(words) or name
     suffix = re.sub(r"(?:PSMT|MT)$", "", suffix)
     extra = [word for word in re.findall(r"[A-Z][a-z]*|[0-9]+", suffix) if word not in _STYLE_WORDS]
@@ -224,10 +227,7 @@ class BodyStyleSampler:
         font = fonts.most_common(1)[0][0]
 
         buffer = self._font_buffer(doc, font)
-        family = font_family(buffer) if buffer else None
-        # A subset font's name table can hold its PostScript name, prefix and all.
-        if not family or "+" in family or " " not in family and re.search(r"[a-z][A-Z]|-", family):
-            family = family_from_postscript(family or font)
+        family = self.family(doc, font)
         style: dict[str, Any] = {"font": family, "size": size}
 
         # Each pair counts by its characters: a borderless table's narrow cells, often
@@ -268,6 +268,15 @@ class BodyStyleSampler:
         elif len(flush) >= MIN_LINE_PAIRS:
             style["space_after"] = 0.0
         return style
+
+    def family(self, doc: Any, font: str) -> str:
+        """Return the family Word knows a PDF font by: the embedded font's own, else its PostScript name's."""
+        buffer = self._font_buffer(doc, font)
+        family = font_family(buffer) if buffer else None
+        # A subset font's name table can hold its PostScript name, prefix and all.
+        if not family or "+" in family or " " not in family and re.search(r"[a-z][A-Z]|-", family):
+            family = family_from_postscript(family or font)
+        return family
 
     def _font_buffer(self, doc: Any, font: str) -> bytes | None:
         xref = self._fonts.get(font)
