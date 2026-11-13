@@ -19,6 +19,7 @@ import pytest
 from all2md import to_ast
 from all2md.ast import Document, Heading, Paragraph, Text
 from all2md.options.pdf import PdfOptions
+from all2md.parsers._pdf_body_style import _Line
 from all2md.parsers._pdf_heading_styles import heading_font, measure_heading_styles
 
 pytestmark = [pytest.mark.unit, pytest.mark.pdf]
@@ -32,6 +33,15 @@ def test_a_lines_look_is_its_commonest_span() -> None:
         {"text": "Indemnification", "size": 16.0, "font": "Arial-BoldMT", "flags": 16, "color": 0x2F5496},
     ]
     assert heading_font(spans) == {"size": 16.0, "font": "Arial-BoldMT", "bold": True, "color": 0x2F5496}
+
+
+def test_a_lines_look_records_where_it_sits() -> None:
+    spans = [
+        {"text": "Rent", "size": 20.0, "font": "Arial", "origin": (72.0, 210.1), "bbox": (72.0, 190.0, 118.4, 215.0)}
+    ]
+    look = heading_font(spans)
+    assert look is not None
+    assert (look["baseline"], look["x0"], look["x1"]) == (210.1, 72.0, 118.4)
 
 
 def test_each_level_takes_the_look_most_of_its_headings_share() -> None:
@@ -49,6 +59,53 @@ def test_each_level_takes_the_look_most_of_its_headings_share() -> None:
         "2": {"size": 20.0, "font": "CalibriLight!", "bold": False, "color": "2F5496"},
         "3": {"size": 12.0, "font": "Garamond", "bold": True},
     }
+
+
+#: Shares of the size above and below the baseline: a 20pt heading font, a 12pt body font.
+METRICS = {"Head": (0.95, 0.27), "Body": (0.86, 0.26)}
+
+
+def _line(baseline: float, size: float = 12.0, font: str = "Body") -> _Line:
+    return _Line(block=0, characters=40, size=size, font=font, baseline=baseline, x0=72.0, x1=540.0)
+
+
+def _spaced(lines: list[_Line], body: dict, baseline: float = 210.0) -> dict:
+    look = {"size": 20.0, "font": "Head", "bold": False, "color": 0, "baseline": baseline, "x0": 72.0, "x1": 300.0}
+    styles = measure_heading_styles([(1, look, lines)], body, lambda name: name, METRICS.get)
+    return styles["1"]
+
+
+def test_the_space_around_a_heading_is_read_as_word_would_set_it() -> None:
+    body = {"font": "Body", "size": 12.0, "line_spacing": 1.0, "space_after": 8.0}
+    # Above: the body line's descent (3.12), 18pt before, the heading's ascent (19).
+    # Below: the heading's descent (5.4), 4pt after, the body line's ascent (10.32).
+    lines = [_line(210.0 - 3.12 - 18.0 - 19.0), _line(210.0 + 5.4 + 4.0 + 10.32)]
+    style = _spaced(lines, body)
+    assert (style["space_before"], style["space_after"]) == (18.0, 4.0)
+
+
+def test_word_leaves_the_larger_space_not_the_sum() -> None:
+    body = {"font": "Body", "size": 12.0, "line_spacing": 1.0, "space_after": 8.0}
+    # Under 8pt between the body and the heading: the body's own space after shows,
+    # and the heading's space before is read as the same.
+    style = _spaced([_line(210.0 - 3.12 - 6.0 - 19.0)], body)
+    assert style["space_before"] == 8.0
+
+
+def test_the_bodys_line_spacing_extra_sits_under_its_text() -> None:
+    body = {"font": "Body", "size": 12.0, "line_spacing": 1.5, "space_after": 0.0}
+    # A 1.5-line body line carries half its 13.44pt line height under it.
+    extra = 0.5 * (0.86 + 0.26) * 12.0
+    style = _spaced([_line(210.0 - 3.12 - extra - 12.0 - 19.0)], body)
+    assert style["space_before"] == 12.0
+
+
+def test_a_neighbor_that_is_not_body_text_says_nothing() -> None:
+    body = {"font": "Body", "size": 12.0, "line_spacing": 1.0, "space_after": 8.0}
+    # A heading's second line is skipped; a caption-sized line below says nothing.
+    lines = [_line(210.0 + 24.0, size=20.0, font="Head"), _line(270.0, size=9.0)]
+    style = _spaced(lines, body)
+    assert "space_before" not in style and "space_after" not in style
 
 
 def test_headings_are_read_from_the_pdf(tmp_path: Path) -> None:
@@ -74,6 +131,8 @@ def test_headings_are_read_from_the_pdf(tmp_path: Path) -> None:
     assert look["size"] == 18.0
     assert look["font"] == "Arial"
     assert look["color"] == "2E5496"
+    # Set 30pt above the first body line and 34 below the last: some space either side.
+    assert look["space_before"] > 0 and look["space_after"] > 0
 
 
 def _styles_xml(metadata: dict, *children, **options) -> str:
@@ -122,6 +181,24 @@ def test_a_promoted_title_takes_the_first_levels_style() -> None:
     )
     assert '<w:sz w:val="56"/>' in _style(xml, "Title")
     assert '<w:sz w:val="40"/>' in _style(xml, "Heading1")
+
+
+def test_the_docx_renderer_sets_the_space_around_headings() -> None:
+    styles = {
+        "1": {**STYLES["1"], "space_after": 4.0},
+        "2": {**STYLES["2"], "space_before": 18.0, "space_after": 8.0},
+    }
+    xml = _styles_xml(
+        {"heading_styles": styles},
+        Heading(level=1, content=[Text(content="Lease")]),
+        Paragraph(content=[Text(content="Body")]),
+        Heading(level=2, content=[Text(content="Rent")]),
+    )
+    title, heading = _style(xml, "Title"), _style(xml, "Heading1")
+    assert 'w:after="80"' in title
+    # Word's Title draws a rule under itself; the PDF's title had none.
+    assert "w:pBdr" not in title
+    assert 'w:before="360"' in heading and 'w:after="160"' in heading and 'w:line="240"' in heading
 
 
 def test_a_reference_template_keeps_its_own_heading_styles(tmp_path: Path) -> None:
