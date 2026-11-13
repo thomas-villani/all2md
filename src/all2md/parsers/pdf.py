@@ -73,6 +73,7 @@ from all2md.constants import (
 )
 from all2md.converter_metadata import ConverterMetadata
 from all2md.exceptions import DependencyError, MalformedFileError, PasswordProtectedError, ValidationError
+from all2md.parsers._pdf_body_style import BodyStyleSampler
 
 # Import from private submodules
 from all2md.parsers._pdf_columns import detect_columns, split_gutter_merged_blocks
@@ -1445,6 +1446,7 @@ class PdfToAstConverter(BaseParser):
         self._ocr_pages_applied: int = 0  # pages OCR was applied to in the current parse
         self._running_furniture: RunningFurniture | None = None
         self._page_setup: dict[str, Any] | None = None
+        self._body_style = BodyStyleSampler()
         self._use_layout: bool = False
         # Most recent heading level emitted (any path). Used by
         # `_handle_header_line_with_layout` to pick a sibling-or-deeper level
@@ -1588,6 +1590,7 @@ class PdfToAstConverter(BaseParser):
         self._page_setup = measure_page_setup(
             [(doc[n].rect.width, doc[n].rect.height) for n in pages_to_use], sample, furniture
         )
+        self._body_style = BodyStyleSampler()
 
         return self.convert_to_ast(doc, pages_to_use, base_filename)
 
@@ -1968,6 +1971,9 @@ class PdfToAstConverter(BaseParser):
             metadata.custom.update(self._running_furniture.metadata(doc.page_count))
         if self._page_setup:
             metadata.custom["page_setup"] = self._page_setup
+        body_style = self._body_style.measure(doc)
+        if body_style:
+            metadata.custom["body_style"] = body_style
 
         # Attach header detection debug info if enabled
         if self.options.header_debug_output and self._hdr_identifier:
@@ -3243,6 +3249,15 @@ class PdfToAstConverter(BaseParser):
             remainder = _block_outside_table_regions(block, [table["bbox"] for table in table_info])
             if remainder is not None:
                 text_blocks.append(remainder)
+
+        # The body's font, size and spacing are read from what stays body text: table
+        # cells are set single-spaced, and OCR text has no fonts.
+        if not ocr_applied:
+            try:
+                fonts = page.get_fonts()
+            except Exception:
+                fonts = []
+            self._body_style.add(text_blocks, fonts)
 
         # Apply column detection if enabled -- but not to OCR-derived blocks (#411).
         # The engine already ran its own layout analysis and numbers its blocks in
