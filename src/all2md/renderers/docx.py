@@ -645,13 +645,15 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             self._write_running_furniture(node.metadata)
 
     def _apply_heading_styles(self, node: ASTDocument) -> None:
-        """Set each heading style's size, font, weight and color from ``heading_styles`` metadata.
+        """Set each heading style's size, font, weight, color and spacing from ``heading_styles`` metadata.
 
         The PDF parser reads them level by level (see ``all2md.parsers._pdf_heading_styles``);
         without them a lease headed in 20pt Calibri Light came out with Word's 14pt
         headings and ran a page short. A leading title promoted to Word's Title style
-        moves every heading up a level, and the styles move with them. Sizes named in
-        ``heading_font_sizes`` win, and a reference template keeps its own.
+        moves every heading up a level, and the styles move with them; the rule Word's
+        Title draws under itself goes. The space above and below a heading was read for
+        a heading set single-spaced, so a style given space is set single-spaced. Sizes
+        named in ``heading_font_sizes`` win, and a reference template keeps its own.
         """
         styles = node.metadata.get("heading_styles")
         if not self.document or not isinstance(styles, dict) or self.options.template_path:
@@ -681,6 +683,27 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 font.color.rgb = RGBColor.from_string(color.upper())
             else:
                 font.color.rgb = RGBColor(0, 0, 0)
+            paragraph = self.document.styles[name].paragraph_format
+            spaces = {
+                key: float(look[key])
+                for key in ("space_before", "space_after")
+                if isinstance(look.get(key), (int, float))
+                and not isinstance(look.get(key), bool)
+                and 0 <= look[key] <= 200
+            }
+            if spaces:
+                # The space was read for a heading set single-spaced, as most are.
+                paragraph.line_spacing = 1.0
+                if "space_before" in spaces:
+                    paragraph.space_before = Pt(spaces["space_before"])
+                if "space_after" in spaces:
+                    paragraph.space_after = Pt(spaces["space_after"])
+            if name == "Title":
+                # Word's Title draws a rule under itself that the PDF's title never had.
+                borders = self.document.styles[name].element.find(qn("w:pPr"))
+                rule = borders.find(qn("w:pBdr")) if borders is not None else None
+                if rule is not None:
+                    borders.remove(rule)
             family = look.get("font")
             if isinstance(family, str) and family.strip():
                 font.name = family.strip()

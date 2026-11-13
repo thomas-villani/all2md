@@ -2030,7 +2030,11 @@ class PdfToAstConverter(BaseParser):
         # Read once every heading has its final level.
         heading_styles = measure_heading_styles(
             (
-                (node.level, node.source_location.metadata["font"])
+                (
+                    node.level,
+                    node.source_location.metadata["font"],
+                    self._body_style.lines_on((node.source_location.page or 0) - 1),
+                )
                 for node in ast_doc.children
                 if isinstance(node, Heading)
                 and node.source_location is not None
@@ -2038,6 +2042,7 @@ class PdfToAstConverter(BaseParser):
             ),
             ast_doc.metadata.get("body_style"),
             lambda font: self._body_style.family(doc, font),
+            lambda font: self._body_style.vertical_metrics(doc, font),
         )
         if heading_styles:
             ast_doc.metadata["heading_styles"] = heading_styles
@@ -3343,7 +3348,7 @@ class PdfToAstConverter(BaseParser):
                 fonts = page.get_fonts()
             except Exception:
                 fonts = []
-            self._body_style.add(text_blocks, fonts)
+            self._body_style.add(text_blocks, fonts, page_num)
         self._page_extents[page_num] = self._measure_page_extent(page, text_blocks, table_info, figure_plan)
 
         # Apply column detection if enabled -- but not to OCR-derived blocks (#411).
