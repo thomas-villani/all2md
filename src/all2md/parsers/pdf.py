@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
+from itertools import pairwise
 
 from all2md.ast import (
     Code,
@@ -104,6 +105,7 @@ from all2md.parsers._pdf_ocr import (
 from all2md.parsers._pdf_ocr import (
     should_use_ocr as _should_use_ocr,
 )
+from all2md.parsers._pdf_page_breaks import PageExtent, body_bottom, ends_on_purpose, page_extent
 from all2md.parsers._pdf_page_setup import measure_page_setup
 from all2md.parsers._pdf_tables import (
     MAX_DOT_LEADER_CELL_RATIO,
@@ -1450,6 +1452,7 @@ class PdfToAstConverter(BaseParser):
         self._running_furniture: RunningFurniture | None = None
         self._page_setup: dict[str, Any] | None = None
         self._body_style = BodyStyleSampler()
+        self._page_extents: dict[int, PageExtent | None] = {}
         self._use_layout: bool = False
         # Most recent heading level emitted (any path). Used by
         # `_handle_header_line_with_layout` to pick a sibling-or-deeper level
@@ -2081,6 +2084,8 @@ class PdfToAstConverter(BaseParser):
         the whole page loop with OCR forced.
         """
         children: list[Node] = []
+        self._page_extents = {}
+        page_openings: list[tuple[int, int]] = []  # (page number, index of its first node)
         # Suppress pymupdf-layout's global find_tables() hook for the whole
         # page loop. We call predict_page_layout() explicitly inside
         # _process_page_to_ast and merge its predictions ourselves; the
@@ -2097,6 +2102,7 @@ class PdfToAstConverter(BaseParser):
                             children, page_nodes, doc[pages_list[idx - 1]].rect.height, page.rect.height
                         )
                     if page_nodes:
+                        page_openings.append((pno, len(children)))
                         children.extend(page_nodes)
 
                     # Add page separator between pages (but not after the last page)
@@ -2130,7 +2136,69 @@ class PdfToAstConverter(BaseParser):
                     )
                     # Re-raise to maintain existing error handling
                     raise
+        if self.options.keep_page_breaks:
+            self._mark_page_breaks(doc, children, page_openings)
         return children
+
+    def _mark_page_breaks(
+        self, doc: pymupdf.Document, children: list[Node], page_openings: list[tuple[int, int]]
+    ) -> None:
+        """Flag the first block of each page its author started on purpose.
+
+        See :mod:`all2md.parsers._pdf_page_breaks`. The body runs down to the lowest
+        point any page but the last reaches; a page that ended with room above that for
+        the next page's opening was ended on purpose, and so was one followed by a page
+        of another size. A page that opens mid-sentence continues a paragraph, which a
+        page break never splits.
+        """
+        extents = [(pno, start, self._page_extents.get(pno)) for pno, start in page_openings]
+        lowest = body_bottom([extent for _, _, extent in extents[:-1] if extent is not None])
+        if lowest is None:
+            return
+        for (previous_pno, _, previous), (pno, start, following) in pairwise(extents):
+            if previous is None or following is None:
+                continue
+            resized = (round(doc[previous_pno].rect.width), round(doc[previous_pno].rect.height)) != (
+                round(doc[pno].rect.width),
+                round(doc[pno].rect.height),
+            )
+            opening = next((node for node in children[start:] if not isinstance(node, Comment)), None)
+            if opening is None:
+                continue
+            if not resized:
+                if not ends_on_purpose(previous, following, lowest, doc[previous_pno].rect.height):
+                    continue
+                if extract_node_text(opening, joiner="").lstrip()[:1].islower():
+                    continue
+            opening.metadata["page_break_before"] = True
+
+    def _measure_page_extent(
+        self, page: pymupdf.Page, text_blocks: list[dict], table_info: list[dict], figure_plan: list[dict]
+    ) -> PageExtent | None:
+        """Measure where a page's body starts and stops, for :meth:`_mark_page_breaks`.
+
+        Images in the outer tenth of the page (a letterhead logo) or covering most of it
+        (a background) are not body content.
+        """
+        width, height = page.rect.width, page.rect.height
+        regions = [tuple(table["bbox"]) for table in table_info if table.get("bbox") is not None]
+        regions += [tuple(item["bbox"]) for item in figure_plan if item.get("bbox") is not None]
+        try:
+            images = page.get_image_info()
+        except Exception:
+            images = []
+        for image in images if isinstance(images, list) else []:
+            x0, y0, x1, y1 = image.get("bbox") or (0, 0, 0, 0)
+            if (x1 - x0) * (y1 - y0) > 0.5 * width * height:
+                continue
+            if y1 <= 0.1 * height or y0 >= 0.9 * height:
+                continue
+            regions.append((x0, y0, x1, y1))
+        try:
+            boxes = [(float(r[0]), float(r[1]), float(r[2]), float(r[3])) for r in regions]
+            return page_extent(text_blocks, boxes, height)
+        except (TypeError, ValueError):
+            return None
 
     @staticmethod
     def _count_meaningful_chars(children: list[Node]) -> int:
@@ -3276,6 +3344,7 @@ class PdfToAstConverter(BaseParser):
             except Exception:
                 fonts = []
             self._body_style.add(text_blocks, fonts)
+        self._page_extents[page_num] = self._measure_page_extent(page, text_blocks, table_info, figure_plan)
 
         # Apply column detection if enabled -- but not to OCR-derived blocks (#411).
         # The engine already ran its own layout analysis and numbers its blocks in
