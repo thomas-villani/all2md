@@ -624,6 +624,9 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
         self._collect_footnotes(node)
 
+        if node.metadata:
+            self._apply_body_style(node.metadata)
+
         # Render children
         for child in node.children:
             child.accept(self)
@@ -631,6 +634,64 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         if node.metadata:
             self._apply_page_setup(node.metadata)
             self._write_running_furniture(node.metadata)
+
+    def _apply_body_style(self, metadata: dict) -> None:
+        """Set the body font, size, line spacing and paragraph spacing from ``body_style`` metadata.
+
+        The PDF parser measures them (see ``all2md.parsers._pdf_body_style``); without
+        them every converted document came out in Calibri 11 with 1.15 lines and 10pt
+        between paragraphs, and paginated differently from its source. A font or size
+        the caller names wins, and a reference template keeps its own. The spacing goes
+        in the document defaults, as Word keeps it: on the Normal style it would beat a
+        table style's single spacing and open up every table cell.
+        """
+        style = metadata.get("body_style")
+        if not self.document or not isinstance(style, dict) or self.options.template_path:
+            return
+        from docx.shared import Pt
+
+        def number(key: str, low: float, high: float) -> float | None:
+            value = style.get(key)
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not low <= value <= high:
+                return None
+            return float(value)
+
+        if self._has_style("Normal"):
+            font = self.document.styles["Normal"].font
+            family = style.get("font")
+            if isinstance(family, str) and family.strip() and not self.options.default_font:
+                font.name = family.strip()
+            size = number("size", 1.0, 400.0)
+            if size is not None and not self.options.default_font_size:
+                font.size = Pt(size)
+
+        line_spacing = number("line_spacing", 0.5, 5.0)
+        space_after = number("space_after", 0.0, 200.0)
+        if line_spacing is None and space_after is None:
+            return
+        qn = self._qn
+        root = self.document.styles.element
+        defaults = root.find(qn("w:docDefaults"))
+        if defaults is None:
+            defaults = root.makeelement(qn("w:docDefaults"), {})
+            root.insert(0, defaults)
+        paragraph_default = defaults.find(qn("w:pPrDefault"))
+        if paragraph_default is None:
+            paragraph_default = defaults.makeelement(qn("w:pPrDefault"), {})
+            defaults.append(paragraph_default)
+        properties = paragraph_default.find(qn("w:pPr"))
+        if properties is None:
+            properties = paragraph_default.makeelement(qn("w:pPr"), {})
+            paragraph_default.append(properties)
+        spacing = properties.find(qn("w:spacing"))
+        if spacing is None:
+            spacing = properties.makeelement(qn("w:spacing"), {})
+            properties.append(spacing)
+        if space_after is not None:
+            spacing.set(qn("w:after"), str(round(space_after * 20)))
+        if line_spacing is not None:
+            spacing.set(qn("w:line"), str(round(line_spacing * 240)))
+            spacing.set(qn("w:lineRule"), "auto")
 
     def _apply_page_setup(self, metadata: dict) -> None:
         """Set each section's paper, orientation and margins from ``page_setup`` metadata.
