@@ -179,7 +179,7 @@ def font_vertical_metrics(buffer: bytes) -> tuple[float, float] | None:
         try:
             win_ascent, win_descent = struct.unpack(">HH", buffer[os2 + 74 : os2 + 78])
         except struct.error:
-            win_ascent = win_descent = 0
+            win_ascent = 0
         if win_ascent:
             leading = max(0, gap - ((win_ascent + win_descent) - (ascender - descender)))
             above, below = win_ascent, win_descent + leading
