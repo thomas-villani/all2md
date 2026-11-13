@@ -419,13 +419,13 @@ The ``omnidocbench`` lane scores 981 scanned pages against human annotation, fro
      - Value
      -
    * - ``text_content_similarity``
-     - 0.505
+     - 0.506
      - over 981 pages
    * - ``reading_order_similarity``
      - 0.603
      - over 981 pages
    * - ``block_structure_similarity``
-     - 0.516
+     - 0.508
      - **not gated** — see below
 
 ``block_structure_similarity`` is recorded but excluded from the verdict. Until #256 it
@@ -439,6 +439,9 @@ nothing, and a block whose text is missing counts as a miss. That change took th
 0.399 to 0.516 in a re-record where text and order held to three decimals. The born-digital lane has since measured the
 new definition against the wrong-page and deletion controls that disqualified the old one
 (see its dimensions table above); it stays ungated until that reading is weighed.
+It moved again, 0.516 → 0.508, in the PyMuPDF 1.28.2 re-record, which also carries the
+parser's paragraph and heading changes since v1.19.0; text and order held to three
+decimals.
 
 This baseline carries the resolution of issue #411. An earlier re-recording had exposed
 a drift across the v1.12/v1.13 parser arc (text 0.506 → 0.482, order 0.603 → 0.578) —
