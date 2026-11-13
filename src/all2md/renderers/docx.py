@@ -689,6 +689,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 if fonts is not None:
                     for attribute in ("w:asciiTheme", "w:hAnsiTheme"):
                         fonts.attrib.pop(qn(attribute), None)
+
     def _set_page_break_before(self, elements: list[Any]) -> None:
         """Start a new page at the first paragraph among ``elements`` (one in a table's first cell).
 
