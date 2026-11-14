@@ -30,6 +30,7 @@ if TYPE_CHECKING:
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
+from itertools import pairwise
 
 from all2md.ast import (
     Code,
@@ -79,6 +80,7 @@ from all2md.parsers._pdf_body_style import BodyStyleSampler
 from all2md.parsers._pdf_columns import detect_columns, split_gutter_merged_blocks
 from all2md.parsers._pdf_furniture import RunningFurniture, detect_running_furniture
 from all2md.parsers._pdf_headers import IdentifyHeaders, compute_line_style
+from all2md.parsers._pdf_heading_styles import heading_font, measure_heading_styles
 from all2md.parsers._pdf_images import detect_image_caption, extract_page_images
 from all2md.parsers._pdf_layout import (
     PageLayoutPredictions,
@@ -103,6 +105,7 @@ from all2md.parsers._pdf_ocr import (
 from all2md.parsers._pdf_ocr import (
     should_use_ocr as _should_use_ocr,
 )
+from all2md.parsers._pdf_page_breaks import PageExtent, body_bottom, ends_on_purpose, page_extent
 from all2md.parsers._pdf_page_setup import measure_page_setup
 from all2md.parsers._pdf_tables import (
     MAX_DOT_LEADER_CELL_RATIO,
@@ -885,7 +888,9 @@ def _split_run_in_heading(paragraph: AstParagraph) -> tuple[Heading, AstParagrap
         level=_BOLD_TITLE_PENDING_LEVEL,
         content=heading_content,
         metadata={"bold_title": True, "run_in": True},
-        source_location=SourceLocation(format="pdf", page=location.page) if location else None,
+        source_location=SourceLocation(format="pdf", page=location.page, metadata={"font": {"bold": True}})
+        if location
+        else None,
     )
     return heading, replace(paragraph, content=rest)
 
@@ -914,7 +919,7 @@ def _bold_title_heading(paragraph: AstParagraph) -> Heading | None:
         level=_BOLD_TITLE_PENDING_LEVEL,
         content=content,
         metadata={"bold_title": True},
-        source_location=SourceLocation(format="pdf", page=location.page),
+        source_location=SourceLocation(format="pdf", page=location.page, metadata={"font": {"bold": True}}),
     )
 
 
@@ -1447,6 +1452,7 @@ class PdfToAstConverter(BaseParser):
         self._running_furniture: RunningFurniture | None = None
         self._page_setup: dict[str, Any] | None = None
         self._body_style = BodyStyleSampler()
+        self._page_extents: dict[int, PageExtent | None] = {}
         self._use_layout: bool = False
         # Most recent heading level emitted (any path). Used by
         # `_handle_header_line_with_layout` to pick a sibling-or-deeper level
@@ -2021,6 +2027,26 @@ class PdfToAstConverter(BaseParser):
         if self.options.dedup_running_headings and total_pages >= 3:
             headings_demoted += _demote_running_headings(ast_doc, total_pages)
 
+        # Read once every heading has its final level.
+        heading_styles = measure_heading_styles(
+            (
+                (
+                    node.level,
+                    node.source_location.metadata["font"],
+                    self._body_style.lines_on((node.source_location.page or 0) - 1),
+                )
+                for node in ast_doc.children
+                if isinstance(node, Heading)
+                and node.source_location is not None
+                and isinstance(node.source_location.metadata.get("font"), dict)
+            ),
+            ast_doc.metadata.get("body_style"),
+            lambda font: self._body_style.family(doc, font),
+            lambda font: self._body_style.vertical_metrics(doc, font),
+        )
+        if heading_styles:
+            ast_doc.metadata["heading_styles"] = heading_styles
+
         self._record_pdf_quality_signals(ast_doc, total_pages, headings_demoted)
 
         return ast_doc
@@ -2063,6 +2089,8 @@ class PdfToAstConverter(BaseParser):
         the whole page loop with OCR forced.
         """
         children: list[Node] = []
+        self._page_extents = {}
+        page_openings: list[tuple[int, int]] = []  # (page number, index of its first node)
         # Suppress pymupdf-layout's global find_tables() hook for the whole
         # page loop. We call predict_page_layout() explicitly inside
         # _process_page_to_ast and merge its predictions ourselves; the
@@ -2079,6 +2107,7 @@ class PdfToAstConverter(BaseParser):
                             children, page_nodes, doc[pages_list[idx - 1]].rect.height, page.rect.height
                         )
                     if page_nodes:
+                        page_openings.append((pno, len(children)))
                         children.extend(page_nodes)
 
                     # Add page separator between pages (but not after the last page)
@@ -2112,7 +2141,69 @@ class PdfToAstConverter(BaseParser):
                     )
                     # Re-raise to maintain existing error handling
                     raise
+        if self.options.keep_page_breaks:
+            self._mark_page_breaks(doc, children, page_openings)
         return children
+
+    def _mark_page_breaks(
+        self, doc: pymupdf.Document, children: list[Node], page_openings: list[tuple[int, int]]
+    ) -> None:
+        """Flag the first block of each page its author started on purpose.
+
+        See :mod:`all2md.parsers._pdf_page_breaks`. The body runs down to the lowest
+        point any page but the last reaches; a page that ended with room above that for
+        the next page's opening was ended on purpose, and so was one followed by a page
+        of another size. A page that opens mid-sentence continues a paragraph, which a
+        page break never splits.
+        """
+        extents = [(pno, start, self._page_extents.get(pno)) for pno, start in page_openings]
+        lowest = body_bottom([extent for _, _, extent in extents[:-1] if extent is not None])
+        if lowest is None:
+            return
+        for (previous_pno, _, previous), (pno, start, following) in pairwise(extents):
+            if previous is None or following is None:
+                continue
+            resized = (round(doc[previous_pno].rect.width), round(doc[previous_pno].rect.height)) != (
+                round(doc[pno].rect.width),
+                round(doc[pno].rect.height),
+            )
+            opening = next((node for node in children[start:] if not isinstance(node, Comment)), None)
+            if opening is None:
+                continue
+            if not resized:
+                if not ends_on_purpose(previous, following, lowest, doc[previous_pno].rect.height):
+                    continue
+                if extract_node_text(opening, joiner="").lstrip()[:1].islower():
+                    continue
+            opening.metadata["page_break_before"] = True
+
+    def _measure_page_extent(
+        self, page: pymupdf.Page, text_blocks: list[dict], table_info: list[dict], figure_plan: list[dict]
+    ) -> PageExtent | None:
+        """Measure where a page's body starts and stops, for :meth:`_mark_page_breaks`.
+
+        Images in the outer tenth of the page (a letterhead logo) or covering most of it
+        (a background) are not body content.
+        """
+        width, height = page.rect.width, page.rect.height
+        regions = [tuple(table["bbox"]) for table in table_info if table.get("bbox") is not None]
+        regions += [tuple(item["bbox"]) for item in figure_plan if item.get("bbox") is not None]
+        try:
+            images = page.get_image_info()
+        except Exception:
+            images = []
+        for image in images if isinstance(images, list) else []:
+            x0, y0, x1, y1 = image.get("bbox") or (0, 0, 0, 0)
+            if (x1 - x0) * (y1 - y0) > 0.5 * width * height:
+                continue
+            if y1 <= 0.1 * height or y0 >= 0.9 * height:
+                continue
+            regions.append((x0, y0, x1, y1))
+        try:
+            boxes = [(float(r[0]), float(r[1]), float(r[2]), float(r[3])) for r in regions]
+            return page_extent(text_blocks, boxes, height)
+        except (TypeError, ValueError):
+            return None
 
     @staticmethod
     def _count_meaningful_chars(children: list[Node]) -> int:
@@ -3257,7 +3348,8 @@ class PdfToAstConverter(BaseParser):
                 fonts = page.get_fonts()
             except Exception:
                 fonts = []
-            self._body_style.add(text_blocks, fonts)
+            self._body_style.add(text_blocks, fonts, page_num)
+        self._page_extents[page_num] = self._measure_page_extent(page, text_blocks, table_info, figure_plan)
 
         # Apply column detection if enabled -- but not to OCR-derived blocks (#411).
         # The engine already ran its own layout analysis and numbers its blocks in
@@ -3579,6 +3671,7 @@ class PdfToAstConverter(BaseParser):
         inline_content: list[Node],
         page_num: int,
         line_bbox: tuple[float, float, float, float] | None = None,
+        font: dict[str, Any] | None = None,
     ) -> None:
         """Emit a heading or buffer a numbering-only prefix for merging.
 
@@ -3627,7 +3720,9 @@ class PdfToAstConverter(BaseParser):
                 Heading(
                     level=merged_level,
                     content=merged,
-                    source_location=SourceLocation(format="pdf", page=page + 1),
+                    source_location=SourceLocation(
+                        format="pdf", page=page + 1, metadata={"font": font} if font else {}
+                    ),
                 )
             )
             self._last_heading_level = merged_level
@@ -3639,7 +3734,9 @@ class PdfToAstConverter(BaseParser):
             Heading(
                 level=level,
                 content=inline_content,
-                source_location=SourceLocation(format="pdf", page=page_num + 1),
+                source_location=SourceLocation(
+                    format="pdf", page=page_num + 1, metadata={"font": font} if font else {}
+                ),
             )
         )
         self._last_heading_level = level
@@ -3817,7 +3914,9 @@ class PdfToAstConverter(BaseParser):
 
         self._flush_state_paragraph(state, page_num)
         line_text = "".join(s.get("text", "") for s in spans).strip()
-        self._emit_heading(state, header_level, line_text, inline_content, page_num, _span_union_bbox(spans))
+        self._emit_heading(
+            state, header_level, line_text, inline_content, page_num, _span_union_bbox(spans), heading_font(spans)
+        )
         return True
 
     def _handle_header_line_with_layout(
@@ -3908,7 +4007,9 @@ class PdfToAstConverter(BaseParser):
             return True
 
         self._flush_state_paragraph(state, page_num)
-        self._emit_heading(state, level, line_style.text, inline_content, page_num, _span_union_bbox(spans))
+        self._emit_heading(
+            state, level, line_style.text, inline_content, page_num, _span_union_bbox(spans), heading_font(spans)
+        )
         return True
 
     def _accumulate_paragraph_line(

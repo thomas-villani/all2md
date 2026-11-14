@@ -626,14 +626,107 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
         if node.metadata:
             self._apply_body_style(node.metadata)
+            self._apply_heading_styles(node)
 
         # Render children
         for child in node.children:
-            child.accept(self)
+            if child.metadata.get("page_break_before") and self.document is not None:
+                # python-docx inserts each new block before the body's closing sectPr.
+                body = self.document.element.body
+                start = len(body) - (1 if len(body) and body[-1].tag == self._qn("w:sectPr") else 0)
+                child.accept(self)
+                end = len(body) - (1 if len(body) and body[-1].tag == self._qn("w:sectPr") else 0)
+                self._set_page_break_before(list(body)[start:end])
+            else:
+                child.accept(self)
 
         if node.metadata:
             self._apply_page_setup(node.metadata)
             self._write_running_furniture(node.metadata)
+
+    def _apply_heading_styles(self, node: ASTDocument) -> None:
+        """Set each heading style's size, font, weight, color and spacing from ``heading_styles`` metadata.
+
+        The PDF parser reads them level by level (see ``all2md.parsers._pdf_heading_styles``);
+        without them a lease headed in 20pt Calibri Light came out with Word's 14pt
+        headings and ran a page short. A leading title promoted to Word's Title style
+        moves every heading up a level, and the styles move with them; the rule Word's
+        Title draws under itself goes. The space above and below a heading was read for
+        a heading set single-spaced, so a style given space is set single-spaced. Sizes
+        named in ``heading_font_sizes`` win, and a reference template keeps its own.
+        """
+        styles = node.metadata.get("heading_styles")
+        if not self.document or not isinstance(styles, dict) or self.options.template_path:
+            return
+        if not self.options.use_styles:
+            return
+        from docx.shared import Pt, RGBColor
+
+        promoted = any(isinstance(child, Heading) and child.metadata.get("is_title") for child in node.children)
+        qn = self._qn
+        for key, look in styles.items():
+            if not isinstance(look, dict) or not str(key).isdigit():
+                continue
+            level = int(key)
+            name = ("Title" if level == 1 else f"Heading {level - 1}") if promoted else f"Heading {level}"
+            if not 1 <= level <= 9 or not self._has_style(name):
+                continue
+            font = self.document.styles[name].font
+            size = look.get("size")
+            requested = (self.options.heading_font_sizes or {}).get(level - 1 if promoted else level)
+            if isinstance(size, (int, float)) and not isinstance(size, bool) and 1 <= size <= 400 and not requested:
+                font.size = Pt(float(size))
+            if isinstance(look.get("bold"), bool):
+                font.bold = look["bold"]
+            color = look.get("color")
+            if isinstance(color, str) and re.fullmatch(r"[0-9A-Fa-f]{6}", color):
+                font.color.rgb = RGBColor.from_string(color.upper())
+            else:
+                font.color.rgb = RGBColor(0, 0, 0)
+            paragraph = self.document.styles[name].paragraph_format
+            spaces = {
+                key: float(look[key])
+                for key in ("space_before", "space_after")
+                if isinstance(look.get(key), (int, float))
+                and not isinstance(look.get(key), bool)
+                and 0 <= look[key] <= 200
+            }
+            if spaces:
+                # The space was read for a heading set single-spaced, as most are.
+                paragraph.line_spacing = 1.0
+                if "space_before" in spaces:
+                    paragraph.space_before = Pt(spaces["space_before"])
+                if "space_after" in spaces:
+                    paragraph.space_after = Pt(spaces["space_after"])
+            if name == "Title":
+                # Word's Title draws a rule under itself that the PDF's title never had.
+                borders = self.document.styles[name].element.find(qn("w:pPr"))
+                rule = borders.find(qn("w:pBdr")) if borders is not None else None
+                if rule is not None:
+                    borders.remove(rule)
+            family = look.get("font")
+            if isinstance(family, str) and family.strip():
+                font.name = family.strip()
+                # A theme font named on the style outranks the font named beside it.
+                fonts = self.document.styles[name].element.rPr.find(qn("w:rFonts"))
+                if fonts is not None:
+                    for attribute in ("w:asciiTheme", "w:hAnsiTheme"):
+                        fonts.attrib.pop(qn(attribute), None)
+
+    def _set_page_break_before(self, elements: list[Any]) -> None:
+        """Start a new page at the first paragraph among ``elements`` (one in a table's first cell).
+
+        A block whose metadata says ``page_break_before`` opened a page its source's
+        author started on purpose; Word's own paragraph setting keeps that, and stays
+        editable, where an inserted break character would not move with the text.
+        """
+        qn = self._qn
+        for element in elements:
+            paragraph = element if element.tag == qn("w:p") else next(element.iter(qn("w:p")), None)
+            if paragraph is None:
+                continue
+            paragraph.get_or_add_pPr().pageBreakBefore_val = True
+            return
 
     def _apply_body_style(self, metadata: dict) -> None:
         """Set the body font, size, line spacing and paragraph spacing from ``body_style`` metadata.

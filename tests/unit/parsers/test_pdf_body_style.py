@@ -27,6 +27,7 @@ from all2md.parsers._pdf_body_style import (
     family_from_postscript,
     font_family,
     font_line_height,
+    font_vertical_metrics,
 )
 
 pytestmark = [pytest.mark.unit, pytest.mark.pdf]
@@ -47,14 +48,17 @@ PROSE = "The plant ran three shifts through the winter and met every delivery da
         ("MS-Gothic", "MS Gothic"),
         ("Helvetica-BoldOblique", "Arial"),
         ("Times-Roman", "Times New Roman"),
+        ("FreeMonoBold", "Free Mono"),
     ],
 )
 def test_a_postscript_name_reads_as_its_family(postscript: str, family: str) -> None:
     assert family_from_postscript(postscript) == family
 
 
-def _truetype(*, units: int, ascender: int, descender: int, gap: int, family: str) -> bytes:
-    """Build just enough of a TrueType font for its head, hhea and name tables."""
+def _truetype(
+    *, units: int, ascender: int, descender: int, gap: int, family: str, win: tuple[int, int] | None = None
+) -> bytes:
+    """Build just enough of a TrueType font for its head, hhea, name and (with ``win``) OS/2 tables."""
     head = bytearray(54)
     head[18:20] = struct.pack(">H", units)
     hhea = bytearray(36)
@@ -62,6 +66,10 @@ def _truetype(*, units: int, ascender: int, descender: int, gap: int, family: st
     encoded = family.encode("utf-16-be")
     name = struct.pack(">HHH", 0, 1, 18) + struct.pack(">HHHHHH", 3, 1, 0x409, 1, len(encoded), 0) + encoded
     tables = [(b"head", bytes(head)), (b"hhea", bytes(hhea)), (b"name", name)]
+    if win is not None:
+        os2 = bytearray(78)
+        os2[74:78] = struct.pack(">HH", *win)
+        tables.append((b"OS/2", bytes(os2)))
     offset = 12 + 16 * len(tables)
     directory, data = b"", b""
     for tag, body in tables:
@@ -80,6 +88,20 @@ def test_the_line_height_and_family_come_from_the_font_file() -> None:
 def test_a_font_without_tables_has_no_metrics() -> None:
     assert font_line_height(b"%!PS-AdobeFont-1.0") is None
     assert font_family(b"") is None
+    assert font_vertical_metrics(b"") is None
+
+
+def test_word_sets_a_line_by_the_fonts_windows_metrics() -> None:
+    # Times New Roman: Windows ascent 1825 above the baseline; below, the Windows descent
+    # 443 and the 87 units of line gap the Windows metrics leave out.
+    times = _truetype(units=2048, ascender=1825, descender=-443, gap=87, family="Times New Roman", win=(1825, 443))
+    assert font_vertical_metrics(times) == pytest.approx((1825 / 2048, 530 / 2048))
+    # Calibri: hhea puts 452 units of gap on a 1536 ascender; Windows sets 1950 above.
+    calibri = _truetype(units=2048, ascender=1536, descender=-512, gap=452, family="Calibri", win=(1950, 550))
+    assert font_vertical_metrics(calibri) == pytest.approx((1950 / 2048, 550 / 2048))
+    # No OS/2 table: hhea, its gap below.
+    bare = _truetype(units=1000, ascender=800, descender=-200, gap=100, family="Bare")
+    assert font_vertical_metrics(bare) == pytest.approx((0.8, 0.3))
 
 
 def _pdf(tmp_path: Path, *, size: float, multiple: float, after: float, paragraphs: int = 6) -> str:

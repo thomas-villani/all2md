@@ -107,6 +107,9 @@ def family_from_postscript(name: str) -> str:
     base, _, suffix = name.replace(",", "-").partition("-")
     base = re.sub(r"(?:PSMT|PS|MT)$", "", base) or base
     words = re.sub(r"(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", " ", base).split()
+    # A style run into the name itself (``FreeMonoBold``) is not part of the family.
+    while len(words) > 1 and words[-1] in _STYLE_WORDS - {"Roman", "Book", "Normal"}:
+        words.pop()
     family = " ".join(words) or name
     suffix = re.sub(r"(?:PSMT|MT)$", "", suffix)
     extra = [word for word in re.findall(r"[A-Z][a-z]*|[0-9]+", suffix) if word not in _STYLE_WORDS]
@@ -149,6 +152,41 @@ def font_line_height(buffer: bytes) -> float | None:
     return height if 0.8 <= height <= 2.0 else None
 
 
+def font_vertical_metrics(buffer: bytes) -> tuple[float, float] | None:
+    """Return how much of a line in a font Word sets above its baseline and how much below.
+
+    Shares of the font size. Word on Windows lays a line out as Windows does: the
+    ``OS/2`` table's Windows ascent above the baseline, its Windows descent below, and
+    below that the external leading, the part of ``hhea``'s line gap the Windows
+    metrics leave out (which Times New Roman has and Calibri does not). Measured against
+    Word's own PDFs to within a fifth of a point. A font without ``OS/2`` falls back to
+    ``hhea``, its line gap below.
+    """
+    tables = _font_tables(buffer)
+    if not tables or "hhea" not in tables or "head" not in tables:
+        return None
+    head, hhea = tables["head"][0], tables["hhea"][0]
+    try:
+        (units,) = struct.unpack(">H", buffer[head + 18 : head + 20])
+        ascender, descender, gap = struct.unpack(">hhh", buffer[hhea + 4 : hhea + 10])
+    except struct.error:
+        return None
+    if not units or ascender <= 0 or descender > 0:
+        return None
+    above, below = ascender, gap - descender
+    if "OS/2" in tables:
+        os2 = tables["OS/2"][0]
+        try:
+            win_ascent, win_descent = struct.unpack(">HH", buffer[os2 + 74 : os2 + 78])
+        except struct.error:
+            win_ascent = 0
+        if win_ascent:
+            leading = max(0, gap - ((win_ascent + win_descent) - (ascender - descender)))
+            above, below = win_ascent, win_descent + leading
+    above_share, below_share = above / units, below / units
+    return (above_share, below_share) if 0.8 <= above_share + below_share <= 2.0 else None
+
+
 def font_family(buffer: bytes) -> str | None:
     """Return the family name (``name`` table ID 1) a font file gives itself."""
     tables = _font_tables(buffer)
@@ -176,8 +214,11 @@ class BodyStyleSampler:
         self._pages: list[list[_Line]] = []
         self._fonts: dict[str, int] = {}
         self._metrics: dict[str, float] = {}
+        self._ascents: dict[str, float] = {}
+        self._by_page: dict[int, list[_Line]] = {}
+        self._vertical: dict[str, tuple[float, float]] = {}
 
-    def add(self, blocks: list[dict], fonts: list[tuple[Any, ...]] | None = None) -> None:
+    def add(self, blocks: list[dict], fonts: list[tuple[Any, ...]] | None = None, page: int | None = None) -> None:
         """Record one page's body blocks and, from ``page.get_fonts()``, its fonts' xrefs."""
         for entry in fonts if isinstance(fonts, (list, tuple)) else []:
             if len(entry) > 3 and isinstance(entry[3], str):
@@ -196,6 +237,7 @@ class BodyStyleSampler:
                         weights[(round(float(span["size"]) * 2) / 2, span.get("font") or "")] += len(text)
                         if span.get("font") and "ascender" in span and "descender" in span:
                             self._metrics.setdefault(span["font"], span["ascender"] - span["descender"])
+                            self._ascents.setdefault(span["font"], span["ascender"])
                 if not weights or _LEADER.search("".join(span.get("text") or "" for span in line.get("spans") or [])):
                     continue
                 (size, font), _ = weights.most_common(1)[0]
@@ -207,6 +249,29 @@ class BodyStyleSampler:
                 baseline = float(origin[1]) if origin else float(bbox[3])
                 lines.append(_Line(index, sum(weights.values()), size, font, baseline, bbox[0], bbox[2], mixed))
         self._pages.append(lines)
+        if page is not None:
+            self._by_page[page] = lines
+
+    def lines_on(self, page: int) -> list[_Line]:
+        """Return the lines recorded for a page (0-based), or none for a page not sampled."""
+        return self._by_page.get(page, [])
+
+    def vertical_metrics(self, doc: Any, font: str) -> tuple[float, float] | None:
+        """Return the shares of the font size a line in ``font`` takes above and below its baseline in Word."""
+        if font in self._vertical:
+            return self._vertical[font]
+        buffer = self._font_buffer(doc, font)
+        metrics = font_vertical_metrics(buffer) if buffer else None
+        if metrics is None:
+            height = KNOWN_LINE_HEIGHTS.get(self.family(doc, font)) or self._metrics.get(font)
+            ascent, extent = self._ascents.get(font), self._metrics.get(font)
+            if height:
+                share = ascent / extent if ascent and extent else 0.8
+                below = height * (1 - share) if 0 < share < 1 else height * 0.2
+                metrics = (height - below, below)
+        if metrics is not None:
+            self._vertical[font] = metrics
+        return metrics
 
     def measure(self, doc: Any) -> dict[str, Any] | None:
         """Return the body style, for the ``body_style`` metadata, or None when too little body text."""
@@ -224,10 +289,7 @@ class BodyStyleSampler:
         font = fonts.most_common(1)[0][0]
 
         buffer = self._font_buffer(doc, font)
-        family = font_family(buffer) if buffer else None
-        # A subset font's name table can hold its PostScript name, prefix and all.
-        if not family or "+" in family or " " not in family and re.search(r"[a-z][A-Z]|-", family):
-            family = family_from_postscript(family or font)
+        family = self.family(doc, font)
         style: dict[str, Any] = {"font": family, "size": size}
 
         # Each pair counts by its characters: a borderless table's narrow cells, often
@@ -268,6 +330,15 @@ class BodyStyleSampler:
         elif len(flush) >= MIN_LINE_PAIRS:
             style["space_after"] = 0.0
         return style
+
+    def family(self, doc: Any, font: str) -> str:
+        """Return the family Word knows a PDF font by: the embedded font's own, else its PostScript name's."""
+        buffer = self._font_buffer(doc, font)
+        family = font_family(buffer) if buffer else None
+        # A subset font's name table can hold its PostScript name, prefix and all.
+        if not family or "+" in family or " " not in family and re.search(r"[a-z][A-Z]|-", family):
+            family = family_from_postscript(family or font)
+        return family
 
     def _font_buffer(self, doc: Any, font: str) -> bytes | None:
         xref = self._fonts.get(font)
