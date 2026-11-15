@@ -22,7 +22,7 @@ from all2md.constants import (
 )
 from all2md.options.pdf import PdfOptions
 from all2md.parsers._pdf_text import clipped_textbox
-from all2md.utils.attachments import generate_attachment_filename, process_attachment
+from all2md.utils.attachments import count_dropped_image, generate_attachment_filename, process_attachment
 
 if TYPE_CHECKING:
     import pymupdf
@@ -253,8 +253,6 @@ def extract_page_images(
     # detection off there is nothing it could emit, so skip it entirely.
     # ``image_placement_markers`` remains meaningful for ``save`` / ``base64``.
     caption_only = options.attachment_mode == "alt_text"
-    if caption_only and not options.include_image_captions:
-        return [], collected_footnotes
 
     import pymupdf
 
@@ -294,9 +292,12 @@ def extract_page_images(
                 # Captioned figures survive the default mode; uncaptioned ones stay
                 # suppressed as noise. No pixmap is ever decoded on this path, and
                 # ``process_attachment`` with no data reduces to the alt-text result,
-                # so footnote-style alt text keeps working.
-                caption = detect_image_caption(page, bbox, caption_regions)
+                # so footnote-style alt text keeps working. Every image is counted as
+                # dropped (``process_attachment`` counts the captioned ones), so the CLI
+                # can say images were there.
+                caption = detect_image_caption(page, bbox, caption_regions) if options.include_image_captions else None
                 if not caption:
+                    count_dropped_image()
                     continue
                 result = process_attachment(
                     attachment_data=None,
