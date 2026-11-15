@@ -108,8 +108,6 @@
   
   - First level 5 
   
-   
-  
   And a simple table with a header: 
   
   | Header A | Header B | Header C | Header D |
@@ -118,8 +116,6 @@
   | Row 2, Col 1 | Row 2, Col 2 | Row 2, Col 3 | Row 2, Col 4 |
   
   We’ll put an inline image: 
-  
-   
   
   And the end.
   '''
