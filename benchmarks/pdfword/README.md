@@ -81,6 +81,25 @@ leaked into the paragraphs after a heading, and a chart landed inside one. Eithe
 as a conversion defect. Then look at the rendered pages too: two more defects passed their
 declarations and were only caught by eye (a leftover placeholder, and columns that never balanced).
 
+## The wide tier
+
+`wide.py` answers the "Small" and "Clean by construction" limits below. It takes Word documents other
+people wrote (public test fixtures and a government web crawl), has Word export each to a PDF and read
+it as the truth, and scores each tool's conversion with this lane's scorer. **The documents are never
+committed**: an inventory JSON names local files, and everything it writes goes under `--work`.
+
+```bash
+uv run --with pywin32 python -m benchmarks.pdfword.wide truth --inventory inventory.json --work W
+uv run --with pywin32 python -m benchmarks.pdfword.wide run --tool ours_default --work W
+uv run --with pywin32 python -m benchmarks.pdfword.wide run --tool word_import --work W
+uv run python -m benchmarks.pdfword.wide summary --work W
+```
+
+Each stage resumes. Real documents hang Word, so a worker does the Word work under `--timeout` and only
+the Word it started is killed. Budget about 30 seconds a document across the three stages, and don't
+let the machine sleep: a sleeping document is recorded as a timeout. To retry timeouts, drop their rows
+from the stage's `.jsonl` and run the stage again. `ours_images` is `ours_default` with images embedded.
+
 ## Limits
 
 - **Word's home turf.** Every PDF here came from Word, whose importer has an obvious advantage. Its
@@ -141,3 +160,26 @@ What it shows:
   don't read tags yet, so what reading them would be worth is still unmeasured.
 - **One font per document is a coarse check.** Our 3 of 13 are the three documents that happen to use
   our default font.
+
+### 2026-11-15: first wide reading
+
+873 documents chosen (2+ pages or 300+ words by their own metadata) from LibreOffice's Writer test
+data, Apache POI's test documents and GovDocs1. Word made 755 PDFs; 51 sources wouldn't open and 67
+hung. Untagged PDFs, Word 16.0, `ours_default` without layout analysis.
+
+| | `ours_default` (744) | `word_import` (729) |
+|---|---|---|
+| Words kept, in order | 99.1% | 98.4% |
+| Paragraphs left whole | 37% (55% merged) | 80% (11% merged) |
+| Headings found / invented | 47% / 5,191 | 41% / 2,846 |
+| Tables found / right shape | 46% / 25% | 59% / 38% |
+| Pictures | 0% (images off by default) | 79% |
+| Real footnotes | 0% | 61% |
+| Page count right | 29% | 50% |
+| Margins right | 38% | 21% |
+
+- **Paragraph merging is the defect the lane couldn't see.** It is worst on the crawled documents (57%
+  merged, against 28% for the fixtures). Older Word documents often set no space between paragraphs, so a
+  break shows only as an empty line, a centered line or an indent, and we join across all of them.
+- **A monospaced body becomes one code block.** 20 documents, about 7% of the merges.
+- **Our timeouts are Word's.** They are Word hanging while it opens our file, not the conversion.
