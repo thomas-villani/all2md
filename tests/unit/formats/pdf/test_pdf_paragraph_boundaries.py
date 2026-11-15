@@ -285,3 +285,75 @@ class TestOnWordsOwnPdfs:
 
         for clause in ("1.1", "1.2", "(a)", "(b)", "(c)", "2.1", "2.2", "2.3", "3.1", "3.2", "3.3"):
             assert clause in openers, clause
+
+
+# Word documents that set no space between paragraphs: lines 0.5pt apart, ordinary leading.
+PITCH = HEIGHT + 0.5
+
+
+class TestTheAuthorEndedTheParagraph:
+    """Breaks the wide tier (``benchmarks/pdfword/wide.py``) found in Word documents from elsewhere.
+
+    With no space between paragraphs, the only sign a paragraph ended is an empty line, or a
+    line that stopped short of the measure. Both used to run the text on either side together:
+    over half the crawled documents' paragraphs merged into a neighbor.
+    """
+
+    def test_an_empty_line_ends_a_paragraph(self, converter):
+        block = _block(
+            _line(100.0, (72.0, 530.0, "The proposed designations will have significant impacts to")),
+            _line(100.0 + PITCH, (72.0, 300.0, "wildlife habitat and recreation.")),
+            _line(100.0 + 2 * PITCH, (72.0, 75.0, " ")),
+            _line(100.0 + 3 * PITCH, (72.0, 520.0, "Once designated, the corridors will cover six thousand miles")),
+            _line(100.0 + 4 * PITCH, (72.0, 250.0, "of public lands in the west.")),
+        )
+        assert _paragraphs(converter, block) == [
+            "The proposed designations will have significant impacts to wildlife habitat and recreation.",
+            "Once designated, the corridors will cover six thousand miles of public lands in the west.",
+        ]
+
+    def test_a_bullet_that_extracts_as_a_space_starts_its_own_paragraph(self, converter):
+        # The bullet glyph comes out as a space at the margin, on the item's own baseline.
+        block = _block(
+            _line(100.0, (72.0, 75.0, " "), (108.0, 330.0, "Our next meeting is scheduled for June.")),
+            _line(100.0 + PITCH, (72.0, 75.0, " "), (108.0, 360.0, "It is possible to hold meetings in Olympia.")),
+        )
+        assert _paragraphs(converter, block) == [
+            "Our next meeting is scheduled for June.",
+            "It is possible to hold meetings in Olympia.",
+        ]
+
+    def test_a_space_between_tabbed_columns_is_not_a_break(self, converter):
+        block = _block(
+            _line(100.0, (72.0, 159.0, "Baker, Samuel T."), (180.0, 183.0, " "), (216.0, 291.0, "Nashville TN")),
+        )
+        assert _paragraphs(converter, block) == ["Baker, Samuel T. Nashville TN"]
+
+    def test_a_line_that_stopped_short_ends_a_paragraph(self, converter):
+        # "Attendance" stops at 147pt of a 530pt measure: "TRT" would have fitted after it.
+        block = _block(
+            _line(100.0, (72.0, 530.0, "Logistics, progress report, next meetings and the budget for")),
+            _line(100.0 + PITCH, (72.0, 147.0, "the year.")),
+            _line(100.0 + 2 * PITCH, (72.0, 164.0, "TRT members:")),
+        )
+        assert _paragraphs(converter, block) == [
+            "Logistics, progress report, next meetings and the budget for the year.",
+            "TRT members:",
+        ]
+
+    def test_a_wrapped_line_holds_when_the_next_word_would_not_fit(self, converter):
+        # 000674.pdf: the line ends 25pt short of the measure, and "many" needs most of that.
+        block = _block(
+            _line(100.0, (72.0, 540.0, "impacts to wildlife habitat, cultural resources, recreation and")),
+            _line(100.0 + PITCH, (72.0, 514.6, "cultural resources, recreation opportunities, wildlife and")),
+            _line(100.0 + 2 * PITCH, (72.0, 540.0, "many other resources on federal lands across the west today.")),
+        )
+        assert len(_paragraphs(converter, block)) == 1
+
+    def test_a_hyphenated_line_is_a_wrap(self, converter):
+        block = _block(
+            _line(100.0, (72.0, 540.0, "The Panel shall submit to the President and the Congress interim")),
+            _line(100.0 + PITCH, (72.0, 300.0, "reports at least annu-")),
+            _line(100.0 + 2 * PITCH, (72.0, 200.0, "ally to Congress.")),
+        )
+        assert len(_paragraphs(converter, block)) == 1
