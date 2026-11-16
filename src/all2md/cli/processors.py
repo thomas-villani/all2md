@@ -2107,6 +2107,29 @@ def warn_if_docx_template_unused(args: argparse.Namespace) -> None:
         )
 
 
+def warn_if_images_dropped(args: argparse.Namespace, count: int) -> None:
+    """Tell the user how many images the default attachment mode left out.
+
+    Images are off by default, so a document's pictures can vanish without the user having
+    chosen that. A typed ``--attachment-mode`` (or a format's own) is a choice, so it never warns.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Command-line arguments
+    count : int
+        Images dropped during the conversion
+
+    """
+    if count <= 0:
+        return
+    provided: set[str] = getattr(args, "_provided_args", set())
+    if any(name == "attachment_mode" or name.endswith(".attachment_mode") for name in provided):
+        return
+    noun = "image was" if count == 1 else "images were"
+    print(f"Warning: {count} {noun} dropped, use `--attachment-mode base64` to include.", file=sys.stderr)
+
+
 def _write_merged_output(
     merged_doc: Document,
     target_format: str,
