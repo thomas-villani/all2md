@@ -23,7 +23,7 @@ import os
 import re
 import tempfile
 from collections.abc import Callable, Generator, Iterable
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from pathlib import Path
 from typing import IO, Any
 
@@ -81,10 +81,8 @@ def validate_zip_input(input_data: str | Path | IO[bytes] | bytes, suffix: str =
         try:
             validate_zip_archive(tmp_path)
         finally:
-            try:
+            with suppress(OSError):
                 os.unlink(tmp_path)
-            except OSError:
-                pass
 
     elif hasattr(input_data, "read"):
         # File-like inputs - read, validate, reset position (if seekable)
@@ -104,10 +102,8 @@ def validate_zip_input(input_data: str | Path | IO[bytes] | bytes, suffix: str =
         try:
             validate_zip_archive(tmp_path)
         finally:
-            try:
+            with suppress(OSError):
                 os.unlink(tmp_path)
-            except OSError:
-                pass
 
 
 @contextmanager

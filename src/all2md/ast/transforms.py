@@ -33,7 +33,6 @@ import copy
 import dataclasses
 import re
 from collections.abc import Callable
-from re import Pattern
 from typing import Any
 
 from all2md.ast.nodes import (
@@ -687,7 +686,7 @@ def clone_node(node: Node) -> Node:
 #: fails the whole document over a single character. A raw string, so every code point is a
 #: visible escape; `test_the_pattern_is_exactly_the_complement_of_xml_char` checks it
 #: against the XML 1.0 ``Char`` production over every code point.
-XML_ILLEGAL_CHARACTERS: Pattern[str] = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff\ufffe\uffff]")
+XML_ILLEGAL_CHARACTERS: re.Pattern[str] = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff\ufffe\uffff]")
 
 
 def remove_xml_illegal_characters(node: Node) -> tuple[Node, int]:
@@ -724,7 +723,7 @@ def remove_xml_illegal_characters(node: Node) -> tuple[Node, int]:
 #: terminals, write the clipboard; carriage return and backspace redraw text already shown.
 #: `test_the_pattern_is_exactly_the_c0_c1_controls_but_tab_and_newline` checks it over every
 #: code point.
-TERMINAL_UNSAFE_CHARACTERS: Pattern[str] = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
+TERMINAL_UNSAFE_CHARACTERS: re.Pattern[str] = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
 
 
 def remove_terminal_unsafe_characters(node: Node) -> tuple[Node, int]:
@@ -751,7 +750,7 @@ def remove_terminal_unsafe_characters(node: Node) -> tuple[Node, int]:
     return _remove_characters(node, TERMINAL_UNSAFE_CHARACTERS)
 
 
-def _remove_characters(node: Node, pattern: Pattern[str]) -> tuple[Node, int]:
+def _remove_characters(node: Node, pattern: re.Pattern[str]) -> tuple[Node, int]:
     if not _holds_match(node, pattern, set()):
         return node, 0
     cleaned = copy.deepcopy(node)
@@ -760,7 +759,7 @@ def _remove_characters(node: Node, pattern: Pattern[str]) -> tuple[Node, int]:
     return cleaned, removed[0]
 
 
-def _holds_match(value: Any, pattern: Pattern[str], seen: set[int]) -> bool:
+def _holds_match(value: Any, pattern: re.Pattern[str], seen: set[int]) -> bool:
     if isinstance(value, str):
         return pattern.search(value) is not None
     if isinstance(value, (bytes, bytearray, int, float, bool)) or value is None:
@@ -777,7 +776,7 @@ def _holds_match(value: Any, pattern: Pattern[str], seen: set[int]) -> bool:
     return False
 
 
-def _strip_matches(value: Any, pattern: Pattern[str], removed: list[int], seen: set[int]) -> Any:
+def _strip_matches(value: Any, pattern: re.Pattern[str], removed: list[int], seen: set[int]) -> Any:
     """Clean ``value`` in place where it is mutable, and return the cleaned value."""
     if isinstance(value, str):
         cleaned, count = pattern.subn("", value)
@@ -1273,7 +1272,7 @@ class TextReplacer(NodeTransformer):
         self.pattern = pattern
         self.replacement = replacement
         self.use_regex = use_regex
-        self._compiled_pattern: Pattern[str] | None = None
+        self._compiled_pattern: re.Pattern[str] | None = None
 
         # Compile and validate regex pattern if using regex mode
         if self.use_regex:
