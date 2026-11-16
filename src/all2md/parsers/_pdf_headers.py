@@ -93,6 +93,9 @@ class IdentifyHeaders:
         self.header_id: dict[int, int] = {}
         self.bold_header_sizes: set[int] = set()
         self.allcaps_header_sizes: set[int] = set()
+        #: Share of the sampled text set in a monospaced font. When most of it is, monospace
+        #: is the body font (a document typed in Courier), not a sign of code.
+        self.monospace_share = 0.0
 
         # Step 1: Determine which pages to sample
         pages_to_use = self._determine_pages_to_sample(doc, pages)
@@ -238,6 +241,7 @@ class IdentifyHeaders:
         fontsize_occurrences: dict[int, int] = {}
         fontweight_sizes: dict[int, int] = {}
         allcaps_sizes: dict[int, int] = {}
+        monospace_chars = total_chars = 0
 
         for pno in pages_to_use:
             page = doc[pno]
@@ -255,6 +259,9 @@ class IdentifyHeaders:
 
                     fontsizes[fontsz] = fontsizes.get(fontsz, 0) + text_len
                     line_sizes.add(fontsz)
+                    total_chars += text_len
+                    if span["flags"] & 8:
+                        monospace_chars += text_len
 
                     if self.options.header_use_font_weight and (span["flags"] & 16):
                         fontweight_sizes[fontsz] = fontweight_sizes.get(fontsz, 0) + text_len
@@ -265,6 +272,7 @@ class IdentifyHeaders:
                 for fontsz in line_sizes:
                     fontsize_occurrences[fontsz] = fontsize_occurrences.get(fontsz, 0) + 1
 
+        self.monospace_share = monospace_chars / total_chars if total_chars else 0.0
         return fontsizes, fontsize_occurrences, fontweight_sizes, allcaps_sizes
 
     @staticmethod

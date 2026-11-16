@@ -39,6 +39,31 @@ from all2md.utils.security import validate_safe_output_directory
 
 logger = logging.getLogger(__name__)
 
+#: Images left out because ``attachment_mode`` was ``"alt_text"``, counted so the CLI can say
+#: how many a conversion dropped. Images are off by default (secure by default), so a user who
+#: never asked for them should hear that some were there.
+_dropped_images = 0
+_dropped_images_lock = threading.Lock()
+
+
+def dropped_image_count() -> int:
+    """Return how many images alt-text mode has left out since the last reset."""
+    return _dropped_images
+
+
+def reset_dropped_image_count() -> None:
+    """Start counting dropped images from zero."""
+    global _dropped_images
+    with _dropped_images_lock:
+        _dropped_images = 0
+
+
+def count_dropped_image() -> None:
+    """Record one image left out because images are off (for parsers that skip ``process_attachment``)."""
+    global _dropped_images
+    with _dropped_images_lock:
+        _dropped_images += 1
+
 
 def sanitize_footnote_label(attachment_name: str) -> str:
     """Sanitize attachment name for use as a Markdown footnote label.
@@ -850,6 +875,8 @@ def process_attachment(
 
     # Handle alt_text mode
     if attachment_mode == "alt_text":
+        if is_image:
+            count_dropped_image()
         return _make_fallback_result(is_image, alt_text, attachment_name, alt_text_mode)
 
     # Handle base64 mode

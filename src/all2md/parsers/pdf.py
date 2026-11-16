@@ -659,6 +659,9 @@ def _reads_as_prose(text: str) -> bool:
 #: paragraph (a disclaimer set in bold capitals), not a heading.
 BOLD_TITLE_MAX_LINES = 2
 
+#: When at least this share of a document's text is monospaced, monospace is its body font.
+MONOSPACE_BODY_SHARE = 0.6
+
 #: How many words a bold title may have. Contract headings run to eight or nine words
 #: (``ARTICLE 6 - REPORTS AND ADDITIONAL OBLIGATIONS OF THE PARTIES``); a bold run of
 #: more is a sentence set in bold.
@@ -1296,6 +1299,47 @@ def _block_outside_table_regions(block: dict, regions: list[Any]) -> dict | None
     return remainder
 
 
+#: Slack, in points, before a line counts as having stopped short of its measure.
+_SHORT_LINE_SLACK = 2.0
+#: The same slack in ems of the next line's size, which wins when it is wider.
+_SHORT_LINE_SLACK_EMS = 1.0
+#: The next word's estimated width is taken this much wider before it is said to fit.
+_WORD_WIDTH_MARGIN = 1.15
+
+
+def _first_word_width(spans: list) -> float | None:
+    """Estimate the width of a line's first word from its first inked span, or None."""
+    for span in spans:
+        text = span.get("text", "")
+        if not text.strip():
+            continue
+        word = text.lstrip().split(" ", 1)[0]
+        width = span["bbox"][2] - span["bbox"][0]
+        return width * len(word) / max(len(text), 1)
+    return None
+
+
+def _ended_short(last_right: float | None, last_text: str, measure_right: float, spans: list) -> bool:
+    """Tell whether the line above ended where it did by choice, not by wrapping.
+
+    Word wraps greedily: a line breaks only when the next word will not fit. So when the line
+    above stopped early enough for this line's first word (and a space) to have fitted after it,
+    the break was the author's: a paragraph ended there, however close the next line is set.
+    The measure is the block's widest line, so a block of nothing but short lines never splits
+    on this, and a hyphenated line is a wrap whatever its length.
+    """
+    if last_right is None or measure_right <= 0 or last_text.rstrip().endswith(("-", "\u00ad")):
+        return False
+    word = _first_word_width(spans)
+    if word is None or word <= 0:
+        return False
+    size = next((span.get("size", 0.0) for span in spans if span.get("text", "").strip()), 0.0)
+    # The margins are wide on purpose: a line's box takes in its trailing space, which can stand
+    # past the measure, and the word's width is a share of its span's, not its own.
+    slack = max(_SHORT_LINE_SLACK, _SHORT_LINE_SLACK_EMS * size)
+    return last_right + 0.25 * size + _WORD_WIDTH_MARGIN * word < measure_right - slack
+
+
 @dataclass
 class _BlockProcessingState:
     """State tracking for block-to-AST processing.
@@ -1319,6 +1363,16 @@ class _BlockProcessingState:
     # all-bold paragraph is a bold title (see _bold_title_heading).
     paragraph_all_bold: bool = False
     paragraph_lines: int = 0
+    # The paragraph began where the author ended the one above, at an empty line or after a
+    # line that ended short (see _ended_short). The merge must respect it: the two can be set
+    # as close as two lines of one paragraph, or (a bullet whose glyph extracts as a space)
+    # on one baseline.
+    paragraph_after_author_break: bool = False
+    # The last line added to the paragraph: its right edge and its text, for that test.
+    last_line_right: float | None = None
+    last_line_text: str = ""
+    # The right edge of the block's widest line: the measure a wrapped line fills.
+    block_right: float = 0.0
     previous_y: float = 0.0
     pending_rotated_text: list[str] = field(default_factory=list)
     pending_rotated_key: str | None = None
@@ -1350,6 +1404,9 @@ class _BlockProcessingState:
         self.paragraph_hangs = False
         self.paragraph_all_bold = False
         self.paragraph_lines = 0
+        self.paragraph_after_author_break = False
+        self.last_line_right = None
+        self.last_line_text = ""
 
     def reset_code_block(self) -> None:
         """Reset code block state."""
@@ -3555,7 +3612,7 @@ class PdfToAstConverter(BaseParser):
             is_list_bullet = span_text in ["-", "o", "•", "◦", "▪"] and len(span_text) == 1
 
             # Decode font properties
-            mono = span["flags"] & 8
+            mono = span["flags"] & 8 and not self._monospace_is_body()
             bold = span["flags"] & 16
             italic = span["flags"] & 2
 
@@ -3654,6 +3711,7 @@ class PdfToAstConverter(BaseParser):
         paragraph_list_type: str | None,
         paragraph_hangs: bool = False,
         bold_title: bool = False,
+        after_author_break: bool = False,
     ) -> dict:
         """Build metadata dict including bbox and list marker info.
 
@@ -3669,6 +3727,9 @@ class PdfToAstConverter(BaseParser):
             Whether the paragraph opened on a marker set off by a hanging indent
         bold_title : bool, default False
             Whether the paragraph is short and set all in bold (see :func:`_bold_title_heading`)
+        after_author_break : bool, default False
+            Whether the paragraph began where the author ended the one above (an empty line,
+            or a line that ended short)
 
         Returns
         -------
@@ -3686,6 +3747,8 @@ class PdfToAstConverter(BaseParser):
             metadata["opens_hanging_marker"] = True
         if bold_title:
             metadata["bold_title"] = True
+        if after_author_break:
+            metadata["after_author_break"] = True
         return metadata
 
     def _flush_paragraph(
@@ -3698,6 +3761,7 @@ class PdfToAstConverter(BaseParser):
         nodes: list[Node],
         paragraph_hangs: bool = False,
         bold_title: bool = False,
+        after_author_break: bool = False,
     ) -> None:
         """Flush accumulated paragraph content to nodes list.
 
@@ -3719,11 +3783,14 @@ class PdfToAstConverter(BaseParser):
             Whether the paragraph opened on a marker set off by a hanging indent
         bold_title : bool, default False
             Whether the paragraph is short and set all in bold (see :func:`_bold_title_heading`)
+        after_author_break : bool, default False
+            Whether the paragraph began where the author ended the one above (an empty line,
+            or a line that ended short)
 
         """
         if paragraph_content:
             metadata = self._build_paragraph_metadata(
-                paragraph_bbox, paragraph_is_list, paragraph_list_type, paragraph_hangs, bold_title
+                paragraph_bbox, paragraph_is_list, paragraph_list_type, paragraph_hangs, bold_title, after_author_break
             )
             source_loc = SourceLocation(format="pdf", page=page_num + 1, metadata=metadata)
             nodes.append(AstParagraph(content=paragraph_content, source_location=source_loc))
@@ -3752,6 +3819,7 @@ class PdfToAstConverter(BaseParser):
                 and state.paragraph_all_bold
                 and state.paragraph_lines <= BOLD_TITLE_MAX_LINES
             ),
+            after_author_break=state.paragraph_after_author_break,
         )
         state.reset_paragraph()
 
@@ -3957,12 +4025,23 @@ class PdfToAstConverter(BaseParser):
             self._accumulate_rotated_line(line, state, page_num)
         return True  # Skip non-horizontal lines
 
+    def _monospace_is_body(self) -> bool:
+        """Tell whether monospace is this document's body font rather than a sign of code.
+
+        A document typed in a monospaced font (a letter in Courier, a plain-text memo) has no
+        code in it by that sign alone: every line is monospaced, and the whole document used
+        to come out as one code block, or every span as inline code.
+        """
+        return self._hdr_identifier is not None and self._hdr_identifier.monospace_share >= MONOSPACE_BODY_SHARE
+
     def _handle_monospace_line(
         self, line: dict, spans: list, text: str, block: dict, state: _BlockProcessingState, page_num: int
     ) -> bool:
         """Handle monospace line (code block). Returns True if line was processed as code."""
         all_mono = all(s["flags"] & 8 for s in spans)
         if not all_mono:
+            return False
+        if self._monospace_is_body():
             return False
 
         # Flush accumulated paragraph before starting code block
@@ -4155,8 +4234,27 @@ class PdfToAstConverter(BaseParser):
         # `_merge_adjacent_paragraphs` glued them back; the paragraph-level list test there
         # kept items apart. A paragraph boundary is now decided here, on purpose.
         raw_text = "".join(span.get("text", "") for span in spans).lstrip()
+        # A line of nothing but spaces is an empty paragraph: Word sets one as a single
+        # (no-break) space, and documents that set no space between paragraphs use it as
+        # the only break there is. It sits one ordinary line pitch below the text, so the
+        # gap rule never sees it, and the text on either side used to run together: in
+        # the wide tier's crawled Word documents, 57% of paragraphs merged into a
+        # neighbor. It ends the paragraph and adds nothing. So does a bullet whose glyph
+        # extracts as a space, at the start of its row. A space after text on the same
+        # baseline is a tab between columns of tabbed text, and is left alone.
+        line_height = line["bbox"][3] - line["bbox"][1]
+        starts_row = not state.paragraph_content or vertical_gap > -0.5 * line_height
+        if not raw_text.strip() and starts_row:
+            self._flush_state_paragraph(state, page_num)
+            state.paragraph_after_author_break = True
+            return
         starts_new_block = opens_hanging_marker or (opens_with_marker and raw_text[:1] in _BULLET_GLYPHS)
         breaks_paragraph = vertical_gap > paragraph_break_threshold and not state.paragraph_is_list
+        ended_short = (
+            bool(state.paragraph_content)
+            and vertical_gap >= 0
+            and _ended_short(state.last_line_right, state.last_line_text, state.block_right, spans)
+        )
         # A bold title set at the body size sits as close to its text as one line of a
         # paragraph to the next, so only the change of weight shows where it ends: an all-bold
         # run followed by a line that is not, or a bold line after a sentence ends.
@@ -4174,8 +4272,11 @@ class PdfToAstConverter(BaseParser):
                 # A run-in title (``**(c) Products.** The ...``) opens its line in bold.
                 opens_bold = _line_opens_bold(spans) and layout_label not in _NOT_BODY_LAYOUT_LABELS
                 changes_weight = (line_bold or opens_bold) and _ends_sentence(state.paragraph_content)
-        if state.paragraph_content and (starts_new_item or starts_new_block or breaks_paragraph or changes_weight):
+        if state.paragraph_content and (
+            starts_new_item or starts_new_block or breaks_paragraph or changes_weight or ended_short
+        ):
             self._flush_state_paragraph(state, page_num)
+            state.paragraph_after_author_break = ended_short and not (breaks_paragraph or changes_weight)
 
         if not inline_content:
             return
@@ -4202,6 +4303,8 @@ class PdfToAstConverter(BaseParser):
         state.paragraph_all_bold = state.paragraph_all_bold and (line_bold or blank)
         state.paragraph_lines += 0 if blank else 1
         state.paragraph_content.extend(inline_content)
+        state.last_line_right = line["bbox"][2]
+        state.last_line_text = raw_text
 
         # Expand bbox to include this line
         if state.paragraph_bbox:
@@ -4262,6 +4365,14 @@ class PdfToAstConverter(BaseParser):
             state.paragraph_list_type = "unordered"
 
         hanging_lines = _hanging_marker_lines(block["lines"])
+        state.block_right = max(
+            (
+                line["bbox"][2]
+                for line in block["lines"]
+                if "".join(span.get("text", "") for span in line.get("spans", [])).strip()
+            ),
+            default=0.0,
+        )
         for line_index, line in enumerate(block["lines"]):
             # Handle rotated text (skip further processing if rotated)
             if self._handle_rotated_line(line, state, page_num):
@@ -5560,6 +5671,11 @@ class PdfToAstConverter(BaseParser):
         # Nor does a paragraph that opened on a hanging marker: a numbered clause is set with
         # the leading of a wrapped line, so the gap below cannot tell it from one.
         if current_metadata and current_metadata.get("opens_hanging_marker"):
+            return False
+
+        # Nor one that began where the author ended the one above: an empty line, or a line
+        # that ended short (see _ended_short).
+        if current_metadata and current_metadata.get("after_author_break"):
             return False
 
         # A bold title stands apart from the text below it however close it is set: the
