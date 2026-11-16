@@ -1328,16 +1328,69 @@ def _ended_short(last_right: float | None, last_text: str, measure_right: float,
     The measure is the block's widest line, so a block of nothing but short lines never splits
     on this, and a hyphenated line is a wrap whatever its length.
     """
-    if last_right is None or measure_right <= 0 or last_text.rstrip().endswith(("-", "\u00ad")):
+    if last_text.rstrip().endswith(("-", "\u00ad")):
         return False
-    word = _first_word_width(spans)
-    if word is None or word <= 0:
+    return _word_would_fit(last_right, measure_right, _first_word_width(spans), _first_inked_size(spans))
+
+
+def _first_inked_size(spans: list) -> float:
+    """Return the font size of a line's first inked span (0 when it has none)."""
+    return next((span.get("size", 0.0) for span in spans if span.get("text", "").strip()), 0.0)
+
+
+def _word_would_fit(last_right: float | None, measure_right: float, word: float | None, size: float) -> bool:
+    """Tell whether a word ``word`` points wide, at ``size``, fits after ``last_right`` within the measure."""
+    if last_right is None or measure_right <= 0 or word is None or word <= 0:
         return False
-    size = next((span.get("size", 0.0) for span in spans if span.get("text", "").strip()), 0.0)
     # The margins are wide on purpose: a line's box takes in its trailing space, which can stand
     # past the measure, and the word's width is a share of its span's, not its own.
     slack = max(_SHORT_LINE_SLACK, _SHORT_LINE_SLACK_EMS * size)
     return last_right + 0.25 * size + _WORD_WIDTH_MARGIN * word < measure_right - slack
+
+
+def _paragraph_extents(nodes: list[Node]) -> list[tuple[float, float]]:
+    """Return the left and right edge of every paragraph on a page that has a box."""
+    extents = []
+    for node in nodes:
+        if isinstance(node, AstParagraph) and node.source_location and node.source_location.metadata:
+            bbox = node.source_location.metadata.get("bbox")
+            if bbox:
+                extents.append((bbox[0], bbox[2]))
+    return extents
+
+
+def _column_measure(extents: list[tuple[float, float]], x0: float) -> float:
+    """Return the right edge of the widest paragraph whose width takes in ``x0``: its column's measure.
+
+    Asking only paragraphs that cover the line's own left edge keeps the next column out, and
+    takes in the body text above an indented item.
+    """
+    return max((right for left, right in extents if left - 1.0 <= x0 < right), default=0.0)
+
+
+def _ended_short_across(
+    last: dict | None,
+    current: dict | None,
+    current_bbox: Any,
+    last_bottom: float | None,
+    extents: list[tuple[float, float]] | None = None,
+) -> bool:
+    """Ask :func:`_ended_short` of two paragraphs from different blocks, from their metadata.
+
+    A block's own widest line is no measure when the block is one short row, so the column's
+    widest paragraph on the page (``extents``) is asked as well.
+    """
+    above = (last or {}).get("line_edges")
+    below = (current or {}).get("line_edges")
+    if not above or not below or above["last_hyphen"] or current_bbox is None or last_bottom is None:
+        return False
+    # Only a paragraph set below the one above: a block beside it (the next column) is not a line.
+    if current_bbox[1] < last_bottom - 1.0:
+        return False
+    measure = max(above["measure_right"], below["measure_right"])
+    if extents:
+        measure = max(measure, _column_measure(extents, current_bbox[0]))
+    return _word_would_fit(above["last_right"], measure, below["first_word"], below["first_size"])
 
 
 @dataclass
@@ -1371,6 +1424,10 @@ class _BlockProcessingState:
     # The last line added to the paragraph: its right edge and its text, for that test.
     last_line_right: float | None = None
     last_line_text: str = ""
+    # The first line's first word: its estimated width and size, for the same test asked by
+    # the merge when the paragraph above sits in another block.
+    first_word_width: float | None = None
+    first_word_size: float = 0.0
     # The right edge of the block's widest line: the measure a wrapped line fills.
     block_right: float = 0.0
     previous_y: float = 0.0
@@ -1407,6 +1464,8 @@ class _BlockProcessingState:
         self.paragraph_after_author_break = False
         self.last_line_right = None
         self.last_line_text = ""
+        self.first_word_width = None
+        self.first_word_size = 0.0
 
     def reset_code_block(self) -> None:
         """Reset code block state."""
@@ -1646,6 +1705,8 @@ class PdfToAstConverter(BaseParser):
             doc, pages=pages_to_use if isinstance(pages_to_use, list) else None, options=self.options
         )
         self._last_heading_level = 0
+        # Each paragraph's left and right edge on the page being merged (_column_measure).
+        self._page_paragraph_extents: list[tuple[float, float]] = []
 
         # Auto-detect header/footer zones if requested
         if self.options.auto_trim_headers_footers:
@@ -3821,6 +3882,17 @@ class PdfToAstConverter(BaseParser):
             ),
             after_author_break=state.paragraph_after_author_break,
         )
+        if state.paragraph_content and state.nodes and isinstance(state.nodes[-1], AstParagraph):
+            location = state.nodes[-1].source_location
+            if location is not None and location.metadata is not None:
+                # What the merge needs to ask _word_would_fit across a block boundary.
+                location.metadata["line_edges"] = {
+                    "last_right": state.last_line_right,
+                    "last_hyphen": state.last_line_text.rstrip().endswith(("-", "\u00ad")),
+                    "measure_right": state.block_right,
+                    "first_word": state.first_word_width,
+                    "first_size": state.first_word_size,
+                }
         state.reset_paragraph()
 
     def _emit_heading(
@@ -4299,6 +4371,8 @@ class PdfToAstConverter(BaseParser):
                 _leading_inline_text(inline_content)
             )
             state.paragraph_all_bold = line_bold or blank
+            state.first_word_width = _first_word_width(spans)
+            state.first_word_size = _first_inked_size(spans)
 
         state.paragraph_all_bold = state.paragraph_all_bold and (line_bold or blank)
         state.paragraph_lines += 0 if blank else 1
@@ -5678,6 +5752,13 @@ class PdfToAstConverter(BaseParser):
         if current_metadata and current_metadata.get("after_author_break"):
             return False
 
+        # The same test across a block boundary: PyMuPDF often puts each short paragraph (a row
+        # of tabbed text, an agenda item) in a block of its own.
+        if _ended_short_across(
+            last_metadata, current_metadata, current_bbox, last_bbox_bottom, self._page_paragraph_extents
+        ):
+            return False
+
         # A bold title stands apart from the text below it however close it is set: the
         # change of weight is what ended it (see _bold_title_heading).
         if bool(current_metadata and current_metadata.get("bold_title")) != bool(
@@ -5817,6 +5898,7 @@ class PdfToAstConverter(BaseParser):
             return nodes
 
         MERGE_THRESHOLD = 5.0
+        self._page_paragraph_extents = _paragraph_extents(nodes)
 
         merged: list[Node] = []
         accumulated_content: list[Node] = []
