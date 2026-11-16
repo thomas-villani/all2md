@@ -325,7 +325,9 @@ def main(args: list[str] | None = None) -> int:
         process_multi_file,
         setup_and_validate_options,
         warn_if_docx_template_unused,
+        warn_if_images_dropped,
     )
+    from all2md.utils.attachments import dropped_image_count, reset_dropped_image_count
 
     # Check for config from environment (skip if --no-config is set)
     if not getattr(parsed_args, "no_config", False) and not parsed_args.config:
@@ -390,7 +392,10 @@ def main(args: list[str] | None = None) -> int:
         return _handle_watch_mode(parsed_args, options, format_arg, transforms)
 
     # Delegate to multi-file processor
-    return process_multi_file(items, parsed_args, options, format_arg, transforms)
+    reset_dropped_image_count()
+    exit_code = process_multi_file(items, parsed_args, options, format_arg, transforms)
+    warn_if_images_dropped(parsed_args, dropped_image_count())
+    return exit_code
 
 
 RCAT_HELP = """rcat FILE is all2md FILE --rich: the document drawn in the terminal.
