@@ -86,7 +86,7 @@ Python Version Issues
    * ``SyntaxError: invalid syntax`` (on import)
 
 **Problem:**
-   all2md requires Python 3.11 or higher.
+   all2md requires Python 3.11.5 or higher.
 
 **Solutions:**
 

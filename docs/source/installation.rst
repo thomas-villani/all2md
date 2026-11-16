@@ -6,7 +6,7 @@ This guide covers all installation methods for all2md, from basic setup to devel
 Requirements
 ------------
 
-* **Python 3.11 or later**
+* **Python 3.11.5 or later**
 * pip (comes with Python)
 * Optional: git (for development installation)
 
@@ -748,7 +748,7 @@ Python Version Issues
 
 **Error:** ``ERROR: Package 'all2md' requires a different Python``
 
-**Solution:** all2md requires Python 3.11+. Check your version:
+**Solution:** all2md requires Python 3.11.5 or later. Check your version:
 
 .. code-block:: bash
 
