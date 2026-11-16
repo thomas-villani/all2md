@@ -656,6 +656,9 @@ def _reads_as_prose(text: str) -> bool:
 #: paragraph (a disclaimer set in bold capitals), not a heading.
 BOLD_TITLE_MAX_LINES = 2
 
+#: When at least this share of a document's text is monospaced, monospace is its body font.
+MONOSPACE_BODY_SHARE = 0.6
+
 #: How many words a bold title may have. Contract headings run to eight or nine words
 #: (``ARTICLE 6 - REPORTS AND ADDITIONAL OBLIGATIONS OF THE PARTIES``); a bold run of
 #: more is a sentence set in bold.
@@ -3517,7 +3520,7 @@ class PdfToAstConverter(BaseParser):
             is_list_bullet = span_text in ["-", "o", "•", "◦", "▪"] and len(span_text) == 1
 
             # Decode font properties
-            mono = span["flags"] & 8
+            mono = span["flags"] & 8 and not self._monospace_is_body()
             bold = span["flags"] & 16
             italic = span["flags"] & 2
 
@@ -3930,12 +3933,23 @@ class PdfToAstConverter(BaseParser):
             self._accumulate_rotated_line(line, state, page_num)
         return True  # Skip non-horizontal lines
 
+    def _monospace_is_body(self) -> bool:
+        """Tell whether monospace is this document's body font rather than a sign of code.
+
+        A document typed in a monospaced font (a letter in Courier, a plain-text memo) has no
+        code in it by that sign alone: every line is monospaced, and the whole document used
+        to come out as one code block, or every span as inline code.
+        """
+        return self._hdr_identifier is not None and self._hdr_identifier.monospace_share >= MONOSPACE_BODY_SHARE
+
     def _handle_monospace_line(
         self, line: dict, spans: list, text: str, block: dict, state: _BlockProcessingState, page_num: int
     ) -> bool:
         """Handle monospace line (code block). Returns True if line was processed as code."""
         all_mono = all(s["flags"] & 8 for s in spans)
         if not all_mono:
+            return False
+        if self._monospace_is_body():
             return False
 
         # Flush accumulated paragraph before starting code block
