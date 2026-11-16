@@ -44,6 +44,7 @@ from all2md.constants import (
     DEFAULT_MIN_IMAGE_DIMENSION,
     DEFAULT_PDF_CODE_FONT,
     DEFAULT_PDF_COMMENT_MODE,
+    DEFAULT_PDF_DETECT_FOOTNOTES,
     DEFAULT_PDF_FONT_FAMILY,
     DEFAULT_PDF_FONT_SIZE,
     DEFAULT_PDF_LINE_SPACING,
@@ -152,6 +153,11 @@ class PdfOptions(PaginatedParserOptions):
         Mark where the author started a new page: a page that ended with room for what
         opens the next. The block that opens the new page gets ``page_break_before`` in
         its metadata, which the DOCX renderer sets as Word's "Page break before".
+    detect_footnotes : bool, default True
+        Read a page's footnotes: the notes below a short separator rule at the left margin,
+        each opened by a small or raised label. They become footnote definitions, and the
+        raised labels in the text that match them become footnote references, so Word gets
+        real footnotes. A page without such an area is left as it was.
     table_ruling_line_threshold : float, default 0.5
         Threshold for detecting table ruling lines (0.0-1.0, ratio of line length to page size).
     table_fallback_extraction_mode : str, default "grid"
@@ -454,6 +460,14 @@ class PdfOptions(PaginatedParserOptions):
         metadata={
             "help": "Mark pages the author ended on purpose, so Word starts a new page there",
             "cli_name": "no-keep-page-breaks",  # default=True, use --no-*
+            "importance": "advanced",
+        },
+    )
+    detect_footnotes: bool = field(
+        default=DEFAULT_PDF_DETECT_FOOTNOTES,
+        metadata={
+            "help": "Read footnotes below a page's separator rule as real footnotes",
+            "cli_name": "no-detect-footnotes",  # default=True, use --no-*
             "importance": "advanced",
         },
     )

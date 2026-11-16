@@ -38,6 +38,8 @@ from all2md.ast import (
     Comment,
     Document,
     Emphasis,
+    FootnoteDefinition,
+    FootnoteReference,
     Heading,
     Link,
     List,
@@ -78,6 +80,7 @@ from all2md.parsers._pdf_body_style import BodyStyleSampler
 
 # Import from private submodules
 from all2md.parsers._pdf_columns import detect_columns, split_gutter_merged_blocks
+from all2md.parsers._pdf_footnotes import FootnoteArea, body_text_size, is_reference_span, take_footnote_area
 from all2md.parsers._pdf_furniture import RunningFurniture, detect_running_furniture
 from all2md.parsers._pdf_headers import IdentifyHeaders, compute_line_style
 from all2md.parsers._pdf_heading_styles import heading_font, measure_heading_styles
@@ -1505,6 +1508,15 @@ class PdfToAstConverter(BaseParser):
         self.options: PdfOptions = options
         self._hdr_identifier: IdentifyHeaders | None = None
         self._attachment_footnotes: dict[str, str] = {}  # label -> content for footnote definitions
+        # The document's footnotes (see _take_page_footnotes): definitions for the end of the
+        # document, the identifiers used, and this page's label -> identifier for references.
+        self._footnote_definitions: list[Node] = []
+        self._footnote_ids: set[str] = set()
+        self._page_note_ids: dict[str, str] = {}
+        # This page's body text size, for a reference number set on a line of its own.
+        self._page_body_size = 0.0
+        # The last page whose footnote area held a note, which the next page's area may continue.
+        self._footnote_open_page = -2
         self._ocr_pages_applied: int = 0  # pages OCR was applied to in the current parse
         self._running_furniture: RunningFurniture | None = None
         self._page_setup: dict[str, Any] | None = None
@@ -2147,6 +2159,9 @@ class PdfToAstConverter(BaseParser):
         """
         children: list[Node] = []
         self._page_extents = {}
+        self._footnote_definitions = []
+        self._footnote_ids = set()
+        self._footnote_open_page = -2
         page_openings: list[tuple[int, int]] = []  # (page number, index of its first node)
         # Suppress pymupdf-layout's global find_tables() hook for the whole
         # page loop. We call predict_page_layout() explicitly inside
@@ -2200,6 +2215,7 @@ class PdfToAstConverter(BaseParser):
                     raise
         if self.options.keep_page_breaks:
             self._mark_page_breaks(doc, children, page_openings)
+        children.extend(self._footnote_definitions)
         return children
 
     def _mark_page_breaks(
@@ -3308,6 +3324,14 @@ class PdfToAstConverter(BaseParser):
         # Apply OCR if needed
         all_blocks, ocr_applied = self._apply_ocr_if_needed(page, all_blocks, extracted_text)
 
+        # The page's footnotes: taken out of the body here, emitted at the end of the document,
+        # and their labels in the text turned into references as the body is read. Before the
+        # running lines are filtered, because notes sit in the footer zone and can match there;
+        # a page number below the notes stays in the body for that filter to take.
+        self._page_note_ids = {}
+        if self.options.detect_footnotes and not ocr_applied:
+            all_blocks = self._take_page_footnotes(page, page_num, all_blocks, self._get_page_links(page))
+
         # Filter headers/footers when enabled - layout labels provide more accurate detection
         if self.options.trim_headers_footers or self.options.auto_trim_headers_footers:
             if layout and (layout.has_label("page-header") or layout.has_label("page-footer")):
@@ -3467,6 +3491,67 @@ class PdfToAstConverter(BaseParser):
             return avg
         return None
 
+    def _take_page_footnotes(
+        self, page: pymupdf.Page, page_num: int, blocks: list[dict], links: list[dict]
+    ) -> list[dict]:
+        """Take a page's footnote area out of its blocks and record its notes.
+
+        See :mod:`all2md.parsers._pdf_footnotes`. Returns the blocks left in the body. Each note
+        becomes a :class:`FootnoteDefinition`, kept for the end of the document, and its label is
+        mapped to the note's identifier for the body's references. A label that repeats (numbering
+        restarted) gets a suffix, so identifiers stay unique.
+        """
+        # Cheap gate before reading the page's drawings: footnotes need text in the lower part.
+        if not any(block.get("type", 0) == 0 and block["bbox"][1] > 0.4 * page.rect.height for block in blocks):
+            return blocks
+        note_open = self._footnote_open_page == page_num - 1
+        body, area = take_footnote_area(page.get_drawings(), blocks, page.rect.height, note_open=note_open)
+        if area is None:
+            return blocks
+        self._record_footnotes(area, page_num, links)
+        self._page_body_size = body_text_size(body)
+        if area.notes or area.continued:
+            self._footnote_open_page = page_num
+        return body
+
+    def _record_footnotes(self, area: FootnoteArea, page_num: int, links: list[dict]) -> None:
+        """Turn a footnote area's notes into definitions and map their labels for references.
+
+        Lines that open the area before any label finish the last note of the page before; with
+        no such note they are dropped from the body as well, being note text either way.
+        """
+        if area.continued and self._footnote_definitions:
+            last = self._footnote_definitions[-1]
+            paragraph = last.content[-1] if isinstance(last, FootnoteDefinition) and last.content else None
+            if isinstance(paragraph, AstParagraph):
+                for line_spans in area.continued:
+                    inline = self._process_text_spans_to_inline(line_spans, links, page_num)
+                    if inline:
+                        paragraph.content.append(Text(content=" "))
+                        paragraph.content.extend(inline)
+        for note in area.notes:
+            identifier = note.label
+            suffix = 2
+            while identifier in self._footnote_ids:
+                identifier = f"{note.label}-{suffix}"
+                suffix += 1
+            self._footnote_ids.add(identifier)
+            self._page_note_ids[note.label] = identifier
+            content: list[Node] = []
+            for line_spans in note.lines:
+                inline = self._process_text_spans_to_inline(line_spans, links, page_num)
+                if content and inline:
+                    content.append(Text(content=" "))
+                content.extend(inline)
+            location = SourceLocation(format="pdf", page=page_num + 1, metadata={"footnote_label": note.label})
+            self._footnote_definitions.append(
+                FootnoteDefinition(
+                    identifier=identifier,
+                    content=[AstParagraph(content=content, source_location=location)],
+                    source_location=location,
+                )
+            )
+
     def _process_text_spans_to_inline(
         self,
         spans: list[dict],
@@ -3514,6 +3599,13 @@ class PdfToAstConverter(BaseParser):
             span_text = span["text"]
             # Skip completely empty spans, but preserve single spaces
             if not span_text:
+                continue
+
+            # A raised label matching one of this page's footnotes is a reference to it.
+            note_id = self._page_note_ids.get(span_text.strip()) if self._page_note_ids else None
+            if note_id is not None and is_reference_span(span, spans, self._page_body_size):
+                result.append(FootnoteReference(identifier=note_id))
+                prev_text_ends_ws = False
                 continue
 
             # Check for list bullets before treating as monospace
@@ -4192,8 +4284,12 @@ class PdfToAstConverter(BaseParser):
         if state.paragraph_content:
             # Add an inter-line separator unless the previous line already
             # ended with whitespace (collapse_excess_whitespace would
-            # otherwise leave us with a 2-space run at the line boundary).
-            if not (self.options.collapse_excess_whitespace and _trailing_text_is_whitespace(state.paragraph_content)):
+            # otherwise leave us with a 2-space run at the line boundary). A footnote
+            # reference PyMuPDF set as a line of its own belongs to the word before it.
+            reference_only = all(isinstance(node, FootnoteReference) for node in inline_content)
+            if not reference_only and not (
+                self.options.collapse_excess_whitespace and _trailing_text_is_whitespace(state.paragraph_content)
+            ):
                 state.paragraph_content.append(Text(content=" "))
         else:
             # Starting new paragraph
