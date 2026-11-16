@@ -357,3 +357,18 @@ class TestTheAuthorEndedTheParagraph:
             _line(100.0 + 2 * PITCH, (72.0, 200.0, "ally to Congress.")),
         )
         assert len(_paragraphs(converter, block)) == 1
+
+    def test_a_short_line_ends_a_paragraph_across_blocks(self, converter):
+        # PyMuPDF often gives each tabbed row or agenda item a block of its own.
+        first = _block(_line(100.0, (72.0, 159.0, "Baker, Samuel T."), (216.0, 291.0, "Nashville TN")))
+        second = _block(_line(100.0 + PITCH, (72.0, 170.0, "Banks, Melba"), (216.0, 300.0, "Asheville NC")))
+        wide = _block(_line(100.0 + 2 * PITCH, (72.0, 540.0, "A wide line that sets the measure of the page body.")))
+        assert _paragraphs(converter, first, second, wide)[:2] == [
+            "Baker, Samuel T. Nashville TN",
+            "Banks, Melba Asheville NC",
+        ]
+
+    def test_a_wrap_across_blocks_still_merges(self, converter):
+        first = _block(_line(100.0, (72.0, 536.0, "The Panel shall submit to the President and the Congress")))
+        second = _block(_line(100.0 + PITCH, (72.0, 300.0, "interim reports at least annually.")))
+        assert len(_paragraphs(converter, first, second)) == 1
