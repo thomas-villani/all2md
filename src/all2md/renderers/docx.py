@@ -235,6 +235,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
         self._captioned_figure_depth: int = 0  # Inside a Figure that writes its own caption
         self._available_styles: set[str] = set()  # Populated after document creation
         self._caption_counts: dict[str, int] = {}  # SEQ identifier -> captions numbered so far
+        self._run_in_headings: list[tuple[Any, str]] = []  # (heading paragraph, the stop cut from its title)
         # Word footnotes (#621): each definition by label, the labels something refers to,
         # and the footnotes part once a note needs one. A note cannot hold a note, so a
         # reference met while writing one falls back to superscript text.
@@ -290,6 +291,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
 
             self._caption_counts = {}
             self._code_block_style = None
+            self._run_in_headings = []
 
             # Cache available style names for safe lookups with templates
             self._available_styles = {s.name for s in self.document.styles}
@@ -639,6 +641,8 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                 self._set_page_break_before(list(body)[start:end])
             else:
                 child.accept(self)
+
+        self._run_in_headings_on()
 
         if node.metadata:
             self._apply_page_setup(node.metadata)
@@ -1133,6 +1137,7 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
             for child in node.content:
                 child.accept(self)
             self._current_paragraph = None
+            self._note_run_in(node, heading)
             return
 
         # Add heading with appropriate level
@@ -1173,6 +1178,49 @@ class DocxRenderer(NodeVisitor, BaseRenderer):
                     run.font.bold = True
 
         self._current_paragraph = None
+        self._note_run_in(node, heading)
+
+    def _note_run_in(self, node: Heading, heading: Any) -> None:
+        """Remember a heading the source ran its text on after, for :meth:`_run_in_headings_on`."""
+        if node.metadata.get("run_in"):
+            self._run_in_headings.append((heading, str(node.metadata.get("run_in_stop") or "")))
+
+    def _run_in_headings_on(self) -> None:
+        """Run each run-in heading on into the paragraph after it, as the source set it.
+
+        A contract's ``**5. Indemnification.** The Company shall ...`` is a heading to
+        the reader and to Word's navigation pane, but its text runs on after it on the
+        same line. Word's own way to set that is the style separator: the heading's
+        paragraph mark is hidden (``w:vanish`` with ``w:specVanish``), so Word draws the
+        heading and the next paragraph as one while keeping the heading in the outline
+        and the table of contents. The heading gets back the stop the parser cut from its
+        title. It runs on only into a body paragraph right after it: never into a table,
+        a list item, another heading or a paragraph that starts a page.
+        """
+        qn = self._qn
+        for heading, stop in self._run_in_headings:
+            following = heading._p.getnext()
+            if following is None or following.tag != qn("w:p") or not "".join(following.itertext()).strip():
+                continue
+            ppr = following.find(qn("w:pPr"))
+            if ppr is not None:
+                style = ppr.find(qn("w:pStyle"))
+                name = style.get(qn("w:val"), "") if style is not None else ""
+                if ppr.find(qn("w:numPr")) is not None or ppr.find(qn("w:pageBreakBefore")) is not None:
+                    continue
+                if name.lower().startswith(("heading", "title", "list")):
+                    continue
+            heading.add_run(f"{stop} ")
+            mark = self._OxmlElement("w:rPr")
+            mark.append(self._OxmlElement("w:vanish"))
+            mark.append(self._OxmlElement("w:specVanish"))
+            heading_ppr = heading._p.get_or_add_pPr()
+            # rPr comes after every other paragraph property but a section break or a change.
+            tail = next((child for child in heading_ppr if child.tag in (qn("w:sectPr"), qn("w:pPrChange"))), None)
+            if tail is not None:
+                tail.addprevious(mark)
+            else:
+                heading_ppr.append(mark)
 
     def visit_paragraph(self, node: ASTParagraph) -> None:
         """Render a Paragraph node.
