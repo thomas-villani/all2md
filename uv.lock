@@ -3131,11 +3131,11 @@ wheels = [
 
 [[package]]
 name = "orgparse"
-version = "0.4.20251020"
+version = "0.5.20260926"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/e9/52/a27b9fd19fa3677f4f831d35e1c441769eefac3551f46dc988333661f53c/orgparse-0.4.20251020.tar.gz", hash = "sha256:64415d0f889c90612e5a55db7f350a6ee04a353573489562bb9c479ef4cd100c", size = 40735, upload-time = "2025-10-30T22:35:41.352Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/18/10/c6cc6559148ef30116b9ed3a5d4ceeaccf94b4e36937e71ea9b31d8f84cc/orgparse-0.5.20260926.tar.gz", hash = "sha256:fac726fd2ed2d9cb4966dd89076499dfe2fed6bdb30b453fb3c311d49eca93cd", size = 53892, upload-time = "2026-09-26T15:58:58.168Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/27/14/6c0076cc49e14e0071fb7707f4c4e97cc1c44efbcc59fad2b56aeda7ede4/orgparse-0.4.20251020-py3-none-any.whl", hash = "sha256:8738e422aaba1bc0567548a282be60a4a0f1c60bfd6a94c8c977f04fe5de904c", size = 34839, upload-time = "2025-10-30T22:35:40.49Z" },
+    { url = "https://files.pythonhosted.org/packages/6d/ea/2c4323e9cbd9f8d68ec9960fad1c491f04be19ba1bf9b72b3cf62fea31f4/orgparse-0.5.20260926-py3-none-any.whl", hash = "sha256:0bff87cf7db81fec55a43d9bd8766f82ffd3c25a9056facd79ec5cf6582daf39", size = 47312, upload-time = "2026-09-26T15:58:57.088Z" },
 ]
 
 [[package]]
