@@ -1485,7 +1485,7 @@ wheels = [
 
 [[package]]
 name = "extract-msg"
-version = "0.56.1"
+version = "0.58.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "beautifulsoup4" },
@@ -1496,9 +1496,9 @@ dependencies = [
     { name = "rtfde" },
     { name = "tzlocal" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/aa/4a/da047195138a0ebf9876f44ab48b29c0400c137229e196f2b6e6b12de5ee/extract_msg-0.56.1.tar.gz", hash = "sha256:de94121cf5503377d932d503280293837baf630cd51ce36de901936b3172c43a", size = 333244, upload-time = "2026-08-14T03:51:58.322Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/12/49/a19215988ef2ded6518c75717dc73aa0a773c2efcc5b367c00b2f10ca5a4/extract_msg-0.58.2.tar.gz", hash = "sha256:83bc225a0942d80fd97a445c0724e6472b3d821b59df1a5634421bbd19e265fa", size = 355002, upload-time = "2026-11-05T23:47:51.983Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/41/ee/4007423b630f583d18e653023a3c9cd0b90b0bc235482145df13d442f3a3/extract_msg-0.56.1-py3-none-any.whl", hash = "sha256:3690ee28cbc5a8affa9c07d5e902464743949fcf2033f24b926d7c08485b42a9", size = 337639, upload-time = "2026-08-14T03:51:57.054Z" },
+    { url = "https://files.pythonhosted.org/packages/5d/f2/d0a4a605aa9b03ce44c4b216e99413fac72f4beb835bb58dc255817057aa/extract_msg-0.58.2-py3-none-any.whl", hash = "sha256:6211f7ebe146855a6d69aef60f14c197b583ffef00b9dc190e35644b2ea1ebd7", size = 360413, upload-time = "2026-11-05T23:47:50.567Z" },
 ]
 
 [[package]]
