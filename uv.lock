@@ -6041,7 +6041,7 @@ wheels = [
 
 [[package]]
 name = "wijjit"
-version = "0.1.2"
+version = "0.1.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jinja2" },
@@ -6052,9 +6052,9 @@ dependencies = [
     { name = "tinycss2" },
     { name = "wcwidth" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f6/60/f6bcbe63f2ba10f9ebda3e85838ccc0470609085907e5dd544f64c294293/wijjit-0.1.2.tar.gz", hash = "sha256:f86090d9a50ea3c877721abe42ced9820519fad295140c0ee051b4e1736261ba", size = 1230910, upload-time = "2026-10-07T02:48:31.094Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d0/11/73860b225171527de59e15a1ff9056b7660de1a3f86fb707dec5c137a6b8/wijjit-0.1.3.tar.gz", hash = "sha256:96f9e4a632de7ff438f4322e6a65bf43b8970d474caaa1abe8997cd8f64f8d30", size = 1231799, upload-time = "2026-10-07T16:33:00.719Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/97/0c/76fdb43ff75ed17039fd615e5358a397daf816a8f7daf5b2505a0415ef2f/wijjit-0.1.2-py3-none-any.whl", hash = "sha256:c44251c6efacfbd5ae026e2563ed50f18a2fc6935ffd12f3fb4ff8f9371ca3dd", size = 692826, upload-time = "2026-10-07T02:48:29.229Z" },
+    { url = "https://files.pythonhosted.org/packages/b7/a8/9c6023155c44b2b22dd35411612a622d38846cc481dc00616cbc75f8ee61/wijjit-0.1.3-py3-none-any.whl", hash = "sha256:24cac527db1806a6b5ec4691b0921ce8d2fcc9700c120bdfdf9d384045d7a883", size = 692912, upload-time = "2026-10-07T16:32:59.035Z" },
 ]
 
 [[package]]
