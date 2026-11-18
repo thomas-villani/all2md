@@ -132,7 +132,9 @@ from all2md.parsers._pdf_tables import (
     contradicted_column_boundaries,
     detect_tables_by_ruling_lines,
     extract_loss_share,
+    find_tables_without_nested_shading,
     is_dot_leader_cell,
+    is_mostly_empty_grid,
     looks_like_gridded_prose,
     looks_like_numbered_bibliography,
     merge_continuation_lines,
@@ -2556,7 +2558,7 @@ class PdfToAstConverter(BaseParser):
         if mode == "none":
             tabs = EmptyTables()
         elif mode == "pymupdf":
-            tabs = page.find_tables()
+            tabs = find_tables_without_nested_shading(page)
         elif mode == "ruling":
             fallback_table_rects, fallback_table_lines = detect_tables_by_ruling_lines(
                 page, self.options.table_ruling_line_threshold
@@ -2569,8 +2571,12 @@ class PdfToAstConverter(BaseParser):
             # decorative frames that our guards then have to reject. Skip it
             # when there's no ruling-line evidence; the ruling-line fallback
             # would also find nothing on those pages.
-            if page_has_table_signals(page):
-                tabs = page.find_tables()
+            try:
+                drawings = page.get_drawings()
+            except Exception:
+                drawings = None
+            if drawings is None or page_has_table_signals(page, drawings=drawings):
+                tabs = find_tables_without_nested_shading(page, drawings)
                 if self.options.enable_table_fallback_detection and not tabs.tables:
                     fallback_table_rects, fallback_table_lines = detect_tables_by_ruling_lines(
                         page, self.options.table_ruling_line_threshold
@@ -4819,7 +4825,7 @@ class PdfToAstConverter(BaseParser):
                 self._record_table_rejection("oversized_grid")
                 return self._region_text_as_paragraph(page, pymupdf.Rect(table.bbox), page_num)
             n_empty = sum(1 for r in table_data for c in r if c is None or not str(c).strip())
-            if n_empty / n_cells > MAX_TABLE_EMPTY_RATIO:
+            if is_mostly_empty_grid(table_data):
                 logger.debug(
                     f"Rejecting pymupdf table on page {page_num + 1}: "
                     f"{n_empty}/{n_cells} ({n_empty / n_cells:.0%}) cells empty"
@@ -5166,7 +5172,7 @@ class PdfToAstConverter(BaseParser):
         found_grid = False
         for strategy in TABLE_REGION_STRATEGIES:
             try:
-                tabs = page.find_tables(clip=table_rect, strategy=strategy)
+                tabs = find_tables_without_nested_shading(page, clip=table_rect, strategy=strategy)
             except Exception:
                 # PyMuPDF table detection is best-effort; try the next strategy.
                 continue
