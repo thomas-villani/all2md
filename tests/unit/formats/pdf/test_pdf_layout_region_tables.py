@@ -72,6 +72,12 @@ class _FakePage:
         assert "clip" not in kwargs, "clipping truncates boundary words and fabricates fragments"
         return [(0.0, 0.0, 1.0, 1.0, word, 0, 0, 0) for word in self._text.split()]
 
+    rotation = 0
+
+    def get_drawings(self) -> list:
+        """No vector graphics, so no nested shading for ``find_tables`` to be spared."""
+        return []
+
     def find_tables(self, clip=None, strategy: str = "lines_strict"):
         self.strategies_tried.append(strategy)
         return _FakeTables(self._by_strategy.get(strategy, []))

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import itertools
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -73,6 +73,21 @@ MAX_TABLE_ROWS = 200
 MIN_TABLE_COLS = 2
 MIN_TABLE_ROWS = 2
 MAX_TABLE_EMPTY_RATIO = 0.70
+# How many of a grid's rows must hold text before the positions find_tables() leaves
+# as None (no cell there: a merged cell's span) stop counting as empty cells. See
+# :func:`is_mostly_empty_grid`.
+MIN_TABLE_ROW_FILL = 0.70
+# Word paints a shaded cell twice in one color: once over the whole cell and once per
+# paragraph, inset by the cell's padding. find_tables() takes every filled rectangle's
+# sides for cell edges, so the inset ones cut a 5pt sliver column at each side of every
+# cell and a row at every paragraph. Neither edge is visible: one gray painted on the
+# same gray. :func:`without_nested_shading` drops a fill that sits inside another of
+# its color no more than this far in from the container's left and right sides; a page
+# or table background holds its cells much further in and is left alone.
+SHADING_INSET_MAX = 12.0
+# A fill this thin or thinner in either direction draws a rule, not shading.
+SHADING_MIN_EXTENT = 3.0
+SHADING_TOLERANCE = 0.6
 MIN_FILLED_FOR_UNIFORMITY_CHECK = 5
 # When more than this fraction of non-empty cells are dot-leader cells
 # (only dots, or a value with trailing dot-leader bleeding from the next
@@ -997,6 +1012,33 @@ def collapse_phantom_columns(table: object, table_data: list[list[str | None]]) 
     return collapsed
 
 
+def is_mostly_empty_grid(table_data: list[list[Any]]) -> bool:
+    """Return whether a find_tables() grid is too empty to be a table.
+
+    A grid past ``MAX_TABLE_EMPTY_RATIO`` empty is almost always a misfire on a
+    bordered region: a chart's gridlines, a decorative frame. But find_tables() lays
+    every row on one grid of all the column edges any row draws, and leaves ``None``
+    where a row has no cell -- under a merged cell's span, or where a Word table's rows
+    set their columns at different widths. Those positions are not empty cells. A
+    register or a schedule whose rows are cut differently came out more than half
+    ``None`` and was rejected, its text demoted to a paragraph. So a grid with text in
+    at least ``MIN_TABLE_ROW_FILL`` of its rows is judged on its real cells alone; a
+    chart, whose plot area leaves most rows blank, and a frame around a page's running
+    head are judged as before.
+    """
+    cells = [cell for row in table_data for cell in row]
+    if not cells:
+        return True
+    real = [cell for cell in cells if cell is not None]
+    blank = sum(1 for cell in real if not str(cell).strip())
+    if (blank + len(cells) - len(real)) / len(cells) <= MAX_TABLE_EMPTY_RATIO:
+        return False
+    if not real or blank / len(real) > MAX_TABLE_EMPTY_RATIO:
+        return True
+    rows_with_text = sum(1 for row in table_data if any(cell is not None and str(cell).strip() for cell in row))
+    return rows_with_text / len(table_data) < MIN_TABLE_ROW_FILL
+
+
 def is_dot_leader_cell(text: str) -> bool:
     """Detect cells that are dot-leader noise rather than real content.
 
@@ -1076,9 +1118,88 @@ def _extract_ruling_lines(
     return h_lines, v_lines
 
 
+def without_nested_shading(drawings: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
+    """Drop fills that repaint the inside of a same-colored fill, for ``find_tables(paths=)``.
+
+    A fill is dropped when another fill of the same color contains it and reaches no
+    more than :data:`SHADING_INSET_MAX` past it on the left and on the right: the
+    per-paragraph shading Word lays over a shaded cell. Its sides would be cell edges
+    to ``find_tables()``, though nothing can see them.
+
+    Parameters
+    ----------
+    drawings : list of dict
+        ``page.get_drawings()``.
+
+    Returns
+    -------
+    list of dict or None
+        The drawings without the nested fills, or ``None`` when none is nested, so the
+        caller can leave ``find_tables()`` to read the page as it always has.
+
+    """
+    fills = [
+        (index, drawing)
+        for index, drawing in enumerate(drawings)
+        if drawing.get("type") == "f" and drawing.get("fill") is not None and drawing.get("rect") is not None
+    ]
+    fills.sort(key=lambda item: -abs(item[1]["rect"].width * item[1]["rect"].height))
+    containers: dict[tuple[float, ...], list[Any]] = {}
+    nested: set[int] = set()
+    tol = SHADING_TOLERANCE
+    for index, drawing in fills:
+        rect = drawing["rect"]
+        if rect.width <= SHADING_MIN_EXTENT or rect.height <= SHADING_MIN_EXTENT:
+            continue
+        color = tuple(round(channel, 2) for channel in drawing["fill"])
+        for outer in containers.get(color, ()):
+            if (
+                outer.x0 - tol <= rect.x0
+                and outer.y0 - tol <= rect.y0
+                and rect.x1 <= outer.x1 + tol
+                and rect.y1 <= outer.y1 + tol
+                and rect.x0 - outer.x0 <= SHADING_INSET_MAX
+                and outer.x1 - rect.x1 <= SHADING_INSET_MAX
+            ):
+                nested.add(index)
+                break
+        else:
+            containers.setdefault(color, []).append(rect)
+    if not nested:
+        return None
+    return [drawing for index, drawing in enumerate(drawings) if index not in nested]
+
+
+def find_tables_without_nested_shading(
+    page: pymupdf.Page, drawings: list[dict[str, Any]] | None = None, **kwargs: Any
+) -> Any:
+    """Run ``page.find_tables(**kwargs)`` on the page's drawings less nested shading.
+
+    See :func:`without_nested_shading`. A page with no nested fill, or whose drawings
+    cannot be read, gets a plain ``find_tables()`` call. So does a rotated page:
+    ``find_tables()`` turns it upright before reading edges, and takes ``paths`` in that
+    upright frame, not in the frame ``get_drawings()`` reports, so even a page's own
+    drawings passed back in wreck its grid (a land-records register at 90 degrees went
+    from 49 rows to 5).
+
+    """
+    if page.rotation:
+        return page.find_tables(**kwargs)
+    if drawings is None:
+        try:
+            drawings = page.get_drawings()
+        except Exception:
+            return page.find_tables(**kwargs)
+    paths = without_nested_shading(drawings)
+    if paths is None:
+        return page.find_tables(**kwargs)
+    return page.find_tables(paths=paths, **kwargs)
+
+
 def page_has_table_signals(
     page: pymupdf.Page,
     threshold: float = TABLE_SIGNAL_RULING_THRESHOLD,
+    drawings: list[dict[str, Any]] | None = None,
 ) -> bool:
     """Return True if the page has drawings that could indicate a table.
 
@@ -1103,6 +1224,8 @@ def page_has_table_signals(
         or height (vertical). Smaller than the ``detect_tables_by_ruling_lines``
         threshold because the gate only needs evidence that *something*
         table-shaped exists, not a fully-formed grid.
+    drawings : list of dict, optional
+        ``page.get_drawings()``, when the caller already has them.
 
     Returns
     -------
@@ -1110,10 +1233,11 @@ def page_has_table_signals(
         ``True`` if ``find_tables()`` should run, ``False`` to skip it.
 
     """
-    try:
-        drawings = page.get_drawings()
-    except Exception:
-        return True
+    if drawings is None:
+        try:
+            drawings = page.get_drawings()
+        except Exception:
+            return True
     if not drawings:
         return False
 
