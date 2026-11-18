@@ -1,0 +1,1 @@
+- PDF: a form laid out as a grid of short labels and their answers stays a table when one answer is a long paragraph. The check that turns a fenced passage of prose back into a paragraph read the long answer as the whole grid; five or more rows that open on a short label now mark the grid as a form.
