@@ -860,7 +860,9 @@ def _split_run_in_heading(paragraph: AstParagraph) -> tuple[Heading, AstParagrap
     head_raw = extract_node_text(AstParagraph(content=head))
     head_text = " ".join(head_raw.split())
     stops_inside = head_text.endswith((".", ":"))
+    stop = head_text[-1] if stops_inside else ""
     if not stops_inside and after[:1] in ".:":
+        stop = after[:1]
         after = after[1:]
     elif not stops_inside:
         first = head_text.split(" ", 1)
@@ -895,7 +897,8 @@ def _split_run_in_heading(paragraph: AstParagraph) -> tuple[Heading, AstParagrap
     heading = Heading(
         level=_BOLD_TITLE_PENDING_LEVEL,
         content=heading_content,
-        metadata={"bold_title": True, "run_in": True},
+        # The stop is cut from the title, and kept here for a renderer that runs it in again.
+        metadata={"bold_title": True, "run_in": True, "run_in_stop": stop},
         source_location=SourceLocation(format="pdf", page=location.page, metadata={"font": {"bold": True}})
         if location
         else None,
