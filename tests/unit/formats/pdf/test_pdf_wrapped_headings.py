@@ -130,8 +130,9 @@ class TestAdjacentHeadingsStayApart:
 
         assert _headings(state) == ["Discussion", "Conclusion"]
 
-    def test_headings_in_different_blocks_do_not_join(self, converter):
-        # State is per block, so this is really a guard against the bookkeeping leaking.
+    def test_headings_in_different_blocks_do_not_join_as_they_are_read(self, converter):
+        # State is per block, so this is really a guard against the bookkeeping leaking;
+        # a wrap across blocks is joined afterwards (TestAWrapAcrossBlocks).
         first, second = _BlockProcessingState(), _BlockProcessingState()
 
         _emit(converter, first, "Methods", bottom=100)
@@ -200,6 +201,87 @@ class TestASubsectionUnderItsSectionStaysItsOwnHeading:
         _emit(converter, state, "Study design", bottom=100 + LINE_HEIGHT, bbox=_bbox(100 + LINE_HEIGHT, x1=150.0))
 
         assert _headings(state) == ["Methods and Design Study design"]
+
+
+def _across_blocks(converter, lines) -> list[str]:
+    """Emit each (text, bottom, level, bbox) line in a block of its own, then join the page."""
+    converter._heading_lines.clear()
+    nodes = []
+    for text, bottom, level, bbox in lines:
+        state = _BlockProcessingState()
+        _emit(converter, state, text, level=level, bottom=bottom, bbox=bbox)
+        nodes.extend(state.nodes)
+    return [extract_text(n, joiner="") for n in converter._join_wrapped_headings(nodes) if isinstance(n, Heading)]
+
+
+class TestAWrapAcrossBlocks:
+    """Word writes each line of a centered title as a PyMuPDF block of its own.
+
+    The join made as lines are read never saw the second line, so a two-line title read
+    as two headings: 331 such pairs in 93 documents of the Word tier.
+    """
+
+    def test_a_title_split_over_two_blocks_is_one_heading(self, converter):
+        lines = [
+            ("Childhood: The Roles of Cognitive Development and", 100, 1, _bbox(100, x0=107.0, x1=512.0)),
+            ("Educational and Social Environmental Variables", 100 + LINE_HEIGHT, 1, _bbox(112, x0=124.0, x1=495.0)),
+        ]
+
+        assert _across_blocks(converter, lines) == [
+            "Childhood: The Roles of Cognitive Development and Educational and Social Environmental Variables"
+        ]
+
+    def test_three_blocks_join_into_one(self, converter):
+        lines = [(text, 100 + i * LINE_HEIGHT, 1, None) for i, text in enumerate(["A very", "long", "title"])]
+
+        assert _across_blocks(converter, lines) == ["A very long title"]
+
+    def test_the_tests_made_as_lines_are_read_still_apply(self, converter):
+        lines = [
+            ("Methods", 100, 2, None),
+            ("Results", 100 + LINE_HEIGHT * (HEADING_WRAP_GAP_RATIO + 0.5), 2, None),
+            ("1. Introduction", 200, 2, None),
+            ("2. Methods", 200 + LINE_HEIGHT, 2, None),
+            ("Results", 300, 2, None),
+            ("Gene expression", 300 + LINE_HEIGHT, 3, None),
+        ]
+
+        assert _across_blocks(converter, lines) == [
+            "Methods",
+            "Results",
+            "1. Introduction",
+            "2. Methods",
+            "Results",
+            "Gene expression",
+        ]
+
+    def test_a_paragraph_between_stops_the_join(self, converter):
+        converter._heading_lines.clear()
+        first, second, third = _BlockProcessingState(), _BlockProcessingState(), _BlockProcessingState()
+        _emit(converter, first, "Methods", bottom=100)
+        second.paragraph_content = [Text(content="Body text.")]
+        converter._flush_state_paragraph(second, 0)
+        _emit(converter, third, "Results", bottom=100 + LINE_HEIGHT)
+
+        joined = converter._join_wrapped_headings([*first.nodes, *second.nodes, *third.nodes])
+
+        assert [extract_text(n, joiner="") for n in joined if isinstance(n, Heading)] == ["Methods", "Results"]
+
+    def test_two_bold_lines_join_into_one_bold_run(self, converter):
+        from all2md.ast.nodes import Strong
+
+        converter._heading_lines.clear()
+        nodes = []
+        for index, text in enumerate(["Development of Reading", "in Early Childhood"]):
+            state = _BlockProcessingState()
+            converter._emit_heading(state, 1, text, [Strong(content=[Text(content=text)])], 0, _bbox(100 + index * 12))
+            nodes.extend(state.nodes)
+
+        (heading,) = converter._join_wrapped_headings(nodes)
+
+        assert len(heading.content) == 1
+        assert isinstance(heading.content[0], Strong)
+        assert extract_text(heading, joiner="") == "Development of Reading in Early Childhood"
 
 
 class TestTheJoinNeedsGeometry:
