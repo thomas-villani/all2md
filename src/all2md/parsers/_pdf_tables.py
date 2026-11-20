@@ -2169,6 +2169,25 @@ MIN_PROSE_CELL_SHARE = 0.60
 # ...where "the grid" is cells of prose. A real data table whose values are one word each
 # can be dominated by a caption absorbed into it and is still a table.
 MIN_PROSE_GRID_MEDIAN_WORDS = 5
+# A form keeps its long answers in a grid of short labels: a privacy notice's "Legal basis:"
+# beside its paragraph, a checklist's "1.6.1" beside its question. Enough rows that open
+# on a label and carry a value make the grid a form, whatever one value's length. Every
+# fenced passage the prose test was built on has at most six cells, so three label rows.
+MAX_FORM_LABEL_WORDS = 8
+MIN_FORM_ROWS = 5
+MIN_FORM_ROW_SHARE = 0.80
+
+
+def looks_like_label_value_form(grid: Sequence[Sequence[str | None]]) -> bool:
+    """Decide whether the grid is rows of a short label followed by a value."""
+    rows = [[(cell or "").strip() for cell in row] for row in grid]
+    rows = [row for row in rows if any(row)]
+    form_rows = 0
+    for row in rows:
+        filled = [cell for cell in row if cell]
+        if len(filled) >= 2 and len(filled[0].split()) <= MAX_FORM_LABEL_WORDS:
+            form_rows += 1
+    return form_rows >= MIN_FORM_ROWS and form_rows >= MIN_FORM_ROW_SHARE * len(rows)
 
 
 def looks_like_gridded_prose(grid: Sequence[Sequence[str | None]]) -> bool:
@@ -2206,6 +2225,11 @@ def looks_like_gridded_prose(grid: Sequence[Sequence[str | None]]) -> bool:
     ``<table-wrap>`` elements deposited as *graphics*, so JATS carries their captions and
     none of their cells. A rule scored only against the text of the ground truth would
     read them as absent and reject them.
+
+    A form is spared: a 7x2 privacy notice of labels and answers, whose longest answer
+    holds 60% of its words, and a checklist page of numbered questions. Across 915 pool
+    PDFs and the 176 dev and tuned articles those are the only two of 145 rejected grids
+    the exception keeps.
     """
     lengths: list[int] = []
     longest = ""
@@ -2222,5 +2246,7 @@ def looks_like_gridded_prose(grid: Sequence[Sequence[str | None]]) -> bool:
     if not total or n_words < MIN_PROSE_CELL_WORDS or n_words < MIN_PROSE_CELL_SHARE * total:
         return False
     if sorted(lengths)[len(lengths) // 2] < MIN_PROSE_GRID_MEDIAN_WORDS:
+        return False
+    if looks_like_label_value_form(grid):
         return False
     return len(_SENTENCE_END.findall(longest)) >= MIN_PROSE_CELL_SENTENCES

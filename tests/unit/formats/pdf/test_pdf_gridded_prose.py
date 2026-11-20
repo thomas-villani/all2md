@@ -24,7 +24,7 @@ combination tried. The cell text here is the real thing, taken from the census.
 
 import pytest
 
-from all2md.parsers._pdf_tables import looks_like_gridded_prose
+from all2md.parsers._pdf_tables import looks_like_gridded_prose, looks_like_label_value_form
 
 pytestmark = [pytest.mark.unit, pytest.mark.pdf, pytest.mark.table]
 
@@ -144,3 +144,44 @@ class TestRealTablesSurvive:
         grid = [["", title]]
 
         assert not looks_like_gridded_prose(grid)
+
+
+# A privacy notice laid out as a form: a short label beside each answer, one answer long.
+RETENTION = (
+    "We keep your details for as long as the contract between us runs. After it ends we keep "
+    "them for the periods the law sets for accounting and tax records, which is usually seven "
+    "years. Where a claim is pending we keep what the claim needs until it is settled. We then "
+    "delete the details or make them anonymous. Some records are needed to show that we met "
+    "our duties. Those we keep until the period for bringing a complaint has run out. You may "
+    "ask us at any time which details we still hold. We will answer within one month."
+)
+
+
+class TestALabelValueForm:
+    """A form's long answer is not a fenced passage: its rows open on short labels."""
+
+    FORM = [
+        ["Controller:", "Example Housing Ltd, 1 High Street"],
+        ["Data protection officer:", "None appointed, as none is required."],
+        ["Why we process your data:", "Managing enquiries and customer accounts."],
+        ["Legal basis:", "The contract, steps before a contract, and legal duties."],
+        ["How long we keep your data:", RETENTION],
+        ["Who we pass your data to:", "Banks, notaries and the land registry, as each sale needs."],
+        ["Data portability:", "There is no right to data portability."],
+    ]
+
+    def test_a_form_with_one_long_answer_is_a_table(self) -> None:
+        assert not looks_like_gridded_prose(self.FORM)
+
+    def test_the_same_answers_without_their_labels_are_prose(self) -> None:
+        """Take the labels away and the long answer holds the grid again."""
+        assert looks_like_gridded_prose([[value] for _, value in self.FORM])
+
+    def test_four_label_rows_are_not_yet_a_form(self) -> None:
+        """A keywords box is a label or two; five label rows is the least a form is read as."""
+        assert looks_like_label_value_form(self.FORM[:5])
+        assert not looks_like_label_value_form(self.FORM[:4])
+
+    def test_label_rows_must_be_most_of_the_grid(self) -> None:
+        passage = [[RETENTION]] * 2
+        assert not looks_like_label_value_form(self.FORM[:5] + passage)
