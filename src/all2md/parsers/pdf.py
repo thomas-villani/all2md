@@ -204,6 +204,51 @@ HEADING_WRAP_GAP_RATIO = 1.6
 HEADING_WRAP_MIN_FILL = 0.8
 
 
+def _join_heading_content(content: list[Node], more: list[Node]) -> None:
+    """Append a wrapped heading line's content to the line above it, one space between.
+
+    Two lines both set in bold join into one bold run, so the heading does not print as
+    ``**first line** **second line**``.
+    """
+    if content and more and isinstance(content[-1], Strong) and isinstance(more[0], Strong):
+        last = content[-1]
+        content[-1] = replace(last, content=[*last.content, Text(content=" "), *more[0].content])
+        content.extend(more[1:])
+        return
+    content.extend([Text(content=" "), *more])
+
+
+def _wraps_heading_line(
+    prev_bbox: tuple[float, float, float, float] | None,
+    prev_bottom: float,
+    prev_height: float,
+    line_text: str,
+    line_bbox: tuple[float, float, float, float],
+) -> bool:
+    """Report whether a heading line printed at ``line_bbox`` wraps on from the heading line above it.
+
+    It does not open with its own numbering, which announces a new section however
+    tightly it is set; the line above filled the measure the two share
+    (``HEADING_WRAP_MIN_FILL``); and it sits strictly below, within
+    ``HEADING_WRAP_GAP_RATIO`` line heights.
+    """
+    if parse_numbering_prefix(line_text.split(" ", 1)[0]) is not None:
+        return False
+    if prev_bbox is not None:
+        left = min(prev_bbox[0], line_bbox[0])
+        right = max(prev_bbox[2], line_bbox[2])
+        width = right - left
+        if width > 0 and (prev_bbox[2] - left) / width < HEADING_WRAP_MIN_FILL:
+            return False
+    height = max(line_bbox[3] - line_bbox[1], prev_height)
+    if height <= 0:
+        return False
+    gap = line_bbox[3] - prev_bottom
+    # Strictly below: a line at or above the previous one is a different column or a
+    # reading-order artefact, not a continuation.
+    return 0 < gap <= height * HEADING_WRAP_GAP_RATIO
+
+
 def _span_union_bbox(spans: list) -> tuple[float, float, float, float] | None:
     """Bounding box covering every span on a line, or None if none carry one.
 
@@ -1592,6 +1637,12 @@ class PdfToAstConverter(BaseParser):
         # when the layout model says section-header but the font heuristic
         # has nothing to anchor against.
         self._last_heading_level: int = 0
+        # Where each heading on the page being read was printed: the heading, its first
+        # line's bbox, its last line's bbox and its tallest line's height. A heading wrapped
+        # over two PyMuPDF blocks is joined from these after the blocks are read.
+        self._heading_lines: dict[
+            int, tuple[Heading, tuple[float, float, float, float], tuple[float, float, float, float], float]
+        ] = {}
 
     @requires_dependencies("pdf", DEPS_PDF)
     def parse(self, input_data: str | Path | IO[bytes] | bytes) -> Document:
@@ -2985,6 +3036,7 @@ class PdfToAstConverter(BaseParser):
 
         """
         nodes: list[Node] = []
+        self._heading_lines.clear()
         average_line_height = self._calculate_average_line_height(columns)
         links = self._get_page_links(page)
 
@@ -3064,6 +3116,8 @@ class PdfToAstConverter(BaseParser):
             nodes = kept
 
         # Post-processing
+        nodes = self._join_wrapped_headings(nodes)
+        self._heading_lines.clear()
         nodes = self._merge_rotated_paragraphs(nodes)
         nodes = self._merge_adjacent_paragraphs(nodes)
         nodes = self._promote_bold_titles(nodes)
@@ -3935,6 +3989,9 @@ class PdfToAstConverter(BaseParser):
             state.last_heading_bottom = line_bbox[3]
             state.last_heading_height = max(line_bbox[3] - line_bbox[1], state.last_heading_height)
             state.last_heading_bbox = line_bbox
+            record = self._heading_lines.get(id(heading))
+            if record is not None:
+                self._heading_lines[id(heading)] = (heading, record[1], line_bbox, state.last_heading_height)
             return
 
         if parse_numbering_prefix(line_text) is not None:
@@ -3983,8 +4040,9 @@ class PdfToAstConverter(BaseParser):
         self._last_heading_level = level
         self._mark_heading_line(state, line_bbox)
 
-    @staticmethod
-    def _mark_heading_line(state: _BlockProcessingState, line_bbox: tuple[float, float, float, float] | None) -> None:
+    def _mark_heading_line(
+        self, state: _BlockProcessingState, line_bbox: tuple[float, float, float, float] | None
+    ) -> None:
         """Record where the heading just appended to ``state.nodes`` was printed."""
         if line_bbox is None:
             state.last_heading_slot = -1
@@ -3994,6 +4052,9 @@ class PdfToAstConverter(BaseParser):
         state.last_heading_bottom = line_bbox[3]
         state.last_heading_height = line_bbox[3] - line_bbox[1]
         state.last_heading_bbox = line_bbox
+        heading = state.nodes[-1]
+        if isinstance(heading, Heading):
+            self._heading_lines[id(heading)] = (heading, line_bbox, line_bbox, line_bbox[3] - line_bbox[1])
 
     @staticmethod
     def _continues_wrapped_heading(
@@ -4020,24 +4081,38 @@ class PdfToAstConverter(BaseParser):
         previous = state.nodes[-1]
         if not isinstance(previous, Heading) or previous.level != level:
             return False
-        if parse_numbering_prefix(line_text.split(" ", 1)[0]) is not None:
-            return False
+        return _wraps_heading_line(
+            state.last_heading_bbox, state.last_heading_bottom, state.last_heading_height, line_text, line_bbox
+        )
 
-        prev_bbox = state.last_heading_bbox
-        if prev_bbox is not None:
-            left = min(prev_bbox[0], line_bbox[0])
-            right = max(prev_bbox[2], line_bbox[2])
-            width = right - left
-            if width > 0 and (prev_bbox[2] - left) / width < HEADING_WRAP_MIN_FILL:
-                return False
+    def _join_wrapped_headings(self, nodes: list[Node]) -> list[Node]:
+        """Join a heading to the one before it when it is that heading's next printed line.
 
-        height = max(line_bbox[3] - line_bbox[1], state.last_heading_height)
-        if height <= 0:
-            return False
-        gap = line_bbox[3] - state.last_heading_bottom
-        # Strictly below: a line at or above the previous one is a different column or a
-        # reading-order artefact, not a continuation.
-        return 0 < gap <= height * HEADING_WRAP_GAP_RATIO
+        A heading's lines are joined as they are read (:meth:`_continues_wrapped_heading`),
+        but only within one PyMuPDF block, and Word often writes each line of a centered
+        title as a block of its own, so a two-line title read as two headings. Two
+        consecutive headings recorded on this page are joined by the same tests.
+        """
+        joined: list[Node] = []
+        for node in nodes:
+            previous = joined[-1] if joined else None
+            here = self._heading_lines.get(id(node))
+            above = self._heading_lines.get(id(previous))
+            if (
+                isinstance(node, Heading)
+                and isinstance(previous, Heading)
+                and here is not None
+                and above is not None
+                and here[0] is node
+                and above[0] is previous
+                and node.level == previous.level
+                and _wraps_heading_line(above[2], above[2][3], above[3], extract_node_text(node).strip(), here[1])
+            ):
+                _join_heading_content(previous.content, node.content)
+                self._heading_lines[id(previous)] = (previous, above[1], here[2], max(above[3], here[3]))
+                continue
+            joined.append(node)
+        return joined
 
     def _flush_pending_heading_prefix(self, state: _BlockProcessingState) -> None:
         """Emit any buffered numbering-prefix heading as a standalone heading."""

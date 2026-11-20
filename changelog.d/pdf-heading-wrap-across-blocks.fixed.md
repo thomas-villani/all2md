@@ -1,0 +1,1 @@
+- PDF: a heading printed over two or more lines is one heading when each line is its own text block, as Word writes a centered title, instead of one heading per line.
