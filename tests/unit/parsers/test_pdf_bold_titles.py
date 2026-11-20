@@ -195,12 +195,12 @@ class TestARunInTitleIsSplitFromItsText:
     @pytest.mark.parametrize(
         ("head", "title"),
         [
-            ([("5. Indemnification.", True), (" ", False)], "5. Indemnification"),
+            ([("5.1 Indemnification.", True), (" ", False)], "5.1 Indemnification"),
             ([("Section 5. Indemnification", True), (". ", False)], "Section 5. Indemnification"),
             ([("8.1 ", False), ("Term", True), (". ", False)], "8.1 Term"),
-            ([("(b) ", False), ("Territory:", True), (" ", False)], "(b) Territory"),
+            ([("Section 7 ", False), ("Territory:", True), (" ", False)], "Section 7 Territory"),
             ([("9.6 Expiration of Agreement", True), (" ", False)], "9.6 Expiration of Agreement"),
-            ([("1. GRANT OF RIGHTS. ", True)], "1. GRANT OF RIGHTS"),
+            ([("ARTICLE I. GRANT OF RIGHTS. ", True)], "ARTICLE I. GRANT OF RIGHTS"),
             ([("8.2 ", False), ("Notices", True), (".", False), (" ", False)], "8.2 Notices"),
             ([("Section 6.2", True), (" ", False), ("Use of EDI", False)], None),
         ],
@@ -219,14 +219,15 @@ class TestARunInTitleIsSplitFromItsText:
         lines = [
             [("3. COMPENSATION.", True)],
             *BODY_RUNS,
-            *_clause(("4. TERM.", True), (" ", False)),
+            [(" ", False)],
+            *_clause(("4.1 TERM.", True), (" ", False)),
         ]
         parsed = to_ast(_mixed_pdf(tmp_path, lines), parser_options=PdfOptions(layout_analysis_mode="disabled"))
         levels = [(extract_text(h), h.level) for h in parsed.children if isinstance(h, Heading)]
-        assert levels == [("3. COMPENSATION", 2), ("4. TERM", 2)]
+        assert levels == [("3. COMPENSATION", 2), ("4.1 TERM", 2)]
 
     def test_font_weight_off_turns_it_off(self, tmp_path: Path) -> None:
-        path = _mixed_pdf(tmp_path, _clause(("5. Indemnification.", True), (" ", False)))
+        path = _mixed_pdf(tmp_path, _clause(("5.1 Indemnification.", True), (" ", False)))
         assert _headings(path, header_use_font_weight=False) == []
 
 
@@ -249,11 +250,19 @@ class TestABoldOpeningThatIsNoTitle:
             [("Figure 2-1.", True), (" General recovery curve for beach habitats", False)],
             [("McAlpine, J. F.", True), (" 1987. Manual of Nearctic Diptera", False)],
             [("Graner, A., and E. Bauer. 1993.", True), (" Mapping of barley genes", False)],
+            [("Indemnification.", True), (" ", False)],
+            [("(b) ", False), ("Territory:", True), (" ", False)],
+            [("A. Documentation.", True), (" ", False)],
         ],
     )
     def test_it_stays_one_paragraph(self, tmp_path: Path, head: list[tuple[str, bool]]) -> None:
         blocks = _blocks(_mixed_pdf(tmp_path, _clause(*head)))
         assert [kind for kind, _ in blocks] == ["Paragraph"]
+
+    def test_a_list_number_does_not_number_a_section(self, tmp_path: Path) -> None:
+        """Word numbers a list item with a bold lead-in this way."""
+        path = _mixed_pdf(tmp_path, _clause(("5. Indemnification.", True), (" ", False)))
+        assert _headings(path) == []
 
     def test_a_title_needs_text_after_it(self, tmp_path: Path) -> None:
         lines = [*BODY_RUNS, [("Total:", True), (" $1,200", False)], *BODY_RUNS]
@@ -288,25 +297,25 @@ class TestARepeatedRunInLabelIsNoTitle:
         return lines
 
     def test_a_label_repeated_three_times_stays_in_its_paragraphs(self, tmp_path: Path) -> None:
+        labels = ("Section 1. Rationale", "Section 2. Outcome", "Section 3. Rationale", "Section 4. Rationale")
         parsed = to_ast(
-            _mixed_pdf(tmp_path, self._labelled("Rationale", "Outcome", "Rationale", "Rationale")),
+            _mixed_pdf(tmp_path, self._labelled(*labels)),
             parser_options=PdfOptions(layout_analysis_mode="disabled"),
         )
-        kinds = [(type(child).__name__, " ".join(extract_text(child).split())) for child in parsed.children]
-        assert kinds[0] == ("Heading", "Outcome") or kinds[1] == ("Heading", "Outcome")
-        rationale = [child for child in parsed.children if extract_text(child).startswith("Rationale")]
+        assert [extract_text(h) for h in parsed.children if isinstance(h, Heading)] == ["Section 2. Outcome"]
+        rationale = [child for child in parsed.children if "Rationale" in extract_text(child)]
         assert len(rationale) == 3
         for paragraph in rationale:
             assert isinstance(paragraph, Paragraph)
             assert isinstance(paragraph.content[0], Strong)
-            assert extract_text(paragraph.content[0]) == "Rationale:"
-            assert " ".join(extract_text(paragraph).split()).startswith("Rationale: The Company shall")
+            assert extract_text(paragraph.content[0]).endswith("Rationale:")
+            assert "Rationale: The Company shall" in " ".join(extract_text(paragraph).split())
 
     def test_a_title_used_twice_is_still_a_title(self, tmp_path: Path) -> None:
         """Two agreements in one file may each have a clause of one name."""
-        path = _mixed_pdf(tmp_path, self._labelled("Governing Law", "Notices", "Governing Law"))
-        assert _headings(path) == ["Governing Law", "Notices", "Governing Law"]
+        path = _mixed_pdf(tmp_path, self._labelled("12.1 Governing Law", "12.2 Notices", "13.1 Governing Law"))
+        assert _headings(path) == ["12.1 Governing Law", "12.2 Notices", "13.1 Governing Law"]
 
     def test_labels_that_differ_only_in_their_numbers_count_as_one(self, tmp_path: Path) -> None:
-        path = _mixed_pdf(tmp_path, self._labelled("Question # 1", "Question # 2", "Question # 3"))
+        path = _mixed_pdf(tmp_path, self._labelled("Section 1. Question", "Section 2. Question", "Section 3. Question"))
         assert _headings(path) == []

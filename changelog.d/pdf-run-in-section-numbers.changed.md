@@ -1,0 +1,1 @@
+- PDF: a bold title run into its paragraph's text becomes a heading only when it numbers a section ("Section 5.", "Article III", "8.1 Term."); a bold lead-in with no number, or with a list's "1." or "(b)", stays in bold at the head of its paragraph, as Word sets a body paragraph or a numbered list item.
