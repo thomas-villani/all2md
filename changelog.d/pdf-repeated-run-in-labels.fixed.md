@@ -1,0 +1,1 @@
+- PDF: a bold label that opens paragraph after paragraph (a script's speaker, a form's "Rationale:", "Question # 3:") stays in bold at the head of its paragraph instead of becoming a heading each time, and a bold reference entry ending in its year ("Graner, A., and E. Bauer. 1993.") is no longer read as a run-in heading.

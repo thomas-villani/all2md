@@ -813,12 +813,30 @@ _RUN_IN_NOT_A_TITLE = re.compile(
 )
 
 #: Bold openings that are a caption's label (``**Figure 2-1.** General ...``) or a
-#: reference entry's author (``**McAlpine, J. F.** 1987. ...``), not a title.
-_RUN_IN_LABEL_OR_NAME = re.compile(r"(?i:fig(?:ure|ura)?|tab(?:le|la))[.]?\s*\d|.*,\s*(?:[A-Z][.]?\s*){1,3}$")
+#: reference entry's authors (``**McAlpine, J. F.** 1987. ...``, ``**Graner, A., and E.
+#: Bauer. 1993.** Mapping ...``), not a title.
+_RUN_IN_LABEL_OR_NAME = re.compile(
+    r"(?i:fig(?:ure|ura)?|tab(?:le|la))[.]?\s*\d|.*,\s*(?:[A-Z][.]?\s*){1,3}$|.*[.,]\s*(?:1[5-9]|20)\d\d[a-z]?$"
+)
 
 #: How many words the text after a run-in title needs: a bold label before a figure
 #: (``**Total:** $``) is a table row or a form, not a section.
 RUN_IN_MIN_BODY_WORDS = 3
+
+#: How many times one run-in title may open a paragraph in a document and still head a
+#: section: a label that opens paragraph after paragraph (a script's speaker, a form's
+#: ``Rationale:``, ``Question # 12:``) is a field or a voice, set in bold in its paragraph.
+#: Titles that differ only in their numbers count as one.
+RUN_IN_MAX_REPEATS = 2
+
+#: The numbers a repeated label counts through: ``Note 1``, ``Goal IV``, ``A.``.
+_RUN_IN_LABEL_NUMBER = re.compile(r"\d+|\b[ivx]+\b|^[a-z][.)]")
+
+
+def _run_in_label_key(heading: Heading) -> str:
+    """Return the text a run-in title is counted under: lowercased, its numbers masked."""
+    return _normalize_heading_for_dedup(_RUN_IN_LABEL_NUMBER.sub("#", _heading_text(heading).lower()))
+
 
 #: Words that make a bold opening a sentence rather than a title: a title names its
 #: subject (``Term of Agreement``), a bold sentence asserts something about it
@@ -1062,6 +1080,59 @@ def _join_table_across_page_break(
     children.append(joined)
     children.extend(furniture)
     return page_nodes[head + 1 :]
+
+
+def _rejoin_repeated_run_in_titles(doc: Document) -> int:
+    """Run a run-in title that opens more than ``RUN_IN_MAX_REPEATS`` paragraphs back into its text.
+
+    A contract names each clause once, so its run-in titles differ; a label repeated down
+    the document (``**Dragoon:** ...``, ``**Rationale:** ...``, ``**Question # 3:**
+    ...``) is not a section. The
+    title goes back, in bold with its stop, at the head of the paragraph split from it.
+
+    Returns
+    -------
+    int
+        The number of headings run back in.
+
+    """
+    counts: dict[str, int] = {}
+    for child in doc.children:
+        if isinstance(child, Heading) and child.metadata.get("run_in"):
+            key = _run_in_label_key(child)
+            counts[key] = counts.get(key, 0) + 1
+    repeated = {key for key, count in counts.items() if count > RUN_IN_MAX_REPEATS}
+    if not repeated:
+        return 0
+    children: list[Node] = []
+    rejoined = 0
+    pending: Strong | None = None
+    pending_location: SourceLocation | None = None
+    for child in doc.children:
+        if isinstance(child, Heading) and child.metadata.get("run_in") and _run_in_label_key(child) in repeated:
+            if pending is not None:
+                children.append(AstParagraph(content=[pending]))
+            title = list(child.content)
+            stop = child.metadata.get("run_in_stop") or ""
+            if stop and title and isinstance(title[-1], Text):
+                title[-1] = Text(content=title[-1].content + stop)
+            elif stop:
+                title.append(Text(content=stop))
+            pending = Strong(content=title)
+            pending_location = child.source_location
+            rejoined += 1
+            continue
+        if pending is not None:
+            if isinstance(child, AstParagraph):
+                child = replace(child, content=[pending, Text(content=" "), *child.content])
+            else:
+                children.append(AstParagraph(content=[pending], source_location=pending_location))
+            pending = None
+        children.append(child)
+    if pending is not None:
+        children.append(AstParagraph(content=[pending], source_location=pending_location))
+    doc.children = children
+    return rejoined
 
 
 def _settle_bold_title_levels(doc: Document) -> None:
@@ -2208,8 +2279,9 @@ class PdfToAstConverter(BaseParser):
         # Demote headings that recur on more than half the document pages —
         # those are running titles or per-page form labels masquerading as
         # section headings, not real document structure.
+        headings_demoted = _rejoin_repeated_run_in_titles(ast_doc)
         _settle_bold_title_levels(ast_doc)
-        headings_demoted = _demote_prose_headings(ast_doc)
+        headings_demoted += _demote_prose_headings(ast_doc)
         if self.options.dedup_running_headings and total_pages >= 3:
             headings_demoted += _demote_running_headings(ast_doc, total_pages)
 
