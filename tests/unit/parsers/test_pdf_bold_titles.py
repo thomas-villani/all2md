@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 
 from all2md import to_ast
-from all2md.ast import Heading, Paragraph
+from all2md.ast import Heading, Paragraph, Strong
 from all2md.ast.utils import extract_text
 from all2md.options.pdf import PdfOptions
 
@@ -248,6 +248,7 @@ class TestABoldOpeningThatIsNoTitle:
             [("Figura 3.", True), (" ", False)],
             [("Figure 2-1.", True), (" General recovery curve for beach habitats", False)],
             [("McAlpine, J. F.", True), (" 1987. Manual of Nearctic Diptera", False)],
+            [("Graner, A., and E. Bauer. 1993.", True), (" Mapping of barley genes", False)],
         ],
     )
     def test_it_stays_one_paragraph(self, tmp_path: Path, head: list[tuple[str, bool]]) -> None:
@@ -270,3 +271,42 @@ def test_a_blank_line_above_a_title_leaves_it_a_title(tmp_path: Path) -> None:
         *_clause(("2.1 Governance.", True), (" ", False)),
     ]
     assert _headings(_mixed_pdf(tmp_path, lines)) == ["Product Development and Commercialization", "2.1 Governance"]
+
+
+class TestARepeatedRunInLabelIsNoTitle:
+    """A label that opens paragraph after paragraph is a field or a speaker, not a section.
+
+    A script names its speaker at the head of every speech, and a form opens each answer
+    with its field (``**Rationale:** ...``); a contract names each clause once.
+    """
+
+    @staticmethod
+    def _labelled(*labels: str) -> list[list[tuple[str, bool]]]:
+        lines: list[list[tuple[str, bool]]] = []
+        for label in labels:
+            lines += [[(" ", False)], *_clause((f"{label}:", True), (" ", False))]
+        return lines
+
+    def test_a_label_repeated_three_times_stays_in_its_paragraphs(self, tmp_path: Path) -> None:
+        parsed = to_ast(
+            _mixed_pdf(tmp_path, self._labelled("Rationale", "Outcome", "Rationale", "Rationale")),
+            parser_options=PdfOptions(layout_analysis_mode="disabled"),
+        )
+        kinds = [(type(child).__name__, " ".join(extract_text(child).split())) for child in parsed.children]
+        assert kinds[0] == ("Heading", "Outcome") or kinds[1] == ("Heading", "Outcome")
+        rationale = [child for child in parsed.children if extract_text(child).startswith("Rationale")]
+        assert len(rationale) == 3
+        for paragraph in rationale:
+            assert isinstance(paragraph, Paragraph)
+            assert isinstance(paragraph.content[0], Strong)
+            assert extract_text(paragraph.content[0]) == "Rationale:"
+            assert " ".join(extract_text(paragraph).split()).startswith("Rationale: The Company shall")
+
+    def test_a_title_used_twice_is_still_a_title(self, tmp_path: Path) -> None:
+        """Two agreements in one file may each have a clause of one name."""
+        path = _mixed_pdf(tmp_path, self._labelled("Governing Law", "Notices", "Governing Law"))
+        assert _headings(path) == ["Governing Law", "Notices", "Governing Law"]
+
+    def test_labels_that_differ_only_in_their_numbers_count_as_one(self, tmp_path: Path) -> None:
+        path = _mixed_pdf(tmp_path, self._labelled("Question # 1", "Question # 2", "Question # 3"))
+        assert _headings(path) == []
