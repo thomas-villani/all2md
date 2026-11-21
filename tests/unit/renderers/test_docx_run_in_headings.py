@@ -103,7 +103,7 @@ def test_the_pdf_parser_keeps_the_stop_it_cut(tmp_path: Path) -> None:
     regular, bold = pymupdf.Font("helv"), pymupdf.Font("hebo")
     writer = pymupdf.TextWriter(page.rect)
     lines = [
-        [("5. Indemnification.", True), (" The Company shall indemnify the Purchaser from any and all", False)],
+        [("5.1 Indemnification.", True), (" The Company shall indemnify the Purchaser from any and all", False)],
         [("losses, claims and damages arising out of a breach of this Agreement.", False)],
     ]
     for row, runs in enumerate(lines):

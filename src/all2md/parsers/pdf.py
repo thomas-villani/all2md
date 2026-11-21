@@ -863,17 +863,38 @@ def _strip_trailing_terminator(nodes: list[Node]) -> None:
         return
 
 
+#: A title that names its section by a word: ``Section 5.``, ``Article III``, ``Clause 2``, ``§ 4``.
+_RUN_IN_SECTION_WORD = re.compile(r"(?:section|article|clause)\s+\S|§", re.IGNORECASE)
+
+
+def _run_in_numbers_a_section(title: str) -> bool:
+    """Report whether a run-in title opens with the numbering of a document's sections.
+
+    A section word (``Section 5.``) or a number of two levels or more (``8.1``) numbers a
+    section. A bold lead-in with no number, or with a single ``1.``, ``A.`` or ``(b)``, is
+    what Word writes for a body paragraph or a numbered list item: on 737 Word documents
+    printed to PDF, 4 of 900 run-in titles of those kinds were headings in Word.
+    """
+    if _RUN_IN_SECTION_WORD.match(title):
+        return True
+    match = parse_numbering_prefix(title.split(" ", 1)[0])
+    return match is not None and match.kind in ("decimal", "section") and match.depth >= 2
+
+
 def _split_run_in_heading(paragraph: AstParagraph) -> tuple[Heading, AstParagraph] | None:
     """Split a paragraph that opens with a bold run-in title into the title and its text.
 
     Contracts set a clause's title in bold at the head of its first line and run the text
-    on after it (``**5. Indemnification.** The Company shall ...``, ``8.1 **Term**. This
-    Agreement ...``), so no line is all bold and :func:`_bold_title_heading` never sees
-    it (#688). The paragraph opens, after an optional numbering label set in the regular
-    weight, with a bold run (an italic title may follow a bold number:
-    ``**Section 6.2** *Use of EDI*.``) that ends in ``.`` or ``:`` and is followed by a
-    sentence opening in a capital, a digit, a parenthesis or a quote. A bold run with no
-    stop counts only when it carries its own number (``**9.6 Expiration** Upon ...``).
+    on after it (``**Section 5. Indemnification.** The Company shall ...``, ``8.1 **Term**.
+    This Agreement ...``), so no line is all bold and :func:`_bold_title_heading` never
+    sees it (#688). The title must number a section (:func:`_run_in_numbers_a_section`):
+    a bold lead-in with no number, or with a list's ``1.`` or ``(b)``, is how Word sets a
+    body paragraph or a numbered list item, and is left in its paragraph. The paragraph
+    opens, after an optional numbering label set in the regular weight, with a bold run
+    (an italic title may follow a bold number: ``**Section 6.2** *Use of EDI*.``) that
+    ends in ``.`` or ``:`` and is followed by a sentence opening in a capital, a digit, a
+    parenthesis or a quote. A bold run with no stop counts only when it carries its own
+    number (``**9.6 Expiration** Upon ...``).
     The title must pass :func:`_could_be_bold_title`, and it is not a defined term
     (quoted), a note's label (``**Note:**``) or a contract's attestation
     (``**IN WITNESS WHEREOF,**``).
@@ -948,6 +969,8 @@ def _split_run_in_heading(paragraph: AstParagraph) -> tuple[Heading, AstParagrap
     if _RUN_IN_SENTENCE_WORDS.intersection(re.findall(r"[a-z]+", title.lower())) or _RUN_IN_NOT_A_TITLE.match(title):
         return None
     if not _could_be_bold_title(f"{number} {title}" if number else title):
+        return None
+    if not _run_in_numbers_a_section(f"{number} {title}" if number else title):
         return None
     heading_content = _unwrap_strong(head)
     _strip_trailing_terminator(heading_content)
