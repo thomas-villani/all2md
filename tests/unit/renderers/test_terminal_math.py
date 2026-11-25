@@ -38,7 +38,7 @@ class TestOneLine:
             (r"A^T A^{-1} x^{n + 1}", "Aᵀ A⁻¹ xⁿ⁺¹"),
             (r"x \in \mathbb{R}", "x ∈ ℝ"),
             (r"a \leq b \cdot c", "a ≤ b · c"),
-            (r"\nabla \cdot \mathbf{E} = \frac{\rho}{\varepsilon_0}", "∇ · E = ρ/ε₀"),
+            (r"\nabla \cdot \mathbf{E} = \frac{\rho}{\varepsilon_0}", "∇ · 𝐄 = ρ/ε₀"),
             (r"\operatorname{tr}(A)", "tr(A)"),
             (r"x_{\text{max}}", "xₘₐₓ"),
             (r"f'(x) + f''(x)", "f′(x) + f″(x)"),
@@ -46,7 +46,7 @@ class TestOneLine:
             (r"\overline{ab}", "a" + chr(0x305) + "b" + chr(0x305)),
             (r"\binom{n}{k}", "C(n, k)"),
             (r"\left( \frac{1}{2} \right)", "(½)"),
-            (r"\left. \frac{df}{dx} \right|_{x=0}", "df/dx |ₓ₌₀"),
+            (r"\left. \frac{df}{dx} \right|_{x=0}", "df/dx|ₓ₌₀"),
         ],
     )
     def test_converts(self, latex, expected):
@@ -72,10 +72,151 @@ class TestOneLine:
         assert latex_to_unicode(r"\foo{x} + \mathcal{L}") == r"\foo{x} + ℒ"
 
     def test_text_keeps_its_spaces(self):
-        assert latex_to_unicode(r"x \text{ if  y}") == "x  if  y"
+        # Once each: the space inside \text stands in for the math space beside it, and text mode runs spaces together.
+        assert latex_to_unicode(r"x \text{ if  y}") == "x if y"
+        assert latex_to_unicode(r"\text{if } x > 0") == "if x > 0"
+
+    def test_a_script_with_words_keeps_its_underscore(self):
+        # The space \text keeps separates words; squeezed out, "p prime" read as ₚₚᵣᵢₘₑ.
+        assert latex_to_unicode(r"\prod_{p \text{ prime}} p") == "∏_(p prime) p"
+        assert latex_to_unicode(r"\sum_{p\text{ prime}} \frac{1}{p}") == "∑_(p prime) 1/p"
+        assert latex_to_unicode(r"x_{\text{ max }} + x^{\text{th}}") == "xₘₐₓ + xᵗʰ"
+
+    @pytest.mark.parametrize(
+        "latex, expected",
+        [
+            (r"\gcd(a, b) = \lcm(a, b)", "gcd(a, b) = lcm(a, b)"),
+            (r"\deg p + \det A", "deg p + det A"),
+            (r"\ker f \subseteq \dim V", "ker f ⊆ dim V"),
+            (r"\Pr(X) \cot x \sec x \csc x \lg n", "Pr(X) cot x sec x csc x lg n"),
+            (r"\arg\min_x f", "arg minₓ f"),
+            (r"2\sin x", "2 sin x"),
+            (r"\gcd_{i} a_i", "gcdᵢ aᵢ"),
+        ],
+    )
+    def test_named_functions(self, latex, expected):
+        assert latex_to_unicode(latex) == expected
+
+    @pytest.mark.parametrize(
+        "latex, expected",
+        [
+            (r"a \equiv b \pmod{n}", "a ≡ b (mod n)"),
+            (r"a \bmod n", "a mod n"),
+            (r"a \equiv b \mod{n}", "a ≡ b mod n"),
+            (r"a \equiv b \pod{n}", "a ≡ b (n)"),
+        ],
+    )
+    def test_modulo(self, latex, expected):
+        assert latex_to_unicode(latex) == expected
 
     def test_quad_is_wider_than_a_thin_space(self):
-        assert latex_to_unicode(r"a \quad b \, c") == "a    b c"
+        assert latex_to_unicode(r"a \quad b \, c") == "a  b c"
+
+    @pytest.mark.parametrize(
+        "latex, expected",
+        [
+            # \displaystyle took the \sum as its "argument" and dropped it.
+            (r"\displaystyle \sum_{k} a_k", "∑ₖ aₖ"),
+            # A script inside a script that Unicode cannot raise: 2^2ⁿ read as (2²)ⁿ.
+            (r"2^{2^n} + x^{a_1} + e^{i\pi}", "2^(2ⁿ) + x^(a₁) + e^(iπ)"),
+            (r"x^{y^z}", "x^(yᶻ)"),
+            (r"\boxed{x = 2}", "⟦x = 2⟧"),
+            (r"\overbrace{a+b}^{n}", "(a+b ⏞ n)"),
+            (r"\underbrace{a+b+c}_{\text{three}}", "(a+b+c ⏟ three)"),
+            (r"\operatorname*{argmax}_x f(x)", "argmaxₓ f(x)"),
+            (r"a \not\equiv b", "a ≢ b"),
+        ],
+    )
+    def test_meaning_is_kept(self, latex, expected):
+        assert latex_to_unicode(latex) == expected
+
+    @pytest.mark.parametrize(
+        "latex, expected",
+        [
+            (r"p \implies q \iff r", "p ⟹ q ⟺ r"),
+            (r"\neg p \land q \lor r", "¬ p ∧ q ∨ r"),
+            (r"\Gamma \models \phi \bot", "Γ ⊨ ϕ ⊥"),
+            (r"a \ne b, \Re z, \Im z", "a ≠ b, ℜ z, ℑ z"),
+            (r"\|x\|_2", "‖x‖₂"),
+            (r"\triangle ABC \qed", "△ ABC ∎"),
+        ],
+    )
+    def test_symbols_pylatexenc_does_not_name(self, latex, expected):
+        assert latex_to_unicode(latex) == expected
+
+    @pytest.mark.parametrize(
+        "latex, expected",
+        [
+            (r"\stackrel{def}{=}", "=ᵈᵉᶠ"),
+            (r"\overset{!}{=}", "=^!"),
+            (r"\underset{x}{\arg\max}", "arg maxₓ"),
+            (r"\xrightarrow{f}", "→ᶠ"),
+            (r"\xrightarrow[g]{f}", "→_gᶠ"),
+            (r"{a \over b} + {n \choose k}", "a/b + C(n, k)"),
+        ],
+    )
+    def test_stacked_on_one_line(self, latex, expected):
+        assert latex_to_unicode(latex) == expected
+
+    def test_substack_rows_share_the_script(self):
+        latex = r"\sum_{\substack{p \le x ROW p \equiv 1 \bmod 4}} p".replace("ROW", chr(92) * 2)
+        assert latex_to_unicode(latex) == "∑_(p ≤ x; p ≡ 1 mod 4) p"
+
+    @pytest.mark.parametrize(
+        "latex, expected",
+        [
+            (r"\frac{\partial f}{\partial x}", "∂f/∂x"),
+            (r"\frac{\partial^2 f}{\partial x \partial y}", "∂²f/∂x∂y"),
+            (r"\frac{d^2 y}{dx^2}", "d²y/dx²"),
+            (r"\sum_{n=0}^{\infty} \frac{x^n}{n!}", "∑ₙ₌₀^∞ xⁿ/n!"),
+            (r"\frac{x}{d+1}", "x/(d+1)"),
+        ],
+    )
+    def test_differentials_and_factorials_are_one_term(self, latex, expected):
+        assert latex_to_unicode(latex) == expected
+
+    @pytest.mark.parametrize(
+        "latex, expected",
+        [
+            (r"\mathbf{v}_1 + \mathbf{0}", "𝐯₁ + 𝟎"),
+            (r"\boldsymbol{\alpha} \bm{x}", "𝜶 𝒙"),
+            (r"\mathbb{1}_A", "𝟙_A"),
+            (r"\mathbf{\nabla}", "∇"),
+        ],
+    )
+    def test_bold_uses_unicode_bold_letters(self, latex, expected):
+        assert latex_to_unicode(latex) == expected
+
+    @pytest.mark.parametrize(
+        "latex, expected",
+        [
+            (r"45^\circ", "45°"),
+            (r"A^\top A^\intercal", "Aᵀ Aᵀ"),
+            (r"x^\prime", "x′"),
+        ],
+    )
+    def test_signs_that_are_superscripts(self, latex, expected):
+        assert latex_to_unicode(latex) == expected
+
+    @pytest.mark.parametrize(
+        "latex, expected",
+        [
+            (r"\langle x, y \rangle + \lfloor x \rfloor", "⟨x, y⟩ + ⌊x⌋"),
+            (r"\left\| x \right\| + \lvert y \rvert", "‖x‖ + |y|"),
+            (r"f \colon A \to B", "f: A → B"),
+            (r"\color{red}{x} + \color{blue} y + \colorbox{yellow}{z}", "x + y + z"),
+            (r"a\phantom{xx}b", "a  b"),
+            (r"\cancel{ab}", "a" + chr(0x338) + "b" + chr(0x338)),
+            (r"\widehat{xyz} + \overrightarrow{AB}", "hat(xyz) + vec(AB)"),
+            (r"\varliminf_n a_n", "lim infₙ aₙ"),
+        ],
+    )
+    def test_spacing_and_decoration(self, latex, expected):
+        assert latex_to_unicode(latex) == expected
+
+    def test_array_rules_are_dropped(self):
+        latex = r"\begin{array}{cc} a & b ROW \hline c & d \end{array}".replace("ROW", chr(92) * 2)
+        assert latex_to_unicode(latex) == "a  b" + NL + "c  d"
 
 
 @pytest.mark.unit
