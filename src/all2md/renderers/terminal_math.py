@@ -512,7 +512,7 @@ def _math_letters(text: str, style: str) -> str:
             try:
                 char = unicodedata.lookup(f"MATHEMATICAL {alphabet} {kind} {rest}")
             except KeyError:
-                pass
+                continue
             break
         out.append(char)
     return "".join(out)
