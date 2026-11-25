@@ -48,6 +48,7 @@ from all2md.renderers.terminal_math import (
     FUNCTION_NAMES,
     FUNCTIONS,
     LIMIT_FUNCTIONS,
+    SYMBOLS,
     _is_cell_break,
     _is_char,
     _is_node,
@@ -168,7 +169,7 @@ _ARITY = (
     | dict.fromkeys(
         (*_ACCENTS, *_BARS, *_GROUP_CHARACTERS, *_STYLES, *_TEXT, "sqrt", "boxed", "tag", "label", "operatorname"), 1
     )
-    | dict.fromkeys(("pmod", "mod", "pod"), 1)
+    | dict.fromkeys(("pmod", "mod", "pod", "color", "cline", "vphantom"), 1)
 )
 
 
@@ -653,6 +654,8 @@ class _Converter:
             out.append(self._run(chr(0x2003) + "("))
             out.extend(self._argument(args[0]))
             out.append(self._run(")"))
+        elif name in SYMBOLS:
+            out.append(self._run(SYMBOLS[name]))
         else:
             text = str(self.l2t.nodelist_to_text([node])).strip()
             if not text:

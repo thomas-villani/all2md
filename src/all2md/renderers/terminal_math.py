@@ -6,10 +6,13 @@ r"""LaTeX math as Unicode text, for the terminal renderer's ``math_mode="unicode
 A terminal cannot typeset, so the renderer shows math as its LaTeX source by
 default. This module offers a readable alternative made of ordinary characters:
 ``\alpha^2 + x_i`` becomes ``α² + xᵢ``, ``\frac{a+b}{2}`` becomes ``(a+b)/2``
-and ``\int_0^\infty`` becomes ``∫₀^∞``. Nothing is dropped: a script with a
+and ``\int_0^\infty`` becomes ``∫₀^∞``. Nothing that carries meaning is
+dropped (only colors, struts and the rules of an ``array``): a script with a
 character Unicode has no superscript or subscript for keeps its ``^``/``_``
 and gains parentheses where its extent would be unclear, and a macro the
-converter does not know is kept as written.
+converter does not know is kept as written. Bold uses Unicode's mathematical
+bold letters (``\mathbf{v}`` is ``𝐯``), as ``\mathbb`` uses its double-struck
+ones; the other fonts are shown plain.
 
 Display math with rows (``aligned``, ``cases``, the ``matrix`` family, or
 ``\\`` at the top level) is laid out on several lines, with its columns lined
@@ -74,13 +77,21 @@ _ACCENTS = {
     "grave": chr(0x300),
     "breve": chr(0x306),
     "check": chr(0x30C),
+    "overrightarrow": chr(0x20D7),
+    "overleftarrow": chr(0x20D6),
+    "cancel": chr(0x338),
+    "bcancel": chr(0x338),
+    "xcancel": chr(0x338),
+    "sout": chr(0x336),
 }
-_SPREAD_ACCENTS = frozenset({"overline", "underline"})
+#: The name an accent over several characters is shown with, ``hat(xyz)``.
+_ACCENT_NAMES = {"widehat": "hat", "widetilde": "tilde", "overrightarrow": "vec"}
+_SPREAD_ACCENTS = frozenset({"overline", "underline", "cancel", "bcancel", "xcancel", "sout"})
 
 #: Macros whose argument is shown as it is (the font changes a terminal cannot show).
-_PLAIN_STYLE = frozenset(
-    {"mathrm", "mathit", "mathbf", "mathsf", "mathtt", "boldsymbol", "bm", "mathnormal", "operatorname", "displaystyle"}
-)
+_PLAIN_STYLE = frozenset({"mathrm", "mathit", "mathsf", "mathtt", "mathnormal"})
+#: Bold, written with Unicode's mathematical bold letters (``𝐯``); ``\boldsymbol`` is bold italic, as LaTeX sets it.
+_BOLD_STYLE = {"mathbf": "BOLD", "boldsymbol": "BOLD ITALIC", "bm": "BOLD ITALIC"}
 _TEXT = frozenset({"text", "textrm", "textit", "textbf", "textsf", "texttt", "mbox", "emph"})
 _FRACTIONS = frozenset({"frac", "dfrac", "tfrac", "cfrac"})
 _BINOMIALS = frozenset({"binom", "dbinom", "tbinom"})
@@ -88,8 +99,91 @@ _DELIMITER_SIZES = frozenset(
     {"left", "right", "middle", "big", "Big", "bigg", "Bigg"}
     | {f"{size}{side}" for size in ("big", "Big", "bigg", "Bigg") for side in ("l", "r", "m")}
 )
-_DROPPED = frozenset({"label", "nonumber", "notag", "limits", "nolimits", "displaystyle", "textstyle"})
+#: Macros shown as nothing (shared with docx_math). Those taking an argument are in ``_ARITY``, so it goes too.
+_DROPPED = frozenset(
+    {"label", "nonumber", "notag", "limits", "nolimits"}
+    | {"displaystyle", "textstyle", "scriptstyle", "scriptscriptstyle", "mathstrut", "strut", "vphantom"}
+    | {"hline", "cline", "toprule", "midrule", "bottomrule", "noalign", "color"}
+)
 _SPACES = {",": " ", ":": " ", ";": " ", " ": " ", "!": "", "quad": "  ", "qquad": "    ", "enspace": " "}
+
+#: Symbols pylatexenc does not name (shared with docx_math); ``\|`` is the double bar.
+SYMBOLS = {
+    "|": "‖",
+    "iff": "⟺",
+    "implies": "⟹",
+    "impliedby": "⟸",
+    "land": "∧",
+    "lor": "∨",
+    "neg": "¬",
+    "bot": "⊥",
+    "models": "⊨",
+    "vDash": "⊨",
+    "ne": "≠",
+    "Re": "ℜ",
+    "Im": "ℑ",
+    "triangle": "△",
+    "qed": "∎",
+    "checkmark": "✓",
+    "Box": "□",
+    "Diamond": "◇",
+    "bigstar": "★",
+    "ddagger": "‡",
+    "S": "§",
+    "P": "¶",
+    "copyright": "©",
+    "leadsto": "⇝",
+    "gets": "←",
+    "eqsim": "≂",
+    "coloneqq": "≔",
+    "eqqcolon": "≕",
+    "Join": "⋈",
+    "cdotp": "·",
+    "centerdot": "·",
+    "ldotp": ".",
+    "imath": "ı",
+    "jmath": "ȷ",
+    "Bbbk": "𝕜",
+    "degree": "°",
+    "backslash": "\\",
+    "iiiint": "⨌",
+    "idotsint": "∫⋯∫",
+    "bigodot": "⨀",
+    "biguplus": "⨄",
+    "bigsqcup": "⨆",
+    "lll": "⋘",
+    "ggg": "⋙",
+    "thicksim": "∼",
+    "thickapprox": "≈",
+    "ncong": "≇",
+    "nsim": "≁",
+    "varpropto": "∝",
+    "lhd": "⊲",
+    "rhd": "⊳",
+    "unlhd": "⊴",
+    "unrhd": "⊵",
+}
+
+#: ``\xrightarrow{f}`` and kin: the arrow, with its label above (and the optional one below).
+_LABELED_ARROWS = {
+    "xrightarrow": "→",
+    "xleftarrow": "←",
+    "xleftrightarrow": "↔",
+    "xRightarrow": "⇒",
+    "xLeftarrow": "⇐",
+    "xLeftrightarrow": "⇔",
+    "xmapsto": "↦",
+    "xhookrightarrow": "↪",
+    "xhookleftarrow": "↩",
+}
+#: Bars that say which side they are on, as (bar, side).
+_SIDED_BARS = {"lvert": ("|", "l"), "rvert": ("|", "r"), "lVert": ("‖", "l"), "rVert": ("‖", "r")}
+#: ``\overset{a}{b}``: ``a`` goes above ``b`` (a superscript on one line), ``\underset`` below.
+_STACKED = {"overset": True, "stackrel": True, "underset": False}
+#: ``\overbrace{x}^{n}``: the brace, and which script labels it.
+_BRACES = {"overbrace": ("⏞", "^"), "underbrace": ("⏟", "_")}
+#: Infix fractions, ``{a \over b}``: the macro, and the macro it stands for.
+_INFIX = {"over": "frac", "choose": "binom"}
 
 #: Named functions, written upright (shared with docx_math). pylatexenc knows only some of them
 #: (``\gcd``, ``\det`` and ``\ker`` are missing), so both converters name them all. ``\lcm`` is not
@@ -99,12 +193,27 @@ FUNCTIONS = frozenset(
     | {"log", "ln", "lg", "exp", "arg", "deg", "dim", "hom", "ker"}
 )
 #: Named functions whose subscript goes underneath in display math (``\lim_{x\to 0}``).
-LIMIT_FUNCTIONS = frozenset({"lim", "liminf", "limsup", "max", "min", "sup", "inf", "det", "gcd", "lcm", "Pr"})
-FUNCTION_NAMES = {"liminf": "lim inf", "limsup": "lim sup"}
+LIMIT_FUNCTIONS = frozenset(
+    {"lim", "liminf", "limsup", "max", "min", "sup", "inf", "det", "gcd", "lcm", "Pr"}
+    | {"injlim", "projlim", "varliminf", "varlimsup", "varinjlim", "varprojlim"}
+)
+FUNCTION_NAMES = {
+    "liminf": "lim inf",
+    "limsup": "lim sup",
+    "injlim": "inj lim",
+    "projlim": "proj lim",
+    "varliminf": "lim inf",
+    "varlimsup": "lim sup",
+    "varinjlim": "inj lim",
+    "varprojlim": "proj lim",
+}
 
 #: How many arguments a macro takes when pylatexenc does not know it.
-_ARITY = dict.fromkeys(_FRACTIONS | _BINOMIALS, 2) | dict.fromkeys(
-    (*_ACCENTS, *_PLAIN_STYLE, *_TEXT, "sqrt", "tag", "label", "boxed", "pmod", "mod", "pod"), 1
+_ARITY = (
+    dict.fromkeys(_FRACTIONS | _BINOMIALS | {"colorbox"} | set(_STACKED), 2)
+    | dict.fromkeys((*_ACCENTS, *_PLAIN_STYLE, *_BOLD_STYLE, *_TEXT, *_BRACES, *_LABELED_ARROWS), 1)
+    | dict.fromkeys(("sqrt", "tag", "label", "boxed", "pmod", "mod", "pod", "operatorname", "substack"), 1)
+    | dict.fromkeys(("phantom", "hphantom", "vphantom", "hspace", "color", "cline", "mathbb"), 1)
 )
 
 _MATRICES = {
@@ -207,8 +316,10 @@ Fragment = str | _Box
 def _collapse(text: str, keep_hard_spaces: bool = False) -> str:
     """Collapse runs of whitespace (LaTeX math ignores it) and turn hard spaces back into spaces."""
     text = re.sub(r"\s+", " ", text)
-    text = re.sub(r"([(\[{]) ", r"\1", text)
-    text = re.sub(r" ([)\]}])", r"\1", text)
+    text = re.sub(r"([(\[{⟨⌊⌈]) ", r"\1", text)
+    text = re.sub(r" ([)\]}⟩⌋⌉])", r"\1", text)
+    # A hard space takes the place of the math spaces beside it: ``\text{if } x`` is ``if x``, not ``if  x``.
+    text = re.sub(f" ?({_HARD_SPACE}+) ?", r"\1", text)
     return text if keep_hard_spaces else text.replace(_HARD_SPACE, " ")
 
 
@@ -283,19 +394,38 @@ def _script(text: str, superscript: bool) -> str:
     rather than reading as ``ₚₚᵣᵢₘₑ``.
     """
     text = text.strip(" " + _HARD_SPACE)
+    mark = "^" if superscript else "_"
     if _HARD_SPACE in text:
-        mark = "^" if superscript else "_"
         return f"{mark}({re.sub(' +', ' ', text.replace(_HARD_SPACE, ' '))})"
     compact = text.replace(" ", "")
-    if superscript and compact and set(compact) <= set("′″‴"):
-        return compact
+    if superscript:
+        # A degree sign, a transpose and a prime are superscripts already: 45°, Aᵀ, x′.
+        compact = _SUPERSCRIPT_SIGNS.get(compact, compact.replace("'", "′"))
+        if compact and set(compact) <= set("°ᵀ′″‴"):
+            return compact
     table = _SUPERSCRIPTS if superscript else _SUBSCRIPTS
     if compact and all(char in table for char in compact):
         return "".join(table[char] for char in compact)
-    mark = "^" if superscript else "_"
-    if _is_term(compact):
+    if _is_script_term(compact):
         return mark + compact
     return f"{mark}({text.strip()})"
+
+
+#: Superscripts that have a character of their own.
+_SUPERSCRIPT_SIGNS = {"∘": "°", "⊤": "ᵀ", "⊺": "ᵀ"}
+
+
+def _is_script_term(text: str) -> bool:
+    """Return whether a script that Unicode cannot raise or lower can go after its ``^`` or ``_`` bare.
+
+    It can when it is a number, a group, or one symbol (``x^∞``, ``x^*``). Two
+    symbols (``e^iπ``) or a script of its own (``2^2ⁿ``, which reads as
+    ``(2²)ⁿ``) take parentheses.
+    """
+    if _NUMBER.fullmatch(text) or _is_group(text):
+        return True
+    core = [c for c in text if not unicodedata.combining(c)]
+    return len(core) == 1 and core[0] not in _SCRIPT_CHARS
 
 
 def _is_term(text: str) -> bool:
@@ -325,9 +455,67 @@ def _is_group(text: str) -> bool:
 
 
 def _operand(text: str) -> str:
-    """Return ``text`` as a fraction's numerator or denominator, in parentheses unless it is one term."""
+    """Return ``text`` as a fraction's numerator or denominator, in parentheses unless it is one term.
+
+    A differential is one term with what it acts on (``∂f/∂x``, ``d²y/dx²``),
+    and so is a factorial (``xⁿ/n!``).
+    """
     text = text.strip()
+    if _DIFFERENTIALS.fullmatch(text):
+        return text.replace(" ", "")
+    if text.endswith("!") and _is_term(text[:-1]):
+        return text
     return text if _is_term(text) else f"({text})"
+
+
+#: Differentials, one or several: ``∂f``, ``d² y``, ``dx²``, ``∂x ∂y``, ``∂(fg)``.
+_DIFFERENTIALS = re.compile(r"(?:[∂d][²³⁴⁵⁶⁷⁸⁹ⁿ]? ?(?:[^\W\d_]|\([^()]*\))[²³⁴⁵⁶⁷⁸⁹ⁿ]? ?)+")
+
+
+def _fraction(numerator: str, denominator: str) -> str:
+    """Return a fraction on one line: ``½``, ``¹⁄₇`` or ``(a+b)/2``."""
+    numerator, denominator = numerator.strip(), denominator.strip()
+    vulgar = _VULGAR_FRACTIONS.get((numerator, denominator))
+    if vulgar:
+        return vulgar
+    if numerator.isdigit() and denominator.isdigit():
+        return _script(numerator, True) + "⁄" + _script(denominator, False)
+    return f"{_operand(numerator)}/{_operand(denominator)}"
+
+
+def _binomial(top: str, bottom: str) -> str:
+    """Return a binomial coefficient on one line, ``C(n, k)``."""
+    return f"C({top.strip()}, {bottom.strip()})"
+
+
+def _math_letters(text: str, style: str) -> str:
+    """Return ``text`` in one of Unicode's mathematical alphabets (``BOLD``, ``BOLD ITALIC``, ``DOUBLE-STRUCK``).
+
+    Letters and digits the alphabet has are replaced (``v`` is ``𝐯``, ``α``
+    is ``𝛂``); anything else stays as it is. There are no italic digits, so
+    bold italic takes the bold ones.
+    """
+    out = []
+    for char in text:
+        name = unicodedata.name(char, "")
+        for prefix, kind in (
+            ("LATIN SMALL LETTER ", "SMALL"),
+            ("LATIN CAPITAL LETTER ", "CAPITAL"),
+            ("GREEK SMALL LETTER ", "SMALL"),
+            ("GREEK CAPITAL LETTER ", "CAPITAL"),
+            ("DIGIT ", "DIGIT"),
+        ):
+            rest = name.removeprefix(prefix)
+            if rest == name or " " in rest:
+                continue
+            alphabet = "BOLD" if kind == "DIGIT" and style == "BOLD ITALIC" else style
+            try:
+                char = unicodedata.lookup(f"MATHEMATICAL {alphabet} {kind} {rest}")
+            except KeyError:
+                pass
+            break
+        out.append(char)
+    return "".join(out)
 
 
 # LaTeX tokens (shared with the DOCX renderer's equation writer, docx_math) ---
@@ -409,7 +597,8 @@ class _Converter:
         if isinstance(argument, str):
             return argument
         nodes = argument.nodelist if _is_node(argument, "LatexGroupNode") else [argument]
-        return str(self.l2t.nodelist_to_text(nodes)).replace(" ", _HARD_SPACE)
+        # Text mode runs spaces together too, so ``\text{if  y}`` is ``if y``.
+        return re.sub(r"\s+", _HARD_SPACE, str(self.l2t.nodelist_to_text(nodes)))
 
     # Conversion -----------------------------------------------------------
 
@@ -428,6 +617,11 @@ class _Converter:
     def fragments(self, nodes: list[Any]) -> list[Fragment]:
         """Convert a node list to fragments: strings, and boxes for anything with rows."""
         tokens = latex_tokens(nodes)
+        infix = next((i for i, t in enumerate(tokens) if _is_node(t, "LatexMacroNode") and t.macroname in _INFIX), None)
+        if infix is not None:
+            # ``{a \over b}`` and ``{n \choose k}``: the macro splits the group in two.
+            above, below = _flatten(self.fragments(tokens[:infix])), _flatten(self.fragments(tokens[infix + 1 :]))
+            return [(_binomial if _INFIX[tokens[infix].macroname] == "binom" else _fraction)(above, below)]
         out: list[Fragment] = []
         index = 0
         while index < len(tokens):
@@ -480,9 +674,21 @@ class _Converter:
         if name in _SPACES:
             space = _SPACES[name]
             out.append(space.replace(" ", _HARD_SPACE) if len(space) > 1 else space)
-        elif name in _DELIMITER_SIZES:
-            if index < len(tokens) and _is_char(tokens[index], "."):
-                index += 1
+        elif name in _DELIMITER_SIZES or name in _SIDED_BARS:
+            if name in _SIDED_BARS:
+                delimiter, side = _SIDED_BARS[name]
+            else:
+                token, index = take_argument(tokens, index)
+                delimiter = "" if token is None or _is_char(token, ".") else _flatten(self.fragments([token]))
+                side = {"left": "l", "right": "r"}.get(name, name[-1] if name[-1] in "lr" else "")
+            # No space inside a delimiter with a side: ``\left\| x \right\|`` is ``‖x‖``.
+            if side == "r":
+                _strip_trailing_space(out)
+            out.append(delimiter)
+            if side == "l":
+                trailing = ""
+                while index < len(tokens) and isinstance(tokens[index], str) and tokens[index].isspace():
+                    index += 1
         elif name in _DROPPED:
             pass
         elif name == "\\":
@@ -494,16 +700,9 @@ class _Converter:
         elif name == "bmod":
             out.append(" mod ")
         elif name in _FRACTIONS and len(args) == 2:
-            numerator, denominator = self._text(args[0]).strip(), self._text(args[1]).strip()
-            vulgar = _VULGAR_FRACTIONS.get((numerator, denominator))
-            if vulgar:
-                out.append(vulgar)
-            elif numerator.isdigit() and denominator.isdigit():
-                out.append(_script(numerator, True) + "⁄" + _script(denominator, False))
-            else:
-                out.append(f"{_operand(numerator)}/{_operand(denominator)}")
+            out.append(_fraction(self._text(args[0]), self._text(args[1])))
         elif name in _BINOMIALS and len(args) == 2:
-            out.append(f"C({self._text(args[0]).strip()}, {self._text(args[1]).strip()})")
+            out.append(_binomial(self._text(args[0]), self._text(args[1])))
         elif name == "sqrt" and args:
             radicand = _operand(self._text(args[0]))
             degree = (optional if isinstance(optional, str) else self._text(optional)).strip() if optional else ""
@@ -515,9 +714,29 @@ class _Converter:
             out.append(self._verbatim_text(args[0]))
         elif name in _PLAIN_STYLE and args:
             out.append(self._text(args[0]))
+        elif name in _BOLD_STYLE and args:
+            out.append(_math_letters(self._text(args[0]), _BOLD_STYLE[name]))
+        elif name == "mathbb" and args:
+            # pylatexenc gives ℝ for \mathbb{R} but leaves digits: the indicator function is 𝟙.
+            out.append(_math_letters(str(self.l2t.nodelist_to_text([node])).strip(), "DOUBLE-STRUCK"))
         elif name == "boxed" and args:
-            out.append(f"[{self._text(args[0])}]")
-        elif name == "tag" and args:
+            # Not [x = 2], which reads as an Iverson bracket.
+            out.append(f"⟦{self._text(args[0]).strip()}⟧")
+        else:
+            index = self._other_macro(node, args, optional, tokens, index, out)
+        last: Any = args[-1] if args else None
+        if not trailing and getattr(last, "macro_post_space", None):
+            # ``\not\equiv b``: the space ended the inner macro, so it belongs after the result.
+            trailing = " "
+        out.append(trailing)
+        return index
+
+    def _other_macro(  # noqa: C901
+        self, node: Any, args: list[Any], optional: Any, tokens: list[Any], index: int, out: list[Fragment]
+    ) -> int:
+        """Convert the macros :meth:`_macro` leaves: labels, stacks, spacing, symbols and the unknown ones."""
+        name = node.macroname
+        if name == "tag" and args:
             out.append(f"{_HARD_SPACE * 4}({self._text(args[0]).strip()})")
         elif name == "pmod" and args:
             out.append(f" (mod {self._text(args[0]).strip()})")
@@ -525,6 +744,52 @@ class _Converter:
             out.append(f" mod {self._text(args[0]).strip()}")
         elif name == "pod" and args:
             out.append(f" ({self._text(args[0]).strip()})")
+        elif name == "operatorname" and args:
+            starred = _is_char(args[0], "*")
+            if starred:
+                # pylatexenc does not know \operatorname*, so the star is the first "argument".
+                args[0], index = take_argument(tokens, index)
+            space = " " if _ends_alphanumeric(out) else ""
+            out.append(space + self._text(args[0]).strip())
+        elif name in _BRACES and args:
+            glyph, mark = _BRACES[name]
+            body = self._text(args[0]).strip()
+            label = ""
+            after, following = take_argument(tokens, index)
+            if _is_char(after, mark):
+                argument, index = take_argument(tokens, following)
+                label = self._text(argument).strip()
+            out.append(f"({body} {glyph} {label})" if label else body)
+        elif name in _STACKED and len(args) == 2:
+            # One line: the stacked part becomes a script (``=ᵈᵉᶠ``, ``arg maxₓ``).
+            out.append(
+                self._text(args[1]).strip() + _script(self._text(args[0], keep_hard_spaces=True), _STACKED[name])
+            )
+        elif name in _LABELED_ARROWS:
+            below = (optional if isinstance(optional, str) else self._text(optional)).strip() if optional else ""
+            above = self._text(args[0]).strip() if args else ""
+            out.append(
+                _LABELED_ARROWS[name]
+                + (_script(below, False) if below else "")
+                + (_script(above, True) if above else "")
+            )
+        elif name == "substack" and args:
+            nodes = args[0].nodelist if _is_node(args[0], "LatexGroupNode") else [args[0]]
+            out.append("; ".join(" ".join(cell for cell in row if cell) for row in self._rows(nodes)))
+        elif name in ("phantom", "hphantom") and args:
+            out.append(_HARD_SPACE * text_width(self._text(args[0])))
+        elif name == "hspace":
+            if args and _is_char(args[0], "*"):
+                _, index = take_argument(tokens, index)
+            out.append(_HARD_SPACE)
+        elif name == "colorbox" and len(args) == 2:
+            out.append(self._text(args[1]))
+        elif name == "colon":
+            # Punctuation: ``f \colon A`` is ``f: A``.
+            _strip_trailing_space(out)
+            out.append(":")
+        elif name in SYMBOLS:
+            out.append(SYMBOLS[name])
         else:
             text = str(self.l2t.nodelist_to_text([node])).strip()
             if not text:
@@ -534,7 +799,6 @@ class _Converter:
                     text += tokens[index].latex_verbatim()
                     index += 1
             out.append(text)
-        out.append(trailing)
         return index
 
     # Environments ---------------------------------------------------------
@@ -627,7 +891,15 @@ def _accent(text: str, name: str) -> str:
         return "".join(char + mark if not char.isspace() else char for char in stripped)
     if len(stripped) == 1:
         return stripped + mark
-    return f"{name}({stripped})"
+    return f"{_ACCENT_NAMES.get(name, name)}({stripped})"
+
+
+def _strip_trailing_space(out: list[Fragment]) -> None:
+    """Remove the spaces at the end of the text so far."""
+    while out and isinstance(out[-1], str) and not out[-1].strip():
+        out.pop()
+    if out and isinstance(out[-1], str):
+        out[-1] = out[-1].rstrip()
 
 
 def _ends_alphanumeric(out: list[Fragment]) -> bool:

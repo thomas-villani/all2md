@@ -121,6 +121,12 @@ class TestStructures:
         assert _text(math) == expected
         assert "\\" not in _text(math)
 
+    def test_symbols_pylatexenc_does_not_name(self):
+        assert _text(_omml(r"p \implies q \iff \neg r \land s")) == "p⟹q⟺¬r∧s"
+
+    def test_color_is_dropped_with_its_argument(self):
+        assert _text(_omml(r"\color{red} x + y")) == "x+y"
+
     def test_function_body_keeps_its_brackets(self):
         assert _text(_one(_omml(r"\max(a, b) + 1"), "m:func/m:e")) == "(a,b)"
 
