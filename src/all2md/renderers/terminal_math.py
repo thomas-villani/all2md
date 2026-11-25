@@ -90,9 +90,21 @@ _DELIMITER_SIZES = frozenset(
 )
 _DROPPED = frozenset({"label", "nonumber", "notag", "limits", "nolimits", "displaystyle", "textstyle"})
 _SPACES = {",": " ", ":": " ", ";": " ", " ": " ", "!": "", "quad": "  ", "qquad": "    ", "enspace": " "}
+
+#: Named functions, written upright (shared with docx_math). pylatexenc knows only some of them
+#: (``\gcd``, ``\det`` and ``\ker`` are missing), so both converters name them all. ``\lcm`` is not
+#: LaTeX's but is defined so often that a formula using it means the function.
+FUNCTIONS = frozenset(
+    {"sin", "cos", "tan", "cot", "sec", "csc", "sinh", "cosh", "tanh", "coth", "arcsin", "arccos", "arctan"}
+    | {"log", "ln", "lg", "exp", "arg", "deg", "dim", "hom", "ker"}
+)
+#: Named functions whose subscript goes underneath in display math (``\lim_{x\to 0}``).
+LIMIT_FUNCTIONS = frozenset({"lim", "liminf", "limsup", "max", "min", "sup", "inf", "det", "gcd", "lcm", "Pr"})
+FUNCTION_NAMES = {"liminf": "lim inf", "limsup": "lim sup"}
+
 #: How many arguments a macro takes when pylatexenc does not know it.
 _ARITY = dict.fromkeys(_FRACTIONS | _BINOMIALS, 2) | dict.fromkeys(
-    (*_ACCENTS, *_PLAIN_STYLE, *_TEXT, "sqrt", "tag", "label", "boxed", "pmod"), 1
+    (*_ACCENTS, *_PLAIN_STYLE, *_TEXT, "sqrt", "tag", "label", "boxed", "pmod", "mod", "pod"), 1
 )
 
 _MATRICES = {
@@ -192,12 +204,12 @@ class _Box:
 Fragment = str | _Box
 
 
-def _collapse(text: str) -> str:
+def _collapse(text: str, keep_hard_spaces: bool = False) -> str:
     """Collapse runs of whitespace (LaTeX math ignores it) and turn hard spaces back into spaces."""
     text = re.sub(r"\s+", " ", text)
     text = re.sub(r"([(\[{]) ", r"\1", text)
     text = re.sub(r" ([)\]}])", r"\1", text)
-    return text.replace(_HARD_SPACE, " ")
+    return text if keep_hard_spaces else text.replace(_HARD_SPACE, " ")
 
 
 def _pad(text: str, width: int, align: str = "l") -> str:
@@ -238,13 +250,14 @@ def _hjoin(fragments: list[Fragment]) -> _Box:
     return _Box(lines, above)
 
 
-def _flatten(fragments: list[Fragment]) -> str:
+def _flatten(fragments: list[Fragment], keep_hard_spaces: bool = False) -> str:
     """Return fragments as one line: the rows of a box are joined with ``; ``."""
     return _collapse(
         "".join(
             fragment if isinstance(fragment, str) else "; ".join(line.strip() for line in fragment.lines)
             for fragment in fragments
-        )
+        ),
+        keep_hard_spaces,
     ).strip()
 
 
@@ -263,7 +276,16 @@ def _tall(delimiter: str, height: int) -> list[str]:
 
 
 def _script(text: str, superscript: bool) -> str:
-    """Return ``text`` as a superscript or subscript, with ``^``/``_`` when Unicode cannot."""
+    r"""Return ``text`` as a superscript or subscript, with ``^``/``_`` when Unicode cannot.
+
+    Math spaces in ``text`` are dropped (``i + 1`` is ``ᵢ₊₁``), but a hard space
+    (from ``\text{ prime}``) separates words, so ``p prime`` keeps its ``_``
+    rather than reading as ``ₚₚᵣᵢₘₑ``.
+    """
+    text = text.strip(" " + _HARD_SPACE)
+    if _HARD_SPACE in text:
+        mark = "^" if superscript else "_"
+        return f"{mark}({re.sub(' +', ' ', text.replace(_HARD_SPACE, ' '))})"
     compact = text.replace(" ", "")
     if superscript and compact and set(compact) <= set("′″‴"):
         return compact
@@ -371,15 +393,14 @@ class _Converter:
         self.l2t = l2t
         self.inline = inline
 
-    def _text(self, argument: Any) -> str:
+    def _text(self, argument: Any, keep_hard_spaces: bool = False) -> str:
         """Return a macro or script argument as one line of text."""
         if argument is None:
             return ""
         if isinstance(argument, str):
             return argument
-        if _is_node(argument, "LatexGroupNode"):
-            return _flatten(self.fragments(argument.nodelist))
-        return _flatten(self.fragments([argument]))
+        nodes = argument.nodelist if _is_node(argument, "LatexGroupNode") else [argument]
+        return _flatten(self.fragments(nodes), keep_hard_spaces)
 
     def _verbatim_text(self, argument: Any) -> str:
         r"""Return the argument of ``\text`` and friends: text mode, its spaces kept."""
@@ -415,7 +436,7 @@ class _Converter:
             if isinstance(token, str):
                 if token in "^_":
                     argument, index = take_argument(tokens, index)
-                    out.append(_script(self._text(argument), token == "^"))
+                    out.append(_script(self._text(argument, keep_hard_spaces=True), token == "^"))
                     if getattr(argument, "macro_post_space", ""):
                         # ``^\infty e``: the space that ended the macro keeps ``^∞`` off the ``e``.
                         out.append(" ")
@@ -466,6 +487,12 @@ class _Converter:
             pass
         elif name == "\\":
             out.append("; ")
+        elif name in FUNCTIONS or name in LIMIT_FUNCTIONS:
+            # A space keeps the name off a letter or number before it, as LaTeX's spacing does (``\arg\min``).
+            space = " " if _ends_alphanumeric(out) else ""
+            out.append(space + FUNCTION_NAMES.get(name, name))
+        elif name == "bmod":
+            out.append(" mod ")
         elif name in _FRACTIONS and len(args) == 2:
             numerator, denominator = self._text(args[0]).strip(), self._text(args[1]).strip()
             vulgar = _VULGAR_FRACTIONS.get((numerator, denominator))
@@ -494,6 +521,10 @@ class _Converter:
             out.append(f"{_HARD_SPACE * 4}({self._text(args[0]).strip()})")
         elif name == "pmod" and args:
             out.append(f" (mod {self._text(args[0]).strip()})")
+        elif name == "mod" and args:
+            out.append(f" mod {self._text(args[0]).strip()}")
+        elif name == "pod" and args:
+            out.append(f" ({self._text(args[0]).strip()})")
         else:
             text = str(self.l2t.nodelist_to_text([node])).strip()
             if not text:
@@ -597,6 +628,16 @@ def _accent(text: str, name: str) -> str:
     if len(stripped) == 1:
         return stripped + mark
     return f"{name}({stripped})"
+
+
+def _ends_alphanumeric(out: list[Fragment]) -> bool:
+    """Return whether the text so far ends in a letter or digit (a box, or nothing, does not)."""
+    for fragment in reversed(out):
+        if not isinstance(fragment, str):
+            return False
+        if fragment:
+            return fragment[-1].isalnum()
+    return False
 
 
 def _is_cell_break(token: Any) -> bool:

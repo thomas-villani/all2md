@@ -74,6 +74,39 @@ class TestOneLine:
     def test_text_keeps_its_spaces(self):
         assert latex_to_unicode(r"x \text{ if  y}") == "x  if  y"
 
+    def test_a_script_with_words_keeps_its_underscore(self):
+        # The space \text keeps separates words; squeezed out, "p prime" read as ₚₚᵣᵢₘₑ.
+        assert latex_to_unicode(r"\prod_{p \text{ prime}} p") == "∏_(p prime) p"
+        assert latex_to_unicode(r"\sum_{p\text{ prime}} \frac{1}{p}") == "∑_(p prime) 1/p"
+        assert latex_to_unicode(r"x_{\text{ max }} + x^{\text{th}}") == "xₘₐₓ + xᵗʰ"
+
+    @pytest.mark.parametrize(
+        "latex, expected",
+        [
+            (r"\gcd(a, b) = \lcm(a, b)", "gcd(a, b) = lcm(a, b)"),
+            (r"\deg p + \det A", "deg p + det A"),
+            (r"\ker f \subseteq \dim V", "ker f ⊆ dim V"),
+            (r"\Pr(X) \cot x \sec x \csc x \lg n", "Pr(X) cot x sec x csc x lg n"),
+            (r"\arg\min_x f", "arg minₓ f"),
+            (r"2\sin x", "2 sin x"),
+            (r"\gcd_{i} a_i", "gcdᵢ aᵢ"),
+        ],
+    )
+    def test_named_functions(self, latex, expected):
+        assert latex_to_unicode(latex) == expected
+
+    @pytest.mark.parametrize(
+        "latex, expected",
+        [
+            (r"a \equiv b \pmod{n}", "a ≡ b (mod n)"),
+            (r"a \bmod n", "a mod n"),
+            (r"a \equiv b \mod{n}", "a ≡ b mod n"),
+            (r"a \equiv b \pod{n}", "a ≡ b (n)"),
+        ],
+    )
+    def test_modulo(self, latex, expected):
+        assert latex_to_unicode(latex) == expected
+
     def test_quad_is_wider_than_a_thin_space(self):
         assert latex_to_unicode(r"a \quad b \, c") == "a    b c"
 

@@ -50,6 +50,9 @@ def _val(element, path: str) -> str | None:
     return _one(element, path).get(f"{_M}val")
 
 
+EM, THICK = chr(0x2003), chr(0x2004)  # the em space and three-per-em space around mod
+
+
 class TestStructures:
     def test_scripts(self):
         assert _text(_one(_omml("x^2"), "m:sSup/m:sup")) == "2"
@@ -100,6 +103,23 @@ class TestStructures:
         assert [_text(f.find(f"{_M}fName")) for f in functions] == ["sin", "cos"]
         assert [_text(f.find(f"{_M}e")) for f in functions] == ["x", "y"]
         assert _val(functions[0], "m:fName/m:r/m:rPr/m:sty") == "p"
+
+    def test_lcm_is_a_function_like_gcd(self):
+        functions = _omml(r"\gcd(a, b) \lcm(a, b)").findall(f"{_M}func")
+        assert [_text(f.find(f"{_M}fName")) for f in functions] == ["gcd", "lcm"]
+
+    @pytest.mark.parametrize(
+        "latex, expected",
+        [
+            (r"a \bmod n", "a" + THICK + "mod" + THICK + "n"),
+            (r"a \mod{n}", "a" + EM + "mod" + THICK + "n"),
+            (r"a \pod{n}", "a" + EM + "(n)"),
+        ],
+    )
+    def test_modulo(self, latex, expected):
+        math = _omml(latex)
+        assert _text(math) == expected
+        assert "\\" not in _text(math)
 
     def test_function_body_keeps_its_brackets(self):
         assert _text(_one(_omml(r"\max(a, b) + 1"), "m:func/m:e")) == "(a,b)"

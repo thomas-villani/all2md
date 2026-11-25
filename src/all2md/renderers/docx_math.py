@@ -45,6 +45,9 @@ from all2md.renderers.terminal_math import (
     _FRACTIONS,
     _MATRICES,
     _TEXT,
+    FUNCTION_NAMES,
+    FUNCTIONS,
+    LIMIT_FUNCTIONS,
     _is_cell_break,
     _is_char,
     _is_node,
@@ -80,14 +83,6 @@ _NARY = {
     "bigwedge": "⋀",
 }
 _INTEGRALS = frozenset("∫∬∭∮∯")
-
-#: Named functions, written upright; the ones with limits take a subscript underneath (``\lim_{x\to 0}``).
-_FUNCTIONS = frozenset(
-    {"sin", "cos", "tan", "cot", "sec", "csc", "sinh", "cosh", "tanh", "coth", "arcsin", "arccos", "arctan"}
-    | {"log", "ln", "lg", "exp", "arg", "deg", "dim", "hom", "ker"}
-)
-_LIMIT_FUNCTIONS = frozenset({"lim", "liminf", "limsup", "max", "min", "sup", "inf", "det", "gcd", "Pr"})
-_FUNCTION_NAMES = {"liminf": "lim inf", "limsup": "lim sup"}
 
 #: Accents on their argument, as ``m:acc`` characters (combining marks).
 _ACCENTS = {
@@ -168,9 +163,12 @@ _OPERATORS = _RELATIONS | frozenset("+-−±∓·×÷*/")
 _OPENING, _CLOSING = frozenset("([{⟨⌊⌈"), frozenset(")]}⟩⌋⌉")
 
 #: How many arguments a macro takes when pylatexenc does not know it.
-_ARITY = dict.fromkeys(_FRACTIONS | _BINOMIALS, 2) | dict.fromkeys(
-    (*_ACCENTS, *_BARS, *_GROUP_CHARACTERS, *_STYLES, *_TEXT, "sqrt", "boxed", "tag", "label", "pmod", "operatorname"),
-    1,
+_ARITY = (
+    dict.fromkeys(_FRACTIONS | _BINOMIALS, 2)
+    | dict.fromkeys(
+        (*_ACCENTS, *_BARS, *_GROUP_CHARACTERS, *_STYLES, *_TEXT, "sqrt", "boxed", "tag", "label", "operatorname"), 1
+    )
+    | dict.fromkeys(("pmod", "mod", "pod"), 1)
 )
 
 
@@ -598,8 +596,10 @@ class _Converter:
             out.append(self._run(chr(0x2003)))
         elif name in _NARY:
             out.append(_Operator("nary", _NARY[name]))
-        elif name in _FUNCTIONS or name in _LIMIT_FUNCTIONS:
-            out.append(_Operator("func", _FUNCTION_NAMES.get(name, name), limits=name in _LIMIT_FUNCTIONS))
+        elif name in FUNCTIONS or name in LIMIT_FUNCTIONS:
+            out.append(_Operator("func", FUNCTION_NAMES.get(name, name), limits=name in LIMIT_FUNCTIONS))
+        elif name == "bmod":
+            out.extend([self._run(chr(0x2004)), _Run("mod", style="p"), self._run(chr(0x2004))])
         elif name == "operatorname" and args:
             starred = False
             if _is_char(args[0], "*"):
@@ -644,6 +644,13 @@ class _Converter:
             out.append(_Run(f"{chr(0x2003) * 2}({self._plain_text(args[0]).strip()})", normal=True))
         elif name == "pmod" and args:
             out.extend([self._run(chr(0x2003) + "("), _Run("mod", style="p"), self._run(chr(0x2004))])
+            out.extend(self._argument(args[0]))
+            out.append(self._run(")"))
+        elif name == "mod" and args:
+            out.extend([self._run(chr(0x2003)), _Run("mod", style="p"), self._run(chr(0x2004))])
+            out.extend(self._argument(args[0]))
+        elif name == "pod" and args:
+            out.append(self._run(chr(0x2003) + "("))
             out.extend(self._argument(args[0]))
             out.append(self._run(")"))
         else:
